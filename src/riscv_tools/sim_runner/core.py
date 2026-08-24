@@ -31,6 +31,7 @@ def run_test(  # noqa: PLR0913, PLR0917
     hex_path: Path,
     test_name: str,
     build_dir: Path,
+    parameters: dict[str, Any] | None = None,
 ) -> bool:
     """Build (if needed) and run one test under cocotb/GHDL.
 
@@ -60,6 +61,17 @@ def run_test(  # noqa: PLR0913, PLR0917
         Directory for GHDL's build+run artifacts (kept separate per
         test so parallel/repeated runs don't clobber each other's
         elaborated design).
+    parameters : dict of {str: Any}, optional
+        VHDL generics to set on toplevel (sim.parameters, e.g. a
+        project's own `ROM_FILE`/memory-depth generics — see
+        sim_runner.__config__.DEFAULTS). Passed to
+        cocotb_tools.runner.Runner.test(), not .build(): GHDL only
+        applies generics at its `-r` (run) step, not `-i`/`-m`
+        (analyze/elaborate) — confirmed by reading
+        cocotb_tools.runner.Ghdl's own `_test_command`/`_build_command`,
+        which only calls `_get_parameter_options` from the former.
+        Defaults to no overrides (whatever defaults toplevel's own
+        VHDL declares).
 
     Returns
     -------
@@ -120,6 +132,7 @@ def run_test(  # noqa: PLR0913, PLR0917
                 "ROM_HEX": str(Path(hex_path).resolve()),
                 "TEST_NAME": test_name,
             },
+            parameters=parameters,
         )
     except SystemExit:
         if not results_xml.is_file():
@@ -140,7 +153,7 @@ def run_suite(
     ----------
     cfg : dict of {str: Any}
         The merged project config — uses sim.toplevel/vhdl_sources/
-        test_module/ghdl_std.
+        test_module/ghdl_std/parameters.
     manifest : list of dict of {str: Any}
         The full test list (from `compile --emit hex`'s
         manifest.json) — each entry needs "name" and "hex".
@@ -159,19 +172,29 @@ def run_suite(
         manifest order.
     """
     vhdl_sources = [str(root / src) for src in cfg["sim"]["vhdl_sources"]]
+    parameter_templates: dict[str, Any] = cfg["sim"].get("parameters") or {}
 
     results: dict[str, bool] = {}
     for entry in manifest:
         name = str(entry["name"])
         print(f"\n=== {name} ({entry['march']}) ===")
+        hex_path = root / entry["hex"]
+        # Lets a project's own sim.parameters (e.g. a VHDL generic
+        # that loads the ROM image by path, see sim_runner.__config__)
+        # reference this test's compiled .hex without hardcoding one.
+        parameters: dict[str, Any] = {
+            k: v.format(hex_path=str(hex_path.resolve())) if isinstance(v, str) else v
+            for k, v in parameter_templates.items()
+        }
         results[name] = run_test(
             toplevel=cfg["sim"]["toplevel"],
             vhdl_sources=vhdl_sources,
             ghdl_std=cfg["sim"]["ghdl_std"],
             test_module=cfg["sim"]["test_module"],
-            hex_path=root / entry["hex"],
+            hex_path=hex_path,
             test_name=name,
             build_dir=build_dir / name,
+            parameters=parameters,
         )
         print(f"{name}: {'PASS' if results[name] else 'FAIL'}")
 

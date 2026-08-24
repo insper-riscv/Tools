@@ -90,6 +90,7 @@ sections. Any key you omit falls back to the built-in default shown.
 | `vhdl_sources` | **required** | `sim_runner` — list of VHDL source paths (relative to your project root), in dependency order |
 | `test_module` | **required** | `sim_runner` — your project's own cocotb test module (e.g. `sim.test_c_program`) — it knows the DUT's actual signal hierarchy and polls the PASS/FAIL mailbox, the same convention `mailbox` uses for real hardware, just reading simulated signals directly instead of JTAG |
 | `ghdl_std` | `08` | `sim_runner` — GHDL `--std=` value. VHDL-2008 (IEEE Std 1076-2008) by default, matching Quartus' own ceiling — Quartus (even the latest, 25.1std) only accepts `VHDL93`/`VHDL_2008` for `VHDL_INPUT_VERSION`, `VHDL_2019` is rejected outright, so this keeps simulation and synthesis on the same dialect |
+| `parameters` | `{}` | `sim_runner` — VHDL generics to set on `toplevel` at GHDL's run step, e.g. `{"ROM_FILE": "{hex_path}"}` for a project whose sim-only ROM model loads its program image via a VHDL generic rather than reading `sim_runner`'s own `ROM_HEX` env var. `"{hex_path}"` is substituted with each test's compiled `.hex` path; any other value is passed through as-is (e.g. a fixed memory-depth generic). Empty by default — most toplevels need no generic overrides |
 
 ### `freq_sweep:` — only needed for `riscv-tools freq-sweep`
 

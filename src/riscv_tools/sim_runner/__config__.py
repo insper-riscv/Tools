@@ -3,7 +3,9 @@
 Overridden under `sim:` in a project's config.yaml.
 """
 
-DEFAULTS = {
+from typing import Any
+
+DEFAULTS: dict[str, dict[str, Any]] = {
     "sim": {
         # Top-level VHDL entity GHDL elaborates and cocotb attaches to
         # — project-specific, no sane default.
@@ -23,5 +25,14 @@ DEFAULTS = {
         # value, VHDL93/VHDL_2008 are the only accepted options), so
         # simulation and synthesis stay on the same dialect.
         "ghdl_std": "08",
+        # VHDL generics to set on toplevel at GHDL's run step (see
+        # sim_runner.run_test) — e.g. a project whose sim-only ROM
+        # model loads its program image via a `ROM_FILE` generic
+        # (rather than sim_runner's own ROM_HEX/TEST_NAME env vars)
+        # sets {"ROM_FILE": "{hex_path}"} here; "{hex_path}" is
+        # substituted with this test's compiled .hex path (see
+        # run_suite). Empty by default — most toplevels need no
+        # generic overrides at all.
+        "parameters": {},
     },
 }

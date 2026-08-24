@@ -70,3 +70,23 @@ def test_sim_runner_reports_fail(tmp_path: Path, dummy_hex: Path) -> None:
         build_dir=tmp_path / "fail_build",
     )
     assert passed is False
+
+
+def test_sim_runner_parameters_reach_ghdl(tmp_path: Path, dummy_hex: Path) -> None:
+    # dut.vhd's CYCLES generic defaults to 5 (test_pass passes well
+    # within its own 20-cycle poll loop). Overriding it to 50 via
+    # `parameters` must make the same otherwise-passing test fail —
+    # if `parameters` weren't actually reaching GHDL's `-g` (e.g. sat
+    # in .build() instead of .test(), which GHDL silently ignores),
+    # CYCLES would stay at its default and this would wrongly pass.
+    passed = sim_runner.run_test(
+        toplevel="dut",
+        vhdl_sources=[str(FIXTURES / "dut.vhd")],
+        ghdl_std="08",
+        test_module="test_pass",
+        hex_path=dummy_hex,
+        test_name="test_pass_slow",
+        build_dir=tmp_path / "params_build",
+        parameters={"CYCLES": "50"},
+    )
+    assert passed is False
