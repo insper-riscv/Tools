@@ -1,0 +1,24 @@
+[project]
+name = "riscv-tools"
+version = "0.1.0"
+description = "Build/JTAG tooling for bare-metal RV32IM test programs: compile, write ROM/RAM over JTAG, program the base bitstream, and orchestrate a real-hardware test run."
+requires-python = ">=3.12"
+dependencies = [
+    "PyYAML>=6.0",
+]
+
+[project.scripts]
+riscv-tools = "riscv_tools.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/riscv_tools"]
+
+[tool.uv]
+package = true
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
