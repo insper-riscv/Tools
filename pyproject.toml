@@ -2,10 +2,23 @@
 name = "riscv-tools"
 version = "1.0.0"
 description = "Build/JTAG tooling for bare-metal RV32IM test programs: compile, write ROM/RAM over JTAG, program the base bitstream, and orchestrate a real-hardware test run."
-requires-python = ">=3.14"
+# Capped at <3.14: cocotb (the "sim" extra) officially supports only
+# up to CPython 3.13 (https://docs.cocotb.org/en/stable/platform_support.html)
+# — 2.0.1 hard-fails its own build on anything newer. Since one venv
+# has to satisfy the whole project, the ceiling applies project-wide,
+# not just to the sim extra.
+requires-python = ">=3.13,<3.14"
 dependencies = [
     "PyYAML>=6.0",
 ]
+
+[project.optional-dependencies]
+# Only needed for `sim_runner`/`riscv-tools sim` (cocotb/GHDL) — the
+# real-hardware side (jtag/orchestrator/etc.) doesn't need it, so it's
+# an extra rather than a hard dependency. GHDL itself isn't
+# pip-installable and must be installed separately (a system package
+# or the ghdl/ghdl Docker image — see docs/github-actions.md).
+sim = ["cocotb>=2.0", "cocotb-tools>=0.1"]
 
 [project.scripts]
 riscv-tools = "riscv_tools.cli:main"
@@ -21,4 +34,111 @@ packages = ["src/riscv_tools"]
 package = true
 
 [dependency-groups]
-dev = ["pytest>=9.0"]
+dev = ["pytest>=9.0", "ruff>=0.8", "pyright>=1.1", "deptry>=0.20"]
+
+[tool.deptry]
+# Without this, deptry can't map the "riscv_tools" import name back to
+# this project's own "riscv-tools" distribution (src-layout package),
+# and flags every intra-package import (e.g. cli.py importing
+# riscv_tools.mailbox) as DEP003 "transitive dependency" — a false
+# positive, since it's the package importing its own submodules.
+known_first_party = ["riscv_tools"]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+stubPath = "stubs"
+# 3.13, not 3.14: this project's own ceiling (see requires-python
+# above — cocotb caps at 3.13).
+pythonVersion = "3.13"
+typeCheckingMode = "strict"
+reportMissingModuleSource = "none"
+
+[tool.ruff]
+# 3.13, not 3.14: matches requires-python's ceiling (see above).
+target-version = "py313"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    # Core
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+
+    # Security
+    "S",    # flake8-bandit (Security Scanning/SAST)
+    "BLE",  # flake8-blind-except
+
+    # Import orders and formatting
+    "I",    # isort
+    "Q",    # flake8-quotes
+    "D",    # pydocstyle
+
+    # Standards and Moderization
+    "UP",   # update-checker
+    "N",    # pep8-naming,
+    "PTH",  # flake8-pathlib
+
+    # Quality and Simplification
+    "B",    # flake8-bugbear
+    "G",    # flake8-logging-format
+    "PERF", # perflint
+    "C4",   # flake8-comprehensions
+    "SIM",  # flake8-simplify
+    "RET",  # flake8-return
+    "PL",   # pylint
+    "RUF",  # ruff linting rules
+
+    # Cleanup and Unused Code
+    "ERA",  # flake8-eradicate
+    "ARG",  # flake8-arg-names (unused-arguments)
+]
+ignore = [
+    # This package's whole job is shelling out to external tools
+    # (gcc, quartus_stp, spike, git, ghdl, ...) with argument lists
+    # built from config values, never a shell string — S603/S607 would
+    # otherwise fire on nearly every subprocess.run() call in the repo
+    # for a risk (shell injection via string concatenation) that
+    # doesn't apply to the list-argument form used throughout.
+    "S603",
+    "S607",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.pylint]
+max-args = 5
+max-statements = 50
+max-returns = 6
+max-branches = 12
+max-locals = 15
+max-public-methods = 10
+
+[tool.ruff.lint.per-file-ignores]
+# Tests: `assert` is the whole point (S101), and comparing against
+# small literal expected values (PLR2004) is normal test-assertion
+# style, not the "unexplained magic number in logic" smell the rule
+# is for. Module/function docstrings (D100/D103/D104) aren't required
+# on test files the way they are on the package itself.
+"tests/**" = ["S101", "D100", "D103", "D104", "PLR2004"]
+# The cocotb fixture programs' "always FAIL" test module (see
+# tests/fixtures/sim_min/test_fail.py, used by test_sim_runner.py)
+# deliberately does `assert False, "..."` — that IS the test. `dut` is
+# unused in that same file but required by cocotb's calling convention
+# (every @cocotb.test() coroutine receives it, whether it's used or not).
+"tests/fixtures/**" = ["B011", "ARG001"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+# tests/fixtures/**/test_*.py are cocotb test modules loaded by a
+# cocotb subprocess (via PYTHONPATH, see test_sim_runner.py/
+# test_generate_golden.py), not pytest tests themselves — their names
+# only happen to match pytest's test_*.py discovery pattern. Without
+# this, pytest tries to import them directly and fails whenever cocotb
+# isn't installed in the outer environment (e.g. no "sim" extra).
+norecursedirs = ["tests/fixtures"]

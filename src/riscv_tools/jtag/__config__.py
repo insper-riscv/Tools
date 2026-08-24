@@ -1,5 +1,8 @@
-"""Defaults for JTAG link concerns. A project's config.yaml overrides
-these under its own `quartus:` section (see riscv_tools.settings)."""
+"""Define defaults for JTAG link concerns.
+
+A project's config.yaml overrides these under its own `quartus:`
+section (see riscv_tools.settings).
+"""
 
 DEFAULTS = {
     "quartus": {

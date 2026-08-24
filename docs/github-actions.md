@@ -28,9 +28,14 @@ steps:
 ## Simulation-only tests
 
 Cheapest to run: no hardware, no self-hosted runner, just the RISC-V
-toolchain. Compiles every test to `.hex` and hands off to your
-project's own sim runner (this repo doesn't run GHDL/cocotb itself —
-`orchestrator`/`run` is specifically the real-hardware path).
+toolchain, GHDL, and the `sim` extra (cocotb + cocotb-tools — see
+[configuration.md](configuration.md#sim--needs-the-sim-extra-uv-sync---extra-sim)
+for the `sim:` config keys `sim_runner` needs). `sim_runner`/`riscv-tools
+sim` drives cocotb/GHDL against every test's `.hex`, polling the same
+PASS/FAIL mailbox convention as real hardware — your project still
+supplies its own `sim.test_module` (the cocotb test that knows the
+DUT's actual VHDL signal names), `sim_runner` just runs it per test and
+collects results.
 
 ```yaml
 name: sim
@@ -39,21 +44,31 @@ on: [push, pull_request]
 jobs:
   sim:
     runs-on: ubuntu-latest
+    container:
+      image: ghdl/ghdl:6.0.0-mcode-ubuntu-24.04   # ships GHDL pre-installed
+
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: astral-sh/setup-uv@v3
-      - run: uv sync
+      - run: uv sync --extra sim
         working-directory: Tools
 
       # your own toolchain install step here (riscv32-unknown-elf-gcc on PATH)
 
       - run: uv run riscv-tools --config ../config.yaml --root .. compile --emit hex
         working-directory: Tools
+      - run: uv run riscv-tools --config ../config.yaml --root .. sim
+        working-directory: Tools
 
-      # your own sim runner here (cocotb/GHDL), pointed at the .hex files
-      # compile --emit hex just produced under build/sim/
+      - name: Upload waveforms
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: waveforms
+          path: "**/*.ghw"
+          if-no-files-found: ignore
 ```
 
 ## Real-hardware tests

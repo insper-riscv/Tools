@@ -1,7 +1,9 @@
-"""Defaults for generating a golden reference dynamically via Spike
-(see core.py and vendor/riscv-isa-sim), instead of a hand-written
-golden JSON. Overridden under `toolchain:` / `emulator:` in a
-project's config.yaml."""
+"""Define defaults for generating a golden reference dynamically via Spike.
+
+See core.py and vendor/riscv-isa-sim, instead of a hand-written golden
+JSON. Overridden under `toolchain:` / `emulator:` in a project's
+config.yaml.
+"""
 
 DEFAULTS = {
     "toolchain": {

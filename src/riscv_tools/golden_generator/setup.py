@@ -1,12 +1,14 @@
-"""Builds and keeps vendor/riscv-isa-sim (Spike) up to date, so
-generate_golden always has a working `spike` binary to run — without
-requiring a human to remember `./configure && make` or notice the
-submodule pointer moved.
+"""Build and keep vendor/riscv-isa-sim (Spike) up to date.
+
+So generate_golden always has a working `spike` binary to run —
+without requiring a human to remember `./configure && make` or notice
+the submodule pointer moved.
 
 Distinct concern from core.py's generate_golden: this is about
 producing/maintaining the `spike` binary itself, not running programs
 under it.
 """
+
 import os
 import shutil
 import subprocess
@@ -22,18 +24,17 @@ _REPO_URL = "https://github.com/riscv-software-src/riscv-isa-sim.git"
 
 
 def _submodule_dir() -> Path:
-    """Path to the riscv-isa-sim checkout setup()/update() operate on.
+    """Resolve the riscv-isa-sim checkout setup()/update() operate on.
 
-    Args:
-        None.
-
-    Returns:
+    Returns
+    -------
+    Path
         Path(os.environ[RISCV_ISA_SIM_DIR]) if that's set (see
         DIR_ENV_VAR) — any directory, doesn't have to be this repo's
         submodule, e.g. a CI cache path. Otherwise falls back to this
-        repo's own vendor/riscv-isa-sim submodule, resolved relative to
-        this installed package's own location (assumes the standard
-        riscv-tools repo layout:
+        repo's own vendor/riscv-isa-sim submodule, resolved relative
+        to this installed package's own location (assumes the
+        standard riscv-tools repo layout:
         src/riscv_tools/golden_generator/setup.py -> repo
         root/vendor/riscv-isa-sim). Doesn't check either path actually
         exists; see setup()/update() for that.
@@ -45,17 +46,17 @@ def _submodule_dir() -> Path:
 
 
 def _pinned_commit() -> str | None:
-    """The commit this repo's OWN vendor/riscv-isa-sim submodule is
-    pinned to — used to check out a matching commit when
-    DIR_ENV_VAR points somewhere that needs cloning from scratch (a
-    cold CI cache), so an override directory still ends up running the
-    same Spike version this repo actually vendors, not just whatever a
-    fresh clone's default branch happens to be.
+    """Read the commit this repo's own vendor/riscv-isa-sim submodule is pinned to.
 
-    Args:
-        None.
+    Used to check out a matching commit when DIR_ENV_VAR points
+    somewhere that needs cloning from scratch (a cold CI cache), so an
+    override directory still ends up running the same Spike version
+    this repo actually vendors, not just whatever a fresh clone's
+    default branch happens to be.
 
-    Returns:
+    Returns
+    -------
+    str or None
         The pinned commit hash, or None if it can't be determined
         (e.g. running outside a git checkout of riscv-tools itself, or
         the submodule was never initialized there either) — callers
@@ -64,8 +65,17 @@ def _pinned_commit() -> str | None:
     repo_root = Path(__file__).resolve().parents[3]
     try:
         out = subprocess.run(
-            ["git", "-C", str(repo_root), "submodule", "status", "vendor/riscv-isa-sim"],
-            check=True, capture_output=True, text=True,
+            [
+                "git",
+                "-C",
+                str(repo_root),
+                "submodule",
+                "status",
+                "vendor/riscv-isa-sim",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
         ).stdout.strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
         return None
@@ -75,24 +85,29 @@ def _pinned_commit() -> str | None:
 
 
 def _ensure_checkout(submodule_dir: Path) -> None:
-    """Clones riscv-isa-sim into submodule_dir if nothing's checked out
-    there yet — only meant to fire when DIR_ENV_VAR points somewhere
-    other than this repo's own submodule (a cache directory can
-    legitimately start out empty, e.g. a CI cache miss). This repo's
-    own vendor/riscv-isa-sim is never auto-cloned into this way — it's
-    a real git submodule and should be populated with `git submodule
-    update --init`, not a parallel plain clone that would confuse git's
-    own submodule bookkeeping.
+    """Clone riscv-isa-sim into submodule_dir if nothing's checked out there yet.
 
-    Args:
-        submodule_dir: Directory to ensure has a riscv-isa-sim checkout
-            in it.
+    Only meant to fire when DIR_ENV_VAR points somewhere other than
+    this repo's own submodule (a cache directory can legitimately
+    start out empty, e.g. a CI cache miss). This repo's own
+    vendor/riscv-isa-sim is never auto-cloned into this way — it's a
+    real git submodule and should be populated with `git submodule
+    update --init`, not a parallel plain clone that would confuse
+    git's own submodule bookkeeping.
 
-    Returns:
-        None.
+    Parameters
+    ----------
+    submodule_dir : Path
+        Directory to ensure has a riscv-isa-sim checkout in it.
 
-    Raises:
-        subprocess.CalledProcessError: the clone or checkout failed.
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    subprocess.CalledProcessError
+        The clone or checkout failed.
     """
     if (submodule_dir / "configure").is_file():
         return
@@ -100,70 +115,89 @@ def _ensure_checkout(submodule_dir: Path) -> None:
     subprocess.run(["git", "clone", _REPO_URL, str(submodule_dir)], check=True)
     commit = _pinned_commit()
     if commit:
-        subprocess.run(["git", "-C", str(submodule_dir), "checkout", commit], check=True)
+        subprocess.run(
+            ["git", "-C", str(submodule_dir), "checkout", commit], check=True
+        )
 
 
 def _build_dir(submodule_dir: Path) -> Path:
-    """Where vendor/riscv-isa-sim is configured+built (out-of-tree).
+    """Return where vendor/riscv-isa-sim is configured+built (out-of-tree).
 
-    Args:
-        submodule_dir: Path to the vendor/riscv-isa-sim submodule (see
-            _submodule_dir).
+    Parameters
+    ----------
+    submodule_dir : Path
+        Path to the vendor/riscv-isa-sim submodule (see
+        _submodule_dir).
 
-    Returns:
+    Returns
+    -------
+    Path
         submodule_dir / "build".
     """
     return submodule_dir / "build"
 
 
 def _built_commit_marker(build_dir: Path) -> Path:
-    """Where the commit hash a build was made from is recorded, so
-    update() can tell whether the submodule has moved since.
+    """Return where the commit hash a build was made from is recorded.
 
-    Args:
-        build_dir: Path to the out-of-tree build directory (see
-            _build_dir).
+    So update() can tell whether the submodule has moved since.
 
-    Returns:
+    Parameters
+    ----------
+    build_dir : Path
+        Path to the out-of-tree build directory (see _build_dir).
+
+    Returns
+    -------
+    Path
         build_dir / ".built_commit".
     """
     return build_dir / ".built_commit"
 
 
 def _current_commit(submodule_dir: Path) -> str:
-    """Reads the submodule's currently checked-out commit hash.
+    """Read the submodule's currently checked-out commit hash.
 
-    Args:
-        submodule_dir: Path to the vendor/riscv-isa-sim submodule.
+    Parameters
+    ----------
+    submodule_dir : Path
+        Path to the vendor/riscv-isa-sim submodule.
 
-    Returns:
+    Returns
+    -------
+    str
         The full commit hash `git rev-parse HEAD` reports inside
         submodule_dir.
 
-    Raises:
-        subprocess.CalledProcessError: submodule_dir isn't a git
-            checkout (e.g. the submodule was never initialized).
+    Raises
+    ------
+    subprocess.CalledProcessError
+        submodule_dir isn't a git checkout (e.g. the submodule was
+        never initialized).
     """
     return subprocess.run(
         ["git", "-C", str(submodule_dir), "rev-parse", "HEAD"],
-        check=True, capture_output=True, text=True,
+        check=True,
+        capture_output=True,
+        text=True,
     ).stdout.strip()
 
 
 def _check_dependencies() -> None:
-    """Checks for the one build dependency Spike's ./configure hard-fails
-    without (device-tree-compiler). Boost is also used but is optional —
+    """Check for the one build dependency Spike's ./configure hard-fails without.
+
+    That's device-tree-compiler. Boost is also used but is optional —
     configure degrades gracefully (with a warning) if it's missing, so
     it isn't checked here.
 
-    Args:
-        None.
+    Returns
+    -------
+    None
 
-    Returns:
-        None.
-
-    Raises:
-        RuntimeError: `dtc` isn't on PATH.
+    Raises
+    ------
+    RuntimeError
+        `dtc` isn't on PATH.
     """
     if shutil.which("dtc") is None:
         raise RuntimeError(
@@ -173,19 +207,27 @@ def _check_dependencies() -> None:
 
 
 def _build(submodule_dir: Path) -> Path:
-    """Configures and builds Spike from source, recording the commit it
-    was built from.
+    """Configure and build Spike from source.
 
-    Args:
-        submodule_dir: Path to the vendor/riscv-isa-sim submodule.
+    Records the commit it was built from.
 
-    Returns:
+    Parameters
+    ----------
+    submodule_dir : Path
+        Path to the vendor/riscv-isa-sim submodule.
+
+    Returns
+    -------
+    Path
         Path to the resulting `spike` binary.
 
-    Raises:
-        RuntimeError: a required build dependency is missing (see
-            _check_dependencies).
-        subprocess.CalledProcessError: configure or make failed.
+    Raises
+    ------
+    RuntimeError
+        A required build dependency is missing (see
+        _check_dependencies).
+    subprocess.CalledProcessError
+        configure or make failed.
     """
     _check_dependencies()
     build_dir = _build_dir(submodule_dir)
@@ -199,32 +241,40 @@ def _build(submodule_dir: Path) -> Path:
 
 
 def setup(spike_bin: str = "spike") -> Path:
-    """Ensures a working `spike` binary is available, building
-    vendor/riscv-isa-sim from source if nothing usable is found
-    already.
+    """Ensure a working `spike` binary is available.
 
-    Args:
-        spike_bin: The project's configured `emulator.spike_bin` (name
-            or path). If this already resolves to something runnable
-            (on PATH, or an existing file), it's returned as-is and
-            nothing is built — an already-available Spike (e.g. a
-            system package) is left alone. Defaults to "spike".
+    Builds vendor/riscv-isa-sim from source if nothing usable is
+    found already.
 
-    Returns:
+    Parameters
+    ----------
+    spike_bin : str, optional
+        The project's configured `emulator.spike_bin` (name or path).
+        If this already resolves to something runnable (on PATH, or
+        an existing file), it's returned as-is and nothing is built —
+        an already-available Spike (e.g. a system package) is left
+        alone. Defaults to "spike".
+
+    Returns
+    -------
+    Path
         Path to a ready-to-use `spike` binary: either spike_bin
         resolved, or <checkout>/build/spike after building it — where
         <checkout> is $RISCV_ISA_SIM_DIR if set (see DIR_ENV_VAR),
         else this repo's own vendor/riscv-isa-sim.
 
-    Raises:
-        FileNotFoundError: spike_bin doesn't already resolve to
-            something runnable, DIR_ENV_VAR isn't set, and this repo's
-            own vendor/riscv-isa-sim isn't checked out (submodule not
-            initialized — run `git submodule update --init
-            --recursive`).
-        RuntimeError: a required build dependency is missing.
-        subprocess.CalledProcessError: cloning/checking out
-            DIR_ENV_VAR's target failed, or configure/make failed.
+    Raises
+    ------
+    FileNotFoundError
+        spike_bin doesn't already resolve to something runnable,
+        DIR_ENV_VAR isn't set, and this repo's own
+        vendor/riscv-isa-sim isn't checked out (submodule not
+        initialized — run `git submodule update --init --recursive`).
+    RuntimeError
+        A required build dependency is missing.
+    subprocess.CalledProcessError
+        Cloning/checking out DIR_ENV_VAR's target failed, or
+        configure/make failed.
     """
     found = shutil.which(spike_bin)
     if found:
@@ -258,26 +308,28 @@ def setup(spike_bin: str = "spike") -> Path:
 
 
 def update() -> bool:
-    """Rebuilds Spike if its checkout's currently checked-out commit has
-    moved since the binary at build/spike was built from (e.g. after
-    `git submodule update` pulled in a newer pin, or a CI cache
-    directory got refreshed with a newer commit — see DIR_ENV_VAR) —
-    so a stale binary never silently keeps running against an old
-    Spike version once the source has moved on.
+    """Rebuild Spike if its checkout's commit has moved since the last build.
 
-    Args:
-        None.
+    E.g. after `git submodule update` pulled in a newer pin, or a CI
+    cache directory got refreshed with a newer commit (see
+    DIR_ENV_VAR) — so a stale binary never silently keeps running
+    against an old Spike version once the source has moved on.
 
-    Returns:
-        True if a rebuild ran, False if the existing build (if any) was
-        already current. Nothing has been built yet if build/spike
-        doesn't exist — call setup() first in that case, this returns
-        False without building.
+    Returns
+    -------
+    bool
+        True if a rebuild ran, False if the existing build (if any)
+        was already current. Nothing has been built yet if
+        build/spike doesn't exist — call setup() first in that case,
+        this returns False without building.
 
-    Raises:
-        RuntimeError: a required build dependency is missing.
-        subprocess.CalledProcessError: configure or make failed, or
-            resolving the submodule's current commit failed.
+    Raises
+    ------
+    RuntimeError
+        A required build dependency is missing.
+    subprocess.CalledProcessError
+        configure or make failed, or resolving the submodule's
+        current commit failed.
     """
     submodule_dir = _submodule_dir()
     build_dir = _build_dir(submodule_dir)

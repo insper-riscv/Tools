@@ -1,6 +1,8 @@
-"""Defaults for the PASS/FAIL mailbox + restart "go" flag protocol
-(see the consuming project's crt0.S/rv32_test.h). Overridden under
-`memory:` / `quartus:` in a project's config.yaml."""
+"""Define defaults for the PASS/FAIL mailbox + restart "go" flag protocol.
+
+See the consuming project's crt0.S/rv32_test.h. Overridden under
+`memory:` / `quartus:` in a project's config.yaml.
+"""
 
 DEFAULTS = {
     "quartus": {

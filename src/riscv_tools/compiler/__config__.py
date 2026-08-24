@@ -1,5 +1,7 @@
-"""Defaults for compiling test sources into ELF/bin/mif/hex. A
-project's config.yaml overrides these under `isa:` / `toolchain:`."""
+"""Define defaults for compiling test sources into ELF/bin/mif/hex.
+
+A project's config.yaml overrides these under `isa:` / `toolchain:`.
+"""
 
 DEFAULTS = {
     "toolchain": {
@@ -7,7 +9,7 @@ DEFAULTS = {
         "objcopy": "riscv32-unknown-elf-objcopy",
     },
     "isa": {
-        "base": "i",       # always implied, never written in a test's header
+        "base": "i",  # always implied, never written in a test's header
         "default_ext": "",  # no "// RV32_EXT:" header -> plain rv32i
         # Canonical order standard RISC-V extension letters get sorted
         # into before being appended to the base ISA string, so

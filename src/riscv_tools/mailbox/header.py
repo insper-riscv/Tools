@@ -1,7 +1,11 @@
-"""Generates rv32_test.h — the C header a test program #includes to
-signal PASS/FAIL — from a project's own config.yaml, instead of every
-consuming project hand-writing and maintaining a copy that can drift
-out of sync with its actual memory.mailbox_addr."""
+"""Generate rv32_test.h from a project's own config.yaml.
+
+rv32_test.h is the C header a test program #includes to signal
+PASS/FAIL. Generating it avoids every consuming project hand-writing
+and maintaining a copy that can drift out of sync with its actual
+memory.mailbox_addr.
+"""
+
 from pathlib import Path
 
 from .core import FAIL, PASS
@@ -41,28 +45,38 @@ static inline void RV32_FAIL(void) {{
 
 
 def generate_header(mailbox_addr: int) -> str:
-    """Renders rv32_test.h's content for a given mailbox address.
+    """Render rv32_test.h's content for a given mailbox address.
 
-    Args:
-        mailbox_addr: Byte address of the mailbox word
-            (memory.mailbox_addr in the project's config.yaml).
+    Parameters
+    ----------
+    mailbox_addr : int
+        Byte address of the mailbox word (memory.mailbox_addr in the
+        project's config.yaml).
 
-    Returns:
-        The full C header source, as a string.
+    Returns
+    -------
+    str
+        The full C header source.
     """
-    return _TEMPLATE.format(addr_hex=f"0x{mailbox_addr:08X}", pass_value=PASS, fail_value=FAIL)
+    return _TEMPLATE.format(
+        addr_hex=f"0x{mailbox_addr:08X}", pass_value=PASS, fail_value=FAIL
+    )
 
 
 def write_header(mailbox_addr: int, out_path: Path) -> None:
-    """Renders and writes rv32_test.h to out_path.
+    """Render and write rv32_test.h to out_path.
 
-    Args:
-        mailbox_addr: Byte address of the mailbox word, passed through
-            to generate_header.
-        out_path: Path to write the header to (overwritten if it
-            already exists) — typically <paths.include_dir>/rv32_test.h.
+    Parameters
+    ----------
+    mailbox_addr : int
+        Byte address of the mailbox word, passed through to
+        generate_header.
+    out_path : Path
+        Path to write the header to (overwritten if it already
+        exists) — typically <paths.include_dir>/rv32_test.h.
 
-    Returns:
-        None.
+    Returns
+    -------
+    None
     """
     Path(out_path).write_text(generate_header(mailbox_addr))

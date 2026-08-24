@@ -1,5 +1,6 @@
-"""Per-test header conventions, read from comments at the top of a
-.c/.S source file:
+"""Per-test header conventions.
+
+Read from comments at the top of a .c/.S source file:
 
   // RV32_EXT: M          -> compiled with -march=rv32im (additions to
   // RV32_EXT: M,A        -> the implicit rv32i base; order doesn't
@@ -14,33 +15,41 @@
                                        Defaults to orchestrator's
                                        default_timeout_s.
 """
+
 import re
+from typing import Any
 
 EXT_RE = re.compile(r"^\s*//\s*RV32_EXT:\s*(.+?)\s*$", re.MULTILINE)
 KIND_RE = re.compile(r"^\s*//\s*RV32_TEST_KIND:\s*(unit|memory)\s*$", re.MULTILINE)
 TIMEOUT_RE = re.compile(r"^\s*//\s*RV32_TIMEOUT_S:\s*([0-9.]+)\s*$", re.MULTILINE)
 
 
-def canonical_march(isa_cfg: dict, ext_csv: str) -> str:
-    """Builds a normalized `-march=` string from a test's `RV32_EXT`
-    header value.
+def canonical_march(isa_cfg: dict[str, Any], ext_csv: str) -> str:
+    """Build a normalized `-march=` string from a test's `RV32_EXT` header.
 
-    Args:
-        isa_cfg: The project's `isa:` config section — needs `base`
-            (the always-implied base ISA letter, e.g. "i") and
-            `canonical_order` (the extension-letter order to sort by).
-        ext_csv: The raw, comma-separated extension list from a test's
-            `// RV32_EXT:` header (e.g. "M,A"), or "" if the test has
-            no such header.
+    Parameters
+    ----------
+    isa_cfg : dict of {str: Any}
+        The project's `isa:` config section — needs `base` (the
+        always-implied base ISA letter, e.g. "i") and
+        `canonical_order` (the extension-letter order to sort by).
+    ext_csv : str
+        The raw, comma-separated extension list from a test's `//
+        RV32_EXT:` header (e.g. "M,A"), or "" if the test has no such
+        header.
 
-    Returns:
+    Returns
+    -------
+    str
         The full march string, e.g. "rv32ima". Extension order in
         ext_csv doesn't affect the result — "M,A" and "A,M" both
         produce the same string, per canonical_order.
 
-    Raises:
-        ValueError: ext_csv names a letter not present in
-            isa_cfg["canonical_order"].
+    Raises
+    ------
+    ValueError
+        ext_csv names a letter not present in
+        isa_cfg["canonical_order"].
     """
     base = "rv32" + isa_cfg["base"]
     if not ext_csv:
@@ -57,20 +66,27 @@ def canonical_march(isa_cfg: dict, ext_csv: str) -> str:
     return base + sorted_ext
 
 
-def parse_header(isa_cfg: dict, default_timeout_s: float, text: str) -> tuple[str, str, float]:
-    """Reads a test source's `RV32_EXT`/`RV32_TEST_KIND`/`RV32_TIMEOUT_S`
-    header comments and resolves them to concrete build/run values.
+def parse_header(
+    isa_cfg: dict[str, Any], default_timeout_s: float, text: str
+) -> tuple[str, str, float]:
+    """Resolve a test source's header comments to concrete build/run values.
 
-    Args:
-        isa_cfg: The project's `isa:` config section — passed straight
-            through to canonical_march.
-        default_timeout_s: Timeout to use when the source has no
-            `// RV32_TIMEOUT_S:` header (normally
-            cfg["quartus"]["default_timeout_s"]).
-        text: The full source file contents to search for header
-            comments.
+    Reads `RV32_EXT`/`RV32_TEST_KIND`/`RV32_TIMEOUT_S` header comments.
 
-    Returns:
+    Parameters
+    ----------
+    isa_cfg : dict of {str: Any}
+        The project's `isa:` config section — passed straight through
+        to canonical_march.
+    default_timeout_s : float
+        Timeout to use when the source has no `// RV32_TIMEOUT_S:`
+        header (normally cfg["quartus"]["default_timeout_s"]).
+    text : str
+        The full source file contents to search for header comments.
+
+    Returns
+    -------
+    tuple of (str, str, float)
         A (march, kind, timeout_s) tuple: the normalized `-march=`
         string (see canonical_march), the test kind ("unit" or
         "memory", "unit" if the header is absent), and the timeout in
@@ -81,6 +97,8 @@ def parse_header(isa_cfg: dict, default_timeout_s: float, text: str) -> tuple[st
     kind_match = KIND_RE.search(text)
     kind = kind_match.group(1) if kind_match else "unit"
     timeout_match = TIMEOUT_RE.search(text)
-    timeout_s = float(timeout_match.group(1)) if timeout_match else float(default_timeout_s)
+    timeout_s = (
+        float(timeout_match.group(1)) if timeout_match else float(default_timeout_s)
+    )
     march = canonical_march(isa_cfg, ext_csv)
     return march, kind, timeout_s

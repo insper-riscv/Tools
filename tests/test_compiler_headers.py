@@ -1,5 +1,5 @@
-from riscv_tools.compiler.headers import canonical_march, parse_header
 from riscv_tools.compiler.__config__ import DEFAULTS
+from riscv_tools.compiler.headers import canonical_march, parse_header
 
 ISA = DEFAULTS["isa"]
 

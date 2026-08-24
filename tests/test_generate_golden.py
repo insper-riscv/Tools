@@ -1,8 +1,10 @@
-"""End-to-end test of golden_generator.generate_golden against a real
-built Spike (vendor/riscv-isa-sim) and a real GCC toolchain — proves
-the whole chain (compile -> run under Spike's debug console -> wait
-for tohost -> read memory -> emit golden JSON) actually works, for
-both a C test and a hand-written asm test (see fixtures/htif_min/).
+"""End-to-end test of golden_generator.generate_golden against real Spike + GCC.
+
+Runs against a real built Spike (vendor/riscv-isa-sim) and a real GCC
+toolchain — proves the whole chain (compile -> run under Spike's
+debug console -> wait for tohost -> read memory -> emit golden JSON)
+actually works, for both a C test and a hand-written asm test (see
+fixtures/htif_min/).
 
 Skipped automatically if either tool isn't available, since neither
 is guaranteed to be present in every environment this package's own
@@ -10,6 +12,7 @@ test suite runs in (vendor/riscv-isa-sim must be built first: cd
 vendor/riscv-isa-sim && ./configure && make — needs
 device-tree-compiler and libboost-dev; see the top-level README).
 """
+
 import json
 import shutil
 import subprocess
@@ -27,7 +30,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "htif_min"
 BUILT_SPIKE = REPO_ROOT / "vendor" / "riscv-isa-sim" / "build" / "spike"
 
-SPIKE_BIN = shutil.which("spike") or (str(BUILT_SPIKE) if BUILT_SPIKE.exists() else None)
+SPIKE_BIN = shutil.which("spike") or (
+    str(BUILT_SPIKE) if BUILT_SPIKE.exists() else None
+)
 
 pytestmark = pytest.mark.skipif(
     shutil.which(GCC) is None or SPIKE_BIN is None,
@@ -51,11 +56,17 @@ def _compile(source: Path, tmp_path: Path) -> Path:
     subprocess.run(
         [
             GCC,
-            f"-march={ISA}", "-mabi=ilp32", "-Os",
-            "-ffreestanding", "-nostdlib", "-nostartfiles",
+            f"-march={ISA}",
+            "-mabi=ilp32",
+            "-Os",
+            "-ffreestanding",
+            "-nostdlib",
+            "-nostartfiles",
             f"-Wl,-T,{FIXTURES / 'link.ld'}",
-            str(FIXTURES / "crt0.S"), str(source),
-            "-o", str(elf),
+            str(FIXTURES / "crt0.S"),
+            str(source),
+            "-o",
+            str(elf),
         ],
         check=True,
     )
@@ -63,7 +74,10 @@ def _compile(source: Path, tmp_path: Path) -> Path:
 
 
 @pytest.mark.parametrize("source_name", ["pass_c.c", "pass_asm.S"])
-def test_generate_golden_reads_back_expected_bytes(source_name, tmp_path):
+def test_generate_golden_reads_back_expected_bytes(
+    source_name: str, tmp_path: Path
+) -> None:
+    assert SPIKE_BIN is not None  # guaranteed by pytestmark's skipif above
     elf = _compile(FIXTURES / source_name, tmp_path)
 
     golden = generate_golden(
@@ -81,11 +95,14 @@ def test_generate_golden_reads_back_expected_bytes(source_name, tmp_path):
     assert golden == expected_bytes
 
 
-def test_generate_golden_json_round_trips_through_compare(tmp_path):
-    """Same as above, but exercises the full CLI-facing path: write the
-    golden JSON to disk, then read it back with json.loads the way a
-    human/CI would, confirming the file itself (not just the in-memory
-    dict) is correct."""
+def test_generate_golden_json_round_trips_through_compare(tmp_path: Path) -> None:
+    """Exercise the full CLI-facing path.
+
+    Same as above, but writes the golden JSON to disk, then reads it
+    back with json.loads the way a human/CI would, confirming the
+    file itself (not just the in-memory dict) is correct.
+    """
+    assert SPIKE_BIN is not None  # guaranteed by pytestmark's skipif above
     elf = _compile(FIXTURES / "pass_c.c", tmp_path)
 
     golden = generate_golden(

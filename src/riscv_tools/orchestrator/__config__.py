@@ -1,5 +1,7 @@
-"""Defaults for orchestrating a full real-hardware test run. A
-project's config.yaml overrides these under `quartus:`."""
+"""Define defaults for orchestrating a full real-hardware test run.
+
+A project's config.yaml overrides these under `quartus:`.
+"""
 
 DEFAULTS = {
     "quartus": {

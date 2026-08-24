@@ -23,7 +23,10 @@ supplies its own `config.yaml`, which overrides these defaults: See
 | `quartus_program`    | Full recompile + `quartus_pgm` (the slow "base" path)        |
 | `mem_validator`      | Compare a RAM dump against a golden JSON                     |
 | `golden_generator`   | Generate a golden JSON dynamically by running an ELF under Spike |
-| `orchestrator`       | Composes the above into a full test-suite run                |
+| `orchestrator`       | Composes the above into a full real-hardware test-suite run, or a clock frequency sweep to find Fmax |
+| `sim_runner`         | Drives cocotb/GHDL simulation — the sim-side counterpart to `orchestrator` (needs the `sim` extra) |
+| `vhdl_sort`          | Topologically sort VHDL sources by entity/package dependency, for GHDL `-a` |
+| `freq_sweep`         | Rewrite a PLL source's clock frequency/phase offsets — the mechanism `orchestrator`'s frequency sweep edits with |
 
 ## Vendored references (git submodules)
 
@@ -52,11 +55,30 @@ uv run riscv-tools --config /path/to/project/config.yaml compile --emit asm
 uv run riscv-tools --config /path/to/project/config.yaml run
 uv run riscv-tools --config /path/to/project/config.yaml generate-golden \
     build/real/some_test.elf --march rv32im --start 0x10 --end 0x20 --out golden/some_test.json
+
+# Simulation (needs the "sim" extra: cocotb + cocotb-tools, and GHDL on PATH)
+uv sync --extra sim
+uv run riscv-tools --config /path/to/project/config.yaml compile --emit hex
+uv run riscv-tools --config /path/to/project/config.yaml sim
 ```
 
 See `riscv-tools --help` for the full subcommand list (`write-rom`,
 `zero-ram`, `dump-ram`, `program`, `mailbox read|pulse`, `generate-header`,
-`generate-golden`, `run`).
+`generate-golden`, `run`, `sim`, `vhdl-sort`, `freq-sweep`).
+
+```bash
+# vhdl-sort needs no --config — pure file-content analysis, e.g. wired
+# into a Makefile's own VHDL-syntax-check target:
+uv run riscv-tools vhdl-sort src/**/*.vhd
+
+# freq-sweep: find Fmax by editing the PLL (see docs/configuration.md's
+# freq_sweep: section) and doing a full recompile+reprogram+RAM-compare
+# at each candidate frequency.
+uv run riscv-tools --config /path/to/project/config.yaml freq-sweep \
+    build/real/full.mif --golden golden/full.json --start 1 --stop 30 --step 2
+uv run riscv-tools --config /path/to/project/config.yaml freq-sweep \
+    build/real/full.mif --golden golden/full.json --binary --low 1 --high 50
+```
 
 ## Development
 

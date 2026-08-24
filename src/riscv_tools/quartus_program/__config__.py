@@ -1,7 +1,9 @@
-"""Defaults for compiling+programming the base Quartus bitstream. A
-project's config.yaml overrides these under `quartus:` — project_dir/
-project_name/sof_file/rom_mif_target are project-specific, no sane
-generic default."""
+"""Define defaults for compiling+programming the base Quartus bitstream.
+
+A project's config.yaml overrides these under `quartus:` —
+project_dir/project_name/sof_file/rom_mif_target are project-specific,
+no sane generic default.
+"""
 
 DEFAULTS = {
     "quartus": {
