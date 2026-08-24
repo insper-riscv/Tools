@@ -1,5 +1,19 @@
 # Generating a golden JSON via Spike
 
+## Requirements
+
+Everything on this page depends on these being installed before
+`vendor/riscv-isa-sim` can be built:
+
+```bash
+sudo apt-get install -y device-tree-compiler libboost-all-dev
+```
+
+`device-tree-compiler` (`dtc`) is required — Spike's `./configure`
+hard-fails without it. Boost is optional (`configure` degrades
+gracefully without it), but installing it avoids a slower fallback
+path in `make`.
+
 A `RV32_TEST_KIND: memory` test needs a golden JSON — the expected
 byte value at each address `mem_validator.compare` checks after the
 test runs (see [creating-a-c-test.md](creating-a-c-test.md#unit-vs-memory-tests)).
@@ -38,8 +52,8 @@ JTAG cable connected.
 ## Building Spike
 
 `vendor/riscv-isa-sim` needs to be compiled once before
-`generate-golden` can run. `golden_generator.setup()` does this for
-you:
+`generate-golden` can run (see Requirements above).
+`golden_generator.setup()` does this for you:
 
 ```python
 from riscv_tools import golden_generator
@@ -50,9 +64,8 @@ golden_generator.setup()
 - If `emulator.spike_bin` (default `"spike"`) already resolves to a
   runnable binary — on `PATH`, or an existing file — `setup()` leaves
   it alone and does nothing.
-- Otherwise it checks `device-tree-compiler` (`dtc`) is installed —
-  the one dependency Spike's `./configure` hard-fails without — and
-  builds `vendor/riscv-isa-sim` if it hasn't been built already.
+- Otherwise it builds `vendor/riscv-isa-sim` if it hasn't been built
+  already.
 - Raises `FileNotFoundError` if the submodule was never checked out:
   run `git submodule update --init --recursive` first.
 
@@ -62,10 +75,40 @@ checked-out commit has actually moved since the last build, so it's
 cheap to call unconditionally (e.g. in a setup script that runs on
 every checkout).
 
-See the top-level README's `golden_generator` section for the full
-dependency list, manual build steps, and the `RISCV_ISA_SIM_DIR`
-environment variable (for pointing at a CI cache directory instead of
-this repo's own submodule checkout).
+The resulting binary ends up at `vendor/riscv-isa-sim/build/spike` —
+either put it on `PATH`, or set `emulator.spike_bin` in your project's
+config.yaml to that path (`setup()`/`update()` honor whatever
+`spike_bin` resolves to).
+
+### `RISCV_ISA_SIM_DIR` — pointing at a cache directory instead
+
+This repo's own `vendor/riscv-isa-sim` isn't the only place a
+riscv-isa-sim checkout can live. Set the `RISCV_ISA_SIM_DIR`
+environment variable to make `setup()`/`update()` operate on a
+different directory entirely — e.g. in CI, point it at a persistent
+cache (`actions/cache`) instead of this repo's own submodule path, so
+a fresh checkout of `riscv-tools` doesn't have to re-clone and rebuild
+Spike from scratch (and burn CI minutes/bandwidth) on every run:
+
+```yaml
+# GitHub Actions example
+- uses: actions/cache@v4
+  with:
+    path: ${{ runner.temp }}/riscv-isa-sim
+    key: riscv-isa-sim-${{ <pinned commit/version> }}
+- run: uv run python -c "from riscv_tools import golden_generator; golden_generator.setup()"
+  env:
+    RISCV_ISA_SIM_DIR: ${{ runner.temp }}/riscv-isa-sim
+```
+
+On a cache miss (directory empty or not yet a checkout), `setup()`
+clones riscv-isa-sim there itself, checking out the same commit this
+repo's own `vendor/riscv-isa-sim` submodule is pinned to (so the
+override still runs the exact Spike version this repo vendors, not
+just whatever the remote's default branch happens to be at clone
+time). This repo's own submodule is never auto-cloned into this way —
+only an override directory is, since the submodule itself is meant to
+be populated with `git submodule update --init`.
 
 ## Generating a golden JSON
 

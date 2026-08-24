@@ -51,7 +51,14 @@ def cmd_compile(args) -> None:
 
     Args:
         args: Parsed CLI arguments, uses args.config, args.root,
-            args.emit ("mif", "hex", or "asm").
+            args.emit ("mif", "hex", or "asm"), args.manifest (full
+            path override for the combined manifest.json; default
+            <build_dir>/manifest.json), args.manifest_per_test (a full
+            path template containing "{name}", e.g.
+            "some/dir/{name}.json" — if given, ALSO writes each test's
+            own manifest entry to its own file, substituting "{name}"
+            with that test's name; the combined manifest.json is still
+            written either way, since `run` reads it).
 
     Returns:
         None. Exits the process with status 1 if the source directory
@@ -120,9 +127,16 @@ def cmd_compile(args) -> None:
             bin_to_image.bin_to_hex(bin_, hex_)
             entry["hex"] = str(hex_.relative_to(root))
 
+        if args.manifest_per_test:
+            per_test_path = Path(args.manifest_per_test.format(name=entry["name"]))
+            per_test_path.parent.mkdir(parents=True, exist_ok=True)
+            per_test_path.write_text(json.dumps(entry, indent=2))
+            print(f"Wrote {per_test_path}")
+
         manifest.append(entry)
 
-    manifest_path = build_dir / "manifest.json"
+    manifest_path = Path(args.manifest) if args.manifest else build_dir / "manifest.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
     manifest_path.write_text(json.dumps(manifest, indent=2))
 
     print(f"Wrote {manifest_path} ({len(manifest)} test(s))")
@@ -333,6 +347,12 @@ def main() -> None:
 
     p = sub.add_parser("compile", help="Compile tests/c/{real,sim} into mif/hex/asm (+ manifest.json for mif/hex)")
     p.add_argument("--emit", choices=["mif", "hex", "asm"], required=True)
+    p.add_argument("--manifest", default=None, help="Full path override for the combined manifest.json (default: <build_dir>/manifest.json)")
+    p.add_argument(
+        "--manifest-per-test", default=None,
+        help='Full path template containing "{name}" (e.g. "some/dir/{name}.json") — '
+             "if given, also writes each test's own manifest entry to its own file",
+    )
     p.set_defaults(func=cmd_compile)
 
     p = sub.add_parser("write-rom", help="JTAG-write a .mif into the ROM instance")
