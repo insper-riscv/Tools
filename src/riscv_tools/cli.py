@@ -2,9 +2,7 @@
 """Command-line entry point: riscv-tools --config <project's config.yaml> <subcommand> ...
 
 Every subcommand takes --config, pointing at the CONSUMING project's
-own config.yaml (memory map, Quartus project paths, toolchain, etc.)
-— this package only ships defaults (see each module's __config__.py
-and riscv_tools.settings), never a specific project's values.
+own config.yaml (memory map, Quartus project paths, toolchain, etc.).
 """
 import argparse
 import json
@@ -23,7 +21,7 @@ def _link(cfg: dict) -> JtagLink:
     project's configured chip.
 
     Args:
-        cfg: The merged project config — uses quartus.jtag_device.
+        cfg: The merged project config, uses quartus.jtag_device.
 
     Returns:
         A JtagLink with a live-detected hardware_name (see
@@ -36,7 +34,7 @@ def _root(args) -> Path:
     """Resolves the consuming project's root directory for a subcommand.
 
     Args:
-        args: Parsed CLI arguments — uses args.root.
+        args: Parsed CLI arguments.
 
     Returns:
         Path(args.root).resolve() if --root was passed, else the
@@ -52,7 +50,7 @@ def cmd_compile(args) -> None:
     --emit asm.
 
     Args:
-        args: Parsed CLI arguments — uses args.config, args.root,
+        args: Parsed CLI arguments, uses args.config, args.root,
             args.emit ("mif", "hex", or "asm").
 
     Returns:
@@ -67,14 +65,17 @@ def cmd_compile(args) -> None:
         src_dir = root / cfg["paths"]["tests_real_dir"]
         build_dir = root / cfg["paths"]["build_dir"] / "asm"
         c_files = sorted(src_dir.glob("*.c")) + sorted(src_dir.glob("*.S"))
+
         if not c_files:
             print(f"No .c/.S files found in {src_dir}", file=sys.stderr)
             sys.exit(1)
+
         for c_file in c_files:
             asm = c_to_asm_mod.c_to_asm(
                 cfg["toolchain"], cfg["isa"], c_file, build_dir, root / cfg["paths"]["include_dir"]
             )
             print(f"Wrote {asm}")
+
         return
 
     is_real = args.emit == "mif"
@@ -82,13 +83,16 @@ def cmd_compile(args) -> None:
     build_dir = root / cfg["paths"]["build_dir"] / ("real" if is_real else "sim")
 
     c_files = sorted(src_dir.glob("*.c")) + sorted(src_dir.glob("*.S"))
+
     if not c_files:
         print(f"No .c/.S files found in {src_dir}", file=sys.stderr)
         sys.exit(1)
 
     manifest = []
+
     for c_file in c_files:
         print(f"Building {c_file.relative_to(root)} ...")
+
         bin_, march, kind, timeout_s = compiler_mod.compile_test(
             cfg["toolchain"], cfg["isa"], cfg["quartus"]["default_timeout_s"],
             c_file, build_dir,
@@ -96,16 +100,20 @@ def cmd_compile(args) -> None:
         )
 
         entry = {"name": c_file.stem, "march": march, "kind": kind}
+
         if is_real:
             entry["timeout_s"] = timeout_s
             mif = build_dir / f"{c_file.stem}.mif"
             compiler_mod.bin_to_mif(bin_, mif, depth=cfg["memory"]["rom_words"])
             entry["mif"] = str(mif.relative_to(root))
+
             if kind == "memory":
                 golden_path = root / cfg["paths"]["golden_dir"] / f"{c_file.stem}.json"
+
                 if not golden_path.is_file():
                     print(f"ERROR: {c_file.name} is memory but {golden_path} is missing", file=sys.stderr)
                     sys.exit(1)
+
                 entry["golden"] = str(golden_path.relative_to(root))
         else:
             hex_ = build_dir / f"{c_file.stem}.hex"
@@ -116,6 +124,7 @@ def cmd_compile(args) -> None:
 
     manifest_path = build_dir / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2))
+
     print(f"Wrote {manifest_path} ({len(manifest)} test(s))")
 
 
@@ -179,6 +188,7 @@ def cmd_program(args) -> None:
     cfg = load_config(args.config)
     link = _link(cfg)
     root = _root(args)
+
     quartus_program.full_reconfigure(
         hardware_name=link.hardware_name,
         project_dir=root / cfg["quartus"]["project_dir"],
@@ -204,11 +214,13 @@ def cmd_mailbox(args) -> None:
     """
     cfg = load_config(args.config)
     link = _link(cfg)
+
     if args.action == "read":
         value = mailbox.read_mailbox(
             link, cfg["quartus"]["ram_mem_instance"], cfg["memory"]["ram_base"], cfg["memory"]["mailbox_addr"]
         )
         print(f"MAILBOX={value}")
+
     else:
         mailbox.pulse_go_flag(
             link, cfg["quartus"]["ram_mem_instance"], cfg["memory"]["ram_base"], cfg["memory"]["go_flag_addr"]
@@ -229,15 +241,17 @@ def cmd_generate_golden(args) -> None:
         None. Prints the number of bytes written to stdout.
     """
     cfg = load_config(args.config)
+
     golden = mem_validator.generate_golden(
         spike_bin=cfg["emulator"]["spike_bin"],
         nm_bin=cfg["toolchain"]["nm"],
         elf_path=Path(args.elf),
         isa=args.march,
-        restart_symbol=cfg["emulator"]["restart_symbol"],
+        tohost_symbol=cfg["emulator"]["tohost_symbol"],
         addr_start=int(args.start, 0),
         addr_end=int(args.end, 0),
     )
+
     mem_validator.write_golden_json(golden, Path(args.out))
     print(f"Wrote {args.out} ({len(golden)} bytes)")
 
@@ -260,9 +274,11 @@ def cmd_run(args) -> None:
     root = _root(args)
     build_dir = root / cfg["paths"]["build_dir"] / "real"
     manifest_path = Path(args.manifest) if args.manifest else build_dir / "manifest.json"
+
     if not manifest_path.is_file():
         print(f"{manifest_path} not found — run `riscv-tools compile --emit mif` first", file=sys.stderr)
         sys.exit(1)
+        
     manifest = json.loads(manifest_path.read_text())
 
     link = _link(cfg)

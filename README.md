@@ -36,25 +36,38 @@ Clone with `git clone --recurse-submodules`, or after a plain clone:
 ### `mem_validator generate-golden`
 
 Runs a compiled ELF under Spike, using its interactive debug console
-(`-d`) to stop once execution reaches `restart_symbol` (default
-`rv32_wait_restart`, the point RV32_PASS/RV32_FAIL leave the core in —
-see the consuming project's crt0.S), then snapshots the given byte
-range of RAM into a golden JSON in the same format `compare` expects.
+(`-d`) to stop the instant the program writes its HTIF "done" signal
+to `tohost_symbol` (default `tohost` — the standard Spike/riscv-tests
+convention; see the consuming project's link.ld/crt0.S, which defines
+`tohost`/`fromhost` and translates RV32_PASS/RV32_FAIL's mailbox value
+into it), then snapshots the given byte range of RAM into a golden
+JSON in the same format `compare` expects.
 
 Requires `vendor/riscv-isa-sim` to be built first:
 ```bash
-cd vendor/riscv-isa-sim && ./configure && make
+sudo apt-get install -y device-tree-compiler libboost-all-dev
+cd vendor/riscv-isa-sim
+mkdir -p build && cd build
+../configure
+make -j"$(nproc)"
 ```
+The `spike` binary ends up at `vendor/riscv-isa-sim/build/spike` — either
+put it on `PATH`, or set `emulator.spike_bin` in your project's
+config.yaml to that path. `device-tree-compiler` (`dtc`) is required by
+Spike's `./configure`; without it configure fails with `device-tree-compiler
+not found`. Boost is used for a couple of optional features (`configure`
+still succeeds without it, with an ASIO/Regex warning), but installing it
+avoids a slower fallback path in `make`.
 
-**Not yet verified against a built Spike on real hardware** — the
-debug-console command syntax (`until pc`, `mem`) matches Spike's
-long-documented interactive debugger, but wants a live smoke test
-once the submodule above is actually built.
+`tests/test_generate_golden.py` (this package's own pytest suite) builds
+and runs two tiny fixture programs (one C, one asm — see
+`tests/fixtures/htif_min/`) through this exact path, and is skipped
+automatically if `spike` and the toolchain aren't both available.
 
 ## How to create a RISC-V test
 
 - [Creating a test in C](docs/creating-a-c-test.md)
-- [Creating a test in assembly](docs/creating-an-asm-test.md)
+- [Creating a test in ASM](docs/creating-an-asm-test.md)
 
 ## Usage
 

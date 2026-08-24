@@ -1,26 +1,45 @@
 """Generates a golden reference by running a test's ELF under Spike
-(vendor/riscv-isa-sim) and snapshotting RAM once it reaches
-restart_symbol (crt0.S:rv32_wait_restart in the consuming project) —
-the same point RV32_PASS/RV32_FAIL leave the core in on real hardware.
+(vendor/riscv-isa-sim) and snapshotting RAM once the program writes
+its HTIF "done" signal to tohost (see link.ld/crt0.S in the consuming
+project) — the standard convention Spike/riscv-tests use, rather than
+a project-specific address like crt0.S's rv32_wait_restart symbol.
+Decoupled from crt0.S's internals: as long as the consuming project's
+crt0.S writes tohost on completion (it does, translating the mailbox
+PASS/FAIL into tohost's 1/3 encoding — see crt0.S), this works
+regardless of how rv32_wait_restart or anything else in crt0.S is laid
+out or renamed.
 
 Uses Spike's interactive debug console (`-d`), not its normal
-run-to-completion/HTIF exit path: our bare-metal test programs use a
-custom mailbox/restart protocol, not the tohost/fromhost convention
-Spike's ordinary exit handling expects, so a breakpoint on a known
-symbol is what tells Spike when the program is "done".
+run-to-completion/HTIF exit path: run-to-completion mode EXITS the
+process the moment tohost is written, which would take the simulated
+memory down with it before we get a chance to read the RAM range we
+actually want. Scripting the debug console instead lets us stop at
+that same moment without losing access to memory afterward.
 
-NOTE: spike's `-d` command syntax below (`until pc 0 <addr>`,
-`mem 0 <addr>`, `q`) matches Spike's long-documented interactive
-debugger, but hasn't been exercised against a built vendor/riscv-isa-sim
-on this workstation yet — verify against a real build before trusting
-generated goldens.
+Commands are fed via `--debug-cmd=<file>`, NOT piped to stdin: the
+console's own readline() is written for an interactive TTY (raw
+termios mode, arrow-key/history handling) and does not reliably detect
+EOF on a piped, non-TTY stdin — verified empirically (against a real
+build of vendor/riscv-isa-sim) that piping commands over stdin makes
+Spike single-step forever after running out of input instead of
+exiting, even after a `q`. `--debug-cmd` reads commands from a real
+file via a plain fscanf loop instead, sidestepping readline()
+entirely. Also verified: `mem`/`while mem` take a bare address with NO
+core argument for physical addressing (a `[core]` argument, if given,
+treats the address as VIRTUAL instead — see interactive.cc's own
+`while mem [core] <addr> <val>` usage line).
 """
 import json
 import re
 import subprocess
+import tempfile
 from pathlib import Path
 
 MEM_REPLY_RE = re.compile(r"^0x[0-9a-fA-F]+$")
+# Spike's interactive console caps each command line at 40 chars
+# (MAX_CMD_STR in interactive.cc) — a hard ceiling on how much any one
+# generated command line can hold.
+MAX_CMD_LEN = 40
 
 
 def _symbol_address(nm_bin: str, elf_path: Path, symbol: str) -> int:
@@ -46,17 +65,24 @@ def _symbol_address(nm_bin: str, elf_path: Path, symbol: str) -> int:
     raise RuntimeError(f"symbol {symbol!r} not found in {elf_path}")
 
 
-def _read_words_at_stop(spike_bin: str, isa: str, elf_path: Path, stop_pc: int, word_addrs: list[int]) -> list[int]:
-    """Runs elf_path under Spike's interactive debugger, halts once PC
-    reaches stop_pc, then reads a list of memory words.
+def _read_words_after_tohost(
+    spike_bin: str, isa: str, elf_path: Path, tohost_addr: int, word_addrs: list[int]
+) -> list[int]:
+    """Runs elf_path under Spike's interactive debugger, halts the
+    instant tohost_addr's word becomes nonzero (the program's HTIF
+    "done" signal — see crt0.S), then reads a list of memory words.
 
     Args:
         spike_bin: `spike` binary name/path (built from
             vendor/riscv-isa-sim).
         isa: `--isa=` value to run Spike with (e.g. "rv32im").
         elf_path: Path to the ELF to execute.
-        stop_pc: Program counter value to run until, before reading
-            any memory (see _symbol_address).
+        tohost_addr: Byte address of the `tohost` symbol (see
+            _symbol_address) — watched via Spike's `while mem ... 0`
+            rather than `until mem ... <value>` specifically because
+            we don't know in advance whether the test will write 1
+            (pass) or 3 (fail); `while` stops on ANY change away from
+            0, `until` would need the exact value.
         word_addrs: Byte addresses (each must be word-aligned) to read
             one 32-bit word from, in order.
 
@@ -64,24 +90,42 @@ def _read_words_at_stop(spike_bin: str, isa: str, elf_path: Path, stop_pc: int, 
         One value per entry in word_addrs, in the same order.
 
     Raises:
-        RuntimeError: Spike's output didn't contain exactly
+        RuntimeError: A generated command line exceeds Spike's
+            MAX_CMD_LEN, or Spike's output didn't contain exactly
             len(word_addrs) "mem" replies (e.g. a crashed/misbehaving
             run).
         subprocess.CalledProcessError: spike_bin exited non-zero.
     """
-    commands = [f"until pc 0 {stop_pc:x}"]
-    commands += [f"mem 0 {addr:x}" for addr in word_addrs]
+    commands = [f"while mem {tohost_addr:x} 0"]
+    commands += [f"mem {addr:x}" for addr in word_addrs]
     commands.append("q")
 
-    proc = subprocess.run(
-        [spike_bin, f"--isa={isa}", "-d", str(elf_path)],
-        input="\n".join(commands) + "\n",
-        check=True, capture_output=True, text=True,
-    )
-    values = [int(line.strip(), 16) for line in proc.stdout.splitlines() if MEM_REPLY_RE.match(line.strip())]
+    too_long = [c for c in commands if len(c) > MAX_CMD_LEN]
+    if too_long:
+        raise RuntimeError(f"command(s) exceed spike's {MAX_CMD_LEN}-char line limit: {too_long}")
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".spikecmd", delete=False) as f:
+        f.write("\n".join(commands) + "\n")
+        cmd_file = Path(f.name)
+
+    try:
+        proc = subprocess.run(
+            [spike_bin, f"--isa={isa}", "-d", f"--debug-cmd={cmd_file}", str(elf_path)],
+            check=True, capture_output=True, text=True,
+        )
+    finally:
+        cmd_file.unlink(missing_ok=True)
+
+    # Spike sends its own command replies to stderr, not stdout, for
+    # the whole duration --debug-cmd is supplying commands (see
+    # interactive.cc: "while we get input from file, output goes to
+    # stderr") — confirmed empirically against a real build; stdout
+    # came back completely empty in the same run where stderr had the
+    # "mem" reply.
+    values = [int(line.strip(), 16) for line in proc.stderr.splitlines() if MEM_REPLY_RE.match(line.strip())]
     if len(values) != len(word_addrs):
         raise RuntimeError(
-            f"expected {len(word_addrs)} 'mem' replies from spike, got {len(values)}:\n{proc.stdout}"
+            f"expected {len(word_addrs)} 'mem' replies from spike, got {len(values)}:\n{proc.stderr}"
         )
     return values
 
@@ -91,24 +135,26 @@ def generate_golden(
     nm_bin: str,
     elf_path: Path,
     isa: str,
-    restart_symbol: str,
+    tohost_symbol: str,
     addr_start: int,
     addr_end: int,
 ) -> dict[int, int]:
-    """Runs elf_path under Spike and snapshots a byte range of RAM at
-    the moment it reaches restart_symbol.
+    """Runs elf_path under Spike and snapshots a byte range of RAM the
+    moment it signals HTIF completion via tohost.
 
     Args:
         spike_bin: `spike` binary name/path (built from
             vendor/riscv-isa-sim).
         nm_bin: `nm` binary name/path for the target toolchain, used
-            to resolve restart_symbol's address.
+            to resolve tohost_symbol's address.
         elf_path: Path to the compiled test ELF to run.
         isa: `--isa=` value to run Spike with (e.g. "rv32im") —
             should match the test's own march.
-        restart_symbol: Symbol name Spike halts at before reading
-            memory (default "rv32_wait_restart" — see
-            mem_validator.__config__.DEFAULTS).
+        tohost_symbol: Symbol name Spike watches for a nonzero write
+            before reading memory (default "tohost" — see
+            mem_validator.__config__.DEFAULTS). The consuming
+            project's crt0.S/link.ld must define this symbol and write
+            to it on completion.
         addr_start: First byte address to snapshot (inclusive).
         addr_end: One past the last byte address to snapshot
             (exclusive) — addr_end - addr_start must be a multiple of
@@ -120,9 +166,9 @@ def generate_golden(
         mem_validator.compare's golden JSON expects (see
         write_golden_json).
     """
-    stop_pc = _symbol_address(nm_bin, elf_path, restart_symbol)
+    tohost_addr = _symbol_address(nm_bin, elf_path, tohost_symbol)
     word_addrs = list(range(addr_start, addr_end, 4))
-    words = _read_words_at_stop(spike_bin, isa, elf_path, stop_pc, word_addrs)
+    words = _read_words_after_tohost(spike_bin, isa, elf_path, tohost_addr, word_addrs)
 
     out = {}
     for waddr, wval in zip(word_addrs, words):

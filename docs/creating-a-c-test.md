@@ -15,12 +15,12 @@ Three optional `//` comments at the top of the file configure how
 
 ```c
 // RV32_EXT: M          // extensions ADDED to the implicit rv32i base.
-// RV32_EXT: M,A        // order doesn't matter — "A,M" also becomes rv32ima.
+// RV32_EXT: M,A        // order doesn't matter, "A,M" also becomes rv32ima.
 // RV32_TEST_KIND: unit          // default. Checked via the PASS/FAIL
                                   // mailbox only.
 // RV32_TEST_KIND: memory        // also dumps the whole RAM and compares
                                   // it against a golden JSON (see below).
-// RV32_TIMEOUT_S: 5             // real tests only — how long the
+// RV32_TIMEOUT_S: 5             // real tests only, how long the
                                   // orchestrator waits for this test's
                                   // mailbox before falling back to a full
                                   // reprogram+retry. Defaults to

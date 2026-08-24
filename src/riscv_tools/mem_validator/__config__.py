@@ -12,9 +12,11 @@ DEFAULTS = {
         # must be built first (./configure && make), no sane default
         # across workstations.
         "spike_bin": "spike",
-        # Symbol every crt0-linked test binary jumps to once done
-        # (RV32_PASS/RV32_FAIL, or main() returning) — used as Spike's
-        # breakpoint to know when to snapshot memory (see generate.py).
-        "restart_symbol": "rv32_wait_restart",
+        # HTIF symbol every crt0-linked test binary defines and writes
+        # a nonzero value to once done (see link.ld/crt0.S in the
+        # consuming project) — Spike watches it to know when to
+        # snapshot memory (see generate.py). Standard Spike/riscv-tests
+        # convention, so "tohost" should rarely need overriding.
+        "tohost_symbol": "tohost",
     },
 }
