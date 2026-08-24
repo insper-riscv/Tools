@@ -19,8 +19,26 @@ which overrides these defaults (see `riscv_tools/settings.py`).
 | `ram_dump`           | JTAG-dump the whole RAM to a `.mif`                          |
 | `mailbox`            | PASS/FAIL mailbox read + restart "go flag" pulse             |
 | `quartus_program`    | Full recompile + `quartus_pgm` (the slow "base" path)        |
-| `golden`             | Compare a RAM dump against a golden JSON                     |
+| `mem_validator`      | Compare a RAM dump against a golden JSON                     |
 | `orchestrator`       | Composes the above into a full test-suite run                |
+
+## Vendored references (git submodules)
+
+| Path                     | Points at                                              | Why                                                          |
+|---------------------------|--------------------------------------------------------|----------------------------------------------------------------|
+| `vendor/riscv-gnu-toolchain` | [riscv-collab/riscv-gnu-toolchain](https://github.com/riscv-collab/riscv-gnu-toolchain) | The GCC cross-toolchain `compiler` builds test programs with |
+| `vendor/riscv-isa-sim`    | [riscv-software-src/riscv-isa-sim](https://github.com/riscv-software-src/riscv-isa-sim) (Spike, RISC-V International's reference simulator) | Future golden-reference source for `mem_validator` (see roadmap below) |
+
+Clone with `git clone --recurse-submodules`, or after a plain clone:
+`git submodule update --init --recursive`.
+
+### `mem_validator` roadmap
+
+Today `mem_validator.compare` checks a RAM dump against a hand-written
+JSON. The `riscv-isa-sim` submodule is vendored so `mem_validator` can
+later generate that golden reference dynamically instead — run the
+same program through Spike and diff its memory state against the
+FPGA's, rather than trusting a JSON file someone wrote by hand.
 
 ## Usage
 

@@ -1,0 +1,6 @@
+[submodule "vendor/riscv-gnu-toolchain"]
+	path = vendor/riscv-gnu-toolchain
+	url = https://github.com/riscv-collab/riscv-gnu-toolchain.git
+[submodule "vendor/riscv-isa-sim"]
+	path = vendor/riscv-isa-sim
+	url = https://github.com/riscv-software-src/riscv-isa-sim.git

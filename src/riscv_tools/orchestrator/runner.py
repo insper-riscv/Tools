@@ -7,7 +7,7 @@ sequencing."""
 import time
 from pathlib import Path
 
-from riscv_tools import golden, mailbox, quartus_program, ram_dump, rom_writer
+from riscv_tools import mailbox, mem_validator, quartus_program, ram_dump, rom_writer
 from riscv_tools.jtag import JtagLink
 
 
@@ -77,7 +77,7 @@ def run_one(cfg: dict, link: JtagLink, entry: dict, build_dir: Path, root: Path,
     if entry["kind"] == "integration":
         dump_path = build_dir / f"{name}_ram.mif"
         ram_dump.dump_ram(link, cfg["quartus"]["ram_mem_instance"], dump_path)
-        passed = golden.compare(dump_path, root / entry["golden"]) and passed
+        passed = mem_validator.compare(dump_path, root / entry["golden"]) and passed
 
     return passed
 
