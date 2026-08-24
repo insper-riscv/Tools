@@ -17,6 +17,7 @@ this module targets that (cocotb>=2.0), not the older `cocotb.runner`
 some 1.x docs/examples still reference.
 """
 
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -171,6 +172,18 @@ def run_suite(
         A {test_name: passed} dict, one entry per manifest test, in
         manifest order.
     """
+    # cocotb_tools.runner's cocotb subprocess inherits PYTHONPATH from
+    # *this* process' sys.path (see Simulator._set_env) — needed for
+    # sim.test_module (a project-root-relative dotted path, e.g.
+    # "tools.riscv_build.sim.test_c_program") to import at all when
+    # riscv-tools itself runs as an installed console script rather
+    # than via `python -m` from the project root (confirmed
+    # empirically: without this, cocotb's subprocess raised
+    # "ModuleNotFoundError: No module named 'tools'").
+    root_str = str(root)
+    if root_str not in sys.path:
+        sys.path.insert(0, root_str)
+
     vhdl_sources = [str(root / src) for src in cfg["sim"]["vhdl_sources"]]
     parameter_templates: dict[str, Any] = cfg["sim"].get("parameters") or {}
 
