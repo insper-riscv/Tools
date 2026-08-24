@@ -342,6 +342,7 @@ def cmd_generate_header(args: argparse.Namespace) -> None:
         if args.out
         else root / cfg["paths"]["include_dir"] / "rv32_test.h"
     )
+    out_path.parent.mkdir(parents=True, exist_ok=True)
 
     mailbox.write_header(cfg["memory"]["mailbox_addr"], out_path)
     print(f"Wrote {out_path}")
@@ -377,8 +378,10 @@ def cmd_generate_golden(args: argparse.Namespace) -> None:
         addr_end=int(args.end, 0),
     )
 
-    golden_generator.write_golden_json(golden, Path(args.out))
-    print(f"Wrote {args.out} ({len(golden)} bytes)")
+    out_path = Path(args.out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    golden_generator.write_golden_json(golden, out_path)
+    print(f"Wrote {out_path} ({len(golden)} bytes)")
 
 
 def cmd_run(args: argparse.Namespace) -> None:
