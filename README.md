@@ -44,6 +44,7 @@ Clone with `git clone --recurse-submodules`, or after a plain clone:
 - [Creating a test in C](docs/creating-a-c-test.md)
 - [Creating a test in ASM](docs/creating-an-asm-test.md)
 - [Generating a golden JSON via Spike](docs/generating-a-golden.md)
+- [Finding Fmax (clock frequency sweep)](docs/finding-fmax.md)
 - [Creating a GitHub Actions workflow per task](docs/github-actions.md)
 
 ## Usage
@@ -71,9 +72,9 @@ See `riscv-tools --help` for the full subcommand list (`write-rom`,
 # into a Makefile's own VHDL-syntax-check target:
 uv run riscv-tools vhdl-sort src/**/*.vhd
 
-# freq-sweep: find Fmax by editing the PLL (see docs/configuration.md's
-# freq_sweep: section) and doing a full recompile+reprogram+RAM-compare
-# at each candidate frequency.
+# freq-sweep: find Fmax by editing the PLL and doing a full
+# recompile+reprogram+RAM-compare at each candidate frequency — see
+# docs/finding-fmax.md.
 uv run riscv-tools --config /path/to/project/config.yaml freq-sweep \
     build/real/full.mif --golden golden/full.json --start 1 --stop 30 --step 2
 uv run riscv-tools --config /path/to/project/config.yaml freq-sweep \

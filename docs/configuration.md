@@ -95,7 +95,9 @@ sections. Any key you omit falls back to the built-in default shown.
 
 Describes the *shape* of your PLL source's parameter strings — none of
 these have a sane cross-project default, since PLL megafunction
-instance names/parameter conventions are project-specific.
+instance names/parameter conventions are project-specific. See
+[finding-fmax.md](finding-fmax.md) for what this is for and how to run
+a sweep.
 
 | Key | Default | Used by |
 |---|---|---|
