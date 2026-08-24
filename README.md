@@ -28,7 +28,7 @@ which overrides these defaults (see `riscv_tools/settings.py`).
 | Path                     | Points at                                              | Why                                                          |
 |---------------------------|--------------------------------------------------------|----------------------------------------------------------------|
 | `vendor/riscv-gnu-toolchain` | [riscv-collab/riscv-gnu-toolchain](https://github.com/riscv-collab/riscv-gnu-toolchain) | The GCC cross-toolchain `compiler` builds test programs with |
-| `vendor/riscv-isa-sim`    | [riscv-software-src/riscv-isa-sim](https://github.com/riscv-software-src/riscv-isa-sim) (Spike, RISC-V International's reference simulator) | Future golden-reference source for `mem_validator` (see roadmap below) |
+| `vendor/riscv-isa-sim`    | [riscv-software-src/riscv-isa-sim](https://github.com/riscv-software-src/riscv-isa-sim) (Spike, RISC-V International's reference simulator) | Golden-reference source for `mem_validator generate-golden` (see below) |
 
 Clone with `git clone --recurse-submodules`, or after a plain clone:
 `git submodule update --init --recursive`.
