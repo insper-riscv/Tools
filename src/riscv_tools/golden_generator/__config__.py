@@ -1,7 +1,7 @@
-"""Defaults for validating a RAM dump against a golden reference,
-including generating that reference dynamically via Spike (see
-generate.py and vendor/riscv-isa-sim). Overridden under `toolchain:` /
-`emulator:` in a project's config.yaml."""
+"""Defaults for generating a golden reference dynamically via Spike
+(see core.py and vendor/riscv-isa-sim), instead of a hand-written
+golden JSON. Overridden under `toolchain:` / `emulator:` in a
+project's config.yaml."""
 
 DEFAULTS = {
     "toolchain": {
@@ -15,7 +15,7 @@ DEFAULTS = {
         # HTIF symbol every crt0-linked test binary defines and writes
         # a nonzero value to once done (see link.ld/crt0.S in the
         # consuming project) — Spike watches it to know when to
-        # snapshot memory (see generate.py). Standard Spike/riscv-tests
+        # snapshot memory (see core.py). Standard Spike/riscv-tests
         # convention, so "tohost" should rarely need overriding.
         "tohost_symbol": "tohost",
     },

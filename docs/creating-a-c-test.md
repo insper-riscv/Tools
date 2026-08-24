@@ -46,10 +46,17 @@ int main(void) {
 }
 ```
 
-`rv32_test.h` is supplied by the CONSUMING project (it defines
-`RV32_PASS`/`RV32_FAIL` against that project's own mailbox address and
-`rv32_wait_restart`, from its `crt0.S`) — this package doesn't ship it,
-only the tooling that compiles against it.
+`rv32_test.h` is generated from your `config.yaml`'s
+`memory.mailbox_addr` — don't hand-write it, generate (or regenerate,
+after changing that address) with:
+
+```bash
+uv run riscv-tools --config <project>/config.yaml generate-header
+```
+
+Writes to `<paths.include_dir>/rv32_test.h` by default (`--out` to
+override). `rv32_wait_restart` itself still comes from your project's
+own `crt0.S` — this package only owns the mailbox side.
 
 Avoid `(volatile unsigned int *)0x0` — GCC treats a literal null
 pointer as undefined behavior and may optimize the whole access away
@@ -80,8 +87,8 @@ start of RAM/ROM.
       --out tests/c/real/golden/my_test.json
   ```
 
-  See `mem_validator`'s section in the top-level README — this
-  requires `vendor/riscv-isa-sim` built first.
+  See [generating-a-golden.md](generating-a-golden.md) — this
+  requires `vendor/riscv-isa-sim` built first (`golden_generator.setup()`).
 
 ## Building, inspecting, running
 

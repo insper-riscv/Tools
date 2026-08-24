@@ -9,9 +9,9 @@ import json
 import sys
 from pathlib import Path
 
-from riscv_tools import compiler as compiler_mod
+from riscv_tools import bin_to_image, compiler as compiler_mod
 from riscv_tools import c_to_asm as c_to_asm_mod
-from riscv_tools import mailbox, mem_validator, orchestrator, quartus_program, ram_dump, ram_zero, rom_writer
+from riscv_tools import golden_generator, mailbox, orchestrator, quartus_program, ram_dump, ram_zero, rom_writer
 from riscv_tools.jtag import JtagLink, detect_jtag_hardware
 from riscv_tools.settings import load_config
 
@@ -104,7 +104,7 @@ def cmd_compile(args) -> None:
         if is_real:
             entry["timeout_s"] = timeout_s
             mif = build_dir / f"{c_file.stem}.mif"
-            compiler_mod.bin_to_mif(bin_, mif, depth=cfg["memory"]["rom_words"])
+            bin_to_image.bin_to_mif(bin_, mif, depth=cfg["memory"]["rom_words"])
             entry["mif"] = str(mif.relative_to(root))
 
             if kind == "memory":
@@ -117,7 +117,7 @@ def cmd_compile(args) -> None:
                 entry["golden"] = str(golden_path.relative_to(root))
         else:
             hex_ = build_dir / f"{c_file.stem}.hex"
-            compiler_mod.bin_to_hex(bin_, hex_)
+            bin_to_image.bin_to_hex(bin_, hex_)
             entry["hex"] = str(hex_.relative_to(root))
 
         manifest.append(entry)
@@ -227,10 +227,29 @@ def cmd_mailbox(args) -> None:
         )
 
 
+def cmd_generate_header(args) -> None:
+    """Implements `riscv-tools generate-header`: writes rv32_test.h from
+    the project's own config.yaml (see mailbox.write_header).
+
+    Args:
+        args: Parsed CLI arguments — uses args.config, args.root,
+            args.out.
+
+    Returns:
+        None. Prints the path written to stdout.
+    """
+    cfg = load_config(args.config)
+    root = _root(args)
+    out_path = Path(args.out) if args.out else root / cfg["paths"]["include_dir"] / "rv32_test.h"
+
+    mailbox.write_header(cfg["memory"]["mailbox_addr"], out_path)
+    print(f"Wrote {out_path}")
+
+
 def cmd_generate_golden(args) -> None:
     """Implements `riscv-tools generate-golden`: runs an ELF under
     Spike and writes a golden JSON snapshot of a RAM byte range (see
-    mem_validator.generate_golden).
+    golden_generator.generate_golden).
 
     Args:
         args: Parsed CLI arguments — uses args.config, args.elf,
@@ -242,7 +261,7 @@ def cmd_generate_golden(args) -> None:
     """
     cfg = load_config(args.config)
 
-    golden = mem_validator.generate_golden(
+    golden = golden_generator.generate_golden(
         spike_bin=cfg["emulator"]["spike_bin"],
         nm_bin=cfg["toolchain"]["nm"],
         elf_path=Path(args.elf),
@@ -252,7 +271,7 @@ def cmd_generate_golden(args) -> None:
         addr_end=int(args.end, 0),
     )
 
-    mem_validator.write_golden_json(golden, Path(args.out))
+    golden_generator.write_golden_json(golden, Path(args.out))
     print(f"Wrote {args.out} ({len(golden)} bytes)")
 
 
@@ -334,6 +353,10 @@ def main() -> None:
     p = sub.add_parser("mailbox", help="Read the PASS/FAIL mailbox, or pulse the restart go-flag")
     p.add_argument("action", choices=["read", "pulse"])
     p.set_defaults(func=cmd_mailbox)
+
+    p = sub.add_parser("generate-header", help="Generate rv32_test.h from config.yaml's memory.mailbox_addr")
+    p.add_argument("--out", default=None, help="Output path (default: <paths.include_dir>/rv32_test.h)")
+    p.set_defaults(func=cmd_generate_header)
 
     p = sub.add_parser("generate-golden", help="Generate a golden JSON by running an ELF under Spike (vendor/riscv-isa-sim)")
     p.add_argument("elf")

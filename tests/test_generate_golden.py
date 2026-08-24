@@ -1,4 +1,4 @@
-"""End-to-end test of mem_validator.generate_golden against a real
+"""End-to-end test of golden_generator.generate_golden against a real
 built Spike (vendor/riscv-isa-sim) and a real GCC toolchain — proves
 the whole chain (compile -> run under Spike's debug console -> wait
 for tohost -> read memory -> emit golden JSON) actually works, for
@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from riscv_tools.mem_validator import generate_golden, write_golden_json
+from riscv_tools.golden_generator import generate_golden, write_golden_json
 
 GCC = "riscv32-unknown-elf-gcc"
 NM = "riscv32-unknown-elf-nm"

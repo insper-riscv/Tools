@@ -152,7 +152,7 @@ def generate_golden(
             should match the test's own march.
         tohost_symbol: Symbol name Spike watches for a nonzero write
             before reading memory (default "tohost" — see
-            mem_validator.__config__.DEFAULTS). The consuming
+            golden_generator.__config__.DEFAULTS). The consuming
             project's crt0.S/link.ld must define this symbol and write
             to it on completion.
         addr_start: First byte address to snapshot (inclusive).

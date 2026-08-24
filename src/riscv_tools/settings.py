@@ -10,9 +10,9 @@ import yaml
 
 from riscv_tools.c_to_asm.__config__ import DEFAULTS as _C_TO_ASM_DEFAULTS
 from riscv_tools.compiler.__config__ import DEFAULTS as _COMPILER_DEFAULTS
+from riscv_tools.golden_generator.__config__ import DEFAULTS as _GOLDEN_GENERATOR_DEFAULTS
 from riscv_tools.jtag.__config__ import DEFAULTS as _JTAG_DEFAULTS
 from riscv_tools.mailbox.__config__ import DEFAULTS as _MAILBOX_DEFAULTS
-from riscv_tools.mem_validator.__config__ import DEFAULTS as _MEM_VALIDATOR_DEFAULTS
 from riscv_tools.orchestrator.__config__ import DEFAULTS as _ORCHESTRATOR_DEFAULTS
 from riscv_tools.quartus_program.__config__ import DEFAULTS as _QUARTUS_PROGRAM_DEFAULTS
 from riscv_tools.ram_dump.__config__ import DEFAULTS as _RAM_DUMP_DEFAULTS
@@ -27,7 +27,7 @@ _MODULE_DEFAULTS = [
     _RAM_ZERO_DEFAULTS,
     _RAM_DUMP_DEFAULTS,
     _MAILBOX_DEFAULTS,
-    _MEM_VALIDATOR_DEFAULTS,
+    _GOLDEN_GENERATOR_DEFAULTS,
     _QUARTUS_PROGRAM_DEFAULTS,
     _ORCHESTRATOR_DEFAULTS,
 ]

@@ -1,5 +1,8 @@
-"""Flat .bin -> hardware-loadable format conversions. No JTAG/hardware
-interaction here — that's rom_writer/ram_zero's job."""
+"""Flat .bin -> hardware/sim-loadable format conversions (.mif, .hex).
+A distinct concern from `compiler` (source -> .elf/.bin): this module
+only ever touches an already-compiled flat binary, never a compiler.
+No JTAG/hardware interaction either — that's rom_writer/ram_zero's
+job."""
 import struct
 from pathlib import Path
 
