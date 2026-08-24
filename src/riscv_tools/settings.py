@@ -8,9 +8,11 @@ from pathlib import Path
 
 import yaml
 
+from riscv_tools.c_to_asm.__config__ import DEFAULTS as _C_TO_ASM_DEFAULTS
 from riscv_tools.compiler.__config__ import DEFAULTS as _COMPILER_DEFAULTS
 from riscv_tools.jtag.__config__ import DEFAULTS as _JTAG_DEFAULTS
 from riscv_tools.mailbox.__config__ import DEFAULTS as _MAILBOX_DEFAULTS
+from riscv_tools.mem_validator.__config__ import DEFAULTS as _MEM_VALIDATOR_DEFAULTS
 from riscv_tools.orchestrator.__config__ import DEFAULTS as _ORCHESTRATOR_DEFAULTS
 from riscv_tools.quartus_program.__config__ import DEFAULTS as _QUARTUS_PROGRAM_DEFAULTS
 from riscv_tools.ram_dump.__config__ import DEFAULTS as _RAM_DUMP_DEFAULTS
@@ -19,11 +21,13 @@ from riscv_tools.rom_writer.__config__ import DEFAULTS as _ROM_WRITER_DEFAULTS
 
 _MODULE_DEFAULTS = [
     _COMPILER_DEFAULTS,
+    _C_TO_ASM_DEFAULTS,
     _JTAG_DEFAULTS,
     _ROM_WRITER_DEFAULTS,
     _RAM_ZERO_DEFAULTS,
     _RAM_DUMP_DEFAULTS,
     _MAILBOX_DEFAULTS,
+    _MEM_VALIDATOR_DEFAULTS,
     _QUARTUS_PROGRAM_DEFAULTS,
     _ORCHESTRATOR_DEFAULTS,
 ]
@@ -31,7 +35,21 @@ _MODULE_DEFAULTS = [
 
 def deep_merge(base: dict, overlay: dict) -> dict:
     """Recursively merges overlay into base (overlay wins on
-    conflicts); returns a new dict, doesn't mutate either argument."""
+    conflicts); returns a new dict, doesn't mutate either argument.
+
+    Args:
+        base: The starting dict — its own keys/values are used
+            wherever overlay doesn't override them.
+        overlay: The dict to layer on top — for each key, if both
+            base and overlay have a dict there, they're merged
+            recursively; otherwise overlay's value wins outright
+            (including replacing a base dict with a non-dict, or vice
+            versa).
+
+    Returns:
+        A new dict combining base and overlay. Neither input is
+        mutated.
+    """
     result = dict(base)
     for key, value in overlay.items():
         if isinstance(value, dict) and isinstance(result.get(key), dict):
@@ -43,7 +61,18 @@ def deep_merge(base: dict, overlay: dict) -> dict:
 
 def load_config(project_config_path: Path) -> dict:
     """Merges every module's DEFAULTS (in _MODULE_DEFAULTS order) and
-    then the project's own config.yaml on top."""
+    then the project's own config.yaml on top.
+
+    Args:
+        project_config_path: Path to the consuming project's own
+            config.yaml (memory map, Quartus project paths, toolchain,
+            etc.) — its values always win over any module default.
+
+    Returns:
+        The fully merged config dict, in the same nested shape every
+        module's functions expect as `cfg` (top-level keys like
+        "toolchain", "isa", "paths", "quartus", "memory", "emulator").
+    """
     cfg: dict = {}
     for defaults in _MODULE_DEFAULTS:
         cfg = deep_merge(cfg, defaults)

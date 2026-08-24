@@ -12,22 +12,71 @@ import sys
 from pathlib import Path
 
 from riscv_tools import compiler as compiler_mod
-from riscv_tools import mailbox, orchestrator, quartus_program, ram_dump, ram_zero, rom_writer
+from riscv_tools import c_to_asm as c_to_asm_mod
+from riscv_tools import mailbox, mem_validator, orchestrator, quartus_program, ram_dump, ram_zero, rom_writer
 from riscv_tools.jtag import JtagLink, detect_jtag_hardware
 from riscv_tools.settings import load_config
 
 
 def _link(cfg: dict) -> JtagLink:
+    """Builds a JtagLink for the currently connected cable and the
+    project's configured chip.
+
+    Args:
+        cfg: The merged project config — uses quartus.jtag_device.
+
+    Returns:
+        A JtagLink with a live-detected hardware_name (see
+        jtag.detect_jtag_hardware) and cfg's device_name.
+    """
     return JtagLink(hardware_name=detect_jtag_hardware(), device_name=cfg["quartus"]["jtag_device"])
 
 
 def _root(args) -> Path:
+    """Resolves the consuming project's root directory for a subcommand.
+
+    Args:
+        args: Parsed CLI arguments — uses args.root.
+
+    Returns:
+        Path(args.root).resolve() if --root was passed, else the
+        current working directory.
+    """
     return Path(args.root).resolve() if args.root else Path.cwd()
 
 
 def cmd_compile(args) -> None:
+    """Implements `riscv-tools compile`: builds every .c/.S test in the
+    project's real or sim test directory into .mif/.hex (+
+    manifest.json), or into human-readable .s (no manifest) for
+    --emit asm.
+
+    Args:
+        args: Parsed CLI arguments — uses args.config, args.root,
+            args.emit ("mif", "hex", or "asm").
+
+    Returns:
+        None. Exits the process with status 1 if the source directory
+        has no .c/.S files, or if a "memory"-kind test (--emit mif
+        only) is missing its golden JSON.
+    """
     cfg = load_config(args.config)
     root = _root(args)
+
+    if args.emit == "asm":
+        src_dir = root / cfg["paths"]["tests_real_dir"]
+        build_dir = root / cfg["paths"]["build_dir"] / "asm"
+        c_files = sorted(src_dir.glob("*.c")) + sorted(src_dir.glob("*.S"))
+        if not c_files:
+            print(f"No .c/.S files found in {src_dir}", file=sys.stderr)
+            sys.exit(1)
+        for c_file in c_files:
+            asm = c_to_asm_mod.c_to_asm(
+                cfg["toolchain"], cfg["isa"], c_file, build_dir, root / cfg["paths"]["include_dir"]
+            )
+            print(f"Wrote {asm}")
+        return
+
     is_real = args.emit == "mif"
     src_dir = root / (cfg["paths"]["tests_real_dir"] if is_real else cfg["paths"]["tests_sim_dir"])
     build_dir = root / cfg["paths"]["build_dir"] / ("real" if is_real else "sim")
@@ -52,10 +101,10 @@ def cmd_compile(args) -> None:
             mif = build_dir / f"{c_file.stem}.mif"
             compiler_mod.bin_to_mif(bin_, mif, depth=cfg["memory"]["rom_words"])
             entry["mif"] = str(mif.relative_to(root))
-            if kind == "integration":
+            if kind == "memory":
                 golden_path = root / cfg["paths"]["golden_dir"] / f"{c_file.stem}.json"
                 if not golden_path.is_file():
-                    print(f"ERROR: {c_file.name} is integration but {golden_path} is missing", file=sys.stderr)
+                    print(f"ERROR: {c_file.name} is memory but {golden_path} is missing", file=sys.stderr)
                     sys.exit(1)
                 entry["golden"] = str(golden_path.relative_to(root))
         else:
@@ -71,24 +120,62 @@ def cmd_compile(args) -> None:
 
 
 def cmd_write_rom(args) -> None:
+    """Implements `riscv-tools write-rom`: JTAG-writes a .mif into the
+    ROM instance of the already-programmed board.
+
+    Args:
+        args: Parsed CLI arguments — uses args.config, args.mif.
+
+    Returns:
+        None.
+    """
     cfg = load_config(args.config)
     link = _link(cfg)
     rom_writer.write_rom(link, cfg["quartus"]["rom_mem_instance"], Path(args.mif))
 
 
 def cmd_zero_ram(args) -> None:
+    """Implements `riscv-tools zero-ram`: JTAG-clears the whole RAM
+    instance of the already-programmed board.
+
+    Args:
+        args: Parsed CLI arguments — uses args.config.
+
+    Returns:
+        None.
+    """
     cfg = load_config(args.config)
     link = _link(cfg)
     ram_zero.zero_ram(link, cfg["quartus"]["ram_mem_instance"], cfg["memory"]["ram_words"])
 
 
 def cmd_dump_ram(args) -> None:
+    """Implements `riscv-tools dump-ram`: JTAG-saves the whole RAM
+    instance of the already-programmed board to a .mif.
+
+    Args:
+        args: Parsed CLI arguments — uses args.config, args.out.
+
+    Returns:
+        None.
+    """
     cfg = load_config(args.config)
     link = _link(cfg)
     ram_dump.dump_ram(link, cfg["quartus"]["ram_mem_instance"], Path(args.out))
 
 
 def cmd_program(args) -> None:
+    """Implements `riscv-tools program`: compiles the Quartus project
+    with the given .mif baked in as the ROM's init_file, then programs
+    the board (the slow "full reconfigure" path).
+
+    Args:
+        args: Parsed CLI arguments — uses args.config, args.root,
+            args.mif.
+
+    Returns:
+        None.
+    """
     cfg = load_config(args.config)
     link = _link(cfg)
     root = _root(args)
@@ -104,6 +191,17 @@ def cmd_program(args) -> None:
 
 
 def cmd_mailbox(args) -> None:
+    """Implements `riscv-tools mailbox`: reads the PASS/FAIL mailbox,
+    or pulses the restart go-flag, on the already-programmed board.
+
+    Args:
+        args: Parsed CLI arguments — uses args.config, args.action
+            ("read" or "pulse").
+
+    Returns:
+        None. For args.action == "read", prints "MAILBOX=<value>" to
+        stdout.
+    """
     cfg = load_config(args.config)
     link = _link(cfg)
     if args.action == "read":
@@ -117,7 +215,47 @@ def cmd_mailbox(args) -> None:
         )
 
 
+def cmd_generate_golden(args) -> None:
+    """Implements `riscv-tools generate-golden`: runs an ELF under
+    Spike and writes a golden JSON snapshot of a RAM byte range (see
+    mem_validator.generate_golden).
+
+    Args:
+        args: Parsed CLI arguments — uses args.config, args.elf,
+            args.march, args.start, args.end (start/end parsed with
+            base 0, so "0x10" or "16" both work), args.out.
+
+    Returns:
+        None. Prints the number of bytes written to stdout.
+    """
+    cfg = load_config(args.config)
+    golden = mem_validator.generate_golden(
+        spike_bin=cfg["emulator"]["spike_bin"],
+        nm_bin=cfg["toolchain"]["nm"],
+        elf_path=Path(args.elf),
+        isa=args.march,
+        restart_symbol=cfg["emulator"]["restart_symbol"],
+        addr_start=int(args.start, 0),
+        addr_end=int(args.end, 0),
+    )
+    mem_validator.write_golden_json(golden, Path(args.out))
+    print(f"Wrote {args.out} ({len(golden)} bytes)")
+
+
 def cmd_run(args) -> None:
+    """Implements `riscv-tools run`: runs the full real-hardware test
+    suite from a manifest.json (see orchestrator.run_suite).
+
+    Args:
+        args: Parsed CLI arguments — uses args.config, args.root,
+            args.manifest (defaults to <build_dir>/real/manifest.json
+            if not given).
+
+    Returns:
+        None. Prints a PASS/FAIL summary to stdout. Exits the process
+        with status 1 if the manifest file is missing, or if any test
+        failed.
+    """
     cfg = load_config(args.config)
     root = _root(args)
     build_dir = root / cfg["paths"]["build_dir"] / "real"
@@ -141,13 +279,25 @@ def cmd_run(args) -> None:
 
 
 def main() -> None:
+    """CLI entry point (console script `riscv-tools`): builds the
+    argument parser, registers every subcommand, and dispatches to its
+    cmd_* handler.
+
+    Args:
+        None (reads sys.argv via argparse).
+
+    Returns:
+        None. Exits the process with a non-zero status on argument
+        errors, or whatever the dispatched cmd_* function causes (see
+        each cmd_*'s own Returns/Raises).
+    """
     parser = argparse.ArgumentParser(prog="riscv-tools", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--config", required=True, help="Path to the consuming project's config.yaml")
     parser.add_argument("--root", default=None, help="Consuming project's root dir (default: cwd)")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p = sub.add_parser("compile", help="Compile tests/c/{real,sim} into mif/hex + manifest.json")
-    p.add_argument("--emit", choices=["mif", "hex"], required=True)
+    p = sub.add_parser("compile", help="Compile tests/c/{real,sim} into mif/hex/asm (+ manifest.json for mif/hex)")
+    p.add_argument("--emit", choices=["mif", "hex", "asm"], required=True)
     p.set_defaults(func=cmd_compile)
 
     p = sub.add_parser("write-rom", help="JTAG-write a .mif into the ROM instance")
@@ -168,6 +318,14 @@ def main() -> None:
     p = sub.add_parser("mailbox", help="Read the PASS/FAIL mailbox, or pulse the restart go-flag")
     p.add_argument("action", choices=["read", "pulse"])
     p.set_defaults(func=cmd_mailbox)
+
+    p = sub.add_parser("generate-golden", help="Generate a golden JSON by running an ELF under Spike (vendor/riscv-isa-sim)")
+    p.add_argument("elf")
+    p.add_argument("--march", required=True, help="e.g. rv32im")
+    p.add_argument("--start", required=True, help="First byte address to snapshot (hex or decimal)")
+    p.add_argument("--end", required=True, help="One past the last byte address to snapshot (hex or decimal)")
+    p.add_argument("--out", required=True, help="Where to write the golden .json")
+    p.set_defaults(func=cmd_generate_golden)
 
     p = sub.add_parser("run", help="Run the full real-hardware test suite from a manifest.json")
     p.add_argument("--manifest", default=None)

@@ -14,9 +14,32 @@ def compile_test(
     crt0: Path,
     linker: Path,
 ) -> tuple[Path, str, str, float]:
-    """Compiles one bare-metal test source (.c or .S) against crt0/linker,
-    returning (bin_path, march, kind, timeout_s) — see headers.py for
-    where march/kind/timeout_s come from."""
+    """Compiles one bare-metal test source (.c or .S) against crt0/linker
+    into a flat binary.
+
+    Args:
+        toolchain_cfg: The project's `toolchain:` config section —
+            needs `gcc` and `objcopy` (binary names or full paths).
+        isa_cfg: The project's `isa:` config section, passed through
+            to headers.parse_header.
+        default_timeout_s: Timeout to use if c_file has no `//
+            RV32_TIMEOUT_S:` header, passed through to
+            headers.parse_header.
+        c_file: Path to the test source (.c or .S) to compile.
+        build_dir: Directory to write the .elf/.bin into (created if
+            missing).
+        include_dir: Passed as `-I` — where `rv32_test.h` lives.
+        crt0: Path to the project's crt0.S, compiled and linked in
+            alongside c_file.
+        linker: Path to the project's linker script, passed as
+            `-Wl,-T,`.
+
+    Returns:
+        A (bin_path, march, kind, timeout_s) tuple: the path to the
+        flat .bin produced (build_dir/<c_file stem>.bin), and the
+        march/kind/timeout_s resolved from c_file's header comments
+        (see headers.parse_header).
+    """
     march, kind, timeout_s = parse_header(isa_cfg, default_timeout_s, c_file.read_text())
 
     build_dir.mkdir(parents=True, exist_ok=True)

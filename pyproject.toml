@@ -1,8 +1,8 @@
 [project]
 name = "riscv-tools"
-version = "0.1.0"
+version = "1.0.0"
 description = "Build/JTAG tooling for bare-metal RV32IM test programs: compile, write ROM/RAM over JTAG, program the base bitstream, and orchestrate a real-hardware test run."
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 dependencies = [
     "PyYAML>=6.0",
 ]
@@ -21,4 +21,4 @@ packages = ["src/riscv_tools"]
 package = true
 
 [dependency-groups]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=9.0"]

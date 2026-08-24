@@ -12,6 +12,7 @@ which overrides these defaults (see `riscv_tools/settings.py`).
 | Module              | Responsibility                                              |
 |----------------------|--------------------------------------------------------------|
 | `compiler`           | .c/.S -> .elf/.bin -> .mif/.hex, header parsing (`RV32_EXT`/`RV32_TEST_KIND`/`RV32_TIMEOUT_S`) |
+| `c_to_asm`           | .c -> human-readable RISC-V assembly (`gcc -S`), for inspecting codegen |
 | `jtag`               | Live JTAG cable detection, generic `.tcl` runner            |
 | `mem_edit`           | Generic In-System Memory Content Editor primitives (read/write word, write-full, dump) |
 | `rom_writer`         | JTAG-write a ROM image without reprogramming                |
@@ -19,7 +20,7 @@ which overrides these defaults (see `riscv_tools/settings.py`).
 | `ram_dump`           | JTAG-dump the whole RAM to a `.mif`                          |
 | `mailbox`            | PASS/FAIL mailbox read + restart "go flag" pulse             |
 | `quartus_program`    | Full recompile + `quartus_pgm` (the slow "base" path)        |
-| `mem_validator`      | Compare a RAM dump against a golden JSON                     |
+| `mem_validator`      | Compare a RAM dump against a golden JSON, or generate one via Spike |
 | `orchestrator`       | Composes the above into a full test-suite run                |
 
 ## Vendored references (git submodules)
@@ -32,24 +33,42 @@ which overrides these defaults (see `riscv_tools/settings.py`).
 Clone with `git clone --recurse-submodules`, or after a plain clone:
 `git submodule update --init --recursive`.
 
-### `mem_validator` roadmap
+### `mem_validator generate-golden`
 
-Today `mem_validator.compare` checks a RAM dump against a hand-written
-JSON. The `riscv-isa-sim` submodule is vendored so `mem_validator` can
-later generate that golden reference dynamically instead — run the
-same program through Spike and diff its memory state against the
-FPGA's, rather than trusting a JSON file someone wrote by hand.
+Runs a compiled ELF under Spike, using its interactive debug console
+(`-d`) to stop once execution reaches `restart_symbol` (default
+`rv32_wait_restart`, the point RV32_PASS/RV32_FAIL leave the core in —
+see the consuming project's crt0.S), then snapshots the given byte
+range of RAM into a golden JSON in the same format `compare` expects.
+
+Requires `vendor/riscv-isa-sim` to be built first:
+```bash
+cd vendor/riscv-isa-sim && ./configure && make
+```
+
+**Not yet verified against a built Spike on real hardware** — the
+debug-console command syntax (`until pc`, `mem`) matches Spike's
+long-documented interactive debugger, but wants a live smoke test
+once the submodule above is actually built.
+
+## How to create a RISC-V test
+
+- [Creating a test in C](docs/creating-a-c-test.md)
+- [Creating a test in assembly](docs/creating-an-asm-test.md)
 
 ## Usage
 
 ```bash
 uv sync
 uv run riscv-tools --config /path/to/project/config.yaml compile --emit mif
+uv run riscv-tools --config /path/to/project/config.yaml compile --emit asm
 uv run riscv-tools --config /path/to/project/config.yaml run
+uv run riscv-tools --config /path/to/project/config.yaml generate-golden \
+    build/real/some_test.elf --march rv32im --start 0x10 --end 0x20 --out golden/some_test.json
 ```
 
 See `riscv-tools --help` for the full subcommand list (`write-rom`,
-`zero-ram`, `dump-ram`, `program`, `mailbox read|pulse`, `run`).
+`zero-ram`, `dump-ram`, `program`, `mailbox read|pulse`, `generate-golden`, `run`).
 
 ## Development
 

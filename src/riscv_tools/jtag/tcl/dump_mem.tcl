@@ -1,5 +1,5 @@
 # Dumps a memory instance's full content to a .mif via JTAG — used
-# for RV32_TEST_KIND: integration tests that need more than a single
+# for RV32_TEST_KIND: memory tests that need more than a single
 # PASS/FAIL word checked.
 #
 # Usage: quartus_stp -t dump_mem.tcl <hardware> <device> <instance> <out.mif>

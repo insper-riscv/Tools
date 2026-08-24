@@ -25,8 +25,8 @@ def test_parse_header_defaults():
 
 
 def test_parse_header_all_fields():
-    text = "// RV32_EXT: M\n// RV32_TEST_KIND: integration\n// RV32_TIMEOUT_S: 30\n"
+    text = "// RV32_EXT: M\n// RV32_TEST_KIND: memory\n// RV32_TIMEOUT_S: 30\n"
     march, kind, timeout_s = parse_header(ISA, 15, text)
     assert march == "rv32im"
-    assert kind == "integration"
+    assert kind == "memory"
     assert timeout_s == 30.0
