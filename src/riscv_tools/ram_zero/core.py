@@ -6,13 +6,13 @@ from riscv_tools.jtag import JtagLink
 
 
 def _blank_mif(depth: int) -> Path:
-    """A full-depth all-zero .mif — mem_edit.write_full always
+    """A full-depth all-zero .mif, mem_edit.write_full always
     overwrites the whole instance, so "zero it" just means "write
     this" rather than needing a dedicated zeroing primitive on the
     Quartus side.
 
     Args:
-        depth: Word depth of the target memory instance — the .mif
+        depth: Word depth of the target memory instance, the .mif
             covers addresses [0, depth), all zero.
 
     Returns:
@@ -35,7 +35,7 @@ def _blank_mif(depth: int) -> Path:
 def zero_ram(link: JtagLink, ram_mem_instance: int, ram_words: int) -> None:
     """Clears every word of RAM over JTAG, without reprogramming the
     FPGA. Useful between test runs when a program's own crt0 restart
-    path (mailbox/go_flag self-clear) isn't enough — e.g. re-running
+    path (mailbox/go_flag self-clear) isn't enough, e.g. re-running
     a memory test that dumps and compares the whole RAM, where
     leftover words from a previous test would corrupt the comparison.
 
@@ -44,9 +44,8 @@ def zero_ram(link: JtagLink, ram_mem_instance: int, ram_words: int) -> None:
         ram_mem_instance: In-System Memory Content Editor instance
             index of the RAM (quartus.ram_mem_instance in the
             project's config.yaml).
-        ram_words: Word depth of the RAM instance (memory.ram_words in
-            the project's config.yaml) — every word in [0, ram_words)
-            is cleared.
+        ram_words: Word depth of the RAM instance (every word in [0,
+            ram_words]) is cleared.
 
     Returns:
         None.

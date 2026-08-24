@@ -1,5 +1,4 @@
-"""Defaults for dumping RAM over JTAG. A project's config.yaml
-overrides these under `quartus:`."""
+"""Defaults for dumping RAM over JTAG."""
 
 DEFAULTS = {
     "quartus": {

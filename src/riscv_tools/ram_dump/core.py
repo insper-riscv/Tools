@@ -5,15 +5,13 @@ from riscv_tools.jtag import JtagLink
 
 
 def dump_ram(link: JtagLink, ram_mem_instance: int, out_mif: Path) -> None:
-    """Saves the whole RAM content to a .mif over JTAG — used for
-    RV32_TEST_KIND: memory tests, where the PASS/FAIL mailbox
-    alone isn't enough (see riscv_tools.mem_validator.compare).
+    """Saves the whole RAM content to a .mif over JTAG, used for
+    memory tests, where the PASS/FAIL mailbox alone isn't enough.
 
     Args:
         link: Which JTAG cable/chip to read from.
         ram_mem_instance: In-System Memory Content Editor instance
-            index of the RAM (quartus.ram_mem_instance in the
-            project's config.yaml).
+            index of the RAM.
         out_mif: Path to write the .mif to (overwritten if it already
             exists).
 

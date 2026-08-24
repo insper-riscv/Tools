@@ -1,5 +1,4 @@
-"""Defaults for zeroing RAM over JTAG. A project's config.yaml
-overrides these under `quartus:`."""
+"""Defaults for zeroing RAM over JTAG.."""
 
 DEFAULTS = {
     "quartus": {
@@ -9,7 +8,7 @@ DEFAULTS = {
         "ram_mem_instance": 1,
     },
     "memory": {
-        # RAM depth (in words) — project-specific, no sane default.
+        # RAM depth (in words), project-specific.
         "ram_words": None,
     },
 }

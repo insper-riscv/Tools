@@ -1,5 +1,4 @@
-"""Defaults for writing a ROM image over JTAG. A project's config.yaml
-overrides these under `quartus:`."""
+"""Defaults for writing a ROM image over JTAG."""
 
 DEFAULTS = {
     "quartus": {
@@ -9,7 +8,7 @@ DEFAULTS = {
         "rom_mem_instance": 0,
     },
     "memory": {
-        # ROM depth (in words) — project-specific, no sane default.
+        # ROM depth (in words), project-specific.
         # Used to validate/format a program's .mif before writing it.
         "rom_words": None,
     },

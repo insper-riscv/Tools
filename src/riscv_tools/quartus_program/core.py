@@ -1,5 +1,4 @@
 import shutil
-import subprocess
 from pathlib import Path
 
 from riscv_tools.jtag import run

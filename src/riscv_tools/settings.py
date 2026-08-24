@@ -1,6 +1,6 @@
 """Assembles the merged config dict every other module's functions
 take as `cfg`. Each module owns its own defaults (its `__config__.py`
-DEFAULTS dict) — this just deep-merges all of them together and then
+DEFAULTS dict), this just deep-merges all of them together and then
 layers the consuming project's own config.yaml on top, which always
 wins. Add a new module's DEFAULTS to _MODULE_DEFAULTS to wire it in.
 """
@@ -38,9 +38,9 @@ def deep_merge(base: dict, overlay: dict) -> dict:
     conflicts); returns a new dict, doesn't mutate either argument.
 
     Args:
-        base: The starting dict — its own keys/values are used
+        base: The starting dict, its own keys/values are used
             wherever overlay doesn't override them.
-        overlay: The dict to layer on top — for each key, if both
+        overlay: The dict to layer on top, for each key, if both
             base and overlay have a dict there, they're merged
             recursively; otherwise overlay's value wins outright
             (including replacing a base dict with a non-dict, or vice
@@ -51,11 +51,13 @@ def deep_merge(base: dict, overlay: dict) -> dict:
         mutated.
     """
     result = dict(base)
+
     for key, value in overlay.items():
         if isinstance(value, dict) and isinstance(result.get(key), dict):
             result[key] = deep_merge(result[key], value)
         else:
             result[key] = value
+
     return result
 
 
@@ -66,7 +68,7 @@ def load_config(project_config_path: Path) -> dict:
     Args:
         project_config_path: Path to the consuming project's own
             config.yaml (memory map, Quartus project paths, toolchain,
-            etc.) — its values always win over any module default.
+            etc.).
 
     Returns:
         The fully merged config dict, in the same nested shape every
@@ -74,7 +76,8 @@ def load_config(project_config_path: Path) -> dict:
         "toolchain", "isa", "paths", "quartus", "memory", "emulator").
     """
     cfg: dict = {}
+
     for defaults in _MODULE_DEFAULTS:
         cfg = deep_merge(cfg, defaults)
-    project_cfg = yaml.safe_load(Path(project_config_path).read_text())
-    return deep_merge(cfg, project_cfg)
+
+    return deep_merge(cfg, yaml.safe_load(Path(project_config_path).read_text()))
