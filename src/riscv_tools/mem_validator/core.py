@@ -15,6 +15,9 @@ LINE_RE = re.compile(r"^\s*([0-9A-Fa-f]+)\s*:\s*([0-9A-Fa-f]+)\s*;")
 RANGE_RE = re.compile(
     r"^\s*\[([0-9A-Fa-f]+)\.\.([0-9A-Fa-f]+)\]\s*:\s*([0-9A-Fa-f]+)\s*;"
 )
+DATA_RADIX_RE = re.compile(r"DATA_RADIX\s*=\s*(\w+)\s*;", re.IGNORECASE)
+# Quartus' own .mif radix names, mapped to Python's int() base.
+_RADIX_TO_BASE = {"BIN": 2, "HEX": 16, "DEC": 10, "OCT": 8}
 # How many individual byte diffs compare() prints before truncating —
 # more than this and the output stops being useful anyway.
 _MAX_DIFFS_SHOWN = 50
@@ -42,12 +45,23 @@ def parse_mif_words(mif_path: Path) -> dict[int, int]:
     Raises
     ------
     ValueError
-        mif_path has no CONTENT ... END; block.
+        mif_path has no CONTENT ... END; block, or its DATA_RADIX
+        (default HEX per the .mif spec) isn't one of BIN/HEX/DEC/OCT.
     """
     text = mif_path.read_text()
     m = CONTENT_RE.search(text)
     if not m:
         raise ValueError(f"{mif_path}: no CONTENT ... END; block found")
+    # Address column is always ADDRESS_RADIX=HEX in the files this
+    # package writes/reads, but DATA_RADIX varies — Quartus'
+    # save_content_from_memory_to_file (see dump_mem.tcl) emits BIN,
+    # not HEX, so the value column must be parsed with the base the
+    # header actually declares rather than assumed.
+    radix_m = DATA_RADIX_RE.search(text)
+    radix = radix_m.group(1).upper() if radix_m else "HEX"
+    if radix not in _RADIX_TO_BASE:
+        raise ValueError(f"{mif_path}: unsupported DATA_RADIX {radix!r}")
+    base = _RADIX_TO_BASE[radix]
     words: dict[int, int] = {}
     for raw_line in m.group(1).splitlines():
         line = raw_line.strip()
@@ -56,14 +70,14 @@ def parse_mif_words(mif_path: Path) -> dict[int, int]:
             start, end, val = (
                 int(rm.group(1), 16),
                 int(rm.group(2), 16),
-                int(rm.group(3), 16),
+                int(rm.group(3), base),
             )
             for addr in range(start, end + 1):
                 words[addr] = val
             continue
         lm = LINE_RE.match(line)
         if lm:
-            words[int(lm.group(1), 16)] = int(lm.group(2), 16)
+            words[int(lm.group(1), 16)] = int(lm.group(2), base)
     return words
 
 

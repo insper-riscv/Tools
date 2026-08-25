@@ -24,7 +24,7 @@ if {[catch { begin_memory_edit -hardware_name $HW -device_name $DEV } err]} {
 if {[catch {
     write_content_to_memory -instance_index $INSTANCE \
         -start_address $WORD_OFFSET -word_count 1 \
-        -content [format %x $VALUE] -content_in_hex
+        -content [format %08x $VALUE] -content_in_hex
 } werr]} {
     puts stderr "write_content_to_memory failed: $werr"
     catch { end_memory_edit }
