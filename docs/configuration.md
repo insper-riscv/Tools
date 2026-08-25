@@ -45,9 +45,10 @@ sections. Any key you omit falls back to the built-in default shown.
 | `crt0` | Path to your project's `crt0.S`, compiled+linked into every test |
 | `linker_script` | Path to your project's linker script |
 | `build_dir` | Where compiled artifacts (`.elf`/`.bin`/`.mif`/`.hex`/`manifest.json`) are written |
-| `tests_real_dir` | Directory `compile --emit mif` / `--emit asm` scans for `.c`/`.S` |
-| `tests_sim_dir` | Directory `compile --emit hex` scans for `.c`/`.S` |
-| `golden_dir` | Directory holding golden `.json` files for `RV32_TEST_KIND: memory` tests |
+| `c_dir` | Directory holding one `<name>/src.c` folder per C test — see [creating-a-c-test.md](creating-a-c-test.md) |
+| `asm_dir` | Directory holding one `<name>/src.S` folder per assembly test — see [creating-an-asm-test.md](creating-an-asm-test.md) |
+
+No `tests_real_dir`/`tests_sim_dir`/`golden_dir` split: every test under `c_dir`/`asm_dir` builds for `compile --emit mif` (real) regardless of kind; `--emit hex` (sim) skips `RV32_TEST_KIND: memory` tests, since `sim_runner` doesn't verify RAM contents, only the PASS/FAIL mailbox — building one for sim would silently under-verify it instead of catching a wrong computed value. A `memory` test's expected `{byte address: byte value}` map lives at `<name>/manifest.json`, next to its `src.c`/`src.S`, not in a separate golden directory.
 
 ### `quartus:`
 
@@ -129,9 +130,8 @@ paths:
   crt0: tools/riscv_build/crt0.S
   linker_script: tools/riscv_build/link.ld
   build_dir: build
-  tests_real_dir: tests/c/real
-  tests_sim_dir: tests/c/sim
-  golden_dir: tests/c/real/golden
+  c_dir: c
+  asm_dir: asm
 
 memory:
   ram_base: 0x00000000

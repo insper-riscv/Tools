@@ -67,12 +67,46 @@ def _root(args: argparse.Namespace) -> Path:
     return Path(args.root).resolve() if args.root else Path.cwd()
 
 
+def _discover_tests(root: Path, cfg: dict[str, Any]) -> list[Path]:
+    """Find every test source under paths.c_dir/paths.asm_dir.
+
+    Each test is its own <c_dir|asm_dir>/<name>/ folder containing
+    exactly one `src.c` or `src.S` and, for "memory"-kind tests, a
+    `manifest.json` holding the expected {byte address: byte value}
+    map (see mem_validator.compare) — kept next to the source instead
+    of a separate golden/ directory.
+
+    Parameters
+    ----------
+    root : Path
+        The consuming project's root directory.
+    cfg : dict of {str: Any}
+        The merged project config — uses paths.c_dir/paths.asm_dir.
+
+    Returns
+    -------
+    list of Path
+        Every `src.c`/`src.S` found, sorted by test name (the parent
+        folder's name) — folder names must be unique across
+        c_dir/asm_dir combined.
+    """
+    c_dir = root / cfg["paths"]["c_dir"]
+    asm_dir = root / cfg["paths"]["asm_dir"]
+    sources = list(c_dir.glob("*/src.c")) + list(asm_dir.glob("*/src.S"))
+    return sorted(sources, key=lambda p: p.parent.name)
+
+
 def cmd_compile(args: argparse.Namespace) -> None:
     """Implement `riscv-tools compile`.
 
-    Builds every .c/.S test in the project's real or sim test
-    directory into .mif/.hex (+ manifest.json), or into human-readable
-    .s (no manifest) for --emit asm.
+    Builds every test under paths.c_dir/paths.asm_dir into .mif/.hex
+    (+ manifest.json), or into human-readable .s (no manifest) for
+    --emit asm. Each test is its own <c_dir|asm_dir>/<name>/ folder
+    (see _discover_tests) — "real" (--emit mif) builds every test
+    regardless of kind, "sim" (--emit hex) skips "memory"-kind tests,
+    since sim doesn't verify RAM contents (only the PASS/FAIL
+    mailbox), and building one would silently under-verify it instead
+    of catching a wrong computed value.
 
     Parameters
     ----------
@@ -90,88 +124,91 @@ def cmd_compile(args: argparse.Namespace) -> None:
     Returns
     -------
     None
-        Exits the process with status 1 if the source directory has
-        no .c/.S files, or if a "memory"-kind test (--emit mif only)
-        is missing its golden JSON.
+        Exits the process with status 1 if no tests are found, or if
+        a "memory"-kind test (--emit mif only) is missing its
+        manifest.json.
     """
     cfg = load_config(args.config)
     root = _root(args)
 
+    sources = _discover_tests(root, cfg)
+    if not sources:
+        print(
+            f"No tests found under {root / cfg['paths']['c_dir']} or "
+            f"{root / cfg['paths']['asm_dir']}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     if args.emit == "asm":
-        src_dir = root / cfg["paths"]["tests_real_dir"]
         build_dir = root / cfg["paths"]["build_dir"] / "asm"
-        c_files = sorted(src_dir.glob("*.c")) + sorted(src_dir.glob("*.S"))
-
-        if not c_files:
-            print(f"No .c/.S files found in {src_dir}", file=sys.stderr)
-            sys.exit(1)
-
-        for c_file in c_files:
+        for src in sources:
             asm = c_to_asm_mod.c_to_asm(
                 cfg["toolchain"],
                 cfg["isa"],
-                c_file,
+                src,
+                src.parent.name,
                 build_dir,
                 root / cfg["paths"]["include_dir"],
             )
             print(f"Wrote {asm}")
-
         return
 
     is_real = args.emit == "mif"
-    src_dir = root / (
-        cfg["paths"]["tests_real_dir"] if is_real else cfg["paths"]["tests_sim_dir"]
-    )
     build_dir = root / cfg["paths"]["build_dir"] / ("real" if is_real else "sim")
-
-    c_files = sorted(src_dir.glob("*.c")) + sorted(src_dir.glob("*.S"))
-
-    if not c_files:
-        print(f"No .c/.S files found in {src_dir}", file=sys.stderr)
-        sys.exit(1)
 
     manifest: list[dict[str, Any]] = []
 
-    for c_file in c_files:
-        print(f"Building {c_file.relative_to(root)} ...")
+    for src in sources:
+        name = src.parent.name
+
+        kind_peek = compiler_mod.parse_header(
+            cfg["isa"], cfg["quartus"]["default_timeout_s"], src.read_text()
+        )[1]
+        if kind_peek == "memory" and not is_real:
+            print(f"Skipping {name}: sim doesn't verify memory-kind tests")
+            continue
+
+        print(f"Building {src.relative_to(root)} ...")
 
         bin_, march, kind, timeout_s = compiler_mod.compile_test(
             cfg["toolchain"],
             cfg["isa"],
             cfg["quartus"]["default_timeout_s"],
-            c_file,
+            src,
+            name,
             build_dir,
             root / cfg["paths"]["include_dir"],
             root / cfg["paths"]["crt0"],
             root / cfg["paths"]["linker_script"],
         )
 
-        entry: dict[str, Any] = {"name": c_file.stem, "march": march, "kind": kind}
+        entry: dict[str, Any] = {"name": name, "march": march, "kind": kind}
 
         if is_real:
             entry["timeout_s"] = timeout_s
-            mif = build_dir / f"{c_file.stem}.mif"
+            mif = build_dir / f"{name}.mif"
             bin_to_image.bin_to_mif(bin_, mif, depth=cfg["memory"]["rom_words"])
             entry["mif"] = str(mif.relative_to(root))
 
             if kind == "memory":
-                golden_path = root / cfg["paths"]["golden_dir"] / f"{c_file.stem}.json"
+                golden_path = src.parent / "manifest.json"
 
                 if not golden_path.is_file():
                     print(
-                        f"ERROR: {c_file.name} is memory but {golden_path} is missing",
+                        f"ERROR: {name} is memory but {golden_path} is missing",
                         file=sys.stderr,
                     )
                     sys.exit(1)
 
                 entry["golden"] = str(golden_path.relative_to(root))
         else:
-            hex_ = build_dir / f"{c_file.stem}.hex"
+            hex_ = build_dir / f"{name}.hex"
             bin_to_image.bin_to_hex(bin_, hex_)
             entry["hex"] = str(hex_.relative_to(root))
 
         if args.manifest_per_test:
-            per_test_path = Path(args.manifest_per_test.format(name=entry["name"]))
+            per_test_path = Path(args.manifest_per_test.format(name=name))
             per_test_path.parent.mkdir(parents=True, exist_ok=True)
             per_test_path.write_text(json.dumps(entry, indent=2))
             print(f"Wrote {per_test_path}")

@@ -8,9 +8,18 @@ equivalent C expression.
 
 ## Where it goes
 
-Same directories as C tests (`paths.tests_real_dir` /
-`paths.tests_sim_dir`), just with a `.S` extension instead of `.c`.
-`riscv-tools compile` scans both extensions together.
+A folder under `paths.asm_dir` (typically `asm/`), named for what the
+test does, containing a `src.S`:
+
+```
+asm/
+└── section6-loadstore/
+    └── src.S
+```
+
+Same convention as C tests (see
+[creating-a-c-test.md](creating-a-c-test.md#where-it-goes)) — just
+`asm_dir`/`src.S` instead of `c_dir`/`src.c`.
 
 ## Header comments
 
@@ -62,16 +71,17 @@ JTAG-reload it from.
 
 ## Full example
 
-See `tests/c/real/test_section6_loadstore.S` in the consuming
-project's repo for a complete worked example (loads a base register,
-does a LUI+SW+LW round trip, then signals PASS as above).
+See `asm/section6-loadstore/src.S` in the consuming project's repo
+for a complete worked example (loads a base register, does a
+LUI+SW+LW round trip, then signals PASS as above).
 
 ## Building, inspecting, running
 
 Same CLI as C tests:
 
 ```bash
-uv run riscv-tools --config <project>/config.yaml compile --emit mif
+uv run riscv-tools --config <project>/config.yaml compile --emit mif   # every test, real
+uv run riscv-tools --config <project>/config.yaml compile --emit hex   # unit-kind only, sim
 uv run riscv-tools --config <project>/config.yaml run
 ```
 

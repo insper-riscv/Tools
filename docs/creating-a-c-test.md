@@ -2,24 +2,36 @@
 
 ## Where it goes
 
-Drop a `.c` file into the consuming project's real or sim test
-directory (`paths.tests_real_dir` / `paths.tests_sim_dir` in that
-project's `config.yaml` — typically `tests/c/real/` and
-`tests/c/sim/`). `riscv-tools compile` picks up every `.c`/`.S` file
-in that directory automatically; there's nothing else to register.
+Create a folder under the consuming project's `paths.c_dir`
+(typically `c/`), named for what the test does, containing a
+`src.c`:
+
+```
+c/
+└── example-add/
+    └── src.c
+```
+
+`riscv-tools compile` picks up every `<c_dir>/<name>/src.c` folder
+automatically — the folder name becomes the test's name in the
+manifest; there's nothing else to register.
 
 ## Header comments
 
-Three optional `//` comments at the top of the file configure how
+Three optional `//` comments at the top of `src.c` configure how
 `compiler` (see `riscv_tools/compiler/headers.py`) builds and runs it:
 
 ```c
 // RV32_EXT: M          // extensions ADDED to the implicit rv32i base.
 // RV32_EXT: M,A        // order doesn't matter, "A,M" also becomes rv32ima.
 // RV32_TEST_KIND: unit          // default. Checked via the PASS/FAIL
-                                  // mailbox only.
+                                  // mailbox only. Builds for both real
+                                  // hardware and sim.
 // RV32_TEST_KIND: memory        // also dumps the whole RAM and compares
-                                  // it against a golden JSON (see below).
+                                  // it against manifest.json (see below).
+                                  // Real hardware only — sim_runner
+                                  // doesn't verify RAM contents, so
+                                  // `compile --emit hex` skips these.
 // RV32_TIMEOUT_S: 5             // real tests only, how long the
                                   // orchestrator waits for this test's
                                   // mailbox before falling back to a full
@@ -32,6 +44,7 @@ Three optional `//` comments at the top of the file configure how
 ## Writing the test
 
 ```c
+// c/example-mem/src.c
 #include "rv32_test.h"
 
 int main(void) {
@@ -66,9 +79,18 @@ start of RAM/ROM.
 ## `unit` vs `memory` tests
 
 - `unit` (the default): passing means the mailbox reads PASS. Good
-  enough when the test can fully judge itself with an `if`.
-- `memory`: also requires `tests/c/real/golden/<name>.json` — a map of
-  byte address (hex string) to expected byte value (0-255):
+  enough when the test can fully judge itself with an `if`. Builds
+  for both `compile --emit mif` (real) and `--emit hex` (sim).
+- `memory`: also requires `c/<name>/manifest.json` — a map of byte
+  address (hex string) to expected byte value (0-255), next to
+  `src.c`:
+
+  ```
+  c/
+  └── example-mem/
+      ├── src.c
+      └── manifest.json
+  ```
 
   ```json
   {
@@ -78,23 +100,29 @@ start of RAM/ROM.
   ```
 
   `compiler` fails fast at compile time if a `memory` test is missing
-  its golden file. Write it by hand, or generate it by running the
+  its `manifest.json`. Write it by hand, or generate it by running the
   compiled ELF under Spike instead of guessing the expected bytes:
 
   ```bash
   uv run riscv-tools --config <project>/config.yaml generate-golden \
-      build/real/my_test.elf --march rv32im --start 0x10 --end 0x20 \
-      --out tests/c/real/golden/my_test.json
+      build/real/example-mem.elf --march rv32im --start 0x10 --end 0x20 \
+      --out c/example-mem/manifest.json
   ```
 
   See [generating-a-golden.md](generating-a-golden.md) — this
   requires `vendor/riscv-isa-sim` built first (`golden_generator.setup()`).
 
+  `memory` tests build for `--emit mif` (real) only — `compile --emit
+  hex` skips them, since `sim_runner` only ever checks the PASS/FAIL
+  mailbox, never RAM contents; building one for sim would silently
+  under-verify it (a wrong computed value would still report PASS)
+  instead of catching the mistake.
+
 ## Building, inspecting, running
 
 ```bash
-uv run riscv-tools --config <project>/config.yaml compile --emit mif   # real/FPGA
-uv run riscv-tools --config <project>/config.yaml compile --emit hex   # sim
+uv run riscv-tools --config <project>/config.yaml compile --emit mif   # real/FPGA, every test
+uv run riscv-tools --config <project>/config.yaml compile --emit hex   # sim, unit tests only
 uv run riscv-tools --config <project>/config.yaml compile --emit asm   # inspect codegen (gcc -S)
 uv run riscv-tools --config <project>/config.yaml run                  # real hardware suite
 ```

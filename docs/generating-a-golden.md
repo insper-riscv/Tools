@@ -121,7 +121,7 @@ uv run riscv-tools --config <project>/config.yaml generate-golden \
     build/real/my_test.elf \
     --march rv32im \
     --start 0x10 --end 0x20 \
-    --out tests/c/real/golden/my_test.json
+    --out c/my_test/manifest.json
 ```
 
 - `--march` should match the test's own march (the `RV32_EXT` header,

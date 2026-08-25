@@ -157,8 +157,12 @@ jobs:
       - name: Regenerate every existing golden
         working-directory: Tools
         run: |
-          for golden in ../tests/c/real/golden/*.json; do
-            name=$(basename "$golden" .json)
+          # manifest.json only exists next to src.c/src.S for
+          # "memory"-kind tests (see creating-a-c-test.md) — every
+          # other test has nothing to regenerate here.
+          for golden in ../c/*/manifest.json ../asm/*/manifest.json; do
+            [ -f "$golden" ] || continue
+            name=$(basename "$(dirname "$golden")")
             elf="../build/real/$name.elf"
             march=$(jq -r --arg n "$name" '.[] | select(.name == $n) | .march' ../build/real/manifest.json)
             # jq has no hex-parsing builtin, but its keys are always

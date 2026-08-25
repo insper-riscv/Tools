@@ -14,6 +14,7 @@ def compile_test(  # noqa: PLR0913, PLR0917
     isa_cfg: dict[str, Any],
     default_timeout_s: float,
     c_file: Path,
+    name: str,
     build_dir: Path,
     include_dir: Path,
     crt0: Path,
@@ -36,6 +37,11 @@ def compile_test(  # noqa: PLR0913, PLR0917
         passed through to headers.parse_header.
     c_file : Path
         Path to the test source (.c or .S) to compile.
+    name : str
+        This test's name, used for the output .elf/.bin basename —
+        not necessarily c_file.stem, since every test source is
+        conventionally named `src.c`/`src.S` inside its own
+        <c_dir|asm_dir>/<name>/ folder (see cli.py's test discovery).
     build_dir : Path
         Directory to write the .elf/.bin into (created if missing).
     include_dir : Path
@@ -50,7 +56,7 @@ def compile_test(  # noqa: PLR0913, PLR0917
     -------
     tuple of (Path, str, str, float)
         A (bin_path, march, kind, timeout_s) tuple: the path to the
-        flat .bin produced (build_dir/<c_file stem>.bin), and the
+        flat .bin produced (build_dir/<name>.bin), and the
         march/kind/timeout_s resolved from c_file's header comments
         (see headers.parse_header).
     """
@@ -59,8 +65,8 @@ def compile_test(  # noqa: PLR0913, PLR0917
     )
 
     build_dir.mkdir(parents=True, exist_ok=True)
-    elf = build_dir / f"{c_file.stem}.elf"
-    bin_ = build_dir / f"{c_file.stem}.bin"
+    elf = build_dir / f"{name}.elf"
+    bin_ = build_dir / f"{name}.bin"
 
     subprocess.run(
         [
