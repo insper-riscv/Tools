@@ -445,22 +445,27 @@ def cmd_generate_golden(args: argparse.Namespace) -> None:
 def cmd_run(args: argparse.Namespace) -> None:
     """Implement `riscv-tools run`.
 
-    Runs the full real-hardware test suite from a manifest.json (see
-    orchestrator.run_suite).
+    Runs the real-hardware test suite from a manifest.json (see
+    orchestrator.run_suite) — the full manifest by default, or a
+    caller-picked subset via --only.
 
     Parameters
     ----------
     args : argparse.Namespace
         Parsed CLI arguments — uses args.config, args.root,
         args.manifest (defaults to <build_dir>/real/manifest.json if
-        not given).
+        not given), args.only (list of test names to run instead of
+        the whole manifest — each entry may itself be a comma-
+        separated list; repeat --only to add more), args.
+        skip_reconfigure (see orchestrator.run_suite's reconfigure
+        param).
 
     Returns
     -------
     None
         Prints a PASS/FAIL summary to stdout. Exits the process with
-        status 1 if the manifest file is missing, or if any test
-        failed.
+        status 1 if the manifest file is missing, if --only names a
+        test that isn't in the manifest, or if any test failed.
     """
     cfg = load_config(args.config)
     root = _root(args)
@@ -478,11 +483,31 @@ def cmd_run(args: argparse.Namespace) -> None:
 
     manifest: list[dict[str, Any]] = json.loads(manifest_path.read_text())
 
+    if args.only:
+        wanted = [name for group in args.only for name in group.split(",") if name]
+        by_name = {entry["name"]: entry for entry in manifest}
+        missing = [name for name in wanted if name not in by_name]
+        if missing:
+            print(
+                f"--only names not found in {manifest_path}: {', '.join(missing)}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        manifest = [by_name[name] for name in wanted]
+
     link = _link(cfg)
     print(f"JTAG hardware: {link.hardware_name}")
     project_dir = root / cfg["quartus"]["project_dir"]
 
-    results = orchestrator.run_suite(cfg, link, manifest, build_dir, root, project_dir)
+    results = orchestrator.run_suite(
+        cfg,
+        link,
+        manifest,
+        build_dir,
+        root,
+        project_dir,
+        reconfigure=not args.skip_reconfigure,
+    )
 
     print("\n=== Summary ===")
     for name, ok in results.items():
@@ -748,9 +773,28 @@ def main() -> None:  # noqa: PLR0915
     p.set_defaults(func=cmd_generate_golden)
 
     p = sub.add_parser(
-        "run", help="Run the full real-hardware test suite from a manifest.json"
+        "run", help="Run the real-hardware test suite from a manifest.json"
     )
     p.add_argument("--manifest", default=None)
+    p.add_argument(
+        "--only",
+        action="append",
+        default=[],
+        metavar="NAME[,NAME...]",
+        help="Only run these test(s) (by manifest name), instead of the whole "
+        "suite — repeatable, and/or comma-separated in one use. Implies you "
+        "probably also want --skip-reconfigure if the board is already "
+        "running a compatible bitstream.",
+    )
+    p.add_argument(
+        "--skip-reconfigure",
+        action="store_true",
+        help="Skip the initial compile+program step and go straight to "
+        "JTAG-loading each test's ROM — only safe if the board is ALREADY "
+        "programmed with a compatible bitstream (e.g. re-running a few "
+        "tests that failed earlier in the same session). Getting this wrong "
+        "looks like every test timing out, not a clean error.",
+    )
     p.set_defaults(func=cmd_run)
 
     p = sub.add_parser(

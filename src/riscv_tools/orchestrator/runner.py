@@ -236,6 +236,8 @@ def run_suite(  # noqa: PLR0913, PLR0917
     build_dir: Path,
     root: Path,
     project_dir: Path,
+    *,
+    reconfigure: bool = True,
 ) -> dict[str, bool]:
     """Run every test in manifest against real hardware.
 
@@ -250,9 +252,11 @@ def run_suite(  # noqa: PLR0913, PLR0917
     link : JtagLink
         Which JTAG cable/chip to use.
     manifest : list of dict of {str: Any}
-        The full test list (from compile --emit mif's manifest.json)
-        — must be non-empty; manifest[0]'s ROM is what gets baked into
-        the initial compile.
+        The test list to run (typically compile --emit mif's full
+        manifest.json, but may be a caller-filtered subset — see
+        cli.cmd_run's --only) — must be non-empty; when reconfigure is
+        True, manifest[0]'s ROM is what gets baked into the initial
+        compile.
     build_dir : Path
         Forwarded to run_one (RAM dump output directory).
     root : Path
@@ -261,6 +265,20 @@ def run_suite(  # noqa: PLR0913, PLR0917
     project_dir : Path
         Path to the Quartus project directory, forwarded to
         run_one/full_reconfigure_entry.
+    reconfigure : bool, keyword-only, optional
+        If True (the default), compile+program the board once via
+        full_reconfigure_entry before running any test — the normal,
+        safe-by-default path, needed whenever the board isn't known to
+        already be running a compatible bitstream. If False, skip
+        straight to run_one for every entry, assuming the board is
+        ALREADY correctly programmed (e.g. re-running a handful of
+        tests that failed earlier in the same session, via --only,
+        without wanting to risk another compile+quartus_pgm cycle —
+        see HARDWARE_PROGRAMMING.md for why that step is the fragile
+        one). Getting this wrong (board not actually programmed, or
+        programmed with an incompatible/stale bitstream) looks like
+        every test timing out waiting for its mailbox, not a clean
+        error — only pass False when you're sure.
 
     Returns
     -------
@@ -276,8 +294,9 @@ def run_suite(  # noqa: PLR0913, PLR0917
     if not manifest:
         raise ValueError("Manifest is empty; nothing to run")
 
-    print("Compiling and programming the board once ...")
-    full_reconfigure_entry(cfg, link, manifest[0], root, project_dir)
+    if reconfigure:
+        print("Compiling and programming the board once ...")
+        full_reconfigure_entry(cfg, link, manifest[0], root, project_dir)
 
     return {
         entry["name"]: run_one(cfg, link, entry, build_dir, root, project_dir)
