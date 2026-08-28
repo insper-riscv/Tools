@@ -80,6 +80,59 @@ def _symbol_address(nm_bin: str, elf_path: Path, symbol: str) -> int:
     raise RuntimeError(f"symbol {symbol!r} not found in {elf_path}")
 
 
+def symbol_range(nm_bin: str, elf_path: Path, symbol: str) -> tuple[int, int]:
+    """Resolve a data symbol's [start, end) byte range from an ELF, via its size.
+
+    Lets a test declare one C global (e.g. ``volatile unsigned int
+    results[3];``) or one asm label with an explicit ``.size`` directive
+    (plain labels don't get one for free — GNU as only emits `.size`
+    automatically for compiler-generated symbols) as its "results"
+    region, instead of a human counting bytes to pass --start/--end by
+    hand. ``nm -S`` reports (address, size, type, name) for every
+    symbol; a compiler emits accurate `.size` info for global data
+    objects automatically.
+
+    Parameters
+    ----------
+    nm_bin : str
+        `nm` binary name/path for the target toolchain.
+    elf_path : Path
+        Path to the ELF to inspect.
+    symbol : str
+        Symbol name to look up (e.g. "results").
+
+    Returns
+    -------
+    tuple of (int, int)
+        (start, end) byte addresses — end is start + the symbol's
+        size, exclusive, same shape generate_golden's addr_start/
+        addr_end expect.
+
+    Raises
+    ------
+    RuntimeError
+        symbol isn't present in elf_path's symbol table, or has a
+        recorded size of 0 (e.g. it's a code label, not a sized data
+        object — `nm -S` only reports real sizes for the latter).
+    """
+    out = subprocess.run(
+        [nm_bin, "-S", str(elf_path)], check=True, capture_output=True, text=True
+    ).stdout
+    for line in out.splitlines():
+        parts = line.split()
+        if len(parts) == _NM_LINE_FIELDS + 1 and parts[3] == symbol:
+            start, size = int(parts[0], 16), int(parts[1], 16)
+            if size == 0:
+                raise RuntimeError(
+                    f"symbol {symbol!r} in {elf_path} has size 0 — nm -S only "
+                    "reports real sizes for sized data objects (e.g. a C "
+                    "global, or an asm label with an explicit `.size` "
+                    "directive), not plain code/branch labels"
+                )
+            return start, start + size
+    raise RuntimeError(f"symbol {symbol!r} not found in {elf_path}")
+
+
 def _read_words_after_tohost(
     spike_bin: str, isa: str, elf_path: Path, tohost_addr: int, word_addrs: list[int]
 ) -> list[int]:

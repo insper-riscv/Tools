@@ -20,7 +20,11 @@ from pathlib import Path
 
 import pytest
 
-from riscv_tools.golden_generator import generate_golden, write_golden_json
+from riscv_tools.golden_generator import (
+    generate_golden,
+    symbol_range,
+    write_golden_json,
+)
 
 GCC = "riscv32-unknown-elf-gcc"
 NM = "riscv32-unknown-elf-nm"
@@ -121,3 +125,46 @@ def test_generate_golden_json_round_trips_through_compare(tmp_path: Path) -> Non
     on_disk = json.loads(out_path.read_text())
     assert {int(k, 16): v for k, v in on_disk.items()} == golden
     assert on_disk[f"0x{ADDR:08X}"] == 0xDD  # low byte of 0xAABBCCDD, little-endian
+
+
+def test_symbol_range_resolves_address_and_size(tmp_path: Path) -> None:
+    """symbol_range should resolve both a global's address and its byte size.
+
+    pass_c_symbol.c declares `volatile unsigned int results[2]` — an
+    8-byte object — with no explicit address, unlike the other
+    fixtures' hardcoded 0x80000100 pointer. Proves --symbol needs no
+    address arithmetic from the caller at all, just a name.
+    """
+    elf = _compile(FIXTURES / "pass_c_symbol.c", tmp_path)
+    start, end = symbol_range(NM, elf, "results")
+    assert end - start == 8  # 2 * sizeof(unsigned int)
+
+
+def test_generate_golden_by_symbol_matches_explicit_start_end(tmp_path: Path) -> None:
+    """generate_golden fed symbol_range's output should match a hand-picked range.
+
+    Cross-checks the --symbol path against the pre-existing
+    --start/--end path on the same fixture, rather than just trusting
+    symbol_range's own address/size math in isolation.
+    """
+    assert SPIKE_BIN is not None  # guaranteed by pytestmark's skipif above
+    elf = _compile(FIXTURES / "pass_c_symbol.c", tmp_path)
+    start, end = symbol_range(NM, elf, "results")
+
+    golden = generate_golden(
+        spike_bin=SPIKE_BIN,
+        nm_bin=NM,
+        elf_path=elf,
+        isa=ISA,
+        tohost_symbol="tohost",
+        addr_start=start,
+        addr_end=end,
+    )
+
+    expected_words = [0xAABBCCDD, 0x11223344]
+    expected_bytes = {
+        start + 4 * i + b: (word >> (8 * b)) & 0xFF
+        for i, word in enumerate(expected_words)
+        for b in range(4)
+    }
+    assert golden == expected_bytes

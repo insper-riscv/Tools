@@ -395,24 +395,45 @@ def cmd_generate_golden(args: argparse.Namespace) -> None:
     ----------
     args : argparse.Namespace
         Parsed CLI arguments — uses args.config, args.elf, args.march,
-        args.start, args.end (start/end parsed with base 0, so "0x10"
-        or "16" both work), args.out.
+        args.out, and either args.symbol (resolved via
+        golden_generator.symbol_range) or both args.start/args.end
+        (parsed with base 0, so "0x10" or "16" both work) — the
+        argument parser enforces exactly one of these two is given.
 
     Returns
     -------
     None
         Prints the number of bytes written to stdout.
     """
+    if bool(args.symbol) == bool(args.start or args.end):
+        print(
+            "error: pass either --symbol, or both --start and --end (not both forms)",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    if bool(args.start) != bool(args.end):
+        print("error: --start and --end must be given together", file=sys.stderr)
+        sys.exit(2)
+
     cfg = load_config(args.config)
+    nm_bin = cfg["toolchain"]["nm"]
+    elf_path = Path(args.elf)
+
+    if args.symbol:
+        addr_start, addr_end = golden_generator.symbol_range(
+            nm_bin, elf_path, args.symbol
+        )
+    else:
+        addr_start, addr_end = int(args.start, 0), int(args.end, 0)
 
     golden = golden_generator.generate_golden(
         spike_bin=cfg["emulator"]["spike_bin"],
-        nm_bin=cfg["toolchain"]["nm"],
-        elf_path=Path(args.elf),
+        nm_bin=nm_bin,
+        elf_path=elf_path,
         isa=args.march,
         tohost_symbol=cfg["emulator"]["tohost_symbol"],
-        addr_start=int(args.start, 0),
-        addr_end=int(args.end, 0),
+        addr_start=addr_start,
+        addr_end=addr_end,
     )
 
     out_path = Path(args.out)
@@ -709,11 +730,18 @@ def main() -> None:  # noqa: PLR0915
     p.add_argument("elf")
     p.add_argument("--march", required=True, help="e.g. rv32im")
     p.add_argument(
-        "--start", required=True, help="First byte address to snapshot (hex or decimal)"
+        "--symbol",
+        default=None,
+        help="Data symbol to snapshot (e.g. a C global) — its address and size "
+        "are resolved automatically via `nm -S`, instead of --start/--end. "
+        "Mutually exclusive with --start/--end.",
+    )
+    p.add_argument(
+        "--start", default=None, help="First byte address to snapshot (hex or decimal)"
     )
     p.add_argument(
         "--end",
-        required=True,
+        default=None,
         help="One past the last byte address to snapshot (hex or decimal)",
     )
     p.add_argument("--out", required=True, help="Where to write the golden .json")

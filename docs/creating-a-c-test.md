@@ -101,7 +101,29 @@ start of RAM/ROM.
 
   `compiler` fails fast at compile time if a `memory` test is missing
   its `manifest.json`. Write it by hand, or generate it by running the
-  compiled ELF under Spike instead of guessing the expected bytes:
+  compiled ELF under Spike instead of guessing the expected bytes.
+
+  Easiest: declare the results as one C global and point
+  `generate-golden` at its name — the address and size are both
+  resolved automatically from the ELF's symbol table (`nm -S`), no
+  address arithmetic required:
+
+  ```c
+  volatile unsigned int results[3];
+  ```
+
+  ```bash
+  uv run riscv-tools --config <project>/config.yaml generate-golden \
+      build/real/example-mem.elf --march rv32im --symbol results \
+      --out c/example-mem/manifest.json
+  ```
+
+  `--symbol` only works for a sized data object — a compiler emits
+  accurate size info for C globals automatically, but a hand-written
+  asm label needs an explicit `.size name, . - name` directive to get
+  one (plain labels don't get it for free). If that's inconvenient,
+  `--start`/`--end` (explicit byte addresses) still work exactly as
+  before — the two forms are mutually exclusive.
 
   ```bash
   uv run riscv-tools --config <project>/config.yaml generate-golden \
