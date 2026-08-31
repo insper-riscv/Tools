@@ -228,6 +228,7 @@ def generate_golden(  # noqa: PLR0913, PLR0917
     tohost_symbol: str,
     addr_start: int,
     addr_end: int,
+    ram_base: int = 0,
 ) -> dict[int, int]:
     """Run elf_path under Spike and snapshot a byte range of RAM.
 
@@ -252,17 +253,32 @@ def generate_golden(  # noqa: PLR0913, PLR0917
         crt0.S/link.ld must define this symbol and write to it on
         completion.
     addr_start : int
-        First byte address to snapshot (inclusive).
+        First byte address to snapshot (inclusive) — an ABSOLUTE
+        ELF/Spike address (e.g. straight from `nm`), not RAM-relative.
     addr_end : int
         One past the last byte address to snapshot (exclusive) —
-        addr_end - addr_start must be a multiple of 4.
+        addr_end - addr_start must be a multiple of 4. Same absolute
+        convention as addr_start.
+    ram_base : int
+        RAM's base byte address (memory.ram_base in the project's
+        config.yaml — 0 for a project where RAM starts at address 0,
+        e.g. RV32IM before its Harvard-modificado change). Subtracted
+        from every address before it's used as a golden JSON key, so
+        the output stays RAM-relative (word 0 = RAM's own first byte)
+        regardless of where RAM is actually mapped — matching
+        mem_validator.compare's dump_ram convention (a raw
+        In-System-Memory-Editor dump, which is always 0-based, no
+        matter ram_base) and mailbox.word_offset's same convention.
+        addr_start/addr_end themselves stay absolute (Spike's `mem`
+        command needs the real address); only the returned dict's
+        keys shift.
 
     Returns
     -------
     dict of {int: int}
         A {byte_address: byte_value} dict covering every address in
-        [addr_start, addr_end), in the same shape
-        mem_validator.compare's golden JSON expects (see
+        [addr_start, addr_end), RAM-relative (see ram_base), in the
+        same shape mem_validator.compare's golden JSON expects (see
         write_golden_json).
     """
     tohost_addr = _symbol_address(nm_bin, elf_path, tohost_symbol)
@@ -272,7 +288,7 @@ def generate_golden(  # noqa: PLR0913, PLR0917
     out: dict[int, int] = {}
     for waddr, wval in zip(word_addrs, words, strict=True):
         for i in range(4):
-            out[waddr + i] = (wval >> (8 * i)) & 0xFF
+            out[waddr - ram_base + i] = (wval >> (8 * i)) & 0xFF
     return out
 
 

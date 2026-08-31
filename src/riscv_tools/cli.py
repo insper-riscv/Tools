@@ -419,8 +419,12 @@ def cmd_generate_golden(args: argparse.Namespace) -> None:
         Parsed CLI arguments — uses args.config, args.elf, args.march,
         args.out, and either args.symbol (resolved via
         golden_generator.symbol_range) or both args.start/args.end
-        (parsed with base 0, so "0x10" or "16" both work) — the
+        (parsed with base 0, so "0x10010" or "65552" both work) — the
         argument parser enforces exactly one of these two is given.
+        Both forms are ABSOLUTE ELF addresses (whatever `nm`/`objdump`
+        would print for the symbol) — memory.ram_base is subtracted
+        automatically so the golden JSON's own keys come out
+        RAM-relative either way (see golden_generator.generate_golden).
 
     Returns
     -------
@@ -456,6 +460,7 @@ def cmd_generate_golden(args: argparse.Namespace) -> None:
         tohost_symbol=cfg["emulator"]["tohost_symbol"],
         addr_start=addr_start,
         addr_end=addr_end,
+        ram_base=cfg["memory"]["ram_base"],
     )
 
     out_path = Path(args.out)
