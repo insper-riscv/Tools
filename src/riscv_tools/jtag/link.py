@@ -1,10 +1,11 @@
 """Identify one JTAG connection and run this package's bundled .tcl scripts."""
 
 import subprocess
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
+
+from riscv_tools.proc import run_streaming
 
 TCL_DIR = Path(__file__).resolve().parent / "tcl"
 
@@ -32,18 +33,10 @@ class JtagLink:
 def run(cmd: list[str], **kw: Any) -> subprocess.CompletedProcess[Any]:
     """Run a subprocess, echoing the command line first.
 
-    Always captures stdout/stderr as text internally — regardless of
-    what the caller passes for capture_output/text — and prints them
-    straight through afterward either way, so a caller that never asked
-    to capture still sees the same output on its own screen as before
-    (just buffered until the process exits rather than streamed live).
-    The point: a subprocess.CalledProcessError raised from here always
-    carries real .stdout/.stderr text a caller can inspect (e.g. to
-    tell "Can't scan JTAG chain" apart from other failures — see
-    orchestrator.runner's hardware-failure classifier) — before this,
-    any call site that left capture_output at its default (most of
-    them) got a CalledProcessError with .stdout/.stderr both None,
-    impossible to classify.
+    Thin wrapper around riscv_tools.proc.run_streaming — see there for
+    the streaming/classification rationale. Kept as its own function
+    (rather than every call site importing run_streaming directly) so
+    this module's own callers/docs keep referring to "jtag.link.run".
 
     Parameters
     ----------
@@ -51,9 +44,8 @@ def run(cmd: list[str], **kw: Any) -> subprocess.CompletedProcess[Any]:
         Argument list to execute (same shape as subprocess.run's
         first argument).
     **kw : Any
-        Extra keyword arguments forwarded to subprocess.run (e.g. cwd).
-        check/capture_output/text are always forced regardless of what's
-        passed here.
+        Extra keyword arguments forwarded to subprocess.Popen (e.g.
+        cwd).
 
     Returns
     -------
@@ -68,22 +60,7 @@ def run(cmd: list[str], **kw: Any) -> subprocess.CompletedProcess[Any]:
         cmd exited non-zero — .stdout/.stderr are populated same as
         above.
     """
-    print("+", " ".join(str(c) for c in cmd))
-    kw.pop("capture_output", None)
-    kw.pop("text", None)
-    try:
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True, **kw)
-    except subprocess.CalledProcessError as exc:
-        if exc.stdout:
-            print(exc.stdout, end="")
-        if exc.stderr:
-            print(exc.stderr, end="", file=sys.stderr)
-        raise
-    if result.stdout:
-        print(result.stdout, end="")
-    if result.stderr:
-        print(result.stderr, end="", file=sys.stderr)
-    return cast("subprocess.CompletedProcess[Any]", result)
+    return cast("subprocess.CompletedProcess[Any]", run_streaming(cmd, **kw))
 
 
 def run_tcl(

@@ -2,35 +2,15 @@
 
 import shlex
 import shutil
-import subprocess
-import sys
 from pathlib import Path
 
+from riscv_tools.proc import run_streaming
 
-def _run_captured(cmd: list[str]) -> subprocess.CompletedProcess[str]:
-    """Run a subprocess, always capturing text output and printing it through.
-
-    Same rationale as jtag.link.run: a subprocess.CalledProcessError
-    raised from here always carries real .stdout/.stderr text (e.g.
-    "Can't scan JTAG chain") a caller can classify — see
-    orchestrator.runner's hardware-failure classifier — instead of the
-    None/None a plain `subprocess.run(cmd, check=True)` leaves on its
-    exception.
-    """
-    print("+", " ".join(str(c) for c in cmd))
-    try:
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-    except subprocess.CalledProcessError as exc:
-        if exc.stdout:
-            print(exc.stdout, end="")
-        if exc.stderr:
-            print(exc.stderr, end="", file=sys.stderr)
-        raise
-    if result.stdout:
-        print(result.stdout, end="")
-    if result.stderr:
-        print(result.stderr, end="", file=sys.stderr)
-    return result
+# Thin alias: this module's own callers/docs refer to "_run_captured";
+# see riscv_tools.proc.run_streaming for the streaming/classification
+# rationale (shared with jtag.link.run — both used to have their own
+# near-identical capture_output=True block, which is how they drifted).
+_run_captured = run_streaming
 
 
 def program_only(hardware_name: str, project_dir: Path, sof_file: str) -> None:
