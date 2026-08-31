@@ -72,9 +72,19 @@ def _discover_tests(root: Path, cfg: dict[str, Any]) -> list[Path]:
 
     Each test is its own <c_dir|asm_dir>/<name>/ folder containing
     exactly one `src.c` or `src.S` and, for "memory"-kind tests, a
-    `manifest.json` holding the expected {byte address: byte value}
+    `golden.json` holding the expected {byte address: byte value}
     map (see mem_validator.compare) — kept next to the source instead
     of a separate golden/ directory.
+
+    A folder containing a `.off` file is skipped entirely (with a
+    printed note) instead of being built — for a test that's known to
+    be permanently unbuildable/inapplicable on this target (e.g. one
+    that needs something the hardware genuinely can't do) rather than
+    a transient failure. `.off`'s content, if any, is printed as the
+    reason; keep it short and point at fuller docs if there's a real
+    investigation behind it. This is deliberately not a way to "skip
+    a currently-broken test" — a test that should eventually work
+    again belongs in version control failing loudly, not silenced.
 
     Parameters
     ----------
@@ -86,27 +96,39 @@ def _discover_tests(root: Path, cfg: dict[str, Any]) -> list[Path]:
     Returns
     -------
     list of Path
-        Every `src.c`/`src.S` found, sorted by test name (the parent
-        folder's name) — folder names must be unique across
-        c_dir/asm_dir combined.
+        Every `src.c`/`src.S` found (excluding `.off` folders), sorted
+        by test name (the parent folder's name) — folder names must be
+        unique across c_dir/asm_dir combined.
     """
     c_dir = root / cfg["paths"]["c_dir"]
     asm_dir = root / cfg["paths"]["asm_dir"]
     sources = list(c_dir.glob("*/src.c")) + list(asm_dir.glob("*/src.S"))
-    return sorted(sources, key=lambda p: p.parent.name)
+
+    kept: list[Path] = []
+    for src in sources:
+        off_marker = src.parent / ".off"
+        if off_marker.is_file():
+            reason = off_marker.read_text().strip()
+            suffix = f": {reason}" if reason else ""
+            print(f"Skipping {src.parent.name} (.off present){suffix}")
+            continue
+        kept.append(src)
+
+    return sorted(kept, key=lambda p: p.parent.name)
 
 
 def cmd_compile(args: argparse.Namespace) -> None:
     """Implement `riscv-tools compile`.
 
     Builds every test under paths.c_dir/paths.asm_dir into .mif/.hex
-    (+ manifest.json), or into human-readable .s (no manifest) for
-    --emit asm. Each test is its own <c_dir|asm_dir>/<name>/ folder
-    (see _discover_tests) — "real" (--emit mif) builds every test
-    regardless of kind, "sim" (--emit hex) skips "memory"-kind tests,
-    since sim doesn't verify RAM contents (only the PASS/FAIL
-    mailbox), and building one would silently under-verify it instead
-    of catching a wrong computed value.
+    (+ the combined manifest.json), or into human-readable .s (no
+    manifest) for --emit asm. Each test is its own
+    <c_dir|asm_dir>/<name>/ folder (see _discover_tests) — "real"
+    (--emit mif) builds every test regardless of kind, "sim" (--emit
+    hex) skips "memory"-kind tests, since sim doesn't verify RAM
+    contents (only the PASS/FAIL mailbox), and building one would
+    silently under-verify it instead of catching a wrong computed
+    value.
 
     Parameters
     ----------
