@@ -25,7 +25,7 @@ DEFAULTS = {
         "linker_script": None,
         "build_dir": None,
         # Each holds one <name>/ folder per test (src.c under c_dir,
-        # src.S under asm_dir), optionally with a manifest.json for
+        # src.S under asm_dir), optionally with a golden.json for
         # "memory"-kind tests (see cli._discover_tests) — no real/sim
         # split: a test's kind decides where it builds/runs (real
         # always; sim only for "unit"-kind, see cli.cmd_compile).

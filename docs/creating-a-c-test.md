@@ -28,7 +28,7 @@ Three optional `//` comments at the top of `src.c` configure how
                                   // mailbox only. Builds for both real
                                   // hardware and sim.
 // RV32_TEST_KIND: memory        // also dumps the whole RAM and compares
-                                  // it against manifest.json (see below).
+                                  // it against golden.json (see below).
                                   // Real hardware only — sim_runner
                                   // doesn't verify RAM contents, so
                                   // `compile --emit hex` skips these.
@@ -81,7 +81,7 @@ start of RAM/ROM.
 - `unit` (the default): passing means the mailbox reads PASS. Good
   enough when the test can fully judge itself with an `if`. Builds
   for both `compile --emit mif` (real) and `--emit hex` (sim).
-- `memory`: also requires `c/<name>/manifest.json` — a map of byte
+- `memory`: also requires `c/<name>/golden.json` — a map of byte
   address (hex string) to expected byte value (0-255), next to
   `src.c`:
 
@@ -89,7 +89,7 @@ start of RAM/ROM.
   c/
   └── example-mem/
       ├── src.c
-      └── manifest.json
+      └── golden.json
   ```
 
   ```json
@@ -100,7 +100,7 @@ start of RAM/ROM.
   ```
 
   `compiler` fails fast at compile time if a `memory` test is missing
-  its `manifest.json`. Write it by hand, or generate it by running the
+  its `golden.json`. Write it by hand, or generate it by running the
   compiled ELF under Spike instead of guessing the expected bytes.
 
   Easiest: declare the results as one C global and point
@@ -115,7 +115,7 @@ start of RAM/ROM.
   ```bash
   uv run riscv-tools --config <project>/config.yaml generate-golden \
       build/real/example-mem.elf --march rv32im --symbol results \
-      --out c/example-mem/manifest.json
+      --out c/example-mem/golden.json
   ```
 
   `--symbol` only works for a sized data object — a compiler emits
@@ -128,7 +128,7 @@ start of RAM/ROM.
   ```bash
   uv run riscv-tools --config <project>/config.yaml generate-golden \
       build/real/example-mem.elf --march rv32im --start 0x10 --end 0x20 \
-      --out c/example-mem/manifest.json
+      --out c/example-mem/golden.json
   ```
 
   See [generating-a-golden.md](generating-a-golden.md) — this

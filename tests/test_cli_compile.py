@@ -38,7 +38,7 @@ def _make_project(root: Path) -> None:
         "    return 0;\n"
         "}\n"
     )
-    (root / "c" / "mem" / "manifest.json").write_text(
+    (root / "c" / "mem" / "golden.json").write_text(
         '{"0x00000010": 17, "0x00000011": 17, "0x00000012": 17, "0x00000013": 17}\n'
     )
 
@@ -147,7 +147,7 @@ def test_cmd_compile_mif_builds_every_kind(tmp_path: Path) -> None:
     assert {e["name"] for e in manifest} == {"add", "mem", "raw"}
     mem_entry = next(e for e in manifest if e["name"] == "mem")
     assert mem_entry["kind"] == "memory"
-    assert mem_entry["golden"] == "c/mem/manifest.json"
+    assert mem_entry["golden"] == "c/mem/golden.json"
 
 
 @pytest.mark.skipif(shutil.which(GCC) is None, reason=f"needs {GCC} on PATH")

@@ -157,10 +157,10 @@ jobs:
       - name: Regenerate every existing golden
         working-directory: Tools
         run: |
-          # manifest.json only exists next to src.c/src.S for
+          # golden.json only exists next to src.c/src.S for
           # "memory"-kind tests (see creating-a-c-test.md) — every
           # other test has nothing to regenerate here.
-          for golden in ../c/*/manifest.json ../asm/*/manifest.json; do
+          for golden in ../c/*/golden.json ../asm/*/golden.json; do
             [ -f "$golden" ] || continue
             name=$(basename "$(dirname "$golden")")
             elf="../build/real/$name.elf"

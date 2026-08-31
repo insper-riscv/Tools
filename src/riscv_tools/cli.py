@@ -148,7 +148,7 @@ def cmd_compile(args: argparse.Namespace) -> None:
     None
         Exits the process with status 1 if no tests are found, or if
         a "memory"-kind test (--emit mif only) is missing its
-        manifest.json.
+        golden.json.
     """
     cfg = load_config(args.config)
     root = _root(args)
@@ -214,7 +214,7 @@ def cmd_compile(args: argparse.Namespace) -> None:
             entry["mif"] = str(mif.relative_to(root))
 
             if kind == "memory":
-                golden_path = src.parent / "manifest.json"
+                golden_path = src.parent / "golden.json"
 
                 if not golden_path.is_file():
                     print(

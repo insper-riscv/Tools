@@ -48,7 +48,7 @@ sections. Any key you omit falls back to the built-in default shown.
 | `c_dir` | Directory holding one `<name>/src.c` folder per C test — see [creating-a-c-test.md](creating-a-c-test.md) |
 | `asm_dir` | Directory holding one `<name>/src.S` folder per assembly test — see [creating-an-asm-test.md](creating-an-asm-test.md) |
 
-No `tests_real_dir`/`tests_sim_dir`/`golden_dir` split: every test under `c_dir`/`asm_dir` builds for `compile --emit mif` (real) regardless of kind; `--emit hex` (sim) skips `RV32_TEST_KIND: memory` tests, since `sim_runner` doesn't verify RAM contents, only the PASS/FAIL mailbox — building one for sim would silently under-verify it instead of catching a wrong computed value. A `memory` test's expected `{byte address: byte value}` map lives at `<name>/manifest.json`, next to its `src.c`/`src.S`, not in a separate golden directory.
+No `tests_real_dir`/`tests_sim_dir`/`golden_dir` split: every test under `c_dir`/`asm_dir` builds for `compile --emit mif` (real) regardless of kind; `--emit hex` (sim) skips `RV32_TEST_KIND: memory` tests, since `sim_runner` doesn't verify RAM contents, only the PASS/FAIL mailbox — building one for sim would silently under-verify it instead of catching a wrong computed value. A `memory` test's expected `{byte address: byte value}` map lives at `<name>/golden.json`, next to its `src.c`/`src.S`, not in a separate golden directory.
 
 ### `quartus:`
 
@@ -60,7 +60,7 @@ No `tests_real_dir`/`tests_sim_dir`/`golden_dir` split: every test under `c_dir`
 | `sof_file` | **required** | `quartus_program` — path (relative to `project_dir`) to the compiled `.sof`, passed to `quartus_pgm` |
 | `rom_mif_target` | **required** | `quartus_program` — path (relative to `project_dir`) the ROM megafunction reads its `init_file` from at compile time |
 | `stale_cache_dirs` | `[db, incremental_db, output_files, simulation]` | `quartus_program` — directories (relative to `project_dir`) deleted before every compile, since a ROM `init_file` isn't a tracked project source |
-| `rom_mem_instance` | `0` | `rom_writer` — In-System Memory Content Editor instance index of the ROM |
+| `rom_mem_instances` | `[0]` | `rom_writer` — In-System Memory Content Editor instance index/indices of the ROM (a list: a project with more than one physical ROM copy — e.g. one per read port, if a true dual-port memory isn't available — lists every one, all kept in sync on every write) |
 | `ram_mem_instance` | `1` | `ram_zero`, `ram_dump`, `mailbox` — same, for RAM |
 | `poll_interval_seconds` | `0.5` | `mailbox` / `orchestrator` — how often to poll the mailbox while waiting on a test |
 | `program_wait_seconds` | `15` | `orchestrator` — how long to wait after a full reconfigure (fallback path only) before reading the mailbox |
@@ -148,7 +148,7 @@ quartus:
   rom_mif_target: init.mif
 ```
 
-Everything else (`isa.*`, `quartus.rom_mem_instance`/`ram_mem_instance`/
+Everything else (`isa.*`, `quartus.rom_mem_instances`/`ram_mem_instance`/
 `poll_interval_seconds`/`program_wait_seconds`/`default_timeout_s`,
 `emulator.*`) is optional — override only what doesn't match your setup.
 
