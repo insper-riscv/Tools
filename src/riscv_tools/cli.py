@@ -249,7 +249,7 @@ def cmd_compile(args: argparse.Namespace) -> None:
 def cmd_write_rom(args: argparse.Namespace) -> None:
     """Implement `riscv-tools write-rom`.
 
-    JTAG-writes a .mif into the ROM instance of the already-programmed
+    JTAG-writes a .mif into every ROM instance of the already-programmed
     board.
 
     Parameters
@@ -263,7 +263,7 @@ def cmd_write_rom(args: argparse.Namespace) -> None:
     """
     cfg = load_config(args.config)
     link = _link(cfg)
-    rom_writer.write_rom(link, cfg["quartus"]["rom_mem_instance"], Path(args.mif))
+    rom_writer.write_rom(link, cfg["quartus"]["rom_mem_instances"], Path(args.mif))
 
 
 def cmd_zero_ram(args: argparse.Namespace) -> None:

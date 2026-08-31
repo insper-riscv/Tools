@@ -5,6 +5,7 @@ policy: each of those modules decides WHICH instance/address/content
 to use.
 """
 
+from collections.abc import Sequence
 from pathlib import Path
 
 from riscv_tools.jtag import JtagLink, run_tcl
@@ -30,6 +31,33 @@ def write_full(link: JtagLink, instance: int, mif_path: Path) -> None:
     None
     """
     run_tcl(link, "write_full.tcl", instance, mif_path)
+
+
+def write_full_multi(link: JtagLink, instances: Sequence[int], mif_path: Path) -> None:
+    """Overwrite several memory instances' ENTIRE depth from the SAME .mif.
+
+    Does every instance inside one JTAG session (one write_full_multi.tcl
+    invocation) instead of one write_full() call per instance — each
+    JTAG session has real open/close overhead, worth avoiding when a
+    project physically duplicates a memory across instances that must
+    always hold identical content (see rom_writer.write_rom).
+
+    Parameters
+    ----------
+    link : JtagLink
+        Which JTAG cable/chip to write to.
+    instances : sequence of int
+        In-System Memory Content Editor instance indices to write —
+        every one gets the exact same content, in order.
+    mif_path : Path
+        Path to the .mif whose content replaces each instance's entire
+        depth.
+
+    Returns
+    -------
+    None
+    """
+    run_tcl(link, "write_full_multi.tcl", mif_path, *instances)
 
 
 def write_word(link: JtagLink, instance: int, word_offset: int, value: int) -> None:
@@ -84,9 +112,7 @@ def read_words(
         The tcl script's output didn't contain the expected "WORDS="
         reply line.
     """
-    result = run_tcl(
-        link, "read_words.tcl", instance, word_offset, word_count, capture=True
-    )
+    result = run_tcl(link, "read_words.tcl", instance, word_offset, word_count)
     for line in result.stdout.splitlines():
         if line.startswith("WORDS="):
             return [int(w) for w in line.split("=", 1)[1].split()]
