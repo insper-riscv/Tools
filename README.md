@@ -28,6 +28,29 @@ supplies its own `config.yaml`, which overrides these defaults: See
 | `vhdl_sort`          | Topologically sort VHDL sources by entity/package dependency, for GHDL `-a` |
 | `freq_sweep`         | Rewrite a PLL source's clock frequency/phase offsets — the mechanism `orchestrator`'s frequency sweep edits with |
 
+## Rule: one module, one responsibility
+
+Every module in the table above owns exactly one job. When adding or
+changing code:
+
+- New functionality that doesn't fit an existing module's
+  responsibility gets its **own new module** — don't bolt it onto the
+  nearest unrelated one just because it's convenient to import from
+  there.
+- Logic needed by **two or more** modules gets factored into its own
+  module (or a small private helper shared via an explicit import),
+  not copy-pasted into each caller. Duplication between modules is how
+  bugs get fixed in one copy and silently left broken in the other —
+  see `proc.py` (`run_streaming`), pulled out after `jtag.link.run` and
+  `quartus_program.core._run_captured` drifted: one got fixed to
+  stream subprocess output live, the other kept silently buffering,
+  and it wasn't obvious from either call site alone that a second copy
+  even existed.
+- If you're unsure whether something is a new responsibility or fits
+  an existing one, prefer the smaller, more specific module — merging
+  two modules later is easy; un-tangling a module that grew several
+  unrelated jobs is not.
+
 ## Vendored references (git submodules)
 
 | Path                     | Points at                                              | Why                                                          |
