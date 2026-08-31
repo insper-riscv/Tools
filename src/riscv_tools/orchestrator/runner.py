@@ -577,9 +577,36 @@ def run_suite(  # noqa: PLR0913, PLR0917
             results_path.parent.mkdir(parents=True, exist_ok=True)
             results_path.write_text(json.dumps(results, indent=2))
 
+    def _stop_for_hi(name: str, exc: NeedsHumanInterventionError) -> dict[str, bool]:
+        _persist()
+        already_done = len(results_so_far or {})
+        remaining = len(manifest) - (len(results) - already_done)
+        print(
+            f"\n{name}: stopping the suite — {exc}\n"
+            f"This needs a physical power-cycle of the board, not "
+            f"another retry. {len(results)} test(s) done, {remaining} "
+            f"remaining (including this one). Once the board is back "
+            f"(`jtagconfig` shows it healthy again), re-run the exact "
+            f"same command to resume from here — completed tests "
+            f"won't be re-run."
+        )
+        return results
+
     if reconfigure:
         print("Compiling and programming the board once ...")
-        full_reconfigure_entry(cfg, link, manifest[0], root, project_dir)
+        try:
+            full_reconfigure_entry(cfg, link, manifest[0], root, project_dir)
+        except subprocess.CalledProcessError as exc:
+            # Unlike run_one's own tiers, there's no retry path for the
+            # initial reconfigure itself — either this is a known
+            # JTAG/cable signature (stop the suite gracefully, same as
+            # every other call site) or it's a real build/hardware
+            # problem, which should still propagate as a hard failure.
+            try:
+                _raise_if_hardware_failure(exc)
+            except NeedsHumanInterventionError as hi_exc:
+                return _stop_for_hi(manifest[0]["name"], hi_exc)
+            raise
 
     for entry in manifest:
         try:
@@ -587,19 +614,7 @@ def run_suite(  # noqa: PLR0913, PLR0917
                 cfg, link, entry, build_dir, root, project_dir
             )
         except NeedsHumanInterventionError as exc:
-            _persist()
-            already_done = len(results_so_far or {})
-            remaining = len(manifest) - (len(results) - already_done)
-            print(
-                f"\n{entry['name']}: stopping the suite — {exc}\n"
-                f"This needs a physical power-cycle of the board, not "
-                f"another retry. {len(results)} test(s) done, {remaining} "
-                f"remaining (including this one). Once the board is back "
-                f"(`jtagconfig` shows it healthy again), re-run the exact "
-                f"same command to resume from here — completed tests "
-                f"won't be re-run."
-            )
-            return results
+            return _stop_for_hi(entry["name"], exc)
         _persist()
 
     return results
