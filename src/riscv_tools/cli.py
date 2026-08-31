@@ -215,10 +215,14 @@ def cmd_compile(args: argparse.Namespace) -> None:  # noqa: PLR0915
     manifest) for --emit asm. Each test is its own
     <c_dir|asm_dir>/<name>/ folder (see _discover_tests) — "real"
     (--emit mif) builds every test regardless of kind, "sim" (--emit
-    hex) skips "memory"-kind tests, since sim doesn't verify RAM
-    contents (only the PASS/FAIL mailbox), and building one would
+    hex) skips "memory"-kind .S tests, since sim doesn't verify RAM
+    contents (only the PASS/FAIL mailbox) and building one would
     silently under-verify it instead of catching a wrong computed
-    value.
+    value against its checked-in golden.json. "memory"-kind .c tests
+    are the exception: their golden.json is generated fresh from Spike
+    at real-build time (see _generate_c_golden), not checked in, so
+    sim still builds them too — just without any RAM check, same as a
+    "unit"-kind test.
 
     Parameters
     ----------
@@ -282,7 +286,17 @@ def cmd_compile(args: argparse.Namespace) -> None:  # noqa: PLR0915
         kind_peek = compiler_mod.parse_header(
             cfg["isa"], cfg["quartus"]["default_timeout_s"], src.read_text()
         )[1]
-        if kind_peek == "memory" and not is_real:
+        # .S memory tests carry a checked-in golden.json meant for the
+        # real-hardware RAM dump only — building one for sim would
+        # silently under-verify it (mailbox PASS regardless of a wrong
+        # computed value). .c memory tests are the opposite: their
+        # golden.json is generated fresh from Spike at real-build time
+        # (see _generate_c_golden) specifically so they don't need one
+        # checked in — nothing stops them from also building for sim in
+        # a mailbox-only capacity, same as a unit test, keeping them in
+        # the fast per-push GHDL suite instead of only ever running on
+        # self-hosted real hardware.
+        if kind_peek == "memory" and not is_real and src.suffix == ".S":
             print(f"Skipping {name}: sim doesn't verify memory-kind tests")
             continue
 

@@ -81,64 +81,54 @@ start of RAM/ROM.
 - `unit` (the default): passing means the mailbox reads PASS. Good
   enough when the test can fully judge itself with an `if`. Builds
   for both `compile --emit mif` (real) and `--emit hex` (sim).
-- `memory`: also requires `c/<name>/golden.json` — a map of byte
-  address (hex string) to expected byte value (0-255), next to
-  `src.c`:
+- `memory`: also verifies memory contents, not just the mailbox — but
+  unlike an asm memory test (see
+  [creating-an-asm-test.md](creating-an-asm-test.md)), a C memory test
+  carries **no checked-in golden.json**. Declare a `results` global
+  instead:
 
-  ```
-  c/
-  └── example-mem/
-      ├── src.c
-      └── golden.json
-  ```
+  ```c
+  // RV32_TEST_KIND: memory
+  #include "rv32_test.h"
 
-  ```json
-  {
-    "0x00000010": 17,
-    "0x00000011": 17
+  volatile unsigned int results[3];
+
+  int main(void) {
+      results[0] = ...;
+      results[1] = ...;
+      results[2] = ...;
+      RV32_PASS();
   }
   ```
 
-  `compiler` fails fast at compile time if a `memory` test is missing
-  its `golden.json`. Write it by hand, or generate it by running the
-  compiled ELF under Spike instead of guessing the expected bytes.
+  At `compile --emit mif` time, `_generate_c_golden` (cli.py) resolves
+  `results`' address/size from the compiled ELF's symbol table (`nm
+  -S`, same mechanism as `generate-golden --symbol`), runs the ELF
+  under Spike (the RISC-V Foundation's own reference simulator —
+  `golden_generator.generate_golden`), and writes a fresh
+  `build/real/<name>.golden.json` — never a file you write or commit.
+  Correctness is validated as "this project's CPU produces the same
+  memory contents Spike does for the same program," not against a
+  value someone worked out by hand once that can silently go stale
+  after an edit. Requires `vendor/riscv-isa-sim` built first (handled
+  automatically — see [generating-a-golden.md](generating-a-golden.md)
+  for the mechanics if you want to run Spike by hand instead, e.g. to
+  debug a mismatch).
 
-  Easiest: declare the results as one C global and point
-  `generate-golden` at its name — the address and size are both
-  resolved automatically from the ELF's symbol table (`nm -S`), no
-  address arithmetic required:
+  `results` can hold whatever the test wants checked — plain values,
+  a small struct, an array — the only requirement is that it's a real,
+  sized global (`volatile`, so the compiler can't optimize the writes
+  away), not a raw pointer to a hardcoded address.
 
-  ```c
-  volatile unsigned int results[3];
-  ```
-
-  ```bash
-  uv run riscv-tools --config <project>/config.yaml generate-golden \
-      build/real/example-mem.elf --march rv32im --symbol results \
-      --out c/example-mem/golden.json
-  ```
-
-  `--symbol` only works for a sized data object — a compiler emits
-  accurate size info for C globals automatically, but a hand-written
-  asm label needs an explicit `.size name, . - name` directive to get
-  one (plain labels don't get it for free). If that's inconvenient,
-  `--start`/`--end` (explicit byte addresses) still work exactly as
-  before — the two forms are mutually exclusive.
-
-  ```bash
-  uv run riscv-tools --config <project>/config.yaml generate-golden \
-      build/real/example-mem.elf --march rv32im --start 0x10 --end 0x20 \
-      --out c/example-mem/golden.json
-  ```
-
-  See [generating-a-golden.md](generating-a-golden.md) — this
-  requires `vendor/riscv-isa-sim` built first (`golden_generator.setup()`).
-
-  `memory` tests build for `--emit mif` (real) only — `compile --emit
-  hex` skips them, since `sim_runner` only ever checks the PASS/FAIL
-  mailbox, never RAM contents; building one for sim would silently
-  under-verify it (a wrong computed value would still report PASS)
-  instead of catching the mistake.
+  Both `compile --emit mif` (real) and `--emit hex` (sim) build a `.c`
+  memory test — sim just never runs the RAM check (`sim_runner` only
+  ever reads the PASS/FAIL mailbox), so it still catches "this doesn't
+  even run to completion" on the fast per-push GHDL suite, while the
+  actual computed-values check only happens for real, against Spike,
+  on real hardware. An asm memory test's checked-in golden.json is the
+  opposite — real-hardware only, `--emit hex` skips it entirely (see
+  [creating-an-asm-test.md](creating-an-asm-test.md)) — since there's
+  no Spike run backing it to make a sim-time RAM check meaningful.
 
 ## Building, inspecting, running
 
