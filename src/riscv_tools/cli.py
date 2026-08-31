@@ -67,6 +67,96 @@ def _root(args: argparse.Namespace) -> Path:
     return Path(args.root).resolve() if args.root else Path.cwd()
 
 
+def _spike_mem_regions(cfg: dict[str, Any]) -> list[tuple[int, int]]:
+    """Build golden_generator.generate_golden's mem_regions from a project's config.
+
+    Parameters
+    ----------
+    cfg : dict of {str: Any}
+        The merged project config — uses memory.rom_words/ram_base/
+        ram_words.
+
+    Returns
+    -------
+    list of (int, int)
+        [(0, rom_bytes), (ram_base, ram_bytes)] — this project's real
+        ROM+RAM layout, byte-sized. Spike needs this to even load a
+        bare-metal ELF linked to run at/near address 0 (see
+        generate_golden's own mem_regions doc) — ROM and RAM are
+        listed as two regions rather than one spanning both, since
+        nothing here guarantees they're contiguous for every project
+        that uses this package.
+    """
+    mem = cfg["memory"]
+    return [
+        (0, mem["rom_words"] * 4),
+        (mem["ram_base"], mem["ram_words"] * 4),
+    ]
+
+
+def _generate_c_golden(
+    cfg: dict[str, Any],
+    march: str,
+    name: str,
+    build_dir: Path,
+    spike_bin: str | None,
+) -> tuple[str, Path]:
+    """Auto-generate one .c memory test's golden.json by running its ELF under Spike.
+
+    C memory tests never carry a checked-in golden.json — the whole
+    point is validating against Spike (the RISC-V Foundation's own
+    reference model) fresh every build, not a value someone worked out
+    by hand once that can go stale after an edit. Convention: the test
+    declares `volatile <type> results[N];` and writes what it wants
+    checked there — see docs/creating-a-c-test.md.
+
+    Parameters
+    ----------
+    cfg : dict of {str: Any}
+        The merged project config.
+    march : str
+        This test's own `-march=` string (from compiler.compile_test),
+        passed to Spike as `--isa=`.
+    name : str
+        This test's name — build_dir/{name}.elf must already exist
+        (compiler.compile_test's own output).
+    build_dir : Path
+        Where {name}.elf lives and {name}.golden.json gets written.
+    spike_bin : str or None
+        Already-resolved `spike` binary path, or None if this is the
+        first C memory test in this compile run — resolved once via
+        golden_generator.setup() and returned for the caller to reuse
+        on subsequent calls, since setup() can be a real build the
+        first time Spike isn't already available.
+
+    Returns
+    -------
+    tuple of (str, Path)
+        (spike_bin, golden_path) — spike_bin is either the one passed
+        in or newly resolved; golden_path is build_dir/{name}.golden.json.
+    """
+    if spike_bin is None:
+        spike_bin = str(golden_generator.setup(cfg["emulator"]["spike_bin"]))
+    elf_path = build_dir / f"{name}.elf"
+    addr_start, addr_end = golden_generator.symbol_range(
+        cfg["toolchain"]["nm"], elf_path, "results"
+    )
+    golden = golden_generator.generate_golden(
+        spike_bin=spike_bin,
+        nm_bin=cfg["toolchain"]["nm"],
+        elf_path=elf_path,
+        isa=march,
+        mem_regions=_spike_mem_regions(cfg),
+        tohost_symbol=cfg["emulator"]["tohost_symbol"],
+        addr_start=addr_start,
+        addr_end=addr_end,
+        ram_base=cfg["memory"]["ram_base"],
+    )
+    golden_path = build_dir / f"{name}.golden.json"
+    golden_generator.write_golden_json(golden, golden_path)
+    return spike_bin, golden_path
+
+
 def _discover_tests(root: Path, cfg: dict[str, Any]) -> list[Path]:
     """Find every test source under paths.c_dir/paths.asm_dir.
 
@@ -117,7 +207,7 @@ def _discover_tests(root: Path, cfg: dict[str, Any]) -> list[Path]:
     return sorted(kept, key=lambda p: p.parent.name)
 
 
-def cmd_compile(args: argparse.Namespace) -> None:
+def cmd_compile(args: argparse.Namespace) -> None:  # noqa: PLR0915
     """Implement `riscv-tools compile`.
 
     Builds every test under paths.c_dir/paths.asm_dir into .mif/.hex
@@ -180,6 +270,11 @@ def cmd_compile(args: argparse.Namespace) -> None:
     build_dir = root / cfg["paths"]["build_dir"] / ("real" if is_real else "sim")
 
     manifest: list[dict[str, Any]] = []
+    # Resolved lazily (once) the first time a .c memory-kind test needs
+    # it — most builds never touch a C memory test, and setup() can be
+    # a real build (see golden_generator.setup) the first time Spike
+    # itself isn't already available.
+    spike_bin: str | None = None
 
     for src in sources:
         name = src.parent.name
@@ -213,7 +308,12 @@ def cmd_compile(args: argparse.Namespace) -> None:
             bin_to_image.bin_to_mif(bin_, mif, depth=cfg["memory"]["rom_words"])
             entry["mif"] = str(mif.relative_to(root))
 
-            if kind == "memory":
+            if kind == "memory" and src.suffix == ".c":
+                spike_bin, golden_path = _generate_c_golden(
+                    cfg, march, name, build_dir, spike_bin
+                )
+                entry["golden"] = str(golden_path.relative_to(root))
+            elif kind == "memory":
                 golden_path = src.parent / "golden.json"
 
                 if not golden_path.is_file():
@@ -453,10 +553,11 @@ def cmd_generate_golden(args: argparse.Namespace) -> None:
         addr_start, addr_end = int(args.start, 0), int(args.end, 0)
 
     golden = golden_generator.generate_golden(
-        spike_bin=cfg["emulator"]["spike_bin"],
+        spike_bin=str(golden_generator.setup(cfg["emulator"]["spike_bin"])),
         nm_bin=nm_bin,
         elf_path=elf_path,
         isa=args.march,
+        mem_regions=_spike_mem_regions(cfg),
         tohost_symbol=cfg["emulator"]["tohost_symbol"],
         addr_start=addr_start,
         addr_end=addr_end,

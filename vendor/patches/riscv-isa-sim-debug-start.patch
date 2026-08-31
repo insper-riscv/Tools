@@ -1,0 +1,13 @@
+diff --git a/riscv/platform.h b/riscv/platform.h
+index bb1b06b9..a21409a9 100644
+--- a/riscv/platform.h
++++ b/riscv/platform.h
+@@ -19,7 +19,7 @@
+ #define NS16550_INTERRUPT_ID 1
+ #define EXT_IO_BASE        0x40000000
+ #define DRAM_BASE          0x80000000
+-#define DEBUG_START        0x0
++#define DEBUG_START        0x70000000
+ #define DEBUG_SIZE         0x1000
+ 
+ #endif

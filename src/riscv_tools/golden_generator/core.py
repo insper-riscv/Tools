@@ -133,8 +133,14 @@ def symbol_range(nm_bin: str, elf_path: Path, symbol: str) -> tuple[int, int]:
     raise RuntimeError(f"symbol {symbol!r} not found in {elf_path}")
 
 
-def _read_words_after_tohost(
-    spike_bin: str, isa: str, elf_path: Path, tohost_addr: int, word_addrs: list[int]
+def _read_words_after_tohost(  # noqa: PLR0913, PLR0917
+    spike_bin: str,
+    isa: str,
+    elf_path: Path,
+    mem_regions: list[tuple[int, int]],
+    entry_pc: int,
+    tohost_addr: int,
+    word_addrs: list[int],
 ) -> list[int]:
     """Run elf_path under Spike's interactive debugger and read memory words.
 
@@ -150,6 +156,30 @@ def _read_words_after_tohost(
         `--isa=` value to run Spike with (e.g. "rv32im").
     elf_path : Path
         Path to the ELF to execute.
+    mem_regions : list of (int, int)
+        (base, size) byte pairs passed to Spike's `-m<a:m,b:n,...>` —
+        Spike's own default memory sits at 0x80000000, nowhere near a
+        bare-metal ELF linked to load at/near address 0 (as this
+        project's link.ld does), so without this Spike refuses to even
+        load the ELF ("Access exception ... Memory address ... is
+        invalid"). Must cover every address the program's own
+        text/data actually touches, real hardware's ROM+RAM layout
+        (e.g. [(0, rom_words*4), (ram_base, ram_words*4)] — see
+        generate_golden's own mem_regions doc).
+    entry_pc : int
+        Byte address of the `_start` symbol (see _symbol_address) —
+        passed as `--pc=` and combined with `--disable-dtb`. Spike's
+        own processor reset otherwise always sets PC to the hardcoded
+        DEFAULT_RSTVEC (0x1000, riscv/platform.h) regardless of where
+        the ELF actually links to run, and (unless --disable-dtb)
+        additionally creates its own small boot-ROM device AT that
+        same 0x1000 to bounce execution over to the real entry point —
+        both assume Spike's own default memory map (DRAM starting at
+        0x80000000), and both collide outright with any target whose
+        real memory (like this project's, Harvard modificado ROM at
+        0x0) actually occupies address 0x1000 itself ("devices ...
+        overlap"). Overriding both directly to the ELF's real entry
+        point sidesteps needing Spike's own boot mechanism at all.
     tohost_addr : int
         Byte address of the `tohost` symbol (see _symbol_address) —
         watched via Spike's `while mem ... 0` rather than `until mem
@@ -189,9 +219,19 @@ def _read_words_after_tohost(
         f.write("\n".join(commands) + "\n")
         cmd_file = Path(f.name)
 
+    mem_flag = ",".join(f"{base:#x}:{size:#x}" for base, size in mem_regions)
     try:
         proc = subprocess.run(
-            [spike_bin, f"--isa={isa}", "-d", f"--debug-cmd={cmd_file}", str(elf_path)],
+            [
+                spike_bin,
+                f"--isa={isa}",
+                f"-m{mem_flag}",
+                "--disable-dtb",
+                f"--pc={entry_pc:#x}",
+                "-d",
+                f"--debug-cmd={cmd_file}",
+                str(elf_path),
+            ],
             check=True,
             capture_output=True,
             text=True,
@@ -225,10 +265,12 @@ def generate_golden(  # noqa: PLR0913, PLR0917
     nm_bin: str,
     elf_path: Path,
     isa: str,
+    mem_regions: list[tuple[int, int]],
     tohost_symbol: str,
     addr_start: int,
     addr_end: int,
     ram_base: int = 0,
+    entry_symbol: str = "_start",
 ) -> dict[int, int]:
     """Run elf_path under Spike and snapshot a byte range of RAM.
 
@@ -246,12 +288,24 @@ def generate_golden(  # noqa: PLR0913, PLR0917
     isa : str
         `--isa=` value to run Spike with (e.g. "rv32im") — should
         match the test's own march.
+    mem_regions : list of (int, int)
+        (base, size) byte pairs describing every region of real
+        memory the target actually has — e.g. `[(0,
+        memory.rom_words*4), (memory.ram_base,
+        memory.ram_words*4)]`. Passed straight through to
+        _read_words_after_tohost's own `-m` flag; see there for why
+        this is required (Spike's own default memory placement has
+        nothing to do with any particular target's real layout).
     tohost_symbol : str
         Symbol name Spike watches for a nonzero write before reading
         memory (default "tohost" — see
         golden_generator.__config__.DEFAULTS). The consuming project's
         crt0.S/link.ld must define this symbol and write to it on
         completion.
+    entry_symbol : str, optional
+        Symbol Spike starts execution at (see
+        _read_words_after_tohost's entry_pc) — "_start" (the usual
+        crt0 entry label) unless a project names it something else.
     addr_start : int
         First byte address to snapshot (inclusive) — an ABSOLUTE
         ELF/Spike address (e.g. straight from `nm`), not RAM-relative.
@@ -282,8 +336,11 @@ def generate_golden(  # noqa: PLR0913, PLR0917
         write_golden_json).
     """
     tohost_addr = _symbol_address(nm_bin, elf_path, tohost_symbol)
+    entry_pc = _symbol_address(nm_bin, elf_path, entry_symbol)
     word_addrs = list(range(addr_start, addr_end, 4))
-    words = _read_words_after_tohost(spike_bin, isa, elf_path, tohost_addr, word_addrs)
+    words = _read_words_after_tohost(
+        spike_bin, isa, elf_path, mem_regions, entry_pc, tohost_addr, word_addrs
+    )
 
     out: dict[int, int] = {}
     for waddr, wval in zip(word_addrs, words, strict=True):

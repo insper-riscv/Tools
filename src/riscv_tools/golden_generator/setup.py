@@ -183,6 +183,76 @@ def _current_commit(submodule_dir: Path) -> str:
     ).stdout.strip()
 
 
+def _patches_dir() -> Path:
+    """Return this repo's own vendor/patches/ directory.
+
+    Always this repo's own copy, regardless of DIR_ENV_VAR — the
+    patches are part of riscv-tools itself, not something a CI cache
+    directory would carry.
+
+    Returns
+    -------
+    Path
+        <repo root>/vendor/patches.
+    """
+    return Path(__file__).resolve().parents[3] / "vendor" / "patches"
+
+
+def _apply_patches(submodule_dir: Path) -> None:
+    """Apply every *.patch in vendor/patches/ to submodule_dir, if not already applied.
+
+    Spike is upstream, unmodified source — these patches are local,
+    small, and load-bearing for this package specifically (see
+    vendor/patches/riscv-isa-sim-debug-start.patch: Spike's own
+    DEBUG_START sits at address 0x0, which collides outright with any
+    target whose real ROM/RAM also starts there — this project's
+    Harvard modificado layout, for one). Applied on every build so a
+    fresh submodule checkout or a `RISCV_ISA_SIM_DIR` cache miss still
+    ends up patched, not just whatever happened to be checked out.
+
+    Parameters
+    ----------
+    submodule_dir : Path
+        Path to the riscv-isa-sim checkout to patch.
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    subprocess.CalledProcessError
+        A patch doesn't apply cleanly and isn't already applied either
+        (a genuine conflict — e.g. the submodule pin moved upstream in
+        a way that touches the same lines).
+    """
+    for patch in sorted(_patches_dir().glob("*.patch")):
+        check = subprocess.run(
+            ["git", "apply", "--check", str(patch)],
+            cwd=submodule_dir,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if check.returncode == 0:
+            subprocess.run(["git", "apply", str(patch)], cwd=submodule_dir, check=True)
+            continue
+        # Not cleanly applicable going forward — either it's already
+        # applied (check --reverse succeeds), or it's a genuine
+        # conflict (neither direction applies cleanly).
+        reverse_check = subprocess.run(
+            ["git", "apply", "--check", "--reverse", str(patch)],
+            cwd=submodule_dir,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if reverse_check.returncode != 0:
+            raise subprocess.CalledProcessError(
+                check.returncode, check.args, check.stdout, check.stderr
+            )
+
+
 def _check_dependencies() -> None:
     """Check for the one build dependency Spike's ./configure hard-fails without.
 
@@ -230,6 +300,7 @@ def _build(submodule_dir: Path) -> Path:
         configure or make failed.
     """
     _check_dependencies()
+    _apply_patches(submodule_dir)
     build_dir = _build_dir(submodule_dir)
     build_dir.mkdir(parents=True, exist_ok=True)
 
