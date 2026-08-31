@@ -7,25 +7,50 @@ PASS = 1
 FAIL = 2
 
 
-def word_offset(ram_base: int, addr: int) -> int:
-    """Convert a byte address into a word offset relative to RAM's base.
+def word_offset(ram_base: int, addr: int, *, relative: bool = True) -> int:
+    """Convert a byte address into a word offset.
+
+    Two different things both call themselves "the word offset of the
+    mailbox", and they're NOT the same number whenever ram_base != 0:
+
+    - relative=True (default): offset relative to RAM's own base —
+      (addr - ram_base) // 4. What mem_edit's JTAG primitives expect,
+      since the In-System Memory Content Editor addresses RAM through
+      its own 0-based internal word index, not the CPU's byte address.
+    - relative=False: absolute word offset — addr // 4, no ram_base
+      subtraction. For code snooping the CPU's own raw address bus
+      directly (e.g. a cocotb testbench watching a DUT's ram_addr
+      signal) rather than going through a JTAG debug port — that bus
+      always carries the real, absolute address, never a RAM-relative
+      one, regardless of where ram_base is mapped.
+
+    Picking the wrong one silently misses every mailbox/go-flag access
+    whenever ram_base != 0 (found via RV32IM's own sim testbench
+    hardcoding the relative=True math against a raw bus signal after
+    RV32IM moved off ram_base=0 — see docs/DATA_HARVARD_BUG.md).
 
     Parameters
     ----------
     ram_base : int
         RAM's base byte address (memory.ram_base in the project's
-        config.yaml).
+        config.yaml). Ignored when relative=False.
     addr : int
         The byte address to convert (e.g.
-        memory.mailbox_addr/go_flag_addr).
+        memory.mailbox_addr/go_flag_addr) — always absolute either
+        way.
+    relative : bool
+        Which convention to use — see above. Defaults to True (the
+        JTAG/mem_edit convention every in-tree real-hardware caller
+        needs).
 
     Returns
     -------
     int
-        (addr - ram_base) // 4 — the word address mem_edit's JTAG
-        primitives expect.
+        The word offset, in whichever convention `relative` selected.
     """
-    return (addr - ram_base) // 4
+    if relative:
+        return (addr - ram_base) // 4
+    return addr // 4
 
 
 def read_mailbox(
