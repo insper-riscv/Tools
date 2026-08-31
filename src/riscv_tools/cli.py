@@ -474,7 +474,14 @@ def cmd_run(args: argparse.Namespace) -> None:
 
     Runs the real-hardware test suite from a manifest.json (see
     orchestrator.run_suite) — the full manifest by default, or a
-    caller-picked subset via --only.
+    caller-picked subset via --only. Stops early (doesn't raise) the
+    moment a test hits a JTAG/hardware failure no automated retry can
+    fix (orchestrator.NeedsHumanInterventionError) — progress is saved
+    to <build_dir>/real/run_progress.json as it goes, and simply
+    re-running the exact same command later (after fixing the board)
+    picks up from where it stopped instead of re-running completed
+    tests: this function loads that file itself, if present, and
+    narrows the manifest to whatever isn't in it yet.
 
     Parameters
     ----------
@@ -490,9 +497,14 @@ def cmd_run(args: argparse.Namespace) -> None:
     Returns
     -------
     None
-        Prints a PASS/FAIL summary to stdout. Exits the process with
-        status 1 if the manifest file is missing, if --only names a
-        test that isn't in the manifest, or if any test failed.
+        Prints a PASS/FAIL summary to stdout when the suite finishes
+        (deleting run_progress.json, since there's nothing left to
+        resume). Exits the process with status 1 if the manifest file
+        is missing, if --only names a test that isn't in the
+        manifest, or if any completed test failed; status 2 if the
+        suite stopped early for human intervention (run_progress.json
+        is left in place in that case, specifically so a re-run finds
+        it).
     """
     cfg = load_config(args.config)
     root = _root(args)
@@ -522,23 +534,54 @@ def cmd_run(args: argparse.Namespace) -> None:
             sys.exit(1)
         manifest = [by_name[name] for name in wanted]
 
+    requested_names = {entry["name"] for entry in manifest}
+    results_path = build_dir / "run_progress.json"
+    results_so_far: dict[str, bool] = {}
+    if results_path.is_file():
+        results_so_far = {
+            name: ok
+            for name, ok in json.loads(results_path.read_text()).items()
+            if name in requested_names
+        }
+        if results_so_far:
+            print(
+                f"Resuming from {results_path} — {len(results_so_far)} "
+                f"already-completed test(s) will be skipped"
+            )
+            manifest = [e for e in manifest if e["name"] not in results_so_far]
+
     link = _link(cfg)
     print(f"JTAG hardware: {link.hardware_name}")
     project_dir = root / cfg["quartus"]["project_dir"]
 
-    results = orchestrator.run_suite(
-        cfg,
-        link,
-        manifest,
-        build_dir,
-        root,
-        project_dir,
-        reconfigure=not args.skip_reconfigure,
-    )
+    if not manifest:
+        # Every requested test was already in results_so_far.
+        results = results_so_far
+    else:
+        results = orchestrator.run_suite(
+            cfg,
+            link,
+            manifest,
+            build_dir,
+            root,
+            project_dir,
+            reconfigure=not args.skip_reconfigure,
+            results_path=results_path,
+            results_so_far=results_so_far,
+        )
 
     print("\n=== Summary ===")
     for name, ok in results.items():
         print(f"  {'PASS' if ok else 'FAIL'}  {name}")
+
+    if len(results) < len(requested_names):
+        print(
+            f"\nStopped early: {len(results)}/{len(requested_names)} test(s) "
+            f"done. Re-run this exact command after fixing the board to resume."
+        )
+        sys.exit(2)
+
+    results_path.unlink(missing_ok=True)
     if not all(results.values()):
         sys.exit(1)
 

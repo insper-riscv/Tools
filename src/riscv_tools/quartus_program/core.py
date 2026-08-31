@@ -3,7 +3,96 @@
 import shlex
 import shutil
 import subprocess
+import sys
 from pathlib import Path
+
+
+def _run_captured(cmd: list[str]) -> subprocess.CompletedProcess[str]:
+    """Run a subprocess, always capturing text output and printing it through.
+
+    Same rationale as jtag.link.run: a subprocess.CalledProcessError
+    raised from here always carries real .stdout/.stderr text (e.g.
+    "Can't scan JTAG chain") a caller can classify — see
+    orchestrator.runner's hardware-failure classifier — instead of the
+    None/None a plain `subprocess.run(cmd, check=True)` leaves on its
+    exception.
+    """
+    print("+", " ".join(str(c) for c in cmd))
+    try:
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as exc:
+        if exc.stdout:
+            print(exc.stdout, end="")
+        if exc.stderr:
+            print(exc.stderr, end="", file=sys.stderr)
+        raise
+    if result.stdout:
+        print(result.stdout, end="")
+    if result.stderr:
+        print(result.stderr, end="", file=sys.stderr)
+    return result
+
+
+def program_only(hardware_name: str, project_dir: Path, sof_file: str) -> None:
+    """Reprogram the board from the EXISTING .sof, no recompile.
+
+    Much cheaper than full_reconfigure (~10s vs the several minutes a
+    full `quartus_sh --flow compile` takes) — worth trying first when
+    a test's mailbox times out, in the same-frequency test suite
+    specifically: the design itself never changes between tests there
+    (only the ROM content, which gets reloaded over JTAG separately by
+    rom_writer, not baked in at compile time) — so a wedged board most
+    likely just needs a fresh `quartus_pgm`, not a fresh compile of a
+    bitstream that would come out identical anyway. Only recompile
+    (full_reconfigure) if this doesn't get the board responding again.
+
+    Whatever ROM content happens to be baked into this .sof (from
+    whichever test's compile last ran) is what the board boots with
+    after this — the caller still needs to JTAG-write the CURRENT
+    test's ROM and pulse the restart flag afterward (see
+    orchestrator.run_test_via_jtag), same as after any other reprogram.
+
+    Parameters
+    ----------
+    hardware_name : str
+        The JTAG cable name to program with (see
+        jtag.detect_jtag_hardware) — pinned explicitly via
+        quartus_pgm's -c so a second board's cable can't be picked by
+        mistake.
+    project_dir : Path
+        Path to the Quartus project directory (quartus.project_dir in
+        the project's config.yaml).
+    sof_file : str
+        Path (relative to project_dir) to the compiled .sof, passed to
+        quartus_pgm (quartus.sof_file).
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    FileNotFoundError
+        sof_file doesn't exist (e.g. a previous full_reconfigure got
+        interrupted after its stale_cache_dirs cleanup but before the
+        Assembler produced a new one) — nothing to reprogram from,
+        caller should fall back to full_reconfigure instead.
+    """
+    sof_path = project_dir / sof_file
+    if not sof_path.is_file():
+        raise FileNotFoundError(
+            f"{sof_path} does not exist — need a full compile first"
+        )
+    pgm_cmd = [
+        "quartus_pgm",
+        "-c",
+        hardware_name,
+        "-m",
+        "JTAG",
+        "-o",
+        f"p;{sof_path}",
+    ]
+    _run_captured(pgm_cmd)
 
 
 # Each arg is an independent Quartus project setting — not bundleable
@@ -91,5 +180,4 @@ def full_reconfigure(  # noqa: PLR0913, PLR0917
         f"cd {shlex.quote(str(project_dir))} && {shlex.join(compile_cmd)} && "
         f"{shlex.join(pgm_cmd)}"
     )
-    print("+", script)
-    subprocess.run(["bash", "-c", script], check=True)
+    _run_captured(["bash", "-c", script])

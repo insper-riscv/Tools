@@ -1,6 +1,7 @@
 """Composes the other modules into a full real-hardware test-suite run."""
 
 from .runner import (
+    NeedsHumanInterventionError,
     full_reconfigure_entry,
     run_freq_sweep_at,
     run_freq_sweep_binary,
@@ -11,6 +12,7 @@ from .runner import (
 )
 
 __all__ = [
+    "NeedsHumanInterventionError",
     "full_reconfigure_entry",
     "run_freq_sweep_at",
     "run_freq_sweep_binary",
