@@ -636,7 +636,9 @@ def cmd_run(args: argparse.Namespace) -> None:
         skip_reconfigure (see orchestrator.run_suite's reconfigure
         param), args.wait_for_hardware (see orchestrator.run_suite's
         wait_for_hardware param — off by default, so this still exits
-        2 rather than blocking unless explicitly asked to wait).
+        2 rather than blocking unless explicitly asked to wait),
+        args.skip_recompile (see orchestrator.run_suite's
+        skip_recompile param).
 
     Returns
     -------
@@ -725,6 +727,7 @@ def cmd_run(args: argparse.Namespace) -> None:
             results_so_far=results_so_far,
             wait_for_hardware=args.wait_for_hardware,
             durations=durations,
+            skip_recompile=args.skip_recompile,
         )
 
     _print_run_summary(results, manifest_by_name, durations, root, build_dir)
@@ -1033,6 +1036,20 @@ def main() -> None:  # noqa: PLR0915
         "is actively watching; CI should keep the default "
         "stop-and-exit-2 behavior instead, since nothing there could "
         "power-cycle the board on its own anyway.",
+    )
+    p.add_argument(
+        "--skip-recompile",
+        action="store_true",
+        help="On the initial reconfigure step, reprogram from the "
+        "already-built .sof (quartus_pgm only, ~10s) instead of doing a "
+        "full quartus_sh --flow compile first — only safe if the VHDL "
+        "source hasn't changed since that .sof was built (e.g. the "
+        "board just lost its configuration to a power-cycle, not a "
+        "source edit). Repeated full recompiles in one session have "
+        "been observed to destabilize the JTAG chain, so prefer this "
+        "over a full reconfigure when you know the .sof is still "
+        "current. Unlike --skip-reconfigure, this still reprograms the "
+        "board — only the compile step is skipped.",
     )
     p.set_defaults(func=cmd_run)
 

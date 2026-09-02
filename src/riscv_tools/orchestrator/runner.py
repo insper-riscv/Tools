@@ -548,6 +548,7 @@ def run_suite(  # noqa: PLR0913, PLR0917
     results_so_far: dict[str, bool] | None = None,
     wait_for_hardware: bool = False,
     durations: dict[str, float] | None = None,
+    skip_recompile: bool = False,
 ) -> dict[str, bool]:
     """Run every test in manifest against real hardware.
 
@@ -630,6 +631,19 @@ def run_suite(  # noqa: PLR0913, PLR0917
         caller (cli.cmd_run) that wants to show per-test timing in its
         summary without changing this function's own return type.
         None (the default) skips it.
+    skip_recompile : bool, keyword-only, optional
+        Only meaningful when reconfigure is True. If True, the initial
+        reconfigure step goes straight to quartus_program.program_only
+        (reprogram from the already-built .sof, ~10s) instead of
+        full_reconfigure_entry (quartus_sh --flow compile && quartus_pgm,
+        several minutes) — safe only when the VHDL source hasn't
+        changed since that .sof was built. Repeated full recompiles in
+        one session have been observed to destabilize the JTAG chain
+        (see HARDWARE_PROGRAMMING.md), so this lets a caller who just
+        power-cycled the board (losing the SRAM-based FPGA's
+        configuration, not its .sof) skip straight to reprogramming.
+        False (the default) always does a full recompile on the first
+        attempt, same as before this parameter existed.
 
     Returns
     -------
@@ -689,7 +703,7 @@ def run_suite(  # noqa: PLR0913, PLR0917
 
     if reconfigure:
         print("Compiling and programming the board once ...")
-        already_compiled = False
+        already_compiled = skip_recompile
         while True:
             try:
                 if already_compiled:
