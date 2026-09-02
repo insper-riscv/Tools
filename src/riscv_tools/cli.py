@@ -607,7 +607,9 @@ def cmd_run(args: argparse.Namespace) -> None:
         the whole manifest — each entry may itself be a comma-
         separated list; repeat --only to add more), args.
         skip_reconfigure (see orchestrator.run_suite's reconfigure
-        param).
+        param), args.wait_for_hardware (see orchestrator.run_suite's
+        wait_for_hardware param — off by default, so this still exits
+        2 rather than blocking unless explicitly asked to wait).
 
     Returns
     -------
@@ -683,6 +685,7 @@ def cmd_run(args: argparse.Namespace) -> None:
             reconfigure=not args.skip_reconfigure,
             results_path=results_path,
             results_so_far=results_so_far,
+            wait_for_hardware=args.wait_for_hardware,
         )
 
     print("\n=== Summary ===")
@@ -979,6 +982,20 @@ def main() -> None:  # noqa: PLR0915
         "programmed with a compatible bitstream (e.g. re-running a few "
         "tests that failed earlier in the same session). Getting this wrong "
         "looks like every test timing out, not a clean error.",
+    )
+    p.add_argument(
+        "--wait-for-hardware",
+        action="store_true",
+        help="On a hardware failure that would normally stop the suite "
+        "(see NeedsHumanInterventionError), stay running instead of "
+        "exiting: print the same message, poll `jtagconfig` every few "
+        "seconds until the chain reports healthy again (e.g. after you "
+        "physically power-cycle the board), then automatically resume "
+        "from the exact step that failed — no need to re-invoke this "
+        "command by hand. Meant for an interactive local session someone "
+        "is actively watching; CI should keep the default "
+        "stop-and-exit-2 behavior instead, since nothing there could "
+        "power-cycle the board on its own anyway.",
     )
     p.set_defaults(func=cmd_run)
 

@@ -31,7 +31,7 @@ from riscv_tools import (
     ram_dump,
     rom_writer,
 )
-from riscv_tools.jtag import JtagLink
+from riscv_tools.jtag import JtagLink, jtag_chain_healthy
 
 # run_freq_sweep_linear stops once this many consecutive candidates
 # fail — past that point the board is assumed to already be beyond
@@ -477,6 +477,36 @@ def run_one(  # noqa: PLR0913, PLR0917
 
 # Same rationale as run_one above: each arg is independent
 # orchestration state.
+# How often run_suite's wait_for_hardware mode polls `jtagconfig` while
+# blocked waiting for a human to physically fix the board.
+_HARDWARE_WAIT_POLL_S = 5.0
+
+
+def _wait_for_hardware_healthy(poll_interval_s: float = _HARDWARE_WAIT_POLL_S) -> None:
+    """Block, polling jtag.jtag_chain_healthy, until the JTAG chain recovers.
+
+    Meant to be called right after printing a NeedsHumanInterventionError's
+    message, only when the caller (run_suite's wait_for_hardware=True)
+    wants to stay running instead of exiting — the person fixing the
+    board (typically a physical power-cycle) is assumed to be watching
+    this process's own output, not some separate re-invocation.
+
+    Parameters
+    ----------
+    poll_interval_s : float, optional
+        Seconds between `jtagconfig` checks. Defaults to
+        _HARDWARE_WAIT_POLL_S.
+
+    Returns
+    -------
+    None
+        Once jtag_chain_healthy() returns True.
+    """
+    while not jtag_chain_healthy():
+        time.sleep(poll_interval_s)
+    print("jtagconfig reports the chain is healthy again — resuming.")
+
+
 def run_suite(  # noqa: PLR0913, PLR0917
     cfg: dict[str, Any],
     link: JtagLink,
@@ -488,6 +518,7 @@ def run_suite(  # noqa: PLR0913, PLR0917
     reconfigure: bool = True,
     results_path: Path | None = None,
     results_so_far: dict[str, bool] | None = None,
+    wait_for_hardware: bool = False,
 ) -> dict[str, bool]:
     """Run every test in manifest against real hardware.
 
@@ -552,6 +583,18 @@ def run_suite(  # noqa: PLR0913, PLR0917
         callers resuming a stopped run get one complete picture back
         instead of having to merge dicts themselves. None (the
         default) is equivalent to an empty dict.
+    wait_for_hardware : bool, keyword-only, optional
+        If False (the default), a NeedsHumanInterventionError still
+        stops the suite and returns immediately — the right behavior
+        for CI, which can't power-cycle a board on its own and
+        shouldn't block a runner indefinitely. If True, instead of
+        returning, this prints the same message, blocks polling
+        jtag.jtag_chain_healthy every few seconds (see
+        _wait_for_hardware_healthy) until the chain recovers — meant
+        for an interactive local session someone is actively watching,
+        physically fixing the board (e.g. power-cycling it) — then
+        automatically retries the exact step that failed and continues
+        the suite, no re-invocation needed.
 
     Returns
     -------
@@ -577,44 +620,70 @@ def run_suite(  # noqa: PLR0913, PLR0917
             results_path.parent.mkdir(parents=True, exist_ok=True)
             results_path.write_text(json.dumps(results, indent=2))
 
-    def _stop_for_hi(name: str, exc: NeedsHumanInterventionError) -> dict[str, bool]:
+    def _handle_hi(name: str, exc: NeedsHumanInterventionError) -> bool:
+        """Report a hardware stop; return True if the caller should retry.
+
+        Always persists progress and prints exc. If wait_for_hardware,
+        blocks in _wait_for_hardware_healthy and returns True (retry
+        the step that just failed) instead of False (stop the suite,
+        caller returns `results` as-is).
+        """
         _persist()
         already_done = len(results_so_far or {})
         remaining = len(manifest) - (len(results) - already_done)
+        action = (
+            "waiting for the board to come back"
+            if wait_for_hardware
+            else "stopping the suite"
+        )
         print(
-            f"\n{name}: stopping the suite — {exc}\n"
+            f"\n{name}: {action} — {exc}\n"
             f"This needs a physical power-cycle of the board, not "
             f"another retry. {len(results)} test(s) done, {remaining} "
-            f"remaining (including this one). Once the board is back "
-            f"(`jtagconfig` shows it healthy again), re-run the exact "
-            f"same command to resume from here — completed tests "
-            f"won't be re-run."
+            f"remaining (including this one)."
         )
-        return results
+        if not wait_for_hardware:
+            print(
+                "Once the board is back (`jtagconfig` shows it healthy "
+                "again), re-run the exact same command to resume from "
+                "here — completed tests won't be re-run."
+            )
+            return False
+        _wait_for_hardware_healthy()
+        return True
 
     if reconfigure:
         print("Compiling and programming the board once ...")
-        try:
-            full_reconfigure_entry(cfg, link, manifest[0], root, project_dir)
-        except subprocess.CalledProcessError as exc:
-            # Unlike run_one's own tiers, there's no retry path for the
-            # initial reconfigure itself — either this is a known
-            # JTAG/cable signature (stop the suite gracefully, same as
-            # every other call site) or it's a real build/hardware
-            # problem, which should still propagate as a hard failure.
+        while True:
             try:
-                _raise_if_hardware_failure(exc)
-            except NeedsHumanInterventionError as hi_exc:
-                return _stop_for_hi(manifest[0]["name"], hi_exc)
-            raise
+                full_reconfigure_entry(cfg, link, manifest[0], root, project_dir)
+                break
+            except subprocess.CalledProcessError as exc:
+                # Unlike run_one's own tiers, there's no retry path for
+                # the initial reconfigure itself — either this is a
+                # known JTAG/cable signature (handle it the same way
+                # as every other call site) or it's a real
+                # build/hardware problem, which should still propagate
+                # as a hard failure.
+                try:
+                    _raise_if_hardware_failure(exc)
+                except NeedsHumanInterventionError as hi_exc:
+                    if _handle_hi(manifest[0]["name"], hi_exc):
+                        continue
+                    return results
+                raise
 
     for entry in manifest:
-        try:
-            results[entry["name"]] = run_one(
-                cfg, link, entry, build_dir, root, project_dir
-            )
-        except NeedsHumanInterventionError as exc:
-            return _stop_for_hi(entry["name"], exc)
+        while True:
+            try:
+                results[entry["name"]] = run_one(
+                    cfg, link, entry, build_dir, root, project_dir
+                )
+                break
+            except NeedsHumanInterventionError as exc:
+                if _handle_hi(entry["name"], exc):
+                    continue
+                return results
         _persist()
 
     return results

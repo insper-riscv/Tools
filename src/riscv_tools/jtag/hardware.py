@@ -36,3 +36,34 @@ def detect_jtag_hardware() -> str:
         if m:
             return m.group(1).strip()
     raise RuntimeError(f"jtagconfig produced no USB-Blaster hardware line:\n{out}")
+
+
+def jtag_chain_healthy() -> bool:
+    """Check whether `jtagconfig` currently reports a working device chain.
+
+    Separate from detect_jtag_hardware: that one finds the cable's
+    live name and can succeed even while the chain underneath it is
+    broken — "chain broken" is a distinct line jtagconfig prints
+    alongside/after the hardware listing, not instead of it. Same
+    "chain broken" text/behavior documented in HARDWARE_PROGRAMMING.md
+    and checked the same way by real.yml's own pre-flight step —
+    meant for polling after a physical power-cycle, e.g.
+    orchestrator.run_suite's wait_for_hardware mode.
+
+    Returns
+    -------
+    bool
+        False if `jtagconfig` reports "chain broken" (case-insensitive)
+        anywhere in its output, or if `jtagconfig` itself fails to run
+        at all (cable unplugged, driver issue, etc — treated as
+        "still not healthy" rather than raising, since this is meant
+        to be polled in a loop). True otherwise.
+    """
+    try:
+        out = subprocess.run(
+            ["jtagconfig"], capture_output=True, text=True, check=False
+        )
+    except FileNotFoundError:
+        return False
+    text = f"{out.stdout}\n{out.stderr}".lower()
+    return "chain broken" not in text
