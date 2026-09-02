@@ -654,11 +654,30 @@ def run_suite(  # noqa: PLR0913, PLR0917
 
     if reconfigure:
         print("Compiling and programming the board once ...")
+        already_compiled = False
         while True:
             try:
-                full_reconfigure_entry(cfg, link, manifest[0], root, project_dir)
+                if already_compiled:
+                    # A previous attempt in this same loop already got
+                    # quartus_sh --flow compile to succeed — the
+                    # signatures _raise_if_hardware_failure matches are
+                    # all quartus_pgm/quartus_stp text, never emitted
+                    # unless compile already finished (the bash -c
+                    # chain's own `&&` would short-circuit before
+                    # quartus_pgm ever ran otherwise) — so the .sof is
+                    # known-good and unchanged; only reprogramming needs
+                    # retrying, not another several-minute recompile of
+                    # an identical design.
+                    quartus_program.program_only(
+                        hardware_name=link.hardware_name,
+                        project_dir=project_dir,
+                        sof_file=cfg["quartus"]["sof_file"],
+                    )
+                else:
+                    full_reconfigure_entry(cfg, link, manifest[0], root, project_dir)
                 break
             except subprocess.CalledProcessError as exc:
+                already_compiled = True
                 # Unlike run_one's own tiers, there's no retry path for
                 # the initial reconfigure itself — either this is a
                 # known JTAG/cable signature (handle it the same way
