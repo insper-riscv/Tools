@@ -584,6 +584,33 @@ def cmd_generate_golden(args: argparse.Namespace) -> None:
     print(f"Wrote {out_path} ({len(golden)} bytes)")
 
 
+def _print_run_summary(
+    results: dict[str, bool],
+    manifest_by_name: dict[str, dict[str, Any]],
+    durations: dict[str, float],
+    root: Path,
+    build_dir: Path,
+) -> None:
+    """Print cmd_run's final `PASS/FAIL  name  [kind, golden: ..., Ns]` table."""
+    print("\n=== Summary ===")
+    name_width = max((len(name) for name in results), default=0)
+    for name, ok in results.items():
+        entry = manifest_by_name.get(name, {})
+        kind = entry.get("kind", "?")
+        detail = kind
+        if kind == "memory" and "golden" in entry:
+            # Same test/repo distinction as _generate_c_golden's own
+            # ephemeral build/real/<name>.golden.json vs an asm test's
+            # checked-in <test_dir>/golden.json — whichever one this
+            # test's golden path actually resolves under.
+            golden_path = root / entry["golden"]
+            origin = "spike" if golden_path.is_relative_to(build_dir) else "checked-in"
+            detail = f"{kind}, golden: {origin}"
+        if name in durations:
+            detail = f"{detail}, {durations[name]:.1f}s"
+        print(f"  {'PASS' if ok else 'FAIL'}  {name:<{name_width}}  [{detail}]")
+
+
 def cmd_run(args: argparse.Namespace) -> None:
     """Implement `riscv-tools run`.
 
@@ -614,9 +641,13 @@ def cmd_run(args: argparse.Namespace) -> None:
     Returns
     -------
     None
-        Prints a PASS/FAIL summary to stdout when the suite finishes
-        (deleting run_progress.json, since there's nothing left to
-        resume). Exits the process with status 1 if the manifest file
+        Prints a PASS/FAIL summary to stdout when the suite finishes —
+        each line also shows the test's kind ("unit"/"memory") and,
+        for memory-kind tests, whether their golden.json came from
+        Spike at this same compile (a .c test — see
+        cli._generate_c_golden) or is checked into the repo (a .S
+        test). Deletes run_progress.json, since there's nothing left
+        to resume. Exits the process with status 1 if the manifest file
         is missing, if --only names a test that isn't in the
         manifest, or if any completed test failed; status 2 if the
         suite stopped early for human intervention (run_progress.json
@@ -638,6 +669,12 @@ def cmd_run(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     manifest: list[dict[str, Any]] = json.loads(manifest_path.read_text())
+    # Kept separate from `manifest` itself, which gets filtered down
+    # below (by --only, then again by whatever's already in
+    # results_so_far) — the summary at the end still needs every
+    # requested test's own kind/golden info, including ones this
+    # particular invocation never touched.
+    manifest_by_name = {entry["name"]: entry for entry in manifest}
 
     if args.only:
         wanted = [name for group in args.only for name in group.split(",") if name]
@@ -671,6 +708,7 @@ def cmd_run(args: argparse.Namespace) -> None:
     print(f"JTAG hardware: {link.hardware_name}")
     project_dir = root / cfg["quartus"]["project_dir"]
 
+    durations: dict[str, float] = {}
     if not manifest:
         # Every requested test was already in results_so_far.
         results = results_so_far
@@ -686,11 +724,10 @@ def cmd_run(args: argparse.Namespace) -> None:
             results_path=results_path,
             results_so_far=results_so_far,
             wait_for_hardware=args.wait_for_hardware,
+            durations=durations,
         )
 
-    print("\n=== Summary ===")
-    for name, ok in results.items():
-        print(f"  {'PASS' if ok else 'FAIL'}  {name}")
+    _print_run_summary(results, manifest_by_name, durations, root, build_dir)
 
     if len(results) < len(requested_names):
         print(

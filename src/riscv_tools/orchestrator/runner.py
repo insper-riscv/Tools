@@ -394,6 +394,9 @@ def run_one(  # noqa: PLR0913, PLR0917
     build_dir: Path,
     root: Path,
     project_dir: Path,
+    *,
+    position: tuple[int, int] | None = None,
+    duration: dict[str, float] | None = None,
 ) -> bool:
     """Run a single test end to end.
 
@@ -430,6 +433,25 @@ def run_one(  # noqa: PLR0913, PLR0917
     project_dir : Path
         Path to the Quartus project directory, used only if the
         JTAG-reload path times out.
+    position : tuple of (int, int), keyword-only, optional
+        (index, total) — this test's 1-based position in the overall
+        suite and the suite's total size, shown in the printed header
+        as "[index/total]" (e.g. run_suite's own loop, via
+        enumerate(manifest, start=1)). None (the default, e.g. a
+        caller running just this one test outside of run_suite) omits
+        it from the header instead of printing something misleading
+        like "[1/1]".
+    duration : dict of {str: float}, keyword-only, optional
+        If given, this test's wall-clock time in seconds (JTAG
+        reload/poll plus, for "memory" tests, the RAM dump+compare) is
+        written into it under entry["name"] as a side effect — the
+        caller's own dict, mutated in place, so run_suite's loop can
+        report per-test timing back to cli.cmd_run's summary without
+        run_suite itself needing a richer return type (results stays a
+        plain {name: bool}, unchanged, still what gets persisted to
+        results_path/run_progress.json). None (the default) skips
+        this, e.g. a caller running just this one test outside of
+        run_suite and not interested in the summary version.
 
     Returns
     -------
@@ -438,10 +460,12 @@ def run_one(  # noqa: PLR0913, PLR0917
         compare if applicable), False otherwise.
     """
     name = entry["name"]
+    position_prefix = f"[{position[0]}/{position[1]}] " if position else ""
     print(
-        f"\n=== {name} ({entry['march']}, {entry['kind']}, "
+        f"\n=== {position_prefix}{name} ({entry['march']}, {entry['kind']}, "
         f"timeout={entry['timeout_s']}s) ==="
     )
+    start = time.monotonic()
 
     value = _run_with_recovery(cfg, link, entry, root, project_dir)
 
@@ -472,6 +496,10 @@ def run_one(  # noqa: PLR0913, PLR0917
             print(f"{name}: RAM dump failed ({exc}); can't verify memory content")
             passed = False
 
+    duration_s = time.monotonic() - start
+    print(f"{name}: took {duration_s:.1f}s")
+    if duration is not None:
+        duration[name] = duration_s
     return passed
 
 
@@ -519,6 +547,7 @@ def run_suite(  # noqa: PLR0913, PLR0917
     results_path: Path | None = None,
     results_so_far: dict[str, bool] | None = None,
     wait_for_hardware: bool = False,
+    durations: dict[str, float] | None = None,
 ) -> dict[str, bool]:
     """Run every test in manifest against real hardware.
 
@@ -595,6 +624,12 @@ def run_suite(  # noqa: PLR0913, PLR0917
         physically fixing the board (e.g. power-cycling it) — then
         automatically retries the exact step that failed and continues
         the suite, no re-invocation needed.
+    durations : dict of {str: float}, keyword-only, optional
+        If given, mutated in place with each actually-run test's own
+        wall-clock seconds (see run_one's own duration param) — for a
+        caller (cli.cmd_run) that wants to show per-test timing in its
+        summary without changing this function's own return type.
+        None (the default) skips it.
 
     Returns
     -------
@@ -692,11 +727,24 @@ def run_suite(  # noqa: PLR0913, PLR0917
                     return results
                 raise
 
-    for entry in manifest:
+    # 1-based position across the ORIGINAL manifest, not just this
+    # invocation's (possibly resumed/already-filtered) one — a resume
+    # restarting the header count at "[1/N]" would understate both how
+    # far along the suite actually is and what N even means.
+    already_done = len(results_so_far or {})
+    total = already_done + len(manifest)
+    for i, entry in enumerate(manifest, start=already_done + 1):
         while True:
             try:
                 results[entry["name"]] = run_one(
-                    cfg, link, entry, build_dir, root, project_dir
+                    cfg,
+                    link,
+                    entry,
+                    build_dir,
+                    root,
+                    project_dir,
+                    position=(i, total),
+                    duration=durations,
                 )
                 break
             except NeedsHumanInterventionError as exc:
