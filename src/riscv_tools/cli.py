@@ -15,6 +15,8 @@ from typing import Any
 
 from riscv_tools import (
     bin_to_image,
+    boot_rom,
+    certify,
     golden_generator,
     mailbox,
     orchestrator,
@@ -94,12 +96,14 @@ def _spike_mem_regions(cfg: dict[str, Any]) -> list[tuple[int, int]]:
     ]
 
 
-def _generate_c_golden(
+def _generate_c_golden(  # noqa: PLR0913, PLR0917
     cfg: dict[str, Any],
     march: str,
     name: str,
     build_dir: Path,
     spike_bin: str | None,
+    root: Path,
+    src: Path,
 ) -> tuple[str, Path]:
     """Auto-generate one .c memory test's golden.json by running its ELF under Spike.
 
@@ -119,7 +123,9 @@ def _generate_c_golden(
         passed to Spike as `--isa=`.
     name : str
         This test's name — build_dir/{name}.elf must already exist
-        (compiler.compile_test's own output).
+        (compiler.compile_test's own output), UNLESS
+        paths.golden_linker_script is configured (see below), in which
+        case a separate build_dir/{name}.golden.elf is built instead.
     build_dir : Path
         Where {name}.elf lives and {name}.golden.json gets written.
     spike_bin : str or None
@@ -128,6 +134,12 @@ def _generate_c_golden(
         golden_generator.setup() and returned for the caller to reuse
         on subsequent calls, since setup() can be a real build the
         first time Spike isn't already available.
+    root : Path
+        The consuming project's root directory — resolves
+        paths.boot_rom/golden_linker_script.
+    src : Path
+        This test's own source file (.c) — recompiled against
+        paths.golden_linker_script when configured (see below).
 
     Returns
     -------
@@ -137,7 +149,37 @@ def _generate_c_golden(
     """
     if spike_bin is None:
         spike_bin = str(golden_generator.setup(cfg["emulator"]["spike_bin"]))
-    elf_path = build_dir / f"{name}.elf"
+
+    # A project with a 3-memory BOOT_ROM/FLASH/RAM split (see
+    # riscv_tools.boot_rom) can't hand Spike its normal, FLASH-only
+    # elf_path: that image has no entry point Spike can run from cold
+    # (BOOT_ROM's own gp/sp/.data-copy setup lives in a SEPARATE,
+    # unlinked file on real hardware). paths.golden_linker_script
+    # (golden.ld in this project) links boot_rom.S + crt0.S + this
+    # test's own source together into one self-contained ELF instead,
+    # so Spike can start at BOOT_ROM's real entry point
+    # (emulator.entry_symbol, e.g. "_reset") the same way real
+    # hardware actually boots. A project without that split just
+    # keeps reusing build_dir/{name}.elf as before.
+    golden_linker = cfg.get("paths", {}).get("golden_linker_script")
+    boot_rom_src = cfg.get("paths", {}).get("boot_rom")
+    if golden_linker and boot_rom_src:
+        elf_path = build_dir / f"{name}.golden.elf"
+        compiler_mod.compile_test(
+            cfg["toolchain"],
+            cfg["isa"],
+            0.0,
+            src,
+            f"{name}.golden",
+            build_dir,
+            root / cfg["paths"]["include_dir"],
+            root / cfg["paths"]["crt0"],
+            root / golden_linker,
+            extra_sources=[root / boot_rom_src],
+        )
+    else:
+        elf_path = build_dir / f"{name}.elf"
+
     addr_start, addr_end = golden_generator.symbol_range(
         cfg["toolchain"]["nm"], elf_path, "results"
     )
@@ -148,6 +190,7 @@ def _generate_c_golden(
         isa=march,
         mem_regions=_spike_mem_regions(cfg),
         tohost_symbol=cfg["emulator"]["tohost_symbol"],
+        entry_symbol=cfg["emulator"].get("entry_symbol", "_start"),
         addr_start=addr_start,
         addr_end=addr_end,
         ram_base=cfg["memory"]["ram_base"],
@@ -314,17 +357,37 @@ def cmd_compile(args: argparse.Namespace) -> None:  # noqa: PLR0915
             root / cfg["paths"]["linker_script"],
         )
 
-        entry: dict[str, Any] = {"name": name, "march": march, "kind": kind}
+        lang = "C" if src.suffix == ".c" else "ASM"
+        entry: dict[str, Any] = {
+            "name": name,
+            "march": march,
+            "kind": kind,
+            "lang": lang,
+        }
+
+        # FLASH is addressed RAW from BOOT_ROM/FLASH's shared instruction
+        # bus (no base-address subtraction in hardware — see
+        # rv32im_pipeline_core.vhd), so a test's own image, linked at
+        # memory.rom_base, needs that many leading zero words so its
+        # real content lands at the matching word index — see
+        # bin_to_image.read_words' own docstring for why (a plain
+        # `objcopy -O binary` silently drops the leading gap).
+        flash_pad_words = cfg["memory"]["rom_base"] // 4
 
         if is_real:
             entry["timeout_s"] = timeout_s
             mif = build_dir / f"{name}.mif"
-            bin_to_image.bin_to_mif(bin_, mif, depth=cfg["memory"]["rom_words"])
+            bin_to_image.bin_to_mif(
+                bin_,
+                mif,
+                depth=flash_pad_words + cfg["memory"]["rom_words"],
+                pad_words=flash_pad_words,
+            )
             entry["mif"] = str(mif.relative_to(root))
 
             if kind == "memory" and src.suffix == ".c":
                 spike_bin, golden_path = _generate_c_golden(
-                    cfg, march, name, build_dir, spike_bin
+                    cfg, march, name, build_dir, spike_bin, root, src
                 )
                 entry["golden"] = str(golden_path.relative_to(root))
             elif kind == "memory":
@@ -340,7 +403,7 @@ def cmd_compile(args: argparse.Namespace) -> None:  # noqa: PLR0915
                 entry["golden"] = str(golden_path.relative_to(root))
         else:
             hex_ = build_dir / f"{name}.hex"
-            bin_to_image.bin_to_hex(bin_, hex_)
+            bin_to_image.bin_to_hex(bin_, hex_, pad_words=flash_pad_words)
             entry["hex"] = str(hex_.relative_to(root))
 
         if args.manifest_per_test:
@@ -442,6 +505,21 @@ def cmd_program(args: argparse.Namespace) -> None:
     link = _link(cfg)
     root = _root(args)
 
+    # BOOT_ROM (see riscv_tools.boot_rom) is only ever written here,
+    # as part of this full compile — never JTAG-rewritten per test the
+    # way FLASH (args.mif) is. Only meaningful for a project with a
+    # 3-memory BOOT_ROM/FLASH/RAM split (paths.boot_rom set).
+    boot_rom_mif_path = None
+    if cfg.get("paths", {}).get("boot_rom") and cfg["quartus"].get("boot_rom_mif_target"):
+        build_dir = root / cfg["paths"]["build_dir"] / "boot_rom"
+        boot_rom.build_boot_rom(cfg["toolchain"], cfg["paths"], root, build_dir)
+        boot_rom_mif_path = build_dir / "boot_rom.mif"
+        bin_to_image.bin_to_mif(
+            build_dir / "boot_rom.bin",
+            boot_rom_mif_path,
+            depth=cfg["memory"]["boot_rom_words"],
+        )
+
     quartus_program.full_reconfigure(
         hardware_name=link.hardware_name,
         project_dir=root / cfg["quartus"]["project_dir"],
@@ -450,6 +528,8 @@ def cmd_program(args: argparse.Namespace) -> None:
         rom_mif_target=cfg["quartus"]["rom_mif_target"],
         stale_cache_dirs=cfg["quartus"]["stale_cache_dirs"],
         rom_mif_path=Path(args.mif),
+        boot_rom_mif_target=cfg["quartus"].get("boot_rom_mif_target"),
+        boot_rom_mif_path=boot_rom_mif_path,
     )
 
 
@@ -591,13 +671,14 @@ def _print_run_summary(
     root: Path,
     build_dir: Path,
 ) -> None:
-    """Print cmd_run's final `PASS/FAIL  name  [kind, golden: ..., Ns]` table."""
+    """Print cmd_run's final `PASS/FAIL  name  [lang, kind, golden: ..., Ns]` table."""
     print("\n=== Summary ===")
     name_width = max((len(name) for name in results), default=0)
     for name, ok in results.items():
         entry = manifest_by_name.get(name, {})
         kind = entry.get("kind", "?")
-        detail = kind
+        lang = entry.get("lang", "?")
+        detail = f"{lang}, {kind}"
         if kind == "memory" and "golden" in entry:
             # Same test/repo distinction as _generate_c_golden's own
             # ephemeral build/real/<name>.golden.json vs an asm test's
@@ -605,7 +686,7 @@ def _print_run_summary(
             # test's golden path actually resolves under.
             golden_path = root / entry["golden"]
             origin = "spike" if golden_path.is_relative_to(build_dir) else "checked-in"
-            detail = f"{kind}, golden: {origin}"
+            detail = f"{lang}, {kind}, golden: {origin}"
         if name in durations:
             detail = f"{detail}, {durations[name]:.1f}s"
         print(f"  {'PASS' if ok else 'FAIL'}  {name:<{name_width}}  [{detail}]")
@@ -644,11 +725,11 @@ def cmd_run(args: argparse.Namespace) -> None:
     -------
     None
         Prints a PASS/FAIL summary to stdout when the suite finishes —
-        each line also shows the test's kind ("unit"/"memory") and,
-        for memory-kind tests, whether their golden.json came from
-        Spike at this same compile (a .c test — see
-        cli._generate_c_golden) or is checked into the repo (a .S
-        test). Deletes run_progress.json, since there's nothing left
+        each line also shows the test's source language ("C"/"ASM"),
+        kind ("unit"/"memory") and, for memory-kind tests, whether
+        their golden.json came from Spike at this same compile (a .c
+        test — see cli._generate_c_golden) or is checked into the
+        repo (a .S test). Deletes run_progress.json, since there's nothing left
         to resume. Exits the process with status 1 if the manifest file
         is missing, if --only names a test that isn't in the
         manifest, or if any completed test failed; status 2 if the
@@ -781,12 +862,68 @@ def cmd_sim(args: argparse.Namespace) -> None:
 
     manifest: list[dict[str, Any]] = json.loads(manifest_path.read_text())
 
-    results = sim_runner.run_suite(cfg, manifest, root, build_dir / "sim_work")
+    # Built ONCE per invocation, reused across every manifest entry --
+    # see boot_rom.build_boot_rom / sim_runner.run_suite's own
+    # boot_rom_hex_path parameter. Only meaningful for a project whose
+    # sim toplevel actually has a BOOT_ROM/FLASH split (paths.boot_rom
+    # set) -- skipped otherwise.
+    boot_rom_hex_path = None
+    if cfg.get("paths", {}).get("boot_rom"):
+        boot_rom_hex_path = boot_rom.build_boot_rom(
+            cfg["toolchain"], cfg["paths"], root, build_dir / "boot_rom"
+        )
+
+    results = sim_runner.run_suite(
+        cfg, manifest, root, build_dir / "sim_work", boot_rom_hex_path=boot_rom_hex_path
+    )
 
     print("\n=== Summary ===")
     for name, ok in results.items():
         print(f"  {'PASS' if ok else 'FAIL'}  {name}")
     if not all(results.values()):
+        sys.exit(1)
+
+
+def cmd_certify(args: argparse.Namespace) -> None:
+    """Implement `riscv-tools certify`.
+
+    Builds this project's own ACT4 target's self-checking ELFs (see
+    act.target_config in config.yaml, and
+    tools/riscv_build/act/rv32im-min/) via ACT4's own `make`
+    (act.vendor_dir — a pinned vendor/riscv-arch-test submodule), then
+    runs each one under cocotb/GHDL (see certify.run_suite). Requires
+    the "sim" extra (cocotb), a RISC-V GCC toolchain (compile_exe in
+    the ACT4 target's own test_config.yaml), and ACT4's own Ruby/
+    Bundler/UDB toolchain (see vendor/riscv-arch-test/README.md
+    "Prerequisites") — none of the real-hardware/JTAG toolchain this
+    project's other subcommands need.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed CLI arguments — uses args.config, args.root,
+        args.extensions (overrides config.yaml's act.extensions when
+        given).
+
+    Returns
+    -------
+    None
+        Prints a PASS/FAIL summary to stdout. Exits the process with
+        status 1 if any test failed (or if no ELFs were produced at
+        all — see certify.run_suite).
+    """
+    cfg = load_config(args.config)
+    if args.extensions is not None:
+        cfg["act"]["extensions"] = args.extensions
+    root = _root(args)
+    build_dir = root / cfg["paths"]["build_dir"] / "act"
+
+    results = certify.run_suite(cfg, root, build_dir)
+
+    print("\n=== Summary ===")
+    for name, ok in results.items():
+        print(f"  {'PASS' if ok else 'FAIL'}  {name}")
+    if not results or not all(results.values()):
         sys.exit(1)
 
 
@@ -1059,6 +1196,19 @@ def main() -> None:  # noqa: PLR0915
     )
     p.add_argument("--manifest", default=None)
     p.set_defaults(func=cmd_sim)
+
+    p = sub.add_parser(
+        "certify",
+        help="Build+run the ACT4 architectural certification suite "
+        "(cocotb/GHDL) for this project's own ACT4 target",
+    )
+    p.add_argument(
+        "--extensions",
+        default=None,
+        help="Comma-separated extension list forwarded to ACT4's own "
+        "`make ... EXTENSIONS=` (default: config.yaml's act.extensions)",
+    )
+    p.set_defaults(func=cmd_certify)
 
     p = sub.add_parser(
         "vhdl-sort",
