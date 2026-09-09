@@ -106,6 +106,77 @@ def words_to_bytes(words: dict[int, int]) -> dict[int, int]:
     return out
 
 
+def compare_bytes(
+    actual: dict[int, int], golden: dict[int, int], *, actual_label: str, golden_label: str
+) -> bool:
+    """Compare an in-memory byte map against golden bytes and print a human-readable diff.
+
+    The shared core of compare() (a real-hardware JTAG dump, parsed
+    from a .mif) and a GHDL sim testbench's own bus-snooped
+    reconstruction of RAM's final content (see a project's own
+    sim/test_c_program.py) — both end up with the same {byte_address:
+    byte_value} shape, so both go through the exact same diff/print
+    logic here instead of duplicating it.
+
+    Parameters
+    ----------
+    actual : dict of {int: int}
+        {byte_address: byte_value} — RAM-relative (see
+        mailbox.word_offset's convention), same as golden.
+    golden : dict of {int: int}
+        {byte_address: expected_byte_value} — only these addresses are
+        checked; extra bytes in actual that aren't in golden are
+        ignored.
+    actual_label : str
+        Names what actual came from, for the OK/FAIL message (e.g.
+        "add_ram.mif", or a sim test's own name).
+    golden_label : str
+        Names what golden came from (e.g. "add.golden.json").
+
+    Returns
+    -------
+    bool
+        True if every address in golden matches actual exactly, False
+        otherwise.
+    """
+    diffs: list[tuple[int, int, int | None]] = []
+    for addr, expected in sorted(golden.items()):
+        got = actual.get(addr)
+        if got is None:
+            diffs.append((addr, expected, None))
+        elif got != expected:
+            diffs.append((addr, expected, got))
+
+    if not diffs:
+        print(f"OK: {actual_label} matches {golden_label}")
+        return True
+
+    print(f"FAIL: {actual_label} differs from {golden_label}:")
+    for addr, expected, got in diffs[:_MAX_DIFFS_SHOWN]:
+        got_str = "missing" if got is None else f"0x{got:02X}"
+        print(f"  0x{addr:08X}: expected 0x{expected:02X}, got {got_str}")
+    if len(diffs) > _MAX_DIFFS_SHOWN:
+        print(f"  ... and {len(diffs) - _MAX_DIFFS_SHOWN} more")
+    return False
+
+
+def load_golden(golden_json: Path) -> dict[int, int]:
+    """Load a golden JSON into a {byte_address: expected_byte_value} dict.
+
+    Parameters
+    ----------
+    golden_json : Path
+        Path to the golden JSON — a {hex byte address string: expected
+        int byte value} map.
+
+    Returns
+    -------
+    dict of {int: int}
+        {byte_address: expected_byte_value}, keys parsed as hex.
+    """
+    return {int(k, 16): int(v) for k, v in json.loads(golden_json.read_text()).items()}
+
+
 def compare(dump_mif: Path, golden_json: Path) -> bool:
     """Compare a RAM dump against a golden JSON and print a human-readable diff.
 
@@ -129,26 +200,7 @@ def compare(dump_mif: Path, golden_json: Path) -> bool:
         content exactly, False otherwise.
     """
     actual = words_to_bytes(parse_mif_words(dump_mif))
-    golden = {
-        int(k, 16): int(v) for k, v in json.loads(golden_json.read_text()).items()
-    }
-
-    diffs: list[tuple[int, int, int | None]] = []
-    for addr, expected in sorted(golden.items()):
-        got = actual.get(addr)
-        if got is None:
-            diffs.append((addr, expected, None))
-        elif got != expected:
-            diffs.append((addr, expected, got))
-
-    if not diffs:
-        print(f"OK: {dump_mif.name} matches {golden_json.name}")
-        return True
-
-    print(f"FAIL: {dump_mif.name} differs from {golden_json.name}:")
-    for addr, expected, got in diffs[:_MAX_DIFFS_SHOWN]:
-        got_str = "missing" if got is None else f"0x{got:02X}"
-        print(f"  0x{addr:08X}: expected 0x{expected:02X}, got {got_str}")
-    if len(diffs) > _MAX_DIFFS_SHOWN:
-        print(f"  ... and {len(diffs) - _MAX_DIFFS_SHOWN} more")
-    return False
+    golden = load_golden(golden_json)
+    return compare_bytes(
+        actual, golden, actual_label=dump_mif.name, golden_label=golden_json.name
+    )

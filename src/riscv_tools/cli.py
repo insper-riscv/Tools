@@ -256,16 +256,17 @@ def cmd_compile(args: argparse.Namespace) -> None:  # noqa: PLR0915
     Builds every test under paths.c_dir/paths.asm_dir into .mif/.hex
     (+ the combined manifest.json), or into human-readable .s (no
     manifest) for --emit asm. Each test is its own
-    <c_dir|asm_dir>/<name>/ folder (see _discover_tests) — "real"
-    (--emit mif) builds every test regardless of kind, "sim" (--emit
-    hex) skips "memory"-kind .S tests, since sim doesn't verify RAM
-    contents (only the PASS/FAIL mailbox) and building one would
-    silently under-verify it instead of catching a wrong computed
-    value against its checked-in golden.json. "memory"-kind .c tests
-    are the exception: their golden.json is generated fresh from Spike
-    at real-build time (see _generate_c_golden), not checked in, so
-    sim still builds them too — just without any RAM check, same as a
-    "unit"-kind test.
+    <c_dir|asm_dir>/<name>/ folder (see _discover_tests) — both "real"
+    (--emit mif) and "sim" (--emit hex) build every test regardless of
+    kind, and both attach a "memory"-kind test's golden.json to its
+    manifest entry the same way, so sim_runner's cocotb testbench can
+    do the same RAM-vs-golden check orchestrator.run_one does for real
+    hardware (bus-snooped writes standing in for a JTAG dump — see a
+    project's own sim/test_c_program.py). Before this, sim only
+    watched the PASS/FAIL mailbox, so a "memory" test whose computed
+    value was simply wrong (not just "didn't reach RV32_PASS()") still
+    reported PASS in simulation — only caught once run on real
+    hardware, sometimes much later.
 
     Parameters
     ----------
@@ -284,8 +285,7 @@ def cmd_compile(args: argparse.Namespace) -> None:  # noqa: PLR0915
     -------
     None
         Exits the process with status 1 if no tests are found, or if
-        a "memory"-kind test (--emit mif only) is missing its
-        golden.json.
+        a "memory"-kind .S test is missing its checked-in golden.json.
     """
     cfg = load_config(args.config)
     root = _root(args)
@@ -325,23 +325,6 @@ def cmd_compile(args: argparse.Namespace) -> None:  # noqa: PLR0915
 
     for src in sources:
         name = src.parent.name
-
-        kind_peek = compiler_mod.parse_header(
-            cfg["isa"], cfg["quartus"]["default_timeout_s"], src.read_text()
-        )[1]
-        # .S memory tests carry a checked-in golden.json meant for the
-        # real-hardware RAM dump only — building one for sim would
-        # silently under-verify it (mailbox PASS regardless of a wrong
-        # computed value). .c memory tests are the opposite: their
-        # golden.json is generated fresh from Spike at real-build time
-        # (see _generate_c_golden) specifically so they don't need one
-        # checked in — nothing stops them from also building for sim in
-        # a mailbox-only capacity, same as a unit test, keeping them in
-        # the fast per-push GHDL suite instead of only ever running on
-        # self-hosted real hardware.
-        if kind_peek == "memory" and not is_real and src.suffix == ".S":
-            print(f"Skipping {name}: sim doesn't verify memory-kind tests")
-            continue
 
         print(f"Building {src.relative_to(root)} ...")
 
@@ -384,27 +367,33 @@ def cmd_compile(args: argparse.Namespace) -> None:  # noqa: PLR0915
                 pad_words=flash_pad_words,
             )
             entry["mif"] = str(mif.relative_to(root))
-
-            if kind == "memory" and src.suffix == ".c":
-                spike_bin, golden_path = _generate_c_golden(
-                    cfg, march, name, build_dir, spike_bin, root, src
-                )
-                entry["golden"] = str(golden_path.relative_to(root))
-            elif kind == "memory":
-                golden_path = src.parent / "golden.json"
-
-                if not golden_path.is_file():
-                    print(
-                        f"ERROR: {name} is memory but {golden_path} is missing",
-                        file=sys.stderr,
-                    )
-                    sys.exit(1)
-
-                entry["golden"] = str(golden_path.relative_to(root))
         else:
             hex_ = build_dir / f"{name}.hex"
             bin_to_image.bin_to_hex(bin_, hex_, pad_words=flash_pad_words)
             entry["hex"] = str(hex_.relative_to(root))
+
+        # Attached the same way for "real" and "sim": sim_runner's own
+        # cocotb testbench does a bus-snooped RAM-vs-golden compare
+        # exactly like orchestrator.run_one's JTAG-dump-vs-golden
+        # compare does for real hardware — see this function's own
+        # docstring for why that matters (a wrong computed value used
+        # to only surface once run for real, sometimes much later).
+        if kind == "memory" and src.suffix == ".c":
+            spike_bin, golden_path = _generate_c_golden(
+                cfg, march, name, build_dir, spike_bin, root, src
+            )
+            entry["golden"] = str(golden_path.relative_to(root))
+        elif kind == "memory":
+            golden_path = src.parent / "golden.json"
+
+            if not golden_path.is_file():
+                print(
+                    f"ERROR: {name} is memory but {golden_path} is missing",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+
+            entry["golden"] = str(golden_path.relative_to(root))
 
         if args.manifest_per_test:
             per_test_path = Path(args.manifest_per_test.format(name=name))

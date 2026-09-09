@@ -33,6 +33,8 @@ def run_test(  # noqa: PLR0913, PLR0917
     test_name: str,
     build_dir: Path,
     parameters: dict[str, Any] | None = None,
+    ram_base: int = 0,
+    golden_path: Path | None = None,
 ) -> bool:
     """Build (if needed) and run one test under cocotb/GHDL.
 
@@ -62,6 +64,20 @@ def run_test(  # noqa: PLR0913, PLR0917
         Directory for GHDL's build+run artifacts (kept separate per
         test so parallel/repeated runs don't clobber each other's
         elaborated design).
+    ram_base : int, optional
+        memory.ram_base — passed through as RAM_BASE so the testbench
+        can convert its own bus-snooped (absolute) RAM addresses into
+        the same RAM-relative convention golden_path's keys use,
+        without hardcoding it (see mailbox.word_offset). Default 0.
+    golden_path : Path, optional
+        This test's golden.json (manifest entry "golden"), for a
+        "memory"-kind test — passed through as GOLDEN_PATH so the
+        testbench can do the same RAM-vs-golden compare
+        orchestrator.run_one does for real hardware, from its own
+        bus-snooped reconstruction of RAM's final content (cocotb's
+        VPI can't read a memory array directly — see a project's own
+        sim/test_c_program.py). None (the default) omits it — a
+        "unit"-kind test has no golden.json to check.
     parameters : dict of {str: Any}, optional
         VHDL generics to set on toplevel (sim.parameters, e.g. a
         project's own `ROM_FILE`/memory-depth generics — see
@@ -132,6 +148,8 @@ def run_test(  # noqa: PLR0913, PLR0917
             extra_env={
                 "ROM_HEX": str(Path(hex_path).resolve()),
                 "TEST_NAME": test_name,
+                "RAM_BASE": str(ram_base),
+                "GOLDEN_PATH": str(Path(golden_path).resolve()) if golden_path else "",
             },
             parameters=parameters,
         )
@@ -161,7 +179,9 @@ def run_suite(
         test_module/ghdl_std/parameters.
     manifest : list of dict of {str: Any}
         The full test list (from `compile --emit hex`'s
-        manifest.json) — each entry needs "name" and "hex".
+        manifest.json) — each entry needs "name" and "hex", plus
+        "golden" for a "memory"-kind entry (see run_test's
+        golden_path).
     root : Path
         The consuming project's root directory, entry["hex"] is
         relative to this, and vhdl_sources are resolved relative to
@@ -219,6 +239,7 @@ def run_suite(
             else v
             for k, v in parameter_templates.items()
         }
+        golden_path = root / entry["golden"] if "golden" in entry else None
         results[name] = run_test(
             toplevel=cfg["sim"]["toplevel"],
             vhdl_sources=vhdl_sources,
@@ -228,6 +249,8 @@ def run_suite(
             test_name=name,
             build_dir=build_dir / name,
             parameters=parameters,
+            ram_base=cfg["memory"]["ram_base"],
+            golden_path=golden_path,
         )
         print(f"{name}: {'PASS' if results[name] else 'FAIL'}")
 
