@@ -98,7 +98,17 @@ def _spike_mem_regions(cfg: dict[str, Any]) -> list[tuple[int, int]]:
 
 
 def _syscalls_sources(cfg: dict[str, Any], root: Path) -> list[Path]:
-    """Resolve paths.syscalls (a libc syscall-stub source, e.g. _sbrk), if configured.
+    """Resolve paths.syscalls (self-contained libc-like shims, e.g. malloc), if configured.
+
+    compile_test still passes -nostdlib — a downloaded toolchain's own
+    bundled libc.a isn't guaranteed to match this project's -march/
+    -mabi at all (confirmed the hard way: a real CI failure where the
+    riscv-collab prebuilt release's libc.a turned out built for
+    rv32imafdc/hard-float, incompatible with -mabi=ilp32 — no flag
+    combination fixes a genuinely mismatched precompiled library).
+    A project needing something like malloc() provides its own
+    self-contained implementation here instead of linking against
+    newlib at all.
 
     Optional: a project with no such file (most don't need one — only
     a test that actually references something like malloc() does)

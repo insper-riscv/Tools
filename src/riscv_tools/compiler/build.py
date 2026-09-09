@@ -84,14 +84,24 @@ def compile_test(  # noqa: PLR0913, PLR0917
             "-mabi=ilp32",
             "-Os",
             "-ffreestanding",
-            # -nostartfiles (not -nostdlib): a project's own crt0
-            # replaces the standard _start, but libc/libgcc stay
-            # linkable — a test that never references them (the
-            # common case) is unaffected, since the linker only pulls
-            # in what's actually referenced; one that calls e.g.
-            # malloc() (see paths.syscalls' own _sbrk stub) now
-            # resolves against the toolchain's own newlib instead of
-            # failing with "undefined reference".
+            # -nostdlib (still, deliberately — see paths.syscalls):
+            # tried dropping this to link against the toolchain's own
+            # newlib for malloc()/free(), but a downloaded toolchain's
+            # bundled libc.a isn't guaranteed to have been built for
+            # this project's own -march/-mabi at all — confirmed via a
+            # real CI failure ("can't link double-float modules with
+            # soft-float modules"): the riscv-collab prebuilt release
+            # CI downloads turned out to ship a SINGLE-target libc.a
+            # built for rv32imafdc/hard-float, incompatible with
+            # -mabi=ilp32 (soft-float, the only ABI that makes sense
+            # for a core with no FPU) — no combination of flags fixes
+            # that, since the mismatched .a simply doesn't contain a
+            # compatible variant. A project needing e.g. malloc()
+            # should provide its own self-contained implementation
+            # instead (paths.syscalls) rather than depend on whatever
+            # a downloaded toolchain's own bundled libc happens to be
+            # built for.
+            "-nostdlib",
             "-nostartfiles",
             f"-I{include_dir}",
             # -L so linker.ld's own `INCLUDE boot_rom_symbols.ld`
