@@ -27,11 +27,23 @@ Three optional `//` comments at the top of `src.c` configure how
 // RV32_TEST_KIND: unit          // default. Checked via the PASS/FAIL
                                   // mailbox only. Builds for both real
                                   // hardware and sim.
-// RV32_TEST_KIND: memory        // also dumps the whole RAM and compares
-                                  // it against golden.json (see below).
-                                  // Real hardware only — sim_runner
-                                  // doesn't verify RAM contents, so
-                                  // `compile --emit hex` skips these.
+// RV32_TEST_KIND: memory        // a unit test, EXPANDED: everything
+                                  // about `unit` still applies (same
+                                  // RV32_PASS()/RV32_FAIL() mailbox
+                                  // convention, builds for both real
+                                  // hardware and sim) — a memory test
+                                  // additionally declares a `results`
+                                  // global (see below) and gets it
+                                  // checked against golden.json AFTER
+                                  // the mailbox reads PASS, on both
+                                  // real hardware (a JTAG RAM dump)
+                                  // and sim (the same check, read live
+                                  // off the RAM write bus instead).
+                                  // Turning a `unit` test into a
+                                  // `memory` test is exactly "change
+                                  // this line + add `results`" —
+                                  // nothing about how PASS/FAIL itself
+                                  // works changes.
 // RV32_TIMEOUT_S: 5             // real tests only, how long the
                                   // orchestrator waits for this test's
                                   // mailbox before falling back to a full
@@ -78,13 +90,31 @@ start of RAM/ROM.
 
 ## `unit` vs `memory` tests
 
+`memory` is `unit`, expanded — not a separate, unrelated kind. Both are
+judged the exact same first step: does the mailbox read PASS? A
+`memory` test just doesn't stop there — once the mailbox reads PASS,
+its `results` global also gets compared against golden.json. A test
+signaling FAIL, or timing out, never reaches that second check at all
+— identical to a `unit` test failing the same way. Concretely: take
+any working `unit` test, add a `results` global it writes its answer
+into, change the header comment to `memory`, and it's now a `memory`
+test — nothing about its `RV32_PASS()`/`RV32_FAIL()` logic changes.
+
 - `unit` (the default): passing means the mailbox reads PASS. Good
   enough when the test can fully judge itself with an `if`. Builds
   for both `compile --emit mif` (real) and `--emit hex` (sim).
-- `memory`: also verifies memory contents, not just the mailbox — but
-  unlike an asm memory test (see
+- `memory`: mailbox PASS, **and then** a `results` global is checked
+  against golden.json — on both real hardware (a JTAG RAM dump) and
+  sim (the same check, done live off the RAM write bus instead, since
+  sim has no way to dump a memory array directly — see a project's own
+  sim/test_c_program.py). This is what catches a test that reached
+  RV32_PASS() with a wrong computed value (e.g. a sum that came out
+  off by one) — the mailbox alone can't tell "ran to completion" apart
+  from "ran to completion and got the wrong answer."
+
+  Unlike an asm memory test (see
   [creating-an-asm-test.md](creating-an-asm-test.md)), a C memory test
-  carries **no checked-in golden.json**. Declare a `results` global
+  carries **no checked-in golden.json** — declare a `results` global
   instead:
 
   ```c
@@ -101,12 +131,12 @@ start of RAM/ROM.
   }
   ```
 
-  At `compile --emit mif` time, `_generate_c_golden` (cli.py) resolves
-  `results`' address/size from the compiled ELF's symbol table (`nm
-  -S`, same mechanism as `generate-golden --symbol`), runs the ELF
-  under Spike (the RISC-V Foundation's own reference simulator —
-  `golden_generator.generate_golden`), and writes a fresh
-  `build/real/<name>.golden.json` — never a file you write or commit.
+  At compile time (both `--emit mif` and `--emit hex`), `_generate_c_golden`
+  (cli.py) resolves `results`' address/size from the compiled ELF's
+  symbol table (`nm -S`, same mechanism as `generate-golden --symbol`),
+  runs the ELF under Spike (the RISC-V Foundation's own reference
+  simulator — `golden_generator.generate_golden`), and writes a fresh
+  `<build_dir>/<name>.golden.json` — never a file you write or commit.
   Correctness is validated as "this project's CPU produces the same
   memory contents Spike does for the same program," not against a
   value someone worked out by hand once that can silently go stale
@@ -120,23 +150,19 @@ start of RAM/ROM.
   sized global (`volatile`, so the compiler can't optimize the writes
   away), not a raw pointer to a hardcoded address.
 
-  Both `compile --emit mif` (real) and `--emit hex` (sim) build a `.c`
-  memory test — sim just never runs the RAM check (`sim_runner` only
-  ever reads the PASS/FAIL mailbox), so it still catches "this doesn't
-  even run to completion" on the fast per-push GHDL suite, while the
-  actual computed-values check only happens for real, against Spike,
-  on real hardware. An asm memory test's checked-in golden.json is the
-  opposite — real-hardware only, `--emit hex` skips it entirely (see
-  [creating-an-asm-test.md](creating-an-asm-test.md)) — since there's
-  no Spike run backing it to make a sim-time RAM check meaningful.
+  Both `compile --emit mif` (real) and `--emit hex` (sim) build and
+  fully verify a `memory` test now — the golden compare against Spike
+  runs the same way for both, so a wrong computed value is caught on
+  the fast per-push GHDL suite, not just once run for real.
 
 ## Building, inspecting, running
 
 ```bash
 uv run riscv-tools --config <project>/config.yaml compile --emit mif   # real/FPGA, every test
-uv run riscv-tools --config <project>/config.yaml compile --emit hex   # sim, unit tests only
+uv run riscv-tools --config <project>/config.yaml compile --emit hex   # sim, every test
 uv run riscv-tools --config <project>/config.yaml compile --emit asm   # inspect codegen (gcc -S)
 uv run riscv-tools --config <project>/config.yaml run                  # real hardware suite
+uv run riscv-tools --config <project>/config.yaml sim                  # sim suite (cocotb/GHDL)
 ```
 
 See [creating-an-asm-test.md](creating-an-asm-test.md) for writing a

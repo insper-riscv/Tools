@@ -48,7 +48,7 @@ sections. Any key you omit falls back to the built-in default shown.
 | `c_dir` | Directory holding one `<name>/src.c` folder per C test — see [creating-a-c-test.md](creating-a-c-test.md) |
 | `asm_dir` | Directory holding one `<name>/src.S` folder per assembly test — see [creating-an-asm-test.md](creating-an-asm-test.md) |
 
-No `tests_real_dir`/`tests_sim_dir`/`golden_dir` split: every test under `c_dir`/`asm_dir` builds for `compile --emit mif` (real) regardless of kind; `--emit hex` (sim) skips `RV32_TEST_KIND: memory` tests, since `sim_runner` doesn't verify RAM contents, only the PASS/FAIL mailbox — building one for sim would silently under-verify it instead of catching a wrong computed value. A `memory` test's expected `{byte address: byte value}` map lives at `<name>/golden.json`, next to its `src.c`/`src.S`, not in a separate golden directory.
+No `tests_real_dir`/`tests_sim_dir`/`golden_dir` split: every test under `c_dir`/`asm_dir` builds for both `compile --emit mif` (real) and `--emit hex` (sim), regardless of kind — a `RV32_TEST_KIND: memory` test's `results` are checked against golden.json the same way on both (see [creating-a-c-test.md](creating-a-c-test.md#unit-vs-memory-tests): `memory` is `unit`, expanded — mailbox PASS first, then the golden compare). A `memory` test's expected `{byte address: byte value}` map lives at `<name>/golden.json`, next to its `src.c`/`src.S`, not in a separate golden directory.
 
 ### `quartus:`
 

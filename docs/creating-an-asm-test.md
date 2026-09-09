@@ -81,8 +81,9 @@ Same CLI as C tests:
 
 ```bash
 uv run riscv-tools --config <project>/config.yaml compile --emit mif   # every test, real
-uv run riscv-tools --config <project>/config.yaml compile --emit hex   # unit-kind only, sim
-uv run riscv-tools --config <project>/config.yaml run
+uv run riscv-tools --config <project>/config.yaml compile --emit hex   # every test, sim
+uv run riscv-tools --config <project>/config.yaml run                  # real hardware suite
+uv run riscv-tools --config <project>/config.yaml sim                  # sim suite (cocotb/GHDL)
 ```
 
 `compile --emit asm` is a no-op passthrough for `.S` files — they're
