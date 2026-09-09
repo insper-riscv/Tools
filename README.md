@@ -58,12 +58,18 @@ changing code:
 | `vendor/riscv-gnu-toolchain` | [riscv-collab/riscv-gnu-toolchain](https://github.com/riscv-collab/riscv-gnu-toolchain) | The GCC cross-toolchain `compiler` builds test programs with |
 | `vendor/riscv-isa-sim`    | [riscv-software-src/riscv-isa-sim](https://github.com/riscv-software-src/riscv-isa-sim) (Spike, RISC-V International's reference simulator) | Golden-reference source for `golden_generator` ([docs](docs/generating-a-golden.md)) |
 
-Neither needs to be checked out for normal use: `compiler` expects a
-prebuilt GCC toolchain already on `PATH` (building `vendor/riscv-gnu-toolchain`
-from source takes tens of minutes), and `golden_generator` can point
-`RISCV_ISA_SIM_DIR` at an already-built Spike instead of building
-`vendor/riscv-isa-sim` (see [docs/generating-a-golden.md](docs/generating-a-golden.md)).
-Only initialize one if you actually want to build it from source:
+Neither needs to be checked out for normal use. On an org workstation set
+up per [insper-riscv/Infra](https://github.com/insper-riscv/Infra)'s
+`SPIKE_SETUP.md`, a prebuilt GCC toolchain and a prebuilt Spike already
+live in a shared cache (`/opt/riscv-foundation`), so neither submodule
+needs building there at all. Off that kind of workstation, `compiler`
+still just expects a prebuilt GCC toolchain on `PATH` from somewhere
+(building `vendor/riscv-gnu-toolchain` from source takes tens of minutes),
+and `golden_generator` can point `RISCV_ISA_SIM_DIR` at any already-built
+Spike instead of building `vendor/riscv-isa-sim` locally (see
+[docs/generating-a-golden.md](docs/generating-a-golden.md)). Only
+initialize one of these submodules if you actually want to build it from
+source:
 
 ```bash
 git submodule update --init vendor/riscv-gnu-toolchain
