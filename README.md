@@ -10,27 +10,27 @@ its own `config.yaml`, which overrides these defaults. See
 
 ## Modules
 
-| Module              | Responsibility                                              |
-|----------------------|--------------------------------------------------------------|
-| `compiler`           | .c/.S -> .elf/.bin, header parsing (`RV32_EXT`/`RV32_TEST_KIND`/`RV32_TIMEOUT_S`) |
-| `bin_to_image`       | .bin -> .mif/.hex (memory-image formats, no compiler involved)    |
-| `c_to_asm`           | .c -> human-readable RISC-V assembly (`gcc -S`), for inspecting codegen |
-| `boot_rom`           | Builds the fixed, shared bootloader, once, reused across every test |
-| `jtag`               | Live JTAG cable detection, generic `.tcl` runner            |
-| `mem_edit`           | Generic In-System Memory Content Editor primitives (read/write word, write-full, dump) |
-| `rom_writer`         | JTAG-write a ROM image without reprogramming                |
-| `ram_zero`           | JTAG-zero the whole RAM without reprogramming                |
-| `ram_dump`           | JTAG-dump the whole RAM to a `.mif`                          |
-| `mailbox`            | PASS/FAIL mailbox read + restart "go flag" pulse             |
-| `quartus_program`    | Full recompile + `quartus_pgm` (the slow "base" path)        |
-| `mem_validator`      | Compare a RAM dump against a golden JSON                     |
-| `golden_generator`   | Generate a golden JSON dynamically by running an ELF under Spike |
-| `orchestrator`       | Composes the above into a full real-hardware test-suite run, or a clock frequency sweep to find Fmax |
-| `sim_runner`         | Drives cocotb/GHDL simulation: the sim-side counterpart to `orchestrator` (needs the `sim` extra) |
-| `certify`            | Builds and runs the ACT4 architectural certification suite under cocotb/GHDL |
-| `vhdl_sort`          | Topologically sort VHDL sources by entity/package dependency, for GHDL `-a` |
-| `freq_sweep`         | Rewrite a PLL source's clock frequency/phase offsets: the mechanism `orchestrator`'s frequency sweep edits with |
-| `run_log`            | Rotates and tees a run's full console output into a persistent per-kind log history |
+| Module              | Responsibility                                              | Doc |
+|----------------------|--------------------------------------------------------------|-----|
+| `compiler`           | .c/.S -> .elf/.bin, header parsing (`RV32_EXT`/`RV32_TEST_KIND`/`RV32_TIMEOUT_S`) | [docs/compiler.md](docs/compiler.md) |
+| `bin_to_image`       | .bin -> .mif/.hex (memory-image formats, no compiler involved)    | [docs/bin_to_image.md](docs/bin_to_image.md) |
+| `c_to_asm`           | .c -> human-readable RISC-V assembly (`gcc -S`), for inspecting codegen | [docs/c_to_asm.md](docs/c_to_asm.md) |
+| `boot_rom`           | Builds the fixed, shared bootloader, once, reused across every test | [docs/boot_rom.md](docs/boot_rom.md) |
+| `jtag`               | Live JTAG cable detection, generic `.tcl` runner            | [docs/jtag.md](docs/jtag.md) |
+| `mem_edit`           | Generic In-System Memory Content Editor primitives (read/write word, write-full, dump) | [docs/mem_edit.md](docs/mem_edit.md) |
+| `rom_writer`         | JTAG-write a ROM image without reprogramming                | [docs/rom_writer.md](docs/rom_writer.md) |
+| `ram_zero`           | JTAG-zero the whole RAM without reprogramming                | [docs/ram_zero.md](docs/ram_zero.md) |
+| `ram_dump`           | JTAG-dump the whole RAM to a `.mif`                          | [docs/ram_dump.md](docs/ram_dump.md) |
+| `mailbox`            | PASS/FAIL mailbox read + restart "go flag" pulse             | [docs/mailbox.md](docs/mailbox.md) |
+| `quartus_program`    | Full recompile + `quartus_pgm` (the slow "base" path)        | [docs/quartus_program.md](docs/quartus_program.md) |
+| `mem_validator`      | Compare a RAM dump against a golden JSON                     | [docs/mem_validator.md](docs/mem_validator.md) |
+| `golden_generator`   | Generate a golden JSON dynamically by running an ELF under Spike | [docs/golden_generator.md](docs/golden_generator.md) |
+| `orchestrator`       | Composes the above into a full real-hardware test-suite run, or a clock frequency sweep to find Fmax | [docs/orchestrator.md](docs/orchestrator.md) |
+| `sim_runner`         | Drives cocotb/GHDL simulation: the sim-side counterpart to `orchestrator` (needs the `sim` extra) | [docs/sim_runner.md](docs/sim_runner.md) |
+| `certify`            | Builds and runs the ACT4 architectural certification suite under cocotb/GHDL | [docs/certify.md](docs/certify.md) |
+| `vhdl_sort`          | Topologically sort VHDL sources by entity/package dependency, for GHDL `-a` | [docs/vhdl_sort.md](docs/vhdl_sort.md) |
+| `freq_sweep`         | Rewrite a PLL source's clock frequency/phase offsets: the mechanism `orchestrator`'s frequency sweep edits with | [docs/freq_sweep.md](docs/freq_sweep.md) |
+| `run_log`            | Rotates and tees a run's full console output into a persistent per-kind log history | [docs/run_log.md](docs/run_log.md) |
 
 ## Rule: one module, one responsibility
 
