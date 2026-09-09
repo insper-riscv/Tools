@@ -1,7 +1,8 @@
 [project]
 name = "riscv-tools"
 version = "1.0.0"
-description = "Build/JTAG tooling for bare-metal RV32IM test programs: compile, write ROM/RAM over JTAG, program the base bitstream, and orchestrate a real-hardware test run."
+description = "Config-driven build and test tooling for bare-metal RISC-V programs: compile, run against real hardware over JTAG or against cocotb/GHDL simulation, and verify results against Spike-generated or checked-in golden references."
+license = "Apache-2.0"
 # Capped at <3.14: cocotb (the "sim" extra) officially supports only
 # up to CPython 3.13 (https://docs.cocotb.org/en/stable/platform_support.html)
 # — 2.0.1 hard-fails its own build on anything newer. Since one venv

@@ -125,3 +125,7 @@ uv run riscv-tools --config /path/to/project/config.yaml freq-sweep \
 uv sync --group dev
 uv run pytest
 ```
+
+---
+
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](LICENSE).
