@@ -19,3 +19,7 @@ None: takes a `JtagLink` (see [`jtag`](jtag.md)), an instance index, and paths/a
 ## Usage
 
 Not its own CLI subcommand: it's the mechanism [`rom_writer`](rom_writer.md), [`ram_zero`](ram_zero.md), [`ram_dump`](ram_dump.md), and [`mailbox`](mailbox.md) each call to actually talk to a memory instance over JTAG.
+
+---
+
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../LICENSE).

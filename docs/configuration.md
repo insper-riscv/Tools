@@ -166,3 +166,7 @@ golden-generation paths never touch it, so it's only needed once you
 actually use `sim_runner`/`riscv-tools sim`, at which point
 `toplevel`/`vhdl_sources`/`test_module` become required (see the
 Configuration reference above).
+
+---
+
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../LICENSE).

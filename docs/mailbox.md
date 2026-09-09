@@ -30,3 +30,7 @@ uv run riscv-tools --config /path/to/project/config.yaml generate-header
 ```
 
 `read`/`pulse` are mostly for manual debugging; [`orchestrator`](orchestrator.md) calls the same functions directly as part of its own per-test loop.
+
+---
+
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../LICENSE).

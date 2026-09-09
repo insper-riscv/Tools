@@ -9,3 +9,7 @@ Uses the same `toolchain.gcc`/`toolchain.objcopy` settings as [`compiler`](compi
 ## Usage
 
 Not its own CLI subcommand: called once at the start of a real-hardware run (before the initial `quartus_sh`/`quartus_pgm`, see [`quartus_program`](quartus_program.md)) or a simulation run (see [`sim_runner`](sim_runner.md)), never per test.
+
+---
+
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../LICENSE).

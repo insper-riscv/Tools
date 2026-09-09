@@ -90,3 +90,7 @@ uv run riscv-tools --config <project>/config.yaml sim                  # sim sui
 
 `compile --emit asm` is a no-op passthrough for `.S` files — they're
 already assembly, there's nothing to compile down to.
+
+---
+
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../LICENSE).

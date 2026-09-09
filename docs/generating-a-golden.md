@@ -154,3 +154,7 @@ uv run pytest tests/test_generate_golden.py -v
 
 It skips automatically (not fails) if `spike` or the RISC-V GCC
 toolchain aren't available.
+
+---
+
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../LICENSE).

@@ -125,3 +125,7 @@ result is empirical to that specific board at whatever conditions it
 happened to run under — not a formal timing-closure guarantee, and not
 necessarily reproducible bit-for-bit on a different board of the same
 part.
+
+---
+
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../LICENSE).

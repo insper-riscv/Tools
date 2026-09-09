@@ -28,3 +28,7 @@ uv run riscv-tools --config /path/to/project/config.yaml program <path-to.mif>
 ```
 
 Also called internally by [`orchestrator`](orchestrator.md) as the initial reconfigure step of a full suite run, and as its own automatic recovery tier when a JTAG-reloaded test's mailbox never responds.
+
+---
+
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../LICENSE).

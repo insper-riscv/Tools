@@ -18,3 +18,7 @@ uv run riscv-tools --config /path/to/project/config.yaml write-rom <path-to.mif>
 ```
 
 Also called internally by [`orchestrator`](orchestrator.md)'s per-test JTAG-reload loop, the fast path used instead of a full recompile between tests.
+
+---
+
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../LICENSE).

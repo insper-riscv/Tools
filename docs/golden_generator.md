@@ -19,3 +19,7 @@ uv run riscv-tools --config /path/to/project/config.yaml generate-golden \
 ```
 
 Also called internally by `compile` for every `memory`-kind C test that doesn't already have a checked-in `golden.json`, and by [`orchestrator`](orchestrator.md) when re-running a suite that needs one regenerated.
+
+---
+
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../LICENSE).

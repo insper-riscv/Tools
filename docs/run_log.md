@@ -13,3 +13,7 @@ A stale `latest.log` from a previous run is archived under its own recorded star
 ## Usage
 
 Not its own CLI subcommand: automatic on every `run`/`sim`/`certify` invocation. Nothing to configure to get it; only `run_log.logs_dir` is worth overriding, and only if a project wants log history somewhere other than the default.
+
+---
+
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../LICENSE).

@@ -14,3 +14,7 @@ Clears every word of a RAM instance over JTAG, without reprogramming the board. 
 ```bash
 uv run riscv-tools --config /path/to/project/config.yaml zero-ram
 ```
+
+---
+
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../LICENSE).

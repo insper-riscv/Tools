@@ -168,3 +168,7 @@ uv run riscv-tools --config <project>/config.yaml sim                  # sim sui
 See [creating-an-asm-test.md](creating-an-asm-test.md) for writing a
 test directly in RISC-V assembly instead — e.g. to pin down an exact
 addressing mode a compiler might not choose on its own.
+
+---
+
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../LICENSE).

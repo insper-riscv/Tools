@@ -13,3 +13,7 @@ None: takes the dump path and golden JSON path as direct arguments; no `config.y
 ## Usage
 
 Not its own CLI subcommand: called internally by [`orchestrator`](orchestrator.md) right after [`ram_dump`](ram_dump.md), for every `memory`-kind test in a suite.
+
+---
+
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../LICENSE).

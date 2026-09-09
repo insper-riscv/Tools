@@ -24,3 +24,7 @@ A JTAG connection needs two identifiers, and they behave differently over time:
 ## Usage
 
 Not its own CLI subcommand: every other JTAG-touching module takes a `JtagLink` as an argument rather than constructing one itself, and calls `jtag.run`/`jtag.run_tcl` to actually invoke a `.tcl` script against it.
+
+---
+
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../LICENSE).

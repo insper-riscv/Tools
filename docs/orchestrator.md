@@ -38,3 +38,7 @@ uv run riscv-tools --config /path/to/project/config.yaml run --only test-a,test-
 uv run riscv-tools --config /path/to/project/config.yaml freq-sweep \
     build/real/full.mif --golden golden/full.json --start 1 --stop 30 --step 2
 ```
+
+---
+
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../LICENSE).

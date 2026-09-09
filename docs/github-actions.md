@@ -180,3 +180,7 @@ jobs:
       # then diff/commit/open a PR with whatever changed, using your
       # own git steps — regenerating on its own never pushes anything
 ```
+
+---
+
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../LICENSE).

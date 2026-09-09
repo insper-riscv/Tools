@@ -13,3 +13,7 @@ uv run riscv-tools vhdl-sort src/**/*.vhd
 ```
 
 No `--config` needed, pure file-content analysis. Useful wired into a `Makefile`'s own VHDL-syntax-check target, or to double-check a project's `sim.vhdl_sources` list is actually in dependency order before handing it to [`sim_runner`](sim_runner.md).
+
+---
+
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../LICENSE).
