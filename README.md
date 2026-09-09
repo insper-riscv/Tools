@@ -15,6 +15,7 @@ its own `config.yaml`, which overrides these defaults. See
 | `compiler`           | .c/.S -> .elf/.bin, header parsing (`RV32_EXT`/`RV32_TEST_KIND`/`RV32_TIMEOUT_S`) |
 | `bin_to_image`       | .bin -> .mif/.hex (memory-image formats, no compiler involved)    |
 | `c_to_asm`           | .c -> human-readable RISC-V assembly (`gcc -S`), for inspecting codegen |
+| `boot_rom`           | Builds the fixed, shared bootloader, once, reused across every test |
 | `jtag`               | Live JTAG cable detection, generic `.tcl` runner            |
 | `mem_edit`           | Generic In-System Memory Content Editor primitives (read/write word, write-full, dump) |
 | `rom_writer`         | JTAG-write a ROM image without reprogramming                |
@@ -26,8 +27,10 @@ its own `config.yaml`, which overrides these defaults. See
 | `golden_generator`   | Generate a golden JSON dynamically by running an ELF under Spike |
 | `orchestrator`       | Composes the above into a full real-hardware test-suite run, or a clock frequency sweep to find Fmax |
 | `sim_runner`         | Drives cocotb/GHDL simulation: the sim-side counterpart to `orchestrator` (needs the `sim` extra) |
+| `certify`            | Builds and runs the ACT4 architectural certification suite under cocotb/GHDL |
 | `vhdl_sort`          | Topologically sort VHDL sources by entity/package dependency, for GHDL `-a` |
 | `freq_sweep`         | Rewrite a PLL source's clock frequency/phase offsets: the mechanism `orchestrator`'s frequency sweep edits with |
+| `run_log`            | Rotates and tees a run's full console output into a persistent per-kind log history |
 
 ## Rule: one module, one responsibility
 
