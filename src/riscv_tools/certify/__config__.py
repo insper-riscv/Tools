@@ -21,5 +21,15 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         # `make`'s own -j equivalent (0 = auto-detect CPU count, ACT4's
         # own default — see vendor/riscv-arch-test/Makefile: JOBS).
         "jobs": 0,
+        # Merged on top of sim.parameters (see certify.run_suite) —
+        # empty by default, since most of sim.parameters (ROM_FILE,
+        # boot_rom_addr_width, ...) is exactly what ACT4 wants too.
+        # Only needed to override something ACT4's own, bigger images
+        # actually need different (typically rom_addr_width/
+        # ram_addr_width sized to real hardware's actual FLASH/RAM
+        # budget, too small for an official architectural test's own
+        # combinatorial coverage) — see a project's own config.yaml
+        # for whether/how it uses this.
+        "sim_parameters": {},
     },
 }
