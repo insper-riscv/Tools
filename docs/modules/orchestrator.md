@@ -20,7 +20,7 @@ By default, this stops the suite and returns, saving progress so a plain re-run 
 
 ## Frequency sweep
 
-Finds the fastest clock frequency (Fmax) a design still passes its test suite at, by rewriting the PLL (see [`freq_sweep`](freq_sweep.md)) and doing a full recompile+reprogram+compare at each candidate frequency. Full walkthrough: [docs/finding-fmax.md](finding-fmax.md).
+Finds the fastest clock frequency (Fmax) a design still passes its test suite at, by rewriting the PLL (see [`freq_sweep`](freq_sweep.md)) and doing a full recompile+reprogram+compare at each candidate frequency. Full walkthrough: [docs/finding-fmax.md](../finding-fmax.md).
 
 ## Configuration
 
@@ -41,4 +41,4 @@ uv run riscv-tools --config /path/to/project/config.yaml freq-sweep \
 
 ---
 
-Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../LICENSE).
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../../LICENSE).

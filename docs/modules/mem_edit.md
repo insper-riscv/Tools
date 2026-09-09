@@ -22,4 +22,4 @@ Not its own CLI subcommand: it's the mechanism [`rom_writer`](rom_writer.md), [`
 
 ---
 
-Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../LICENSE).
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../../LICENSE).

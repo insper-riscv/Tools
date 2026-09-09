@@ -17,8 +17,8 @@ The parameter-name patterns, unit strings, and how many phase-shifted clock outp
 
 ## Usage
 
-Not its own CLI subcommand: called internally by [`orchestrator`](orchestrator.md)'s `freq-sweep` command at each candidate frequency, before a recompile+reprogram+compare. Full walkthrough: [docs/finding-fmax.md](finding-fmax.md).
+Not its own CLI subcommand: called internally by [`orchestrator`](orchestrator.md)'s `freq-sweep` command at each candidate frequency, before a recompile+reprogram+compare. Full walkthrough: [docs/finding-fmax.md](../finding-fmax.md).
 
 ---
 
-Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../LICENSE).
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../../LICENSE).

@@ -1,6 +1,6 @@
 # `golden_generator`
 
-Generates a golden JSON dynamically by running a compiled test's ELF under Spike (RISC-V International's reference simulator, `vendor/riscv-isa-sim`) instead of a human working out expected memory values by hand. Also manages building Spike itself the first time it's needed. Full mechanism and setup: [docs/generating-a-golden.md](generating-a-golden.md).
+Generates a golden JSON dynamically by running a compiled test's ELF under Spike (RISC-V International's reference simulator, `vendor/riscv-isa-sim`) instead of a human working out expected memory values by hand. Also manages building Spike itself the first time it's needed. Full mechanism and setup: [docs/generating-a-golden.md](../generating-a-golden.md).
 
 ## Configuration
 
@@ -22,4 +22,4 @@ Also called internally by `compile` for every `memory`-kind C test that doesn't 
 
 ---
 
-Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../LICENSE).
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../../LICENSE).

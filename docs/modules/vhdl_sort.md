@@ -16,4 +16,4 @@ No `--config` needed, pure file-content analysis. Useful wired into a `Makefile`
 
 ---
 
-Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../LICENSE).
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../../LICENSE).

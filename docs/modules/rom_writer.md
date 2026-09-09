@@ -21,4 +21,4 @@ Also called internally by [`orchestrator`](orchestrator.md)'s per-test JTAG-relo
 
 ---
 
-Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../LICENSE).
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../../LICENSE).

@@ -17,8 +17,8 @@ None: takes the binary path, output path, and word depth as direct arguments fro
 
 ## Usage
 
-Not its own CLI subcommand: called internally by `compile --emit mif` and `compile --emit hex` (see the top-level [README](../README.md#usage)) right after [`compiler`](compiler.md) produces the `.bin`.
+Not its own CLI subcommand: called internally by `compile --emit mif` and `compile --emit hex` (see the top-level [README](../../README.md#usage)) right after [`compiler`](compiler.md) produces the `.bin`.
 
 ---
 
-Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../LICENSE).
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../../LICENSE).
