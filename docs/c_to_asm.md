@@ -1,6 +1,6 @@
 # `c_to_asm`
 
-Compiles a single C source straight to human-readable RISC-V assembly (`gcc -S`), for inspecting or debugging codegen. A distinct concern from [`compiler`](compiler.md), which links a full test binary for the `.mif`/`.hex`/JTAG pipeline rather than producing readable output for one translation unit. A `.S` source is already assembly and is copied through unchanged rather than reprocessed.
+Compiles a single C source straight to human-readable RISC-V assembly (`gcc -S`), for inspecting or debugging codegen. A `.S` source is already assembly and is copied through unchanged rather than reprocessed.
 
 ## Configuration
 

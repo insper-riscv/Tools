@@ -1,6 +1,6 @@
 # `bin_to_image`
 
-Converts an already-compiled flat `.bin` into hardware/simulation-loadable formats. A distinct concern from [`compiler`](compiler.md) (source to `.elf`/`.bin`): this module never touches a compiler, only an existing flat binary, and never touches JTAG/hardware either.
+Converts an already-compiled flat `.bin` into hardware/simulation-loadable formats.
 
 ## What it produces
 
