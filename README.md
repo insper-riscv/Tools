@@ -1,10 +1,11 @@
 # RISC-V Tools
 
-Build/JTAG tooling for bare-metal RV32IM test programs: compile,
-write ROM/RAM over JTAG, program the base bitstream, and orchestrate
-a real-hardware test run, organized as one module per responsibility,
-each with its own `__config__.py` of defaults. A consuming project
-supplies its own `config.yaml`, which overrides these defaults: See
+Config-driven build and test tooling for bare-metal RISC-V programs:
+compile, run against real hardware over JTAG or against cocotb/GHDL
+simulation, and verify results against Spike-generated or checked-in
+golden references. Organized as one module per responsibility, each
+with its own `__config__.py` of defaults; a consuming project supplies
+its own `config.yaml`, which overrides these defaults. See
 [docs/configuration.md](docs/configuration.md) for the full reference.
 
 ## Modules
@@ -24,9 +25,9 @@ supplies its own `config.yaml`, which overrides these defaults: See
 | `mem_validator`      | Compare a RAM dump against a golden JSON                     |
 | `golden_generator`   | Generate a golden JSON dynamically by running an ELF under Spike |
 | `orchestrator`       | Composes the above into a full real-hardware test-suite run, or a clock frequency sweep to find Fmax |
-| `sim_runner`         | Drives cocotb/GHDL simulation — the sim-side counterpart to `orchestrator` (needs the `sim` extra) |
+| `sim_runner`         | Drives cocotb/GHDL simulation: the sim-side counterpart to `orchestrator` (needs the `sim` extra) |
 | `vhdl_sort`          | Topologically sort VHDL sources by entity/package dependency, for GHDL `-a` |
-| `freq_sweep`         | Rewrite a PLL source's clock frequency/phase offsets — the mechanism `orchestrator`'s frequency sweep edits with |
+| `freq_sweep`         | Rewrite a PLL source's clock frequency/phase offsets: the mechanism `orchestrator`'s frequency sweep edits with |
 
 ## Rule: one module, one responsibility
 
@@ -34,20 +35,16 @@ Every module in the table above owns exactly one job. When adding or
 changing code:
 
 - New functionality that doesn't fit an existing module's
-  responsibility gets its **own new module** — don't bolt it onto the
+  responsibility gets its **own new module**; don't bolt it onto the
   nearest unrelated one just because it's convenient to import from
   there.
 - Logic needed by **two or more** modules gets factored into its own
   module (or a small private helper shared via an explicit import),
   not copy-pasted into each caller. Duplication between modules is how
-  bugs get fixed in one copy and silently left broken in the other —
-  see `proc.py` (`run_streaming`), pulled out after `jtag.link.run` and
-  `quartus_program.core._run_captured` drifted: one got fixed to
-  stream subprocess output live, the other kept silently buffering,
-  and it wasn't obvious from either call site alone that a second copy
-  even existed.
+  a fix applied to one copy silently leaves the other one broken, with
+  nothing at either call site hinting that a second copy even exists.
 - If you're unsure whether something is a new responsibility or fits
-  an existing one, prefer the smaller, more specific module — merging
+  an existing one, prefer the smaller, more specific module: merging
   two modules later is easy; un-tangling a module that grew several
   unrelated jobs is not.
 
@@ -58,8 +55,17 @@ changing code:
 | `vendor/riscv-gnu-toolchain` | [riscv-collab/riscv-gnu-toolchain](https://github.com/riscv-collab/riscv-gnu-toolchain) | The GCC cross-toolchain `compiler` builds test programs with |
 | `vendor/riscv-isa-sim`    | [riscv-software-src/riscv-isa-sim](https://github.com/riscv-software-src/riscv-isa-sim) (Spike, RISC-V International's reference simulator) | Golden-reference source for `golden_generator` ([docs](docs/generating-a-golden.md)) |
 
-Clone with `git clone --recurse-submodules`, or after a plain clone:
-`git submodule update --init --recursive`.
+Neither needs to be checked out for normal use: `compiler` expects a
+prebuilt GCC toolchain already on `PATH` (building `vendor/riscv-gnu-toolchain`
+from source takes tens of minutes), and `golden_generator` can point
+`RISCV_ISA_SIM_DIR` at an already-built Spike instead of building
+`vendor/riscv-isa-sim` (see [docs/generating-a-golden.md](docs/generating-a-golden.md)).
+Only initialize one if you actually want to build it from source:
+
+```bash
+git submodule update --init vendor/riscv-gnu-toolchain
+git submodule update --init vendor/riscv-isa-sim
+```
 
 ## Docs
 
@@ -91,12 +97,12 @@ See `riscv-tools --help` for the full subcommand list (`write-rom`,
 `generate-golden`, `run`, `sim`, `vhdl-sort`, `freq-sweep`).
 
 ```bash
-# vhdl-sort needs no --config — pure file-content analysis, e.g. wired
+# vhdl-sort needs no --config; pure file-content analysis, e.g. wired
 # into a Makefile's own VHDL-syntax-check target:
 uv run riscv-tools vhdl-sort src/**/*.vhd
 
 # freq-sweep: find Fmax by editing the PLL and doing a full
-# recompile+reprogram+RAM-compare at each candidate frequency — see
+# recompile+reprogram+RAM-compare at each candidate frequency. See
 # docs/finding-fmax.md.
 uv run riscv-tools --config /path/to/project/config.yaml freq-sweep \
     build/real/full.mif --golden golden/full.json --start 1 --stop 30 --step 2
