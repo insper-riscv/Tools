@@ -146,7 +146,11 @@ def run_test(  # noqa: PLR0913, PLR0917
 
 
 def run_suite(
-    cfg: dict[str, Any], manifest: list[dict[str, Any]], root: Path, build_dir: Path
+    cfg: dict[str, Any],
+    manifest: list[dict[str, Any]],
+    root: Path,
+    build_dir: Path,
+    boot_rom_hex_path: Path | None = None,
 ) -> dict[str, bool]:
     """Run every test in manifest under cocotb/GHDL.
 
@@ -165,6 +169,13 @@ def run_suite(
     build_dir : Path
         Base directory for per-test GHDL build+run artifacts — each
         test gets its own build_dir/<name>/ subdirectory.
+    boot_rom_hex_path : Path, optional
+        Path to the FIXED, shared bootloader's compiled .hex (see
+        boot_rom.S) — built once by the caller, not per test, unlike
+        hex_path below. Made available to sim.parameters templates as
+        `{boot_rom_hex_path}`, the same way `{hex_path}` exposes each
+        test's own image. A project whose sim toplevel has no such
+        generic (no 3-memory BOOT_ROM/FLASH split) can simply omit it.
 
     Returns
     -------
@@ -195,8 +206,17 @@ def run_suite(
         # Lets a project's own sim.parameters (e.g. a VHDL generic
         # that loads the ROM image by path, see sim_runner.__config__)
         # reference this test's compiled .hex without hardcoding one.
+        # boot_rom_hex_path is the SAME for every entry (built once by
+        # the caller) — still routed through .format() per test so a
+        # project's sim.parameters can reference it exactly like
+        # hex_path, e.g. `BOOT_ROM_FILE: "{boot_rom_hex_path}"`.
         parameters: dict[str, Any] = {
-            k: v.format(hex_path=str(hex_path.resolve())) if isinstance(v, str) else v
+            k: v.format(
+                hex_path=str(hex_path.resolve()),
+                boot_rom_hex_path=str(boot_rom_hex_path.resolve()) if boot_rom_hex_path else "",
+            )
+            if isinstance(v, str)
+            else v
             for k, v in parameter_templates.items()
         }
         results[name] = run_test(

@@ -19,6 +19,7 @@ def compile_test(  # noqa: PLR0913, PLR0917
     include_dir: Path,
     crt0: Path,
     linker: Path,
+    extra_sources: list[Path] | None = None,
 ) -> tuple[Path, str, str, float]:
     """Compile one bare-metal test source (.c or .S) against crt0/linker.
 
@@ -51,6 +52,14 @@ def compile_test(  # noqa: PLR0913, PLR0917
         c_file.
     linker : Path
         Path to the project's linker script, passed as `-Wl,-T,`.
+    extra_sources : list of Path, optional
+        Additional source files to compile in alongside crt0/c_file,
+        before c_file on the command line (e.g. a fixed shared
+        bootloader — see riscv_tools.boot_rom — linked together with
+        crt0/c_file for a project that needs a single, self-contained
+        ELF an offline reference model can run from cold; a project's
+        normal, separately-linked BOOT_ROM never needs this). Empty
+        by default — most callers don't need it.
 
     Returns
     -------
@@ -78,8 +87,15 @@ def compile_test(  # noqa: PLR0913, PLR0917
             "-nostdlib",
             "-nostartfiles",
             f"-I{include_dir}",
+            # -L so linker.ld's own `INCLUDE boot_rom_symbols.ld`
+            # (rv32_wait_restart's fixed address, see boot_rom.S)
+            # resolves regardless of this process' own cwd — ld's
+            # INCLUDE only searches the process cwd plus -L dirs, NOT
+            # the including script's own directory.
+            f"-Wl,-L,{linker.parent}",
             f"-Wl,-T,{linker}",
             str(crt0),
+            *[str(p) for p in (extra_sources or [])],
             str(c_file),
             "-o",
             str(elf),

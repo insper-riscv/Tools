@@ -20,5 +20,11 @@ DEFAULTS = {
         # snapshot memory (see core.py). Standard Spike/riscv-tests
         # convention, so "tohost" should rarely need overriding.
         "tohost_symbol": "tohost",
+        # Symbol Spike starts execution at (generate_golden's own
+        # entry_symbol) — "_start" (the usual crt0 entry label) unless
+        # a project names it something else, e.g. a project with a
+        # fixed shared bootloader whose own reset vector isn't called
+        # "_start" (see cli.py's _generate_c_golden).
+        "entry_symbol": "_start",
     },
 }

@@ -85,6 +85,8 @@ def full_reconfigure(  # noqa: PLR0913, PLR0917
     rom_mif_target: str,
     stale_cache_dirs: list[str],
     rom_mif_path: Path,
+    boot_rom_mif_target: str | None = None,
+    boot_rom_mif_path: Path | None = None,
 ) -> None:
     """Compile the whole Quartus project and program the board.
 
@@ -122,6 +124,17 @@ def full_reconfigure(  # noqa: PLR0913, PLR0917
     rom_mif_path : Path
         Path to the .mif to bake in as the ROM's initial content for
         this compile.
+    boot_rom_mif_target : str, optional
+        Path (relative to project_dir) the FIXED, shared bootloader's
+        own memory megafunction reads its init_file from
+        (quartus.boot_rom_mif_target) — a project with a 3-memory
+        BOOT_ROM/FLASH/RAM split (see riscv_tools.boot_rom) only.
+        Baked in here, alongside rom_mif_target, since BOOT_ROM is
+        ONLY ever written as part of this full compile — never
+        JTAG-rewritten per test the way FLASH (rom_mif_target) is.
+    boot_rom_mif_path : Path, optional
+        Path to the .mif to bake in as BOOT_ROM's initial content.
+        Required if boot_rom_mif_target is given.
 
     Returns
     -------
@@ -130,6 +143,11 @@ def full_reconfigure(  # noqa: PLR0913, PLR0917
     rom_target = project_dir / rom_mif_target
     rom_target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy(rom_mif_path, rom_target)
+
+    if boot_rom_mif_target and boot_rom_mif_path:
+        boot_rom_target = project_dir / boot_rom_mif_target
+        boot_rom_target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(boot_rom_mif_path, boot_rom_target)
 
     for stale in stale_cache_dirs:
         shutil.rmtree(project_dir / stale, ignore_errors=True)

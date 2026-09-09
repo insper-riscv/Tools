@@ -18,10 +18,13 @@ _TEMPLATE = """\
  *
  * PASS/FAIL mailbox convention: a test signals its outcome by writing
  * PASS ({pass_value}) or FAIL ({fail_value}) to RV32_MAILBOX_ADDR,
- * then calling rv32_wait_restart() (implemented in this project's
- * own crt0.S) — the host reads this address over JTAG and reloads a
- * different test onto the same, already-running hardware without
- * reprogramming it (see riscv_tools.mailbox / riscv_tools.orchestrator).
+ * then calling rv32_wait_restart() (implemented wherever this
+ * project's own boot code lives — its crt0.S directly, or a fixed
+ * shared bootloader it jumps into, see the project's own paths.crt0/
+ * boot_rom in config.yaml) — the host reads this address over JTAG
+ * and reloads a different test onto the same, already-running
+ * hardware without reprogramming it (see riscv_tools.mailbox /
+ * riscv_tools.orchestrator).
  */
 #ifndef RV32_TEST_H
 #define RV32_TEST_H
