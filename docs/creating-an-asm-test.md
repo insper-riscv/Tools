@@ -46,9 +46,11 @@ main:
 `rv32_test.h`'s `RV32_PASS()`/`RV32_FAIL()` are `static inline` C
 functions, so a separate `.S` file can't `call` them — there's no
 linkable symbol. Write the same two steps by hand instead, using the
-consuming project's `memory.mailbox_addr` / `memory.go_flag_addr` (see
-its `config.yaml` — commonly `0x3FFC`/`0x3FF8`, right past the end of
-usable RAM):
+consuming project's own `memory.mailbox_addr` / `memory.go_flag_addr`
+(see its `config.yaml`). Example using the actual values
+[insper-riscv/Testes](https://github.com/insper-riscv/Testes) configures
+(`mailbox_addr=0x3FFC`, `go_flag_addr=0x3FF8`, right past the end of its
+usable RAM); substitute your own project's addresses:
 
 ```asm
     // mailbox_addr = 1 (PASS) or 2 (FAIL)
@@ -71,7 +73,7 @@ JTAG-reload it from.
 
 ## Full example
 
-See `asm/section6-loadstore/src.S` in the consuming project's repo
+See [asm/section6-loadstore/src.S in insper-riscv/Testes](https://github.com/insper-riscv/Testes/blob/main/asm/section6-loadstore/src.S)
 for a complete worked example (loads a base register, does a
 LUI+SW+LW round trip, then signals PASS as above).
 
