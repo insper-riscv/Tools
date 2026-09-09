@@ -24,6 +24,7 @@ from riscv_tools import (
     ram_dump,
     ram_zero,
     rom_writer,
+    run_log,
     sim_runner,
     vhdl_sort,
 )
@@ -695,6 +696,11 @@ def cmd_run(args: argparse.Namespace) -> None:
     tests: this function loads that file itself, if present, and
     narrows the manifest to whatever isn't in it yet.
 
+    Everything this invocation prints, including from any subprocess
+    it spawns, is also written to <run_log.logs_dir>/real/latest.log
+    (see run_log.start) — a prior latest.log, if any, is archived
+    under its own start timestamp first.
+
     Parameters
     ----------
     args : argparse.Namespace
@@ -728,6 +734,7 @@ def cmd_run(args: argparse.Namespace) -> None:
     """
     cfg = load_config(args.config)
     root = _root(args)
+    run_log.start(root, "real", cfg["run_log"]["logs_dir"])
     build_dir = root / cfg["paths"]["build_dir"] / "real"
     manifest_path = (
         Path(args.manifest) if args.manifest else build_dir / "manifest.json"
@@ -821,6 +828,11 @@ def cmd_sim(args: argparse.Namespace) -> None:
     manifest.json (see sim_runner.run_suite). Requires the "sim"
     extra (cocotb) to be installed.
 
+    Everything this invocation prints, including GHDL/cocotb's own
+    output, is also written to <run_log.logs_dir>/sim/latest.log (see
+    run_log.start) — a prior latest.log, if any, is archived under its
+    own start timestamp first.
+
     Parameters
     ----------
     args : argparse.Namespace
@@ -837,6 +849,7 @@ def cmd_sim(args: argparse.Namespace) -> None:
     """
     cfg = load_config(args.config)
     root = _root(args)
+    run_log.start(root, "sim", cfg["run_log"]["logs_dir"])
     build_dir = root / cfg["paths"]["build_dir"] / "sim"
     manifest_path = (
         Path(args.manifest) if args.manifest else build_dir / "manifest.json"
@@ -887,6 +900,11 @@ def cmd_certify(args: argparse.Namespace) -> None:
     "Prerequisites") — none of the real-hardware/JTAG toolchain this
     project's other subcommands need.
 
+    Everything this invocation prints is also written to
+    <run_log.logs_dir>/certification/latest.log (see run_log.start) —
+    a prior latest.log, if any, is archived under its own start
+    timestamp first.
+
     Parameters
     ----------
     args : argparse.Namespace
@@ -905,6 +923,7 @@ def cmd_certify(args: argparse.Namespace) -> None:
     if args.extensions is not None:
         cfg["act"]["extensions"] = args.extensions
     root = _root(args)
+    run_log.start(root, "certification", cfg["run_log"]["logs_dir"])
     build_dir = root / cfg["paths"]["build_dir"] / "act"
 
     results = certify.run_suite(cfg, root, build_dir)

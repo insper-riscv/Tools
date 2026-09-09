@@ -116,6 +116,15 @@ above (same fields `full_reconfigure`/`run_one` use) for the actual
 compile+program+dump+compare at each candidate frequency — see
 `orchestrator.run_freq_sweep_linear`/`run_freq_sweep_binary`.
 
+### `run_log:`
+
+Where `run`/`sim`/`certify` each keep their own persistent, gitignored
+log history — see `run_log.start`.
+
+| Key | Default | Used by |
+|---|---|---|
+| `logs_dir` | `logs` | `cli` (cmd_run/cmd_sim/cmd_certify) — path (relative to your project root) holding one subdirectory per subcommand (`real`/`sim`/`certification`), each with a `latest.log` for the run in progress plus every prior run archived under its own start timestamp. Add `logs/` to your project's `.gitignore` |
+
 ## Example
 
 A minimal `config.yaml` covering every required key:

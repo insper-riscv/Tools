@@ -25,6 +25,7 @@ from riscv_tools.quartus_program.__config__ import DEFAULTS as _QUARTUS_PROGRAM_
 from riscv_tools.ram_dump.__config__ import DEFAULTS as _RAM_DUMP_DEFAULTS
 from riscv_tools.ram_zero.__config__ import DEFAULTS as _RAM_ZERO_DEFAULTS
 from riscv_tools.rom_writer.__config__ import DEFAULTS as _ROM_WRITER_DEFAULTS
+from riscv_tools.run_log.__config__ import DEFAULTS as _RUN_LOG_DEFAULTS
 from riscv_tools.sim_runner.__config__ import DEFAULTS as _SIM_RUNNER_DEFAULTS
 
 _MODULE_DEFAULTS = [
@@ -41,6 +42,7 @@ _MODULE_DEFAULTS = [
     _SIM_RUNNER_DEFAULTS,
     _FREQ_SWEEP_DEFAULTS,
     _CERTIFY_DEFAULTS,
+    _RUN_LOG_DEFAULTS,
 ]
 
 
