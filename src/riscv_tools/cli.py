@@ -97,6 +97,30 @@ def _spike_mem_regions(cfg: dict[str, Any]) -> list[tuple[int, int]]:
     ]
 
 
+def _syscalls_sources(cfg: dict[str, Any], root: Path) -> list[Path]:
+    """Resolve paths.syscalls (a libc syscall-stub source, e.g. _sbrk), if configured.
+
+    Optional: a project with no such file (most don't need one — only
+    a test that actually references something like malloc() does)
+    simply omits paths.syscalls, and this returns an empty list.
+
+    Parameters
+    ----------
+    cfg : dict of {str: Any}
+        The merged project config.
+    root : Path
+        The consuming project's root directory.
+
+    Returns
+    -------
+    list of Path
+        [] if paths.syscalls isn't set, else [root / paths.syscalls]
+        — meant to be spliced into a compile_test call's extra_sources.
+    """
+    syscalls = cfg.get("paths", {}).get("syscalls")
+    return [root / syscalls] if syscalls else []
+
+
 def _generate_c_golden(  # noqa: PLR0913, PLR0917
     cfg: dict[str, Any],
     march: str,
@@ -176,7 +200,7 @@ def _generate_c_golden(  # noqa: PLR0913, PLR0917
             root / cfg["paths"]["include_dir"],
             root / cfg["paths"]["crt0"],
             root / golden_linker,
-            extra_sources=[root / boot_rom_src],
+            extra_sources=[root / boot_rom_src, *_syscalls_sources(cfg, root)],
         )
     else:
         elf_path = build_dir / f"{name}.elf"
@@ -339,6 +363,7 @@ def cmd_compile(args: argparse.Namespace) -> None:  # noqa: PLR0915
             root / cfg["paths"]["include_dir"],
             root / cfg["paths"]["crt0"],
             root / cfg["paths"]["linker_script"],
+            extra_sources=_syscalls_sources(cfg, root),
         )
 
         lang = "C" if src.suffix == ".c" else "ASM"

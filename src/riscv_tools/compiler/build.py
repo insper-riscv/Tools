@@ -84,7 +84,14 @@ def compile_test(  # noqa: PLR0913, PLR0917
             "-mabi=ilp32",
             "-Os",
             "-ffreestanding",
-            "-nostdlib",
+            # -nostartfiles (not -nostdlib): a project's own crt0
+            # replaces the standard _start, but libc/libgcc stay
+            # linkable — a test that never references them (the
+            # common case) is unaffected, since the linker only pulls
+            # in what's actually referenced; one that calls e.g.
+            # malloc() (see paths.syscalls' own _sbrk stub) now
+            # resolves against the toolchain's own newlib instead of
+            # failing with "undefined reference".
             "-nostartfiles",
             f"-I{include_dir}",
             # -L so linker.ld's own `INCLUDE boot_rom_symbols.ld`
