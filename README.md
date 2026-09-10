@@ -1,12 +1,12 @@
 # RISC-V Tools
 
-Config-driven build and test tooling for bare-metal RISC-V test
-programs: the same compiled test runs either against real hardware
-over JTAG or against cocotb/GHDL simulation, with results verified
-against Spike-generated or checked-in golden references. Organized as
-one module per responsibility, each with its own `__config__.py` of
-defaults; a consuming project supplies its own `config.yaml`, which
-overrides these defaults. See
+Config-driven build and test tooling for bare-metal RISC-V or virtual
+hardware simulation: the same compiled test runs either against real
+hardware over JTAG or against cocotb/GHDL simulation; results
+can be verified against Spike-generated or checked-in golden references.
+Organized as one module per responsibility, each with its own
+`__config__.py` of defaults; a consuming project supplies its own
+`config.yaml`, which overrides these defaults. See
 [docs/configuration.md](docs/configuration.md) for the full reference.
 
 ## Modules
