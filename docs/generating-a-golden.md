@@ -61,9 +61,14 @@ from riscv_tools import golden_generator
 golden_generator.setup()
 ```
 
-- If `emulator.spike_bin` (default `"spike"`) already resolves to a
-  runnable binary (on `PATH`, or an existing file), `setup()` leaves
-  it alone and does nothing.
+- If `emulator.spike_bin` (default `"spike"`) already resolves to a runnable
+  binary (on `PATH`, or an existing file), `setup()` leaves it alone and
+  does nothing. It does not check that the binary is patched. A Spike built
+  outside this repo must carry
+  `vendor/patches/riscv-isa-sim-debug-start.patch`, which moves Spike's
+  debug module from address 0 to `0x70000000`. Without it, Spike aborts at
+  startup with `devices at [0, 1000) and [0, 10000) overlap` for any target
+  whose ROM starts at address 0.
 - Otherwise it builds `vendor/riscv-isa-sim` if it hasn't been built
   already.
 - Raises `FileNotFoundError` if the submodule was never checked out:

@@ -7,6 +7,8 @@ Two stages, owned by different tools:
 1. `build_elfs` shells out to ACT4's own `make` (in the vendored `vendor/riscv-arch-test`) to compile self-checking ELFs for a project's own ACT4 target. ACT4 owns test generation/compilation entirely; the consuming project only supplies DUT-specific config (target config YAML, UDB YAML, macros header, linker script).
 2. `run_suite` converts each built ELF the same way [`compiler`](compiler.md) converts a project's own tests (`objcopy` to raw `.bin`, then [`bin_to_image`](bin_to_image.md) to `.hex`), then drives it through the same cocotb/GHDL toplevel [`sim_runner`](sim_runner.md) uses for the regular suite, reusing `sim.vhdl_sources`/`sim.toplevel`/`sim.ghdl_std` from `config.yaml` directly. Only `test_module` differs, since ACT4 tests signal completion via HTIF rather than the project's own mailbox convention.
 
+Needs a RISC-V GCC on `PATH` for ACT4's own build (the `compile_exe` in the ACT4 target's `test_config.yaml`) and `toolchain.objcopy` for the second stage. No Spike is involved.
+
 ## Configuration
 
 | Key | Meaning |

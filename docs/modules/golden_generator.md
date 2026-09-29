@@ -7,7 +7,7 @@ Generates a golden JSON dynamically by running a compiled test's ELF under Spike
 | Key | Meaning |
 | :--- | :--- |
 | `toolchain.nm` | `nm` binary used to resolve a symbol's address in the compiled ELF (default `riscv32-unknown-elf-nm`). |
-| `emulator.spike_bin` | Name or path of the built `spike` binary (default `spike`). If this doesn't already resolve to something runnable, `vendor/riscv-isa-sim` gets built. |
+| `emulator.spike_bin` | Name or path of the built `spike` binary (default `spike`). If this doesn't already resolve to something runnable, `vendor/riscv-isa-sim` gets built. A binary that already resolves is used as is, so it must carry `vendor/patches/riscv-isa-sim-debug-start.patch` (see [docs/generating-a-golden.md](../generating-a-golden.md#building-spike)). |
 | `emulator.tohost_symbol` | HTIF symbol a test writes a nonzero value to on completion, which Spike watches to know when to snapshot memory (default `tohost`, the standard Spike/riscv-tests convention). |
 | `emulator.entry_symbol` | Symbol Spike starts execution at (default `_start`), overridable for a project whose real entry point is something else, e.g. a shared bootloader's own reset vector. |
 

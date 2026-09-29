@@ -25,8 +25,8 @@ sections. Any key you omit falls back to the built-in default shown.
 
 | Key | Default | Used by |
 |---|---|---|
-| `gcc` | `riscv32-unknown-elf-gcc` | `compiler`, `c_to_asm` |
-| `objcopy` | `riscv32-unknown-elf-objcopy` | `compiler` |
+| `gcc` | `riscv32-unknown-elf-gcc` | `compiler`, `c_to_asm`, `boot_rom` |
+| `objcopy` | `riscv32-unknown-elf-objcopy` | `compiler`, `boot_rom`, `certify` |
 | `nm` | `riscv32-unknown-elf-nm` | `golden_generator` (`generate-golden`) |
 
 ### `isa:`
@@ -80,7 +80,7 @@ No `tests_real_dir`/`tests_sim_dir`/`golden_dir` split: every test under `c_dir`
 
 | Key | Default | Used by |
 |---|---|---|
-| `spike_bin` | `spike` | `golden_generator`: name/path of the built `spike` binary. No sane default across workstations if it's not on `PATH`; point this at `vendor/riscv-isa-sim/build/spike` if you haven't installed it elsewhere |
+| `spike_bin` | `spike` | `golden_generator`: name/path of the built `spike` binary. No sane default across workstations if it's not on `PATH`; point this at `vendor/riscv-isa-sim/build/spike` if you haven't installed it elsewhere. Whatever it resolves to must carry `vendor/patches/riscv-isa-sim-debug-start.patch` (see [generating-a-golden.md](generating-a-golden.md#building-spike)) |
 | `tohost_symbol` | `tohost` | `golden_generator`: the HTIF symbol Spike watches for a nonzero write. Standard convention; rarely needs overriding |
 
 ### `sim:` (requires the `sim` extra, `uv sync --extra sim`)
