@@ -51,7 +51,7 @@ def compile_test(  # noqa: PLR0913, PLR0917
         Path to the project's crt0.S, compiled and linked in alongside
         c_file.
     linker : Path
-        Path to the project's linker script, passed as `-Wl,-T,`.
+        Path to the project's linker script, passed as `-T`.
     extra_sources : list of Path, optional
         Additional source files to compile in alongside crt0/c_file,
         before c_file on the command line (e.g. a fixed shared
@@ -110,7 +110,8 @@ def compile_test(  # noqa: PLR0913, PLR0917
             # INCLUDE only searches the process cwd plus -L dirs, NOT
             # the including script's own directory.
             f"-Wl,-L,{linker.parent}",
-            f"-Wl,-T,{linker}",
+            "-T",
+            str(linker),
             str(crt0),
             *[str(p) for p in (extra_sources or [])],
             str(c_file),
