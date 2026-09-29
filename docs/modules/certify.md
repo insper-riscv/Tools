@@ -19,6 +19,17 @@ Needs a RISC-V GCC on `PATH` for ACT4's own build (the `compile_exe` in the ACT4
 | `act.jobs` | `make`'s own parallelism (default `0`, ACT4's own auto-detect). |
 | `act.sim_parameters` | Merged on top of `sim.parameters`; only needed to override something ACT4's own, typically larger images need sized differently than the project's real-hardware budget (e.g. `rom_addr_width`/`ram_addr_width`). Empty by default. |
 
+## Prerequisites
+
+- the RISC-V GCC toolchain (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) on `PATH`, installed as in [insper-riscv/Infra](https://github.com/insper-riscv/Infra)'s `GCC_SETUP.md`, for ACT4's own build.
+- The `sim` extra (`uv sync --extra sim`) and GHDL on `PATH`.
+- ACT4's Ruby, Bundler and UDB toolchain, and the ACT4 checkout the `act.vendor_dir` key points at.
+
+## Tests
+
+No automated test in this repository. A consuming project's certification workflow runs it.
+
+
 ## Usage
 
 ```bash

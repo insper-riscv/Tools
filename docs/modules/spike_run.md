@@ -25,6 +25,22 @@ The test's `crt0.S` writes `1` to HTIF `tohost` for a pass and `3` for a fail. S
 
 A project with a separate boot ROM (`paths.golden_linker_script` and `paths.boot_rom`) is run through the same self-contained ELF the golden generator builds, since the FLASH-only image has no entry point Spike can start from.
 
+## Prerequisites
+
+- `spike` on `PATH`, installed as in [insper-riscv/Infra](https://github.com/insper-riscv/Infra)'s `SPIKE_SETUP.md` (the build keeps Spike's debug module away from address 0).
+- the RISC-V GCC toolchain (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) on `PATH`, installed as in [insper-riscv/Infra](https://github.com/insper-riscv/Infra)'s `GCC_SETUP.md` (`nm` and `objcopy`; `gcc` builds the fixtures).
+
+## Tests
+
+| Test | What it verifies |
+| :--- | :--- |
+| `tests/test_spike_run.py::test_run_elf_reports_pass_when_tohost_is_1` | `tohost = 1` is a pass with exit status 0. |
+| `tests/test_spike_run.py::test_run_elf_reports_fail_when_tohost_is_3` | `tohost = 3` is a fail with exit status 1. |
+| `tests/test_spike_run.py::test_run_elf_times_out_when_tohost_is_never_written` | A test that never writes `tohost` is reported as timed out. |
+| `tests/test_cli_compile.py::test_cmd_spike_run_passes_compiled_tests` | `spike-run` reports PASS for compiled tests from a manifest. |
+| `tests/test_cli_compile.py::test_cmd_spike_run_rejects_a_test_missing_from_the_manifest` | `--only` with an unknown name exits with an error. |
+
+
 ## Usage
 
 ```bash

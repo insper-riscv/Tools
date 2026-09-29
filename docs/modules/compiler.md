@@ -37,6 +37,27 @@ A program linked at `0x800` starts at `@00000200` (word address), so it needs no
 | `isa.canonical_order` | Fixed letter order extension letters get sorted into before being appended to the base ISA string, so `RV32_EXT: A,M` and `RV32_EXT: M,A` both normalize to the same `-march=` value. |
 | `paths.include_dir`, `paths.crt0`, `paths.linker_script`, `paths.build_dir`, `paths.c_dir`, `paths.asm_dir` | All project-specific paths inside the consuming repo; no default, every project must set these. |
 
+## Prerequisites
+
+- the RISC-V GCC toolchain (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) on `PATH`, installed as in [insper-riscv/Infra](https://github.com/insper-riscv/Infra)'s `GCC_SETUP.md`.
+
+## Tests
+
+| Test | What it verifies |
+| :--- | :--- |
+| `tests/test_compiler_headers.py::test_canonical_march_no_ext` | A test with no extension header resolves to the base ISA. |
+| `tests/test_compiler_headers.py::test_canonical_march_single_ext` | One extension letter is appended to the base. |
+| `tests/test_compiler_headers.py::test_canonical_march_order_independent` | Extension letters are sorted into the canonical order. |
+| `tests/test_compiler_headers.py::test_parse_header_defaults` | Headers that are absent fall back to the defaults. |
+| `tests/test_compiler_headers.py::test_parse_header_all_fields` | `RV32_EXT`, `RV32_TEST_KIND` and `RV32_TIMEOUT_S` are all read. |
+| `tests/test_cli_compile.py::test_discover_tests_finds_c_and_asm_sorted_by_name` | C and assembly tests are found and sorted by name. |
+| `tests/test_cli_compile.py::test_discover_tests_empty_when_no_folders` | No test folders yields no tests. |
+| `tests/test_cli_compile.py::test_cmd_compile_mif_builds_every_kind` | A C test, a C memory test and an assembly test compile and land in the manifest. |
+| `tests/test_cli_compile.py::test_cmd_compile_hex_builds_every_kind` | The same tests compile for simulation. |
+| `tests/test_cli_compile.py::test_cmd_compile_hex_uses_the_verilog_format_when_configured` | `sim.hex_format: verilog` writes the `objcopy` layout. |
+| `tests/test_compiler_hex.py::test_elf_to_verilog_hex_keeps_the_real_word_address` | An image linked at `0x800` starts at `@00000200` with no zero padding. |
+
+
 ## Usage
 
 Not its own CLI subcommand: it's what `compile` (see the top-level [README](../../README.md#usage)) runs once per discovered test, before handing the result to [`bin_to_image`](bin_to_image.md) (for `.mif`/`.hex`), [`c_to_asm`](c_to_asm.md) (for `.S` inspection), or [`golden_generator`](golden_generator.md) (for a `memory`-kind C test's auto-generated golden).

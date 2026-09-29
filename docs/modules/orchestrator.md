@@ -29,6 +29,16 @@ Finds the fastest clock frequency (Fmax) a design still passes its test suite at
 | `quartus.program_wait_seconds` | How long to wait after a full reconfigure (fallback path only) before reading the mailbox (default `15`). |
 | `quartus.default_timeout_s` | Default per-test timeout if a test doesn't set its own `RV32_TIMEOUT_S` header (default `15`; see [`compiler`](compiler.md)). |
 
+## Prerequisites
+
+- Quartus Prime Lite on `PATH` (`quartus_stp`, `quartus_sh`, `quartus_pgm`, `jtagconfig`), installed as in Infra's `QUARTUS_INSTALL.md`, and a board with a USB-Blaster attached over JTAG.
+- the RISC-V GCC toolchain (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) on `PATH`, installed as in [insper-riscv/Infra](https://github.com/insper-riscv/Infra)'s `GCC_SETUP.md`, for the boot ROM build.
+
+## Tests
+
+No automated test in this repository. A self-hosted runner set up as in Infra's `RUNNER_SETUP.md` runs the real-hardware suite of a consuming project (`riscv-tools run`), which is the only place this module is exercised.
+
+
 ## Usage
 
 ```bash

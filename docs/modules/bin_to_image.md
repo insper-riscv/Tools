@@ -15,6 +15,16 @@ Both pad the binary to a fixed word depth (project-specific memory size) with ze
 
 None: takes the binary path, output path, and word depth as direct arguments from its caller; no `config.yaml` section of its own.
 
+## Tests
+
+No dedicated test. It is exercised through `compile`:
+
+| Test | What it verifies |
+| :--- | :--- |
+| `tests/test_cli_compile.py::test_cmd_compile_mif_builds_every_kind` | The `.mif` of every test is written from the compiled binary. |
+| `tests/test_cli_compile.py::test_cmd_compile_hex_builds_every_kind` | The `.hex` of every test is written from the compiled binary. |
+
+
 ## Usage
 
 Not its own CLI subcommand: called internally by `compile --emit mif` and `compile --emit hex` (see the top-level [README](../../README.md#usage)) right after [`compiler`](compiler.md) produces the `.bin`.

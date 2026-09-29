@@ -26,6 +26,7 @@ Organized as one module per responsibility, each with its own
 | `quartus_program`    | Full recompile + `quartus_pgm` (the slow "base" path)        | [docs/modules/quartus_program.md](docs/modules/quartus_program.md) |
 | `mem_validator`      | Compare a RAM dump against a golden JSON                     | [docs/modules/mem_validator.md](docs/modules/mem_validator.md) |
 | `golden_generator`   | Generate a golden JSON dynamically by running an ELF under Spike | [docs/modules/golden_generator.md](docs/modules/golden_generator.md) |
+| `spike_exec`         | Prepares and launches Spike runs: preflight, ELF symbols, command line (shared by `golden_generator` and `spike_run`) | [docs/modules/spike_exec.md](docs/modules/spike_exec.md) |
 | `spike_run`          | Runs each compiled test to completion under Spike and reports PASS/FAIL from its HTIF verdict, with no hardware | [docs/modules/spike_run.md](docs/modules/spike_run.md) |
 | `orchestrator`       | Composes the above into a full real-hardware test-suite run, or a clock frequency sweep to find Fmax | [docs/modules/orchestrator.md](docs/modules/orchestrator.md) |
 | `sim_runner`         | Drives cocotb/GHDL simulation: the sim-side counterpart to `orchestrator` (needs the `sim` extra) | [docs/modules/sim_runner.md](docs/modules/sim_runner.md) |
@@ -128,9 +129,32 @@ uv run riscv-tools --config /path/to/project/config.yaml freq-sweep \
 ## Development
 
 ```bash
-uv sync --group dev
+uv sync --group dev --extra sim
 uv run pytest
 ```
+
+Tests that need GHDL, the RISC-V GCC or Spike skip when the tool is missing.
+Each module's doc lists its prerequisites and the tests that cover it. The
+tests check this package's own tooling; the processor is verified by the
+consuming project's suites.
+
+`tests/test_static_analysis.py` runs `ruff`, `pyright` and `deptry` over the whole
+package, so it belongs to no single module.
+
+### Running the tests in Docker
+
+The `Dockerfile` builds an image with GHDL, the RISC-V GCC and a Spike patched
+as Infra's `SPIKE_SETUP.md` describes, at the same paths the workstation
+install uses, so nothing is skipped:
+
+```bash
+docker build -t riscv-tools-tests .
+docker run --rm -v "$PWD:/workspace" riscv-tools-tests
+docker run --rm -v "$PWD:/workspace" riscv-tools-tests tests/test_sim_runner.py -v
+```
+
+The `tests` workflow builds the same image and runs the whole suite on every
+push and pull request.
 
 ---
 

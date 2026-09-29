@@ -21,6 +21,15 @@ The slow "base" path: a full `quartus_sh --flow compile` followed by `quartus_pg
 | `quartus.rom_mif_target` | Path (relative to `project_dir`) the ROM megafunction reads its `init_file` from at compile time. No default. |
 | `quartus.stale_cache_dirs` | Directories deleted before every compile (default `["db", "incremental_db", "output_files", "simulation"]`), since a ROM megafunction's `init_file` is a string parameter Quartus' own incremental build cache doesn't track as a project source. |
 
+## Prerequisites
+
+- Quartus Prime Lite on `PATH` (`quartus_sh`, `quartus_pgm`), installed as in Infra's `QUARTUS_INSTALL.md`, a Quartus project, and a board attached over JTAG.
+
+## Tests
+
+No automated test in this repository. A self-hosted runner set up as in Infra's `RUNNER_SETUP.md` runs the real-hardware suite of a consuming project (`riscv-tools run`), which is the only place this module is exercised.
+
+
 ## Usage
 
 ```bash

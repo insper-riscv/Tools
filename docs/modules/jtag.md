@@ -21,6 +21,15 @@ A JTAG connection needs two identifiers, and they behave differently over time:
 | :--- | :--- |
 | `quartus.jtag_device` | The FPGA's own JTAG IDCODE string. No default; every project must set this explicitly. |
 
+## Prerequisites
+
+- Quartus Prime Lite on `PATH` (`quartus_stp`, `quartus_sh`, `quartus_pgm`, `jtagconfig`), installed as in Infra's `QUARTUS_INSTALL.md`, and a board with a USB-Blaster attached over JTAG.
+
+## Tests
+
+No automated test in this repository. A self-hosted runner set up as in Infra's `RUNNER_SETUP.md` runs the real-hardware suite of a consuming project (`riscv-tools run`), which is the only place this module is exercised.
+
+
 ## Usage
 
 Not its own CLI subcommand: every other JTAG-touching module takes a `JtagLink` as an argument rather than constructing one itself, and calls `jtag.run`/`jtag.run_tcl` to actually invoke a `.tcl` script against it.

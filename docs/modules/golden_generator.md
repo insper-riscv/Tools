@@ -13,6 +13,24 @@ Generates a golden JSON dynamically by running a compiled test's ELF under Spike
 | `emulator.tohost_symbol` | HTIF symbol a test writes a nonzero value to on completion, which Spike watches to know when to snapshot memory (default `tohost`, the standard Spike/riscv-tests convention). |
 | `emulator.entry_symbol` | Symbol Spike starts execution at (default `_start`), overridable for a project whose real entry point is something else, e.g. a shared bootloader's own reset vector. |
 
+## Prerequisites
+
+- the RISC-V GCC toolchain (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) on `PATH`, installed as in [insper-riscv/Infra](https://github.com/insper-riscv/Infra)'s `GCC_SETUP.md` (`gcc` builds the fixtures, `nm` and `objcopy` prepare the ELF).
+- `spike` on `PATH`, installed as in [insper-riscv/Infra](https://github.com/insper-riscv/Infra)'s `SPIKE_SETUP.md` (the build keeps Spike's debug module away from address 0).
+
+## Tests
+
+| Test | What it verifies |
+| :--- | :--- |
+| `tests/test_generate_golden.py::test_generate_golden_reads_back_expected_bytes` | A C test and an assembly test leave the expected bytes in the snapshot, little-endian. |
+| `tests/test_generate_golden.py::test_generate_golden_json_round_trips_through_compare` | The golden JSON on disk holds the same bytes as the in-memory result. |
+| `tests/test_generate_golden.py::test_symbol_range_resolves_address_and_size` | A sized symbol resolves to its address and size. |
+| `tests/test_generate_golden.py::test_generate_golden_by_symbol_matches_explicit_start_end` | A range from a symbol equals the same range given by hand. |
+| `tests/test_generate_golden.py::test_generate_golden_rounds_a_partial_word_range_up` | A 1-byte range yields the 4 bytes of its word. |
+| `tests/test_cli_compile.py::test_cmd_compile_mif_builds_every_kind` | `compile` generates the golden of a C memory test under Spike. |
+| `tests/test_cli_compile.py::test_cmd_compile_hex_builds_every_kind` | The same for the simulation build. |
+
+
 ## Usage
 
 ```bash

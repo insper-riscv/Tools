@@ -10,6 +10,11 @@ A flat JSON object mapping byte-address strings to expected byte values (0-255),
 
 None: takes the dump path and golden JSON path as direct arguments; no `config.yaml` section of its own.
 
+## Tests
+
+No automated test in this repository. A consuming project's real-hardware run and its simulation testbench compare memory against goldens with it.
+
+
 ## Usage
 
 Not its own CLI subcommand: called internally by [`orchestrator`](orchestrator.md) right after [`ram_dump`](ram_dump.md), for every `memory`-kind test in a suite.

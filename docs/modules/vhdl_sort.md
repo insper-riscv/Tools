@@ -6,6 +6,19 @@ Sorts VHDL sources into GHDL-analyzable dependency order. GHDL's `-a` (analyze) 
 
 None: takes a list of file paths and returns them reordered; no `config.yaml` section of its own, and no project context needed at all.
 
+## Tests
+
+| Test | What it verifies |
+| :--- | :--- |
+| `tests/test_vhdl_sort.py::test_topo_sort_orders_entity_dependency` | An entity is placed after the entities it instantiates. |
+| `tests/test_vhdl_sort.py::test_topo_sort_orders_package_dependency` | A package is placed before the files that use it. |
+| `tests/test_vhdl_sort.py::test_topo_sort_ignores_package_body` | A package body does not create a dependency. |
+| `tests/test_vhdl_sort.py::test_topo_sort_is_deterministic_for_unrelated_files` | Unrelated files keep a stable order. |
+| `tests/test_vhdl_sort.py::test_topo_sort_breaks_cycles_without_raising` | A dependency cycle is broken instead of raising. |
+| `tests/test_vhdl_sort.py::test_topo_sort_skips_unreadable_file` | An unreadable file is skipped. |
+| `tests/test_vhdl_sort.py::test_topo_sort_ignores_dependency_outside_input_set` | A dependency outside the input set is ignored. |
+
+
 ## Usage
 
 ```bash

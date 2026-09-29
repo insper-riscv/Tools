@@ -11,6 +11,15 @@ A project with more than one physical copy of the same ROM content (see [`quartu
 | `quartus.rom_mem_instances` | Instance index/indices Quartus' In-System Memory Content Editor assigns to the ROM debug tap(s), in declaration order in the project. `[0]` is the common case (a single ROM instantiated first). |
 | `memory.rom_words` | ROM depth in words, project-specific. Used to validate/format a program's `.mif` before writing it. |
 
+## Prerequisites
+
+- Quartus Prime Lite on `PATH` (`quartus_stp`, `quartus_sh`, `quartus_pgm`, `jtagconfig`), installed as in Infra's `QUARTUS_INSTALL.md`, and a board with a USB-Blaster attached over JTAG, with the ROM instances the project's design exposes.
+
+## Tests
+
+No automated test in this repository. A self-hosted runner set up as in Infra's `RUNNER_SETUP.md` runs the real-hardware suite of a consuming project (`riscv-tools run`), which is the only place this module is exercised.
+
+
 ## Usage
 
 ```bash

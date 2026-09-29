@@ -6,6 +6,15 @@ Builds the fixed, shared bootloader (a project's own `boot_rom.S`/`boot_rom.ld`)
 
 Uses the same `toolchain.gcc`/`toolchain.objcopy` settings as [`compiler`](compiler.md), plus a project's own `paths.boot_rom`/`paths.boot_rom_linker_script` (project-specific, no default).
 
+## Prerequisites
+
+- the RISC-V GCC toolchain (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) on `PATH`, installed as in [insper-riscv/Infra](https://github.com/insper-riscv/Infra)'s `GCC_SETUP.md`.
+
+## Tests
+
+No automated test in this repository. A consuming project's real-hardware and simulation suites build its boot ROM (`riscv-tools program`, `riscv-tools sim`), and its `sim` workflow runs it on every push.
+
+
 ## Usage
 
 Not its own CLI subcommand: called once at the start of a real-hardware run (before the initial `quartus_sh`/`quartus_pgm`, see [`quartus_program`](quartus_program.md)) or a simulation run (see [`sim_runner`](sim_runner.md)), never per test.

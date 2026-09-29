@@ -6,6 +6,15 @@ Compiles a single C source straight to human-readable RISC-V assembly (`gcc -S`)
 
 Shares the same toolchain/ISA settings as [`compiler`](compiler.md) (`toolchain.gcc`, `isa.base`, `isa.canonical_order`), since it's the same compiler and the same `RV32_EXT` header convention, only a different output format.
 
+## Prerequisites
+
+- the RISC-V GCC toolchain (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) on `PATH`, installed as in [insper-riscv/Infra](https://github.com/insper-riscv/Infra)'s `GCC_SETUP.md`.
+
+## Tests
+
+No automated test in this repository. `compile --emit asm` is not covered by a test here; a project can check the output by hand.
+
+
 ## Usage
 
 ```bash

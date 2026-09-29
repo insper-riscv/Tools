@@ -14,6 +14,22 @@ Needs the optional `sim` extra (`cocotb` + `cocotb-tools`, plus GHDL on `PATH`);
 | `sim.ghdl_std` | VHDL standard GHDL analyzes against (default `"08"`, VHDL-2008). |
 | `sim.parameters` | VHDL generics set on the toplevel at GHDL's run step, e.g. a sim-only ROM model that loads its image via a generic rather than an env var. Empty by default. |
 
+## Prerequisites
+
+- GHDL on `PATH`.
+- The `sim` extra (`uv sync --extra sim`): `cocotb` and `cocotb-tools`.
+
+## Tests
+
+The tests skip when GHDL or cocotb is missing.
+
+| Test | What it verifies |
+| :--- | :--- |
+| `tests/test_sim_runner.py::test_sim_runner_reports_pass` | A DUT whose test passes is reported as a pass. |
+| `tests/test_sim_runner.py::test_sim_runner_reports_fail` | A DUT whose test fails is reported as a fail. |
+| `tests/test_sim_runner.py::test_sim_runner_parameters_reach_ghdl` | `sim.parameters` become VHDL generics at the GHDL run step. |
+
+
 ## Usage
 
 ```bash

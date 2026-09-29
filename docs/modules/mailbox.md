@@ -21,6 +21,15 @@ A byte address can be converted to a word offset two different, non-interchangea
 | `memory.mailbox_addr` | Byte address of the PASS/FAIL word. No default; project-specific. |
 | `memory.go_flag_addr` | Byte address of the restart flag word. No default; project-specific. |
 
+## Prerequisites
+
+- Quartus Prime Lite on `PATH` (`quartus_stp`, `quartus_sh`, `quartus_pgm`, `jtagconfig`), installed as in Infra's `QUARTUS_INSTALL.md`, and a board with a USB-Blaster attached over JTAG, with the In-System Memory Content Editor instances the project's design exposes.
+
+## Tests
+
+No automated test in this repository. A self-hosted runner set up as in Infra's `RUNNER_SETUP.md` runs the real-hardware suite of a consuming project (`riscv-tools run`), which is the only place this module is exercised.
+
+
 ## Usage
 
 ```bash

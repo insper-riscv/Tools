@@ -16,6 +16,15 @@ Generic In-System Memory Content Editor primitives, shared by [`rom_writer`](rom
 
 None: takes a `JtagLink` (see [`jtag`](jtag.md)), an instance index, and paths/addresses as direct arguments; no `config.yaml` section of its own. Callers decide which instance index and depth apply to their own use case.
 
+## Prerequisites
+
+- Quartus Prime Lite on `PATH` (`quartus_stp`, `quartus_sh`, `quartus_pgm`, `jtagconfig`), installed as in Infra's `QUARTUS_INSTALL.md`, and a board with a USB-Blaster attached over JTAG, with the In-System Memory Content Editor instances the project's design exposes.
+
+## Tests
+
+No automated test in this repository. A self-hosted runner set up as in Infra's `RUNNER_SETUP.md` runs the real-hardware suite of a consuming project (`riscv-tools run`), which is the only place this module is exercised.
+
+
 ## Usage
 
 Not its own CLI subcommand: it's the mechanism [`rom_writer`](rom_writer.md), [`ram_zero`](ram_zero.md), [`ram_dump`](ram_dump.md), and [`mailbox`](mailbox.md) each call to actually talk to a memory instance over JTAG.
