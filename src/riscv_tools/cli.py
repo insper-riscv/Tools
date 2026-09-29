@@ -10,6 +10,7 @@ project config at all.
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,7 @@ from riscv_tools import (
     rom_writer,
     run_log,
     sim_runner,
+    spike_run,
     vhdl_sort,
 )
 from riscv_tools import c_to_asm as c_to_asm_mod
@@ -131,6 +133,66 @@ def _syscalls_sources(cfg: dict[str, Any], root: Path) -> list[Path]:
     return [root / syscalls] if syscalls else []
 
 
+def _spike_elf(
+    cfg: dict[str, Any], name: str, build_dir: Path, root: Path, src: Path
+) -> Path:
+    """Return the ELF Spike should run for one test, building it if needed.
+
+    Parameters
+    ----------
+    cfg : dict of {str: Any}
+        The merged project config.
+    name : str
+        This test's name; build_dir/{name}.elf must already exist
+        (compiler.compile_test's own output), unless
+        paths.golden_linker_script is configured, in which case a
+        separate build_dir/{name}.golden.elf is built instead.
+    build_dir : Path
+        Where the ELFs live.
+    root : Path
+        The consuming project's root directory; resolves
+        paths.boot_rom/golden_linker_script.
+    src : Path
+        This test's own source file, recompiled against
+        paths.golden_linker_script when configured.
+
+    Returns
+    -------
+    Path
+        The ELF to hand to Spike.
+    """
+    # A project with a 3-memory BOOT_ROM/FLASH/RAM split (see
+    # riscv_tools.boot_rom) can't hand Spike its normal, FLASH-only
+    # elf_path: that image has no entry point Spike can run from cold
+    # (BOOT_ROM's own gp/sp/.data-copy setup lives in a SEPARATE,
+    # unlinked file on real hardware). paths.golden_linker_script
+    # (golden.ld in this project) links boot_rom.S + crt0.S + this
+    # test's own source together into one self-contained ELF instead,
+    # so Spike can start at BOOT_ROM's real entry point
+    # (emulator.entry_symbol, e.g. "_reset") the same way real
+    # hardware actually boots. A project without that split just
+    # keeps reusing build_dir/{name}.elf as before.
+    golden_linker = cfg.get("paths", {}).get("golden_linker_script")
+    boot_rom_src = cfg.get("paths", {}).get("boot_rom")
+    if golden_linker and boot_rom_src:
+        elf_path = build_dir / f"{name}.golden.elf"
+        compiler_mod.compile_test(
+            cfg["toolchain"],
+            cfg["isa"],
+            0.0,
+            src,
+            f"{name}.golden",
+            build_dir,
+            root / cfg["paths"]["include_dir"],
+            root / cfg["paths"]["crt0"],
+            root / golden_linker,
+            extra_sources=[root / boot_rom_src, *_syscalls_sources(cfg, root)],
+        )
+    else:
+        elf_path = build_dir / f"{name}.elf"
+    return elf_path
+
+
 def _generate_c_golden(  # noqa: PLR0913, PLR0917
     cfg: dict[str, Any],
     march: str,
@@ -174,35 +236,7 @@ def _generate_c_golden(  # noqa: PLR0913, PLR0917
     Path
         build_dir/{name}.golden.json.
     """
-    # A project with a 3-memory BOOT_ROM/FLASH/RAM split (see
-    # riscv_tools.boot_rom) can't hand Spike its normal, FLASH-only
-    # elf_path: that image has no entry point Spike can run from cold
-    # (BOOT_ROM's own gp/sp/.data-copy setup lives in a SEPARATE,
-    # unlinked file on real hardware). paths.golden_linker_script
-    # (golden.ld in this project) links boot_rom.S + crt0.S + this
-    # test's own source together into one self-contained ELF instead,
-    # so Spike can start at BOOT_ROM's real entry point
-    # (emulator.entry_symbol, e.g. "_reset") the same way real
-    # hardware actually boots. A project without that split just
-    # keeps reusing build_dir/{name}.elf as before.
-    golden_linker = cfg.get("paths", {}).get("golden_linker_script")
-    boot_rom_src = cfg.get("paths", {}).get("boot_rom")
-    if golden_linker and boot_rom_src:
-        elf_path = build_dir / f"{name}.golden.elf"
-        compiler_mod.compile_test(
-            cfg["toolchain"],
-            cfg["isa"],
-            0.0,
-            src,
-            f"{name}.golden",
-            build_dir,
-            root / cfg["paths"]["include_dir"],
-            root / cfg["paths"]["crt0"],
-            root / golden_linker,
-            extra_sources=[root / boot_rom_src, *_syscalls_sources(cfg, root)],
-        )
-    else:
-        elf_path = build_dir / f"{name}.elf"
+    elf_path = _spike_elf(cfg, name, build_dir, root, src)
 
     addr_start, addr_end = golden_generator.symbol_range(
         cfg["toolchain"]["nm"], elf_path, "results"
@@ -703,6 +737,80 @@ def _print_run_summary(
         if name in durations:
             detail = f"{detail}, {durations[name]:.1f}s"
         print(f"  {'PASS' if ok else 'FAIL'}  {name:<{name_width}}  [{detail}]")
+
+
+def cmd_spike_run(args: argparse.Namespace) -> None:
+    """Implement `riscv-tools spike-run`.
+
+    Runs every test of an already-compiled manifest to completion under
+    Spike and reports PASS/FAIL from the HTIF verdict each test writes
+    to tohost, without touching hardware or a simulator. Everything this
+    invocation prints is also written to <run_log.logs_dir>/spike/latest.log
+    (see run_log.start).
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed CLI arguments: args.config, args.root, args.manifest
+        (defaults to <build_dir>/real/manifest.json) and args.only
+        (comma-separated test names to run, default all).
+
+    Returns
+    -------
+    None
+        Prints a PASS/FAIL summary to stdout. Exits the process with
+        status 1 if the manifest is missing, a requested test isn't in
+        it, or any test failed.
+    """
+    cfg = load_config(args.config)
+    root = _root(args)
+    run_log.start(root, "spike", cfg["run_log"]["logs_dir"])
+    build_dir = root / cfg["paths"]["build_dir"] / "real"
+    manifest_path = (
+        Path(args.manifest) if args.manifest else build_dir / "manifest.json"
+    )
+    if not manifest_path.is_file():
+        print(
+            f"{manifest_path} not found; run `riscv-tools compile --emit mif` first",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    manifest: list[dict[str, Any]] = json.loads(manifest_path.read_text())
+    by_name = {entry["name"]: entry for entry in manifest}
+    wanted = [n for n in (args.only or "").split(",") if n] or list(by_name)
+    unknown = [n for n in wanted if n not in by_name]
+    if unknown:
+        print(f"not in {manifest_path}: {', '.join(unknown)}", file=sys.stderr)
+        sys.exit(1)
+
+    sources = {src.parent.name: src for src in _discover_tests(root, cfg)}
+    emulator = cfg["emulator"]
+    results: dict[str, bool] = {}
+    durations: dict[str, float] = {}
+    for name in wanted:
+        entry = by_name[name]
+        print(f"Running {name} under Spike ...")
+        started = time.monotonic()
+        result = spike_run.run_elf(
+            spike_bin=emulator["spike_bin"],
+            nm_bin=cfg["toolchain"]["nm"],
+            objcopy_bin=cfg["toolchain"]["objcopy"],
+            elf_path=_spike_elf(cfg, name, build_dir, root, sources[name]),
+            isa=entry["march"],
+            mem_regions=_spike_mem_regions(cfg),
+            tohost_symbol=emulator["tohost_symbol"],
+            entry_symbol=emulator["entry_symbol"],
+            timeout_s=entry.get("timeout_s", emulator["timeout_s"]),
+        )
+        durations[name] = time.monotonic() - started
+        results[name] = result.passed
+        if not result.passed and result.output:
+            print(result.output.rstrip())
+
+    _print_run_summary(results, by_name, durations, root, build_dir)
+    if not all(results.values()):
+        sys.exit(1)
 
 
 def cmd_run(args: argparse.Namespace) -> None:
@@ -1220,6 +1328,14 @@ def main() -> None:  # noqa: PLR0915
         "board — only the compile step is skipped.",
     )
     p.set_defaults(func=cmd_run)
+
+    p = sub.add_parser(
+        "spike-run",
+        help="Run every compiled test to completion under Spike and report PASS/FAIL",
+    )
+    p.add_argument("--manifest", default=None)
+    p.add_argument("--only", default=None, help="Comma-separated test names to run")
+    p.set_defaults(func=cmd_spike_run)
 
     p = sub.add_parser(
         "sim",

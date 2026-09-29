@@ -6,11 +6,14 @@ from typing import Any
 import pytest
 import yaml
 
+from riscv_tools import run_log
+
 # _discover_tests is private, but the discovery/sorting behavior it
 # implements is worth testing directly, without a real toolchain.
 from riscv_tools.cli import (
     _discover_tests,  # pyright: ignore[reportPrivateUsage]
     cmd_compile,
+    cmd_spike_run,
 )
 
 GCC = "riscv32-unknown-elf-gcc"
@@ -116,6 +119,10 @@ def _make_project(root: Path) -> None:
     )
 
 
+def _no_log(*_args: object, **_kwargs: object) -> None:
+    return None
+
+
 def _cfg_dict(root: Path) -> dict[str, Any]:
     return yaml.safe_load((root / "config.yaml").read_text())
 
@@ -190,3 +197,44 @@ def test_cmd_compile_hex_builds_every_kind(tmp_path: Path) -> None:
     assert mem_entry["kind"] == "memory"
     assert mem_entry["hex"].endswith("mem.hex")
     assert (tmp_path / mem_entry["golden"]).is_file()
+
+
+@pytest.mark.skipif(
+    shutil.which(GCC) is None or shutil.which(SPIKE) is None,
+    reason=f"needs {GCC} and {SPIKE} on PATH",
+)
+def test_cmd_spike_run_passes_compiled_tests(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # run_log.start redirects the process's stdout into a log tee, which
+    # pytest's own capture can't coexist with.
+    monkeypatch.setattr(run_log, "start", _no_log)
+    _make_project(tmp_path)
+    cmd_compile(_args(tmp_path, "mif"))
+
+    args = _args(tmp_path, "mif")
+    args.only = "add,mem"  # type: ignore[attr-defined]
+    cmd_spike_run(args)
+
+    out = capsys.readouterr().out
+    assert "PASS  add" in out
+    assert "PASS  mem" in out
+
+
+@pytest.mark.skipif(
+    shutil.which(GCC) is None or shutil.which(SPIKE) is None,
+    reason=f"needs {GCC} and {SPIKE} on PATH",
+)
+def test_cmd_spike_run_rejects_a_test_missing_from_the_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(run_log, "start", _no_log)
+    _make_project(tmp_path)
+    cmd_compile(_args(tmp_path, "mif"))
+
+    args = _args(tmp_path, "mif")
+    args.only = "nope"  # type: ignore[attr-defined]
+    with pytest.raises(SystemExit):
+        cmd_spike_run(args)

@@ -26,6 +26,7 @@ Organized as one module per responsibility, each with its own
 | `quartus_program`    | Full recompile + `quartus_pgm` (the slow "base" path)        | [docs/modules/quartus_program.md](docs/modules/quartus_program.md) |
 | `mem_validator`      | Compare a RAM dump against a golden JSON                     | [docs/modules/mem_validator.md](docs/modules/mem_validator.md) |
 | `golden_generator`   | Generate a golden JSON dynamically by running an ELF under Spike | [docs/modules/golden_generator.md](docs/modules/golden_generator.md) |
+| `spike_run`          | Runs each compiled test to completion under Spike and reports PASS/FAIL from its HTIF verdict, with no hardware | [docs/modules/spike_run.md](docs/modules/spike_run.md) |
 | `orchestrator`       | Composes the above into a full real-hardware test-suite run, or a clock frequency sweep to find Fmax | [docs/modules/orchestrator.md](docs/modules/orchestrator.md) |
 | `sim_runner`         | Drives cocotb/GHDL simulation: the sim-side counterpart to `orchestrator` (needs the `sim` extra) | [docs/modules/sim_runner.md](docs/modules/sim_runner.md) |
 | `certify`            | Builds and runs the ACT4 architectural certification suite under cocotb/GHDL | [docs/modules/certify.md](docs/modules/certify.md) |
@@ -63,6 +64,7 @@ only to generate goldens.
 | `compile --emit asm` | yes | no | no | no |
 | `compile --emit mif` / `--emit hex` | yes | yes | only for `memory` tests written in C | only for `memory` tests written in C |
 | `generate-golden` | no | no | yes | yes |
+| `spike-run` | no | yes | yes | yes |
 | `program`, `sim` | yes (boot ROM) | yes (boot ROM) | no | no |
 | `certify` | yes (through ACT4's own build) | yes | no | no |
 
@@ -107,7 +109,7 @@ uv run riscv-tools --config /path/to/project/config.yaml sim
 
 See `riscv-tools --help` for the full subcommand list (`write-rom`,
 `zero-ram`, `dump-ram`, `program`, `mailbox read|pulse`, `generate-header`,
-`generate-golden`, `run`, `sim`, `vhdl-sort`, `freq-sweep`).
+`generate-golden`, `spike-run`, `run`, `sim`, `vhdl-sort`, `freq-sweep`).
 
 ```bash
 # vhdl-sort needs no --config; pure file-content analysis, e.g. wired
