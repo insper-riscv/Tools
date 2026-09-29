@@ -136,10 +136,9 @@ def _generate_c_golden(  # noqa: PLR0913, PLR0917
     march: str,
     name: str,
     build_dir: Path,
-    spike_bin: str | None,
     root: Path,
     src: Path,
-) -> tuple[str, Path]:
+) -> Path:
     """Auto-generate one .c memory test's golden.json by running its ELF under Spike.
 
     C memory tests never carry a checked-in golden.json — the whole
@@ -163,12 +162,6 @@ def _generate_c_golden(  # noqa: PLR0913, PLR0917
         case a separate build_dir/{name}.golden.elf is built instead.
     build_dir : Path
         Where {name}.elf lives and {name}.golden.json gets written.
-    spike_bin : str or None
-        Already-resolved `spike` binary path, or None if this is the
-        first C memory test in this compile run — resolved once via
-        golden_generator.setup() and returned for the caller to reuse
-        on subsequent calls, since setup() can be a real build the
-        first time Spike isn't already available.
     root : Path
         The consuming project's root directory — resolves
         paths.boot_rom/golden_linker_script.
@@ -178,13 +171,9 @@ def _generate_c_golden(  # noqa: PLR0913, PLR0917
 
     Returns
     -------
-    tuple of (str, Path)
-        (spike_bin, golden_path) — spike_bin is either the one passed
-        in or newly resolved; golden_path is build_dir/{name}.golden.json.
+    Path
+        build_dir/{name}.golden.json.
     """
-    if spike_bin is None:
-        spike_bin = str(golden_generator.setup(cfg["emulator"]["spike_bin"]))
-
     # A project with a 3-memory BOOT_ROM/FLASH/RAM split (see
     # riscv_tools.boot_rom) can't hand Spike its normal, FLASH-only
     # elf_path: that image has no entry point Spike can run from cold
@@ -219,7 +208,7 @@ def _generate_c_golden(  # noqa: PLR0913, PLR0917
         cfg["toolchain"]["nm"], elf_path, "results"
     )
     golden = golden_generator.generate_golden(
-        spike_bin=spike_bin,
+        spike_bin=cfg["emulator"]["spike_bin"],
         nm_bin=cfg["toolchain"]["nm"],
         elf_path=elf_path,
         isa=march,
@@ -229,10 +218,12 @@ def _generate_c_golden(  # noqa: PLR0913, PLR0917
         addr_start=addr_start,
         addr_end=addr_end,
         ram_base=cfg["memory"]["ram_base"],
+        objcopy_bin=cfg["toolchain"]["objcopy"],
+        timeout_s=cfg["emulator"]["timeout_s"],
     )
     golden_path = build_dir / f"{name}.golden.json"
     golden_generator.write_golden_json(golden, golden_path)
-    return spike_bin, golden_path
+    return golden_path
 
 
 def _discover_tests(root: Path, cfg: dict[str, Any]) -> list[Path]:
@@ -352,11 +343,6 @@ def cmd_compile(args: argparse.Namespace) -> None:
     build_dir = root / cfg["paths"]["build_dir"] / ("real" if is_real else "sim")
 
     manifest: list[dict[str, Any]] = []
-    # Resolved lazily (once) the first time a .c memory-kind test needs
-    # it — most builds never touch a C memory test, and setup() can be
-    # a real build (see golden_generator.setup) the first time Spike
-    # itself isn't already available.
-    spike_bin: str | None = None
 
     for src in sources:
         name = src.parent.name
@@ -415,9 +401,7 @@ def cmd_compile(args: argparse.Namespace) -> None:
         # docstring for why that matters (a wrong computed value used
         # to only surface once run for real, sometimes much later).
         if kind == "memory" and src.suffix == ".c":
-            spike_bin, golden_path = _generate_c_golden(
-                cfg, march, name, build_dir, spike_bin, root, src
-            )
+            golden_path = _generate_c_golden(cfg, march, name, build_dir, root, src)
             entry["golden"] = str(golden_path.relative_to(root))
         elif kind == "memory":
             golden_path = src.parent / "golden.json"
@@ -674,7 +658,7 @@ def cmd_generate_golden(args: argparse.Namespace) -> None:
         addr_start, addr_end = int(args.start, 0), int(args.end, 0)
 
     golden = golden_generator.generate_golden(
-        spike_bin=str(golden_generator.setup(cfg["emulator"]["spike_bin"])),
+        spike_bin=cfg["emulator"]["spike_bin"],
         nm_bin=nm_bin,
         elf_path=elf_path,
         isa=args.march,
@@ -683,6 +667,8 @@ def cmd_generate_golden(args: argparse.Namespace) -> None:
         addr_start=addr_start,
         addr_end=addr_end,
         ram_base=cfg["memory"]["ram_base"],
+        objcopy_bin=cfg["toolchain"]["objcopy"],
+        timeout_s=cfg["emulator"]["timeout_s"],
     )
 
     out_path = Path(args.out)
