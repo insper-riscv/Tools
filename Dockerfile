@@ -7,6 +7,13 @@
 #   docker build -t riscv-tools-tests .
 #   docker run --rm -v "$PWD:/workspace" riscv-tools-tests            # whole suite
 #   docker run --rm -v "$PWD:/workspace" riscv-tools-tests tests/test_sim_runner.py -v
+#
+# By default the GCC is the riscv-collab release. To use the toolchain that
+# insper-riscv/Infra's GCC_SETUP.md installed on the workstation instead (the
+# one with picolibc), hand its directory over as a named build context:
+#
+#   docker build --build-context riscv-gcc=/opt/riscv-foundation/riscv32-elf \
+#       -t riscv-tools-tests .
 
 ARG GHDL_IMAGE=ghdl/ghdl:6.0.0-mcode-ubuntu-24.04
 ARG UV_VERSION=0.12.20
@@ -38,21 +45,33 @@ RUN mkdir /build \
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
 
-FROM ${GHDL_IMAGE}
+# The RISC-V GCC, with the toolchain directory as the root of the stage. This
+# stage is replaced by a local directory when `--build-context riscv-gcc=...`
+# is given.
+FROM ${GHDL_IMAGE} AS gcc-download
 ARG RISCV_GCC_TAG=2026.08.27
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl xz-utils \
+ && rm -rf /var/lib/apt/lists/* \
+ && mkdir /toolchain \
+ && curl -fsSL "https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/${RISCV_GCC_TAG}/riscv32-elf-ubuntu-24.04-gcc.tar.xz" \
+    | tar -xJ -C /toolchain --strip-components=1
+
+FROM scratch AS riscv-gcc
+COPY --from=gcc-download /toolchain /
+
+
+FROM ${GHDL_IMAGE}
 
 # libmpc3/libmpfr6: cc1 of the RISC-V GCC links against them.
 # libboost-*: Spike's runtime. libatomic1: the node that pyright downloads.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      ca-certificates curl git xz-utils \
+      ca-certificates git \
       libmpc3 libmpfr6 libboost-regex1.83.0 libboost-system1.83.0 libatomic1 \
  && rm -rf /var/lib/apt/lists/*
 
-RUN mkdir -p /opt/riscv-foundation/riscv32-elf \
- && curl -fsSL "https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/${RISCV_GCC_TAG}/riscv32-elf-ubuntu-24.04-gcc.tar.xz" \
-    | tar -xJ -C /opt/riscv-foundation/riscv32-elf --strip-components=1
-
+COPY --from=riscv-gcc / /opt/riscv-foundation/riscv32-elf
 COPY --from=spike-build /opt/riscv-foundation/spike /opt/riscv-foundation/spike
 COPY --from=uv /uv /uvx /usr/local/bin/
 

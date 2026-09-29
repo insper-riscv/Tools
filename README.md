@@ -153,8 +153,18 @@ docker run --rm -v "$PWD:/workspace" riscv-tools-tests
 docker run --rm -v "$PWD:/workspace" riscv-tools-tests tests/test_sim_runner.py -v
 ```
 
-The `tests` workflow builds the same image and runs the whole suite on every
-push and pull request.
+By default the image carries the riscv-collab GCC release, which has no
+picolibc, so the two tests that need picolibc skip. To use the toolchain
+Infra's `GCC_SETUP.md` installs on the workstation (with picolibc) instead of
+downloading one, hand its directory over as a named build context:
+
+```bash
+docker build --build-context riscv-gcc=/opt/riscv-foundation/riscv32-elf \
+    -t riscv-tools-tests .
+```
+
+The `tests` workflow builds the default image and runs the whole suite on
+every push and pull request.
 
 ---
 
