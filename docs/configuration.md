@@ -28,6 +28,7 @@ sections. Any key you omit falls back to the built-in default shown.
 | `gcc` | `riscv32-unknown-elf-gcc` | `compiler`, `c_to_asm`, `boot_rom` |
 | `objcopy` | `riscv32-unknown-elf-objcopy` | `compiler`, `boot_rom`, `certify`, `golden_generator` |
 | `nm` | `riscv32-unknown-elf-nm` | `golden_generator` (`generate-golden`) |
+| `libc` | `none` | `compiler`: the C library tests link against. `none` passes `-nostdlib`, so a project supplies what it needs (such as `malloc`) through `paths.syscalls`. `picolibc` passes `--specs=picolibc.specs` (and `-Wl,--no-gc-sections`, see [compiler.md](modules/compiler.md#c-library)) for a GCC configured with picolibc, such as the one Infra's `GCC_SETUP.md` builds |
 
 ### `isa:`
 

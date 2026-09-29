@@ -7,6 +7,10 @@ DEFAULTS = {
     "toolchain": {
         "gcc": "riscv32-unknown-elf-gcc",
         "objcopy": "riscv32-unknown-elf-objcopy",
+        # C library the tests link against: "none" (-nostdlib, a project
+        # supplies what it needs through paths.syscalls) or "picolibc"
+        # (the toolchain's own, for a GCC built with it).
+        "libc": "none",
     },
     "isa": {
         "base": "i",  # always implied, never written in a test's header

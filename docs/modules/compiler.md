@@ -13,6 +13,17 @@ A test's own source file declares its build/run requirements in comments at the 
 | `// RV32_TEST_KIND: memory` | Also dumps RAM and compares it against a golden JSON (see [`mem_validator`](mem_validator.md), [`golden_generator`](golden_generator.md)). |
 | `// RV32_TIMEOUT_S: 5` | How long [`orchestrator`](orchestrator.md) waits for this test's mailbox before falling back to a full reprogram. Defaults to `orchestrator`'s `default_timeout_s`. |
 
+## C library
+
+`toolchain.libc` selects what a test links against:
+
+| Value | Flags | Use |
+| :--- | :--- | :--- |
+| `none` (default) | `-nostdlib` | Works with any toolchain. A test that needs `malloc` or similar gets it from the project's own `paths.syscalls`. |
+| `picolibc` | `--specs=picolibc.specs -Wl,--no-gc-sections` | For a GCC configured with picolibc, such as the one Infra's `GCC_SETUP.md` builds for `rv32im`/`ilp32`. `strlen`, `memcpy`, `printf` and the rest come from picolibc. |
+
+The startup code stays the project's own `crt0.S` (`-nostartfiles` in both cases). `picolibc.specs` turns on `--gc-sections`, which drops every section a link script neither keeps nor reaches from its entry, so it is switched off again. That toolchain has a single library variant (`rv32im`/`ilp32`), so a test built for a narrower `-march` links library code that may use instructions its core lacks, such as multiplication and division in `printf`.
+
 ## Hex output
 
 With `sim.hex_format: verilog`, the simulation `.hex` comes straight from the linked ELF through `objcopy -O verilog --verilog-data-width=4` instead of from the flat binary. The file keeps the image's real word addresses:
@@ -32,6 +43,7 @@ A program linked at `0x800` starts at `@00000200` (word address), so it needs no
 | :--- | :--- |
 | `toolchain.gcc` | GCC binary name/path (default `riscv32-unknown-elf-gcc`). |
 | `toolchain.objcopy` | objcopy binary name/path (default `riscv32-unknown-elf-objcopy`). |
+| `toolchain.libc` | `none` or `picolibc` (default `none`); see [C library](#c-library). |
 | `isa.base` | Base ISA letter, always `i`, never written in a test's own header. |
 | `isa.default_ext` | Extension string used when a test has no `RV32_EXT` header at all. Empty by default (plain `rv32i`). |
 | `isa.canonical_order` | Fixed letter order extension letters get sorted into before being appended to the base ISA string, so `RV32_EXT: A,M` and `RV32_EXT: M,A` both normalize to the same `-march=` value. |
@@ -56,6 +68,11 @@ A program linked at `0x800` starts at `@00000200` (word address), so it needs no
 | `tests/test_cli_compile.py::test_cmd_compile_hex_builds_every_kind` | The same tests compile for simulation. |
 | `tests/test_cli_compile.py::test_cmd_compile_hex_uses_the_verilog_format_when_configured` | `sim.hex_format: verilog` writes the `objcopy` layout. |
 | `tests/test_compiler_hex.py::test_elf_to_verilog_hex_keeps_the_real_word_address` | An image linked at `0x800` starts at `@00000200` with no zero padding. |
+| `tests/test_compiler_libc.py::test_libc_flags_defaults_to_no_libc` | Without `toolchain.libc`, tests link with `-nostdlib`. |
+| `tests/test_compiler_libc.py::test_libc_flags_picolibc_keeps_sections_the_link_script_does_not_reach` | `picolibc` selects the specs and turns garbage collection of sections off. |
+| `tests/test_compiler_libc.py::test_libc_flags_rejects_an_unknown_library` | An unknown value raises an error naming the key. |
+| `tests/test_compiler_libc.py::test_picolibc_provides_libc_functions` | A test calling `strlen` links with `picolibc` (skipped without a GCC configured with picolibc). |
+| `tests/test_compiler_libc.py::test_no_libc_leaves_libc_functions_undefined` | The same test fails to link with `none` (skipped without a GCC configured with picolibc). |
 
 
 ## Usage
