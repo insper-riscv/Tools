@@ -128,9 +128,10 @@ def generate_golden(  # noqa: PLR0913, PLR0917
         First byte address to snapshot (inclusive); an ABSOLUTE
         ELF/Spike address (e.g. straight from `nm`), not RAM-relative.
     addr_end : int
-        One past the last byte address to snapshot (exclusive);
-        addr_end - addr_start must be a multiple of 4. Same absolute
-        convention as addr_start.
+        One past the last byte address to snapshot (exclusive). The
+        range is rounded up to whole 32-bit words, so a 1-byte symbol
+        yields the 4 bytes of its word. Same absolute convention as
+        addr_start.
     ram_base : int, optional
         RAM's base byte address (memory.ram_base in the project's
         config.yaml, 0 for a project where RAM starts at address 0).
@@ -158,18 +159,16 @@ def generate_golden(  # noqa: PLR0913, PLR0917
     Raises
     ------
     RuntimeError
-        The range isn't word-aligned, Spike didn't write a signature
-        (the program never signalled completion within timeout_s, or
-        Spike failed), or the signature has an unexpected size.
+        Spike didn't write a signature (the program never signalled
+        completion within timeout_s, or Spike failed), or the signature
+        has an unexpected size.
     """
-    if (addr_end - addr_start) % _WORD_BYTES or addr_start % _WORD_BYTES:
-        raise RuntimeError(
-            f"snapshot range [{addr_start:#x}, {addr_end:#x}) must be word-aligned"
-        )
+    word_count = -(-(addr_end - addr_start) // _WORD_BYTES)
+    signature_end = addr_start + word_count * _WORD_BYTES
 
     spike = require_spike(spike_bin)
     entry_pc = symbol_address(nm_bin, elf_path, entry_symbol)
-    signature_symbols = {"begin_signature": addr_start, "end_signature": addr_end}
+    signature_symbols = {"begin_signature": addr_start, "end_signature": signature_end}
 
     with (
         tempfile.TemporaryDirectory(prefix="riscv-tools-golden-") as tmp,
@@ -201,10 +200,9 @@ def generate_golden(  # noqa: PLR0913, PLR0917
             )
         words = [int(line, 16) for line in signature.read_text().split()]
 
-    expected = (addr_end - addr_start) // _WORD_BYTES
-    if len(words) != expected:
+    if len(words) != word_count:
         raise RuntimeError(
-            f"expected {expected} signature word(s) for {elf_path}, got {len(words)}"
+            f"expected {word_count} signature word(s) for {elf_path}, got {len(words)}"
         )
 
     out: dict[int, int] = {}

@@ -72,8 +72,8 @@ uv run riscv-tools --config <project>/config.yaml generate-golden \
   resolved the same way `compile` resolves it: see
   [creating-a-c-test.md](creating-a-c-test.md#header-comments)).
 - `--start`/`--end` are byte addresses (hex or decimal both work):
-  the half-open range `[start, end)` to snapshot. `end - start` must
-  be a multiple of 4.
+  the half-open range `[start, end)` to snapshot, rounded up to whole
+  32-bit words.
 - `--out` is where the golden JSON gets written, in the exact format
   [`mem_validator`](modules/mem_validator.md) expects.
 

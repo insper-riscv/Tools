@@ -161,3 +161,21 @@ def test_generate_golden_by_symbol_matches_explicit_start_end(tmp_path: Path) ->
         for b in range(4)
     }
     assert golden == expected_bytes
+
+
+def test_generate_golden_rounds_a_partial_word_range_up(tmp_path: Path) -> None:
+    assert SPIKE_BIN is not None  # guaranteed by pytestmark's skipif above
+    elf = _compile(FIXTURES / "pass_asm.S", tmp_path)
+
+    golden = generate_golden(
+        spike_bin=SPIKE_BIN,
+        nm_bin=NM,
+        elf_path=elf,
+        isa=ISA,
+        mem_regions=[(0x80000000, 0x10000)],
+        tohost_symbol="tohost",
+        addr_start=ADDR,
+        addr_end=ADDR + 1,
+    )
+
+    assert golden == {ADDR + i: (0x11223344 >> (8 * i)) & 0xFF for i in range(4)}
