@@ -17,7 +17,10 @@ from riscv_tools.bin_to_image.core import bin_to_hex
 
 
 def build_boot_rom(
-    toolchain_cfg: dict[str, Any], paths_cfg: dict[str, Any], root: Path, build_dir: Path
+    toolchain_cfg: dict[str, Any],
+    paths_cfg: dict[str, Any],
+    root: Path,
+    build_dir: Path,
 ) -> Path:
     """Compile boot_rom.S/boot_rom.ld into a flat binary and convert it to .hex.
 

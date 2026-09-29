@@ -98,7 +98,7 @@ def _spike_mem_regions(cfg: dict[str, Any]) -> list[tuple[int, int]]:
 
 
 def _syscalls_sources(cfg: dict[str, Any], root: Path) -> list[Path]:
-    """Resolve paths.syscalls (self-contained libc-like shims, e.g. malloc), if configured.
+    """Resolve paths.syscalls (self-contained shims, e.g. malloc), if configured.
 
     compile_test still passes -nostdlib — a downloaded toolchain's own
     bundled libc.a isn't guaranteed to match this project's -march/
@@ -285,7 +285,7 @@ def _discover_tests(root: Path, cfg: dict[str, Any]) -> list[Path]:
     return sorted(kept, key=lambda p: p.parent.name)
 
 
-def cmd_compile(args: argparse.Namespace) -> None:  # noqa: PLR0915
+def cmd_compile(args: argparse.Namespace) -> None:
     """Implement `riscv-tools compile`.
 
     Builds every test under paths.c_dir/paths.asm_dir into .mif/.hex
@@ -535,7 +535,9 @@ def cmd_program(args: argparse.Namespace) -> None:
     # way FLASH (args.mif) is. Only meaningful for a project with a
     # 3-memory BOOT_ROM/FLASH/RAM split (paths.boot_rom set).
     boot_rom_mif_path = None
-    if cfg.get("paths", {}).get("boot_rom") and cfg["quartus"].get("boot_rom_mif_target"):
+    if cfg.get("paths", {}).get("boot_rom") and cfg["quartus"].get(
+        "boot_rom_mif_target"
+    ):
         build_dir = root / cfg["paths"]["build_dir"] / "boot_rom"
         boot_rom.build_boot_rom(cfg["toolchain"], cfg["paths"], root, build_dir)
         boot_rom_mif_path = build_dir / "boot_rom.mif"

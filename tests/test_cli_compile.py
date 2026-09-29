@@ -14,6 +14,7 @@ from riscv_tools.cli import (
 )
 
 GCC = "riscv32-unknown-elf-gcc"
+SPIKE = "spike"
 
 
 def _make_project(root: Path) -> None:
@@ -31,15 +32,12 @@ def _make_project(root: Path) -> None:
     (root / "c" / "mem" / "src.c").write_text(
         "// RV32_TEST_KIND: memory\n"
         '#include "rv32_test.h"\n'
-        "static volatile unsigned int *const BUF = (volatile unsigned int *)0x10;\n"
+        "volatile unsigned int results[1];\n"
         "int main(void) {\n"
-        "    BUF[0] = 0x11111111u;\n"
+        "    results[0] = 0x11111111u;\n"
         "    RV32_PASS();\n"
         "    return 0;\n"
         "}\n"
-    )
-    (root / "c" / "mem" / "golden.json").write_text(
-        '{"0x00000010": 17, "0x00000011": 17, "0x00000012": 17, "0x00000013": 17}\n'
     )
 
     (root / "asm" / "raw").mkdir(parents=True)
@@ -62,9 +60,19 @@ def _make_project(root: Path) -> None:
         ".globl _start\n"
         ".globl rv32_wait_restart\n"
         "_start:\n"
+        "    la sp, _stack_top\n"
         "    call main\n"
         "rv32_wait_restart:\n"
-        "    j rv32_wait_restart\n"
+        "    li t0, 1\n"
+        "    la t1, tohost\n"
+        "    sw t0, 0(t1)\n"
+        "1:  j 1b\n"
+        '.section .tohost,"aw",@nobits\n'
+        ".balign 8\n"
+        ".globl tohost\n"
+        "tohost: .space 8\n"
+        ".globl fromhost\n"
+        "fromhost: .space 8\n"
     )
     (root / "link.ld").write_text(
         "ENTRY(_start)\n"
@@ -72,7 +80,10 @@ def _make_project(root: Path) -> None:
         "    . = 0x00000000;\n"
         "    .text : { *(.text*) }\n"
         "    .data : { *(.data*) }\n"
-        "    .bss : { *(.bss*) }\n"
+        "    . = 0x8000;\n"
+        "    .bss : { *(.bss*) *(COMMON) }\n"
+        "    .tohost (NOLOAD) : { *(.tohost) }\n"
+        "    _stack_top = 0x9000;\n"
         "}\n"
     )
 
@@ -94,7 +105,12 @@ def _make_project(root: Path) -> None:
                     "asm_dir": "asm",
                 },
                 "quartus": {"default_timeout_s": 5},
-                "memory": {"rom_words": 8192},
+                "memory": {
+                    "rom_base": 0,
+                    "rom_words": 8192,
+                    "ram_base": 0x8000,
+                    "ram_words": 1024,
+                },
             }
         )
     )
@@ -137,7 +153,10 @@ def test_discover_tests_empty_when_no_folders(tmp_path: Path) -> None:
     assert _discover_tests(tmp_path, _cfg_dict(tmp_path)) == []
 
 
-@pytest.mark.skipif(shutil.which(GCC) is None, reason=f"needs {GCC} on PATH")
+@pytest.mark.skipif(
+    shutil.which(GCC) is None or shutil.which(SPIKE) is None,
+    reason=f"needs {GCC} and {SPIKE} on PATH",
+)
 def test_cmd_compile_mif_builds_every_kind(tmp_path: Path) -> None:
     _make_project(tmp_path)
 
@@ -147,14 +166,27 @@ def test_cmd_compile_mif_builds_every_kind(tmp_path: Path) -> None:
     assert {e["name"] for e in manifest} == {"add", "mem", "raw"}
     mem_entry = next(e for e in manifest if e["name"] == "mem")
     assert mem_entry["kind"] == "memory"
-    assert mem_entry["golden"] == "c/mem/golden.json"
+    golden_path = tmp_path / mem_entry["golden"]
+    assert json.loads(golden_path.read_text()) == {
+        "0x00000000": 17,
+        "0x00000001": 17,
+        "0x00000002": 17,
+        "0x00000003": 17,
+    }
 
 
-@pytest.mark.skipif(shutil.which(GCC) is None, reason=f"needs {GCC} on PATH")
-def test_cmd_compile_hex_skips_memory_kind(tmp_path: Path) -> None:
+@pytest.mark.skipif(
+    shutil.which(GCC) is None or shutil.which(SPIKE) is None,
+    reason=f"needs {GCC} and {SPIKE} on PATH",
+)
+def test_cmd_compile_hex_builds_every_kind(tmp_path: Path) -> None:
     _make_project(tmp_path)
 
     cmd_compile(_args(tmp_path, "hex"))
 
     manifest = json.loads((tmp_path / "build" / "sim" / "manifest.json").read_text())
-    assert {e["name"] for e in manifest} == {"add", "raw"}
+    assert {e["name"] for e in manifest} == {"add", "mem", "raw"}
+    mem_entry = next(e for e in manifest if e["name"] == "mem")
+    assert mem_entry["kind"] == "memory"
+    assert mem_entry["hex"].endswith("mem.hex")
+    assert (tmp_path / mem_entry["golden"]).is_file()

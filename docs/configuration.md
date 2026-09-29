@@ -74,6 +74,7 @@ No `tests_real_dir`/`tests_sim_dir`/`golden_dir` split: every test under `c_dir`
 | `mailbox_addr` | Byte address of the PASS/FAIL mailbox word |
 | `go_flag_addr` | Byte address of the restart "go" flag word |
 | `ram_words` | RAM depth in words: used to zero the whole RAM and to validate a program's `.mif` |
+| `rom_base` | Byte address the program image is linked at (0 for a ROM that starts at address 0). The `.mif`/`.hex` of a test linked above 0 gets `rom_base / 4` leading zero words, because the memory is addressed raw, without subtracting a base |
 | `rom_words` | ROM depth in words: used to validate/format a program's `.mif` |
 
 ### `emulator:`

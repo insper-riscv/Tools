@@ -107,9 +107,13 @@ def words_to_bytes(words: dict[int, int]) -> dict[int, int]:
 
 
 def compare_bytes(
-    actual: dict[int, int], golden: dict[int, int], *, actual_label: str, golden_label: str
+    actual: dict[int, int],
+    golden: dict[int, int],
+    *,
+    actual_label: str,
+    golden_label: str,
 ) -> bool:
-    """Compare an in-memory byte map against golden bytes and print a human-readable diff.
+    """Compare an in-memory byte map against golden bytes and print the diff.
 
     The shared core of compare() (a real-hardware JTAG dump, parsed
     from a .mif) and a GHDL sim testbench's own bus-snooped
