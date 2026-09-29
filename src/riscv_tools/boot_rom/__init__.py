@@ -1,4 +1,4 @@
-"""Builds the fixed, shared bootloader (boot_rom.S) -- built once, reused across every test."""
+"""Builds the fixed, shared bootloader (boot_rom.S), once, reused by every test."""
 
 from .core import build_boot_rom
 

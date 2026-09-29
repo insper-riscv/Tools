@@ -10,6 +10,7 @@ project config at all.
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,7 @@ from riscv_tools import (
     rom_writer,
     run_log,
     sim_runner,
+    spike_run,
     vhdl_sort,
 )
 from riscv_tools import c_to_asm as c_to_asm_mod
@@ -98,7 +100,7 @@ def _spike_mem_regions(cfg: dict[str, Any]) -> list[tuple[int, int]]:
 
 
 def _syscalls_sources(cfg: dict[str, Any], root: Path) -> list[Path]:
-    """Resolve paths.syscalls (self-contained libc-like shims, e.g. malloc), if configured.
+    """Resolve paths.syscalls (self-contained shims, e.g. malloc), if configured.
 
     compile_test still passes -nostdlib — a downloaded toolchain's own
     bundled libc.a isn't guaranteed to match this project's -march/
@@ -131,60 +133,34 @@ def _syscalls_sources(cfg: dict[str, Any], root: Path) -> list[Path]:
     return [root / syscalls] if syscalls else []
 
 
-def _generate_c_golden(  # noqa: PLR0913, PLR0917
-    cfg: dict[str, Any],
-    march: str,
-    name: str,
-    build_dir: Path,
-    spike_bin: str | None,
-    root: Path,
-    src: Path,
-) -> tuple[str, Path]:
-    """Auto-generate one .c memory test's golden.json by running its ELF under Spike.
-
-    C memory tests never carry a checked-in golden.json — the whole
-    point is validating against Spike (the RISC-V Foundation's own
-    reference model) fresh every build, not a value someone worked out
-    by hand once that can go stale after an edit. Convention: the test
-    declares `volatile <type> results[N];` and writes what it wants
-    checked there — see docs/creating-a-c-test.md.
+def _spike_elf(
+    cfg: dict[str, Any], name: str, build_dir: Path, root: Path, src: Path
+) -> Path:
+    """Return the ELF Spike should run for one test, building it if needed.
 
     Parameters
     ----------
     cfg : dict of {str: Any}
         The merged project config.
-    march : str
-        This test's own `-march=` string (from compiler.compile_test),
-        passed to Spike as `--isa=`.
     name : str
-        This test's name — build_dir/{name}.elf must already exist
-        (compiler.compile_test's own output), UNLESS
-        paths.golden_linker_script is configured (see below), in which
-        case a separate build_dir/{name}.golden.elf is built instead.
+        This test's name; build_dir/{name}.elf must already exist
+        (compiler.compile_test's own output), unless
+        paths.golden_linker_script is configured, in which case a
+        separate build_dir/{name}.golden.elf is built instead.
     build_dir : Path
-        Where {name}.elf lives and {name}.golden.json gets written.
-    spike_bin : str or None
-        Already-resolved `spike` binary path, or None if this is the
-        first C memory test in this compile run — resolved once via
-        golden_generator.setup() and returned for the caller to reuse
-        on subsequent calls, since setup() can be a real build the
-        first time Spike isn't already available.
+        Where the ELFs live.
     root : Path
-        The consuming project's root directory — resolves
+        The consuming project's root directory; resolves
         paths.boot_rom/golden_linker_script.
     src : Path
-        This test's own source file (.c) — recompiled against
-        paths.golden_linker_script when configured (see below).
+        This test's own source file, recompiled against
+        paths.golden_linker_script when configured.
 
     Returns
     -------
-    tuple of (str, Path)
-        (spike_bin, golden_path) — spike_bin is either the one passed
-        in or newly resolved; golden_path is build_dir/{name}.golden.json.
+    Path
+        The ELF to hand to Spike.
     """
-    if spike_bin is None:
-        spike_bin = str(golden_generator.setup(cfg["emulator"]["spike_bin"]))
-
     # A project with a 3-memory BOOT_ROM/FLASH/RAM split (see
     # riscv_tools.boot_rom) can't hand Spike its normal, FLASH-only
     # elf_path: that image has no entry point Spike can run from cold
@@ -214,12 +190,59 @@ def _generate_c_golden(  # noqa: PLR0913, PLR0917
         )
     else:
         elf_path = build_dir / f"{name}.elf"
+    return elf_path
+
+
+def _generate_c_golden(  # noqa: PLR0913, PLR0917
+    cfg: dict[str, Any],
+    march: str,
+    name: str,
+    build_dir: Path,
+    root: Path,
+    src: Path,
+) -> Path:
+    """Auto-generate one .c memory test's golden.json by running its ELF under Spike.
+
+    C memory tests never carry a checked-in golden.json — the whole
+    point is validating against Spike (the RISC-V Foundation's own
+    reference model) fresh every build, not a value someone worked out
+    by hand once that can go stale after an edit. Convention: the test
+    declares `volatile <type> results[N];` and writes what it wants
+    checked there — see docs/en/creating-a-c-test.md.
+
+    Parameters
+    ----------
+    cfg : dict of {str: Any}
+        The merged project config.
+    march : str
+        This test's own `-march=` string (from compiler.compile_test),
+        passed to Spike as `--isa=`.
+    name : str
+        This test's name — build_dir/{name}.elf must already exist
+        (compiler.compile_test's own output), UNLESS
+        paths.golden_linker_script is configured (see below), in which
+        case a separate build_dir/{name}.golden.elf is built instead.
+    build_dir : Path
+        Where {name}.elf lives and {name}.golden.json gets written.
+    root : Path
+        The consuming project's root directory — resolves
+        paths.boot_rom/golden_linker_script.
+    src : Path
+        This test's own source file (.c) — recompiled against
+        paths.golden_linker_script when configured (see below).
+
+    Returns
+    -------
+    Path
+        build_dir/{name}.golden.json.
+    """
+    elf_path = _spike_elf(cfg, name, build_dir, root, src)
 
     addr_start, addr_end = golden_generator.symbol_range(
         cfg["toolchain"]["nm"], elf_path, "results"
     )
     golden = golden_generator.generate_golden(
-        spike_bin=spike_bin,
+        spike_bin=cfg["emulator"]["spike_bin"],
         nm_bin=cfg["toolchain"]["nm"],
         elf_path=elf_path,
         isa=march,
@@ -229,10 +252,12 @@ def _generate_c_golden(  # noqa: PLR0913, PLR0917
         addr_start=addr_start,
         addr_end=addr_end,
         ram_base=cfg["memory"]["ram_base"],
+        objcopy_bin=cfg["toolchain"]["objcopy"],
+        timeout_s=cfg["emulator"]["timeout_s"],
     )
     golden_path = build_dir / f"{name}.golden.json"
     golden_generator.write_golden_json(golden, golden_path)
-    return spike_bin, golden_path
+    return golden_path
 
 
 def _discover_tests(root: Path, cfg: dict[str, Any]) -> list[Path]:
@@ -285,7 +310,40 @@ def _discover_tests(root: Path, cfg: dict[str, Any]) -> list[Path]:
     return sorted(kept, key=lambda p: p.parent.name)
 
 
-def cmd_compile(args: argparse.Namespace) -> None:  # noqa: PLR0915
+def _write_sim_hex(
+    cfg: dict[str, Any], stem: Path, bin_: Path, hex_: Path, pad_words: int
+) -> None:
+    """Write a test's simulation .hex in the format sim.hex_format selects.
+
+    Parameters
+    ----------
+    cfg : dict of {str: Any}
+        The merged project config.
+    stem : Path
+        The test's build path without extension; `<stem>.elf` is the
+        ELF used for the "verilog" format.
+    bin_ : Path
+        The flat binary used for the "words" format.
+    hex_ : Path
+        Where to write the .hex.
+    pad_words : int
+        Leading zero words for the "words" format (see
+        bin_to_image.read_words); the "verilog" format carries real
+        addresses instead.
+
+    Returns
+    -------
+    None
+    """
+    if cfg["sim"]["hex_format"] == "verilog":
+        compiler_mod.elf_to_verilog_hex(
+            cfg["toolchain"], stem.with_suffix(".elf"), hex_
+        )
+    else:
+        bin_to_image.bin_to_hex(bin_, hex_, pad_words=pad_words)
+
+
+def cmd_compile(args: argparse.Namespace) -> None:
     """Implement `riscv-tools compile`.
 
     Builds every test under paths.c_dir/paths.asm_dir into .mif/.hex
@@ -352,11 +410,6 @@ def cmd_compile(args: argparse.Namespace) -> None:  # noqa: PLR0915
     build_dir = root / cfg["paths"]["build_dir"] / ("real" if is_real else "sim")
 
     manifest: list[dict[str, Any]] = []
-    # Resolved lazily (once) the first time a .c memory-kind test needs
-    # it — most builds never touch a C memory test, and setup() can be
-    # a real build (see golden_generator.setup) the first time Spike
-    # itself isn't already available.
-    spike_bin: str | None = None
 
     for src in sources:
         name = src.parent.name
@@ -405,7 +458,7 @@ def cmd_compile(args: argparse.Namespace) -> None:  # noqa: PLR0915
             entry["mif"] = str(mif.relative_to(root))
         else:
             hex_ = build_dir / f"{name}.hex"
-            bin_to_image.bin_to_hex(bin_, hex_, pad_words=flash_pad_words)
+            _write_sim_hex(cfg, build_dir / name, bin_, hex_, flash_pad_words)
             entry["hex"] = str(hex_.relative_to(root))
 
         # Attached the same way for "real" and "sim": sim_runner's own
@@ -415,9 +468,7 @@ def cmd_compile(args: argparse.Namespace) -> None:  # noqa: PLR0915
         # docstring for why that matters (a wrong computed value used
         # to only surface once run for real, sometimes much later).
         if kind == "memory" and src.suffix == ".c":
-            spike_bin, golden_path = _generate_c_golden(
-                cfg, march, name, build_dir, spike_bin, root, src
-            )
+            golden_path = _generate_c_golden(cfg, march, name, build_dir, root, src)
             entry["golden"] = str(golden_path.relative_to(root))
         elif kind == "memory":
             golden_path = src.parent / "golden.json"
@@ -535,7 +586,9 @@ def cmd_program(args: argparse.Namespace) -> None:
     # way FLASH (args.mif) is. Only meaningful for a project with a
     # 3-memory BOOT_ROM/FLASH/RAM split (paths.boot_rom set).
     boot_rom_mif_path = None
-    if cfg.get("paths", {}).get("boot_rom") and cfg["quartus"].get("boot_rom_mif_target"):
+    if cfg.get("paths", {}).get("boot_rom") and cfg["quartus"].get(
+        "boot_rom_mif_target"
+    ):
         build_dir = root / cfg["paths"]["build_dir"] / "boot_rom"
         boot_rom.build_boot_rom(cfg["toolchain"], cfg["paths"], root, build_dir)
         boot_rom_mif_path = build_dir / "boot_rom.mif"
@@ -672,7 +725,7 @@ def cmd_generate_golden(args: argparse.Namespace) -> None:
         addr_start, addr_end = int(args.start, 0), int(args.end, 0)
 
     golden = golden_generator.generate_golden(
-        spike_bin=str(golden_generator.setup(cfg["emulator"]["spike_bin"])),
+        spike_bin=cfg["emulator"]["spike_bin"],
         nm_bin=nm_bin,
         elf_path=elf_path,
         isa=args.march,
@@ -681,6 +734,8 @@ def cmd_generate_golden(args: argparse.Namespace) -> None:
         addr_start=addr_start,
         addr_end=addr_end,
         ram_base=cfg["memory"]["ram_base"],
+        objcopy_bin=cfg["toolchain"]["objcopy"],
+        timeout_s=cfg["emulator"]["timeout_s"],
     )
 
     out_path = Path(args.out)
@@ -715,6 +770,80 @@ def _print_run_summary(
         if name in durations:
             detail = f"{detail}, {durations[name]:.1f}s"
         print(f"  {'PASS' if ok else 'FAIL'}  {name:<{name_width}}  [{detail}]")
+
+
+def cmd_spike_run(args: argparse.Namespace) -> None:
+    """Implement `riscv-tools spike-run`.
+
+    Runs every test of an already-compiled manifest to completion under
+    Spike and reports PASS/FAIL from the HTIF verdict each test writes
+    to tohost, without touching hardware or a simulator. Everything this
+    invocation prints is also written to <run_log.logs_dir>/spike/latest.log
+    (see run_log.start).
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed CLI arguments: args.config, args.root, args.manifest
+        (defaults to <build_dir>/real/manifest.json) and args.only
+        (comma-separated test names to run, default all).
+
+    Returns
+    -------
+    None
+        Prints a PASS/FAIL summary to stdout. Exits the process with
+        status 1 if the manifest is missing, a requested test isn't in
+        it, or any test failed.
+    """
+    cfg = load_config(args.config)
+    root = _root(args)
+    run_log.start(root, "spike", cfg["run_log"]["logs_dir"])
+    build_dir = root / cfg["paths"]["build_dir"] / "real"
+    manifest_path = (
+        Path(args.manifest) if args.manifest else build_dir / "manifest.json"
+    )
+    if not manifest_path.is_file():
+        print(
+            f"{manifest_path} not found; run `riscv-tools compile --emit mif` first",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    manifest: list[dict[str, Any]] = json.loads(manifest_path.read_text())
+    by_name = {entry["name"]: entry for entry in manifest}
+    wanted = [n for n in (args.only or "").split(",") if n] or list(by_name)
+    unknown = [n for n in wanted if n not in by_name]
+    if unknown:
+        print(f"not in {manifest_path}: {', '.join(unknown)}", file=sys.stderr)
+        sys.exit(1)
+
+    sources = {src.parent.name: src for src in _discover_tests(root, cfg)}
+    emulator = cfg["emulator"]
+    results: dict[str, bool] = {}
+    durations: dict[str, float] = {}
+    for name in wanted:
+        entry = by_name[name]
+        print(f"Running {name} under Spike ...")
+        started = time.monotonic()
+        result = spike_run.run_elf(
+            spike_bin=emulator["spike_bin"],
+            nm_bin=cfg["toolchain"]["nm"],
+            objcopy_bin=cfg["toolchain"]["objcopy"],
+            elf_path=_spike_elf(cfg, name, build_dir, root, sources[name]),
+            isa=entry["march"],
+            mem_regions=_spike_mem_regions(cfg),
+            tohost_symbol=emulator["tohost_symbol"],
+            entry_symbol=emulator["entry_symbol"],
+            timeout_s=entry.get("timeout_s", emulator["timeout_s"]),
+        )
+        durations[name] = time.monotonic() - started
+        results[name] = result.passed
+        if not result.passed and result.output:
+            print(result.output.rstrip())
+
+    _print_run_summary(results, by_name, durations, root, build_dir)
+    if not all(results.values()):
+        sys.exit(1)
 
 
 def cmd_run(args: argparse.Namespace) -> None:
@@ -907,7 +1036,11 @@ def cmd_sim(args: argparse.Namespace) -> None:
     boot_rom_hex_path = None
     if cfg.get("paths", {}).get("boot_rom"):
         boot_rom_hex_path = boot_rom.build_boot_rom(
-            cfg["toolchain"], cfg["paths"], root, build_dir / "boot_rom"
+            cfg["toolchain"],
+            cfg["paths"],
+            root,
+            build_dir / "boot_rom",
+            hex_format=cfg["sim"]["hex_format"],
         )
 
     results = sim_runner.run_suite(
@@ -1232,6 +1365,14 @@ def main() -> None:  # noqa: PLR0915
         "board — only the compile step is skipped.",
     )
     p.set_defaults(func=cmd_run)
+
+    p = sub.add_parser(
+        "spike-run",
+        help="Run every compiled test to completion under Spike and report PASS/FAIL",
+    )
+    p.add_argument("--manifest", default=None)
+    p.add_argument("--only", default=None, help="Comma-separated test names to run")
+    p.set_defaults(func=cmd_spike_run)
 
     p = sub.add_parser(
         "sim",

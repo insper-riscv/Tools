@@ -233,7 +233,9 @@ def run_suite(
         parameters: dict[str, Any] = {
             k: v.format(
                 hex_path=str(hex_path.resolve()),
-                boot_rom_hex_path=str(boot_rom_hex_path.resolve()) if boot_rom_hex_path else "",
+                boot_rom_hex_path=str(boot_rom_hex_path.resolve())
+                if boot_rom_hex_path
+                else "",
             )
             if isinstance(v, str)
             else v

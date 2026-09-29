@@ -6,6 +6,46 @@ from typing import Any
 
 from .headers import parse_header
 
+_LIBC_FLAGS = {
+    # No libc: a project needing malloc() and friends supplies its own
+    # (paths.syscalls). Safe with any toolchain, including a downloaded one
+    # whose bundled libc.a targets another ABI (the riscv-collab release
+    # ships a single rv32imafdc/hard-float one, unusable with -mabi=ilp32).
+    "none": ["-nostdlib"],
+    # picolibc, for a toolchain configured with it (insper-riscv/Infra's
+    # GCC_SETUP.md builds one for rv32im/ilp32). picolibc.specs turns on
+    # --gc-sections, which drops every section a link script doesn't KEEP
+    # or reach from its entry, so it is switched off again.
+    "picolibc": ["--specs=picolibc.specs", "-Wl,--no-gc-sections"],
+}
+
+
+def libc_flags(toolchain_cfg: dict[str, Any]) -> list[str]:
+    """Return the gcc flags that select the C library for `toolchain.libc`.
+
+    Parameters
+    ----------
+    toolchain_cfg : dict of {str: Any}
+        The project's `toolchain:` config section; `libc` is "none" (the
+        default) or "picolibc".
+
+    Returns
+    -------
+    list of str
+        The flags to place on the gcc command line.
+
+    Raises
+    ------
+    ValueError
+        `libc` is neither "none" nor "picolibc".
+    """
+    libc = str(toolchain_cfg.get("libc", "none"))
+    if libc not in _LIBC_FLAGS:
+        raise ValueError(
+            f"toolchain.libc must be one of {sorted(_LIBC_FLAGS)}, got {libc!r}"
+        )
+    return list(_LIBC_FLAGS[libc])
+
 
 # Each arg below is an independent gcc input, not bundleable without a
 # config object this module doesn't otherwise need.
@@ -51,7 +91,7 @@ def compile_test(  # noqa: PLR0913, PLR0917
         Path to the project's crt0.S, compiled and linked in alongside
         c_file.
     linker : Path
-        Path to the project's linker script, passed as `-Wl,-T,`.
+        Path to the project's linker script, passed as `-T`.
     extra_sources : list of Path, optional
         Additional source files to compile in alongside crt0/c_file,
         before c_file on the command line (e.g. a fixed shared
@@ -84,24 +124,7 @@ def compile_test(  # noqa: PLR0913, PLR0917
             "-mabi=ilp32",
             "-Os",
             "-ffreestanding",
-            # -nostdlib (still, deliberately — see paths.syscalls):
-            # tried dropping this to link against the toolchain's own
-            # newlib for malloc()/free(), but a downloaded toolchain's
-            # bundled libc.a isn't guaranteed to have been built for
-            # this project's own -march/-mabi at all — confirmed via a
-            # real CI failure ("can't link double-float modules with
-            # soft-float modules"): the riscv-collab prebuilt release
-            # CI downloads turned out to ship a SINGLE-target libc.a
-            # built for rv32imafdc/hard-float, incompatible with
-            # -mabi=ilp32 (soft-float, the only ABI that makes sense
-            # for a core with no FPU) — no combination of flags fixes
-            # that, since the mismatched .a simply doesn't contain a
-            # compatible variant. A project needing e.g. malloc()
-            # should provide its own self-contained implementation
-            # instead (paths.syscalls) rather than depend on whatever
-            # a downloaded toolchain's own bundled libc happens to be
-            # built for.
-            "-nostdlib",
+            *libc_flags(toolchain_cfg),
             "-nostartfiles",
             f"-I{include_dir}",
             # -L so linker.ld's own `INCLUDE boot_rom_symbols.ld`
@@ -110,7 +133,8 @@ def compile_test(  # noqa: PLR0913, PLR0917
             # INCLUDE only searches the process cwd plus -L dirs, NOT
             # the including script's own directory.
             f"-Wl,-L,{linker.parent}",
-            f"-Wl,-T,{linker}",
+            "-T",
+            str(linker),
             str(crt0),
             *[str(p) for p in (extra_sources or [])],
             str(c_file),
@@ -123,3 +147,44 @@ def compile_test(  # noqa: PLR0913, PLR0917
         [str(toolchain_cfg["objcopy"]), "-O", "binary", str(elf), str(bin_)], check=True
     )
     return bin_, march, kind, timeout_s
+
+
+def elf_to_verilog_hex(
+    toolchain_cfg: dict[str, Any], elf: Path, hex_path: Path
+) -> None:
+    """Write an ELF's loadable content as a Verilog-style hex file.
+
+    Uses `objcopy -O verilog` with one 32-bit word per entry. The file has
+    a `@<word address>` line wherever the image starts or jumps, so a
+    program linked above address 0 keeps its real word address and needs
+    no leading zero padding; four words share a line.
+
+    Parameters
+    ----------
+    toolchain_cfg : dict of {str: Any}
+        The project's `toolchain:` config section; needs `objcopy`.
+    elf : Path
+        Linked ELF to convert.
+    hex_path : Path
+        Path to write the hex file to (overwritten if it exists).
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    subprocess.CalledProcessError
+        `objcopy` failed.
+    """
+    subprocess.run(
+        [
+            str(toolchain_cfg["objcopy"]),
+            "-O",
+            "verilog",
+            "--verilog-data-width=4",
+            str(elf),
+            str(hex_path),
+        ],
+        check=True,
+    )

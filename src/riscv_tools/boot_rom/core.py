@@ -14,10 +14,15 @@ from pathlib import Path
 from typing import Any
 
 from riscv_tools.bin_to_image.core import bin_to_hex
+from riscv_tools.compiler.build import elf_to_verilog_hex
 
 
 def build_boot_rom(
-    toolchain_cfg: dict[str, Any], paths_cfg: dict[str, Any], root: Path, build_dir: Path
+    toolchain_cfg: dict[str, Any],
+    paths_cfg: dict[str, Any],
+    root: Path,
+    build_dir: Path,
+    hex_format: str = "words",
 ) -> Path:
     """Compile boot_rom.S/boot_rom.ld into a flat binary and convert it to .hex.
 
@@ -35,6 +40,9 @@ def build_boot_rom(
     build_dir : Path
         Directory to write boot_rom.elf/.bin/.hex into (created if
         missing).
+    hex_format : str, optional
+        "words" for one 32-bit word per line, "verilog" for the
+        `objcopy -O verilog` layout (see compiler.elf_to_verilog_hex).
 
     Returns
     -------
@@ -62,7 +70,8 @@ def build_boot_rom(
             "-ffreestanding",
             "-nostdlib",
             "-nostartfiles",
-            f"-Wl,-T,{linker}",
+            "-T",
+            str(linker),
             str(boot_rom_src),
             "-o",
             str(elf),
@@ -72,5 +81,8 @@ def build_boot_rom(
     subprocess.run(
         [str(toolchain_cfg["objcopy"]), "-O", "binary", str(elf), str(bin_)], check=True
     )
-    bin_to_hex(bin_, hex_)
+    if hex_format == "verilog":
+        elf_to_verilog_hex(toolchain_cfg, elf, hex_)
+    else:
+        bin_to_hex(bin_, hex_)
     return hex_

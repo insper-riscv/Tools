@@ -1,16 +1,13 @@
 """End-to-end test of golden_generator.generate_golden against real Spike + GCC.
 
-Runs against a real built Spike (vendor/riscv-isa-sim) and a real GCC
-toolchain — proves the whole chain (compile -> run under Spike's
-debug console -> wait for tohost -> read memory -> emit golden JSON)
-actually works, for both a C test and a hand-written asm test (see
-fixtures/htif_min/).
+Runs against the workstation's Spike and GCC toolchain; proves the whole
+chain (compile -> run under Spike until tohost -> read the signature ->
+emit golden JSON) actually works, for both a C test and a hand-written
+asm test (see fixtures/htif_min/).
 
 Skipped automatically if either tool isn't available, since neither
 is guaranteed to be present in every environment this package's own
-test suite runs in (vendor/riscv-isa-sim must be built first: cd
-vendor/riscv-isa-sim && ./configure && make — needs
-device-tree-compiler and libboost-dev; see the top-level README).
+test suite runs in (see the top-level README).
 """
 
 import json
@@ -30,20 +27,12 @@ GCC = "riscv32-unknown-elf-gcc"
 NM = "riscv32-unknown-elf-nm"
 ISA = "rv32im"
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "htif_min"
-BUILT_SPIKE = REPO_ROOT / "vendor" / "riscv-isa-sim" / "build" / "spike"
-
-SPIKE_BIN = shutil.which("spike") or (
-    str(BUILT_SPIKE) if BUILT_SPIKE.exists() else None
-)
+SPIKE_BIN = shutil.which("spike")
 
 pytestmark = pytest.mark.skipif(
     shutil.which(GCC) is None or SPIKE_BIN is None,
-    reason=(
-        f"needs {GCC} on PATH and a built spike binary (PATH or {BUILT_SPIKE}); "
-        "see vendor/riscv-isa-sim's build instructions in the README"
-    ),
+    reason=f"needs {GCC} and spike on PATH (see insper-riscv/Infra)",
 )
 
 # Address/value the fixtures write, and the value each is expected to
@@ -66,7 +55,8 @@ def _compile(source: Path, tmp_path: Path) -> Path:
             "-ffreestanding",
             "-nostdlib",
             "-nostartfiles",
-            f"-Wl,-T,{FIXTURES / 'link.ld'}",
+            "-T",
+            str(FIXTURES / "link.ld"),
             str(FIXTURES / "crt0.S"),
             str(source),
             "-o",
@@ -171,3 +161,21 @@ def test_generate_golden_by_symbol_matches_explicit_start_end(tmp_path: Path) ->
         for b in range(4)
     }
     assert golden == expected_bytes
+
+
+def test_generate_golden_rounds_a_partial_word_range_up(tmp_path: Path) -> None:
+    assert SPIKE_BIN is not None  # guaranteed by pytestmark's skipif above
+    elf = _compile(FIXTURES / "pass_asm.S", tmp_path)
+
+    golden = generate_golden(
+        spike_bin=SPIKE_BIN,
+        nm_bin=NM,
+        elf_path=elf,
+        isa=ISA,
+        mem_regions=[(0x80000000, 0x10000)],
+        tohost_symbol="tohost",
+        addr_start=ADDR,
+        addr_end=ADDR + 1,
+    )
+
+    assert golden == {ADDR + i: (0x11223344 >> (8 * i)) & 0xFF for i in range(4)}

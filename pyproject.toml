@@ -18,7 +18,7 @@ dependencies = [
 # real-hardware side (jtag/orchestrator/etc.) doesn't need it, so it's
 # an extra rather than a hard dependency. GHDL itself isn't
 # pip-installable and must be installed separately (a system package
-# or the ghdl/ghdl Docker image — see docs/github-actions.md).
+# or the ghdl/ghdl Docker image — see docs/en/github-actions.md).
 sim = ["cocotb>=2.0", "cocotb-tools>=0.1"]
 
 [project.scripts]

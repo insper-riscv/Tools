@@ -1,83 +1,33 @@
 """Generate a golden reference by running a test's ELF under Spike.
 
-Uses vendor/riscv-isa-sim and snapshots RAM once the program writes
-its HTIF "done" signal to tohost (see link.ld/crt0.S in the consuming
-project) — the standard convention Spike/riscv-tests use, rather than
-a project-specific address like crt0.S's rv32_wait_restart symbol.
-Decoupled from crt0.S's internals: as long as the consuming project's
-crt0.S writes tohost on completion (it does, translating the mailbox
-PASS/FAIL into tohost's 1/3 encoding — see crt0.S), this works
-regardless of how rv32_wait_restart or anything else in crt0.S is laid
-out or renamed.
+Spike runs the program to completion. When the program writes its HTIF
+"done" value to tohost (see link.ld/crt0.S in the consuming project),
+Spike exits and, because the ELF carries `begin_signature` and
+`end_signature` symbols, writes that byte range of memory to a
+signature file, one 32-bit word per line. Those two symbols are added
+to a temporary copy of the ELF from the test's `results` symbol, so
+the project's own link script needs nothing extra.
 
-Uses Spike's interactive debug console (`-d`), not its normal
-run-to-completion/HTIF exit path: run-to-completion mode EXITS the
-process the moment tohost is written, which would take the simulated
-memory down with it before we get a chance to read the RAM range we
-actually want. Scripting the debug console instead lets us stop at
-that same moment without losing access to memory afterward.
-
-Commands are fed via `--debug-cmd=<file>`, NOT piped to stdin: the
-console's own readline() is written for an interactive TTY (raw
-termios mode, arrow-key/history handling) and does not reliably detect
-EOF on a piped, non-TTY stdin — verified empirically (against a real
-build of vendor/riscv-isa-sim) that piping commands over stdin makes
-Spike single-step forever after running out of input instead of
-exiting, even after a `q`. `--debug-cmd` reads commands from a real
-file via a plain fscanf loop instead, sidestepping readline()
-entirely. Also verified: `mem`/`while mem` take a bare address with NO
-core argument for physical addressing (a `[core]` argument, if given,
-treats the address as VIRTUAL instead — see interactive.cc's own
-`while mem [core] <addr> <val>` usage line).
+The golden is whatever the program left in the range, regardless of
+whether it signalled pass or fail through tohost.
 """
 
 import json
-import re
 import subprocess
 import tempfile
 from pathlib import Path
 
-MEM_REPLY_RE = re.compile(r"^0x[0-9a-fA-F]+$")
-# Spike's interactive console caps each command line at 40 chars
-# (MAX_CMD_STR in interactive.cc) — a hard ceiling on how much any one
-# generated command line can hold.
-MAX_CMD_LEN = 40
-# `nm`'s default output has exactly 3 whitespace-separated fields per
-# symbol line: address, type, name.
-_NM_LINE_FIELDS = 3
+from riscv_tools.spike_exec import (
+    prepared_elf,
+    require_spike,
+    spike_command,
+    symbol_address,
+)
 
-
-def _symbol_address(nm_bin: str, elf_path: Path, symbol: str) -> int:
-    """Resolve a symbol's address from an ELF's symbol table.
-
-    Parameters
-    ----------
-    nm_bin : str
-        `nm` binary name/path for the target toolchain (e.g.
-        "riscv32-unknown-elf-nm").
-    elf_path : Path
-        Path to the ELF to inspect.
-    symbol : str
-        Symbol name to look up (e.g. "rv32_wait_restart").
-
-    Returns
-    -------
-    int
-        The symbol's address.
-
-    Raises
-    ------
-    RuntimeError
-        symbol isn't present in elf_path's symbol table.
-    """
-    out = subprocess.run(
-        [nm_bin, str(elf_path)], check=True, capture_output=True, text=True
-    ).stdout
-    for line in out.splitlines():
-        parts = line.split()
-        if len(parts) == _NM_LINE_FIELDS and parts[2] == symbol:
-            return int(parts[0], 16)
-    raise RuntimeError(f"symbol {symbol!r} not found in {elf_path}")
+# `nm -S` prints 4 whitespace-separated fields per sized symbol line:
+# address, size, type, name.
+_NM_SIZED_LINE_FIELDS = 4
+_WORD_BYTES = 4
 
 
 def symbol_range(nm_bin: str, elf_path: Path, symbol: str) -> tuple[int, int]:
@@ -85,7 +35,7 @@ def symbol_range(nm_bin: str, elf_path: Path, symbol: str) -> tuple[int, int]:
 
     Lets a test declare one C global (e.g. ``volatile unsigned int
     results[3];``) or one asm label with an explicit ``.size`` directive
-    (plain labels don't get one for free — GNU as only emits `.size`
+    (plain labels don't get one for free; GNU as only emits `.size`
     automatically for compiler-generated symbols) as its "results"
     region, instead of a human counting bytes to pass --start/--end by
     hand. ``nm -S`` reports (address, size, type, name) for every
@@ -104,7 +54,7 @@ def symbol_range(nm_bin: str, elf_path: Path, symbol: str) -> tuple[int, int]:
     Returns
     -------
     tuple of (int, int)
-        (start, end) byte addresses — end is start + the symbol's
+        (start, end) byte addresses; end is start + the symbol's
         size, exclusive, same shape generate_golden's addr_start/
         addr_end expect.
 
@@ -113,18 +63,18 @@ def symbol_range(nm_bin: str, elf_path: Path, symbol: str) -> tuple[int, int]:
     RuntimeError
         symbol isn't present in elf_path's symbol table, or has a
         recorded size of 0 (e.g. it's a code label, not a sized data
-        object — `nm -S` only reports real sizes for the latter).
+        object; `nm -S` only reports real sizes for the latter).
     """
     out = subprocess.run(
         [nm_bin, "-S", str(elf_path)], check=True, capture_output=True, text=True
     ).stdout
     for line in out.splitlines():
         parts = line.split()
-        if len(parts) == _NM_LINE_FIELDS + 1 and parts[3] == symbol:
+        if len(parts) == _NM_SIZED_LINE_FIELDS and parts[3] == symbol:
             start, size = int(parts[0], 16), int(parts[1], 16)
             if size == 0:
                 raise RuntimeError(
-                    f"symbol {symbol!r} in {elf_path} has size 0 — nm -S only "
+                    f"symbol {symbol!r} in {elf_path} has size 0; nm -S only "
                     "reports real sizes for sized data objects (e.g. a C "
                     "global, or an asm label with an explicit `.size` "
                     "directive), not plain code/branch labels"
@@ -133,132 +83,7 @@ def symbol_range(nm_bin: str, elf_path: Path, symbol: str) -> tuple[int, int]:
     raise RuntimeError(f"symbol {symbol!r} not found in {elf_path}")
 
 
-def _read_words_after_tohost(  # noqa: PLR0913, PLR0917
-    spike_bin: str,
-    isa: str,
-    elf_path: Path,
-    mem_regions: list[tuple[int, int]],
-    entry_pc: int,
-    tohost_addr: int,
-    word_addrs: list[int],
-) -> list[int]:
-    """Run elf_path under Spike's interactive debugger and read memory words.
-
-    Halts the instant tohost_addr's word becomes nonzero (the
-    program's HTIF "done" signal — see crt0.S), then reads a list of
-    memory words.
-
-    Parameters
-    ----------
-    spike_bin : str
-        `spike` binary name/path (built from vendor/riscv-isa-sim).
-    isa : str
-        `--isa=` value to run Spike with (e.g. "rv32im").
-    elf_path : Path
-        Path to the ELF to execute.
-    mem_regions : list of (int, int)
-        (base, size) byte pairs passed to Spike's `-m<a:m,b:n,...>` —
-        Spike's own default memory sits at 0x80000000, nowhere near a
-        bare-metal ELF linked to load at/near address 0 (as this
-        project's link.ld does), so without this Spike refuses to even
-        load the ELF ("Access exception ... Memory address ... is
-        invalid"). Must cover every address the program's own
-        text/data actually touches, real hardware's ROM+RAM layout
-        (e.g. [(0, rom_words*4), (ram_base, ram_words*4)] — see
-        generate_golden's own mem_regions doc).
-    entry_pc : int
-        Byte address of the `_start` symbol (see _symbol_address) —
-        passed as `--pc=` and combined with `--disable-dtb`. Spike's
-        own processor reset otherwise always sets PC to the hardcoded
-        DEFAULT_RSTVEC (0x1000, riscv/platform.h) regardless of where
-        the ELF actually links to run, and (unless --disable-dtb)
-        additionally creates its own small boot-ROM device AT that
-        same 0x1000 to bounce execution over to the real entry point —
-        both assume Spike's own default memory map (DRAM starting at
-        0x80000000), and both collide outright with any target whose
-        real memory (like this project's, Harvard modificado ROM at
-        0x0) actually occupies address 0x1000 itself ("devices ...
-        overlap"). Overriding both directly to the ELF's real entry
-        point sidesteps needing Spike's own boot mechanism at all.
-    tohost_addr : int
-        Byte address of the `tohost` symbol (see _symbol_address) —
-        watched via Spike's `while mem ... 0` rather than `until mem
-        ... <value>` specifically because we don't know in advance
-        whether the test will write 1 (pass) or 3 (fail); `while`
-        stops on ANY change away from 0, `until` would need the exact
-        value.
-    word_addrs : list of int
-        Byte addresses (each must be word-aligned) to read one 32-bit
-        word from, in order.
-
-    Returns
-    -------
-    list of int
-        One value per entry in word_addrs, in the same order.
-
-    Raises
-    ------
-    RuntimeError
-        A generated command line exceeds Spike's MAX_CMD_LEN, or
-        Spike's output didn't contain exactly len(word_addrs) "mem"
-        replies (e.g. a crashed/misbehaving run).
-    subprocess.CalledProcessError
-        spike_bin exited non-zero.
-    """
-    commands = [f"while mem {tohost_addr:x} 0"]
-    commands += [f"mem {addr:x}" for addr in word_addrs]
-    commands.append("q")
-
-    too_long = [c for c in commands if len(c) > MAX_CMD_LEN]
-    if too_long:
-        raise RuntimeError(
-            f"command(s) exceed spike's {MAX_CMD_LEN}-char line limit: {too_long}"
-        )
-
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".spikecmd", delete=False) as f:
-        f.write("\n".join(commands) + "\n")
-        cmd_file = Path(f.name)
-
-    mem_flag = ",".join(f"{base:#x}:{size:#x}" for base, size in mem_regions)
-    try:
-        proc = subprocess.run(
-            [
-                spike_bin,
-                f"--isa={isa}",
-                f"-m{mem_flag}",
-                "--disable-dtb",
-                f"--pc={entry_pc:#x}",
-                "-d",
-                f"--debug-cmd={cmd_file}",
-                str(elf_path),
-            ],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    finally:
-        cmd_file.unlink(missing_ok=True)
-
-    # Spike sends its own command replies to stderr, not stdout, for
-    # the whole duration --debug-cmd is supplying commands (see
-    # interactive.cc: "while we get input from file, output goes to
-    # stderr") — confirmed empirically against a real build; stdout
-    # came back completely empty in the same run where stderr had the
-    # "mem" reply.
-    values = [
-        int(line.strip(), 16)
-        for line in proc.stderr.splitlines()
-        if MEM_REPLY_RE.match(line.strip())
-    ]
-    if len(values) != len(word_addrs):
-        raise RuntimeError(
-            f"expected {len(word_addrs)} 'mem' replies from spike, "
-            f"got {len(values)}:\n{proc.stderr}"
-        )
-    return values
-
-
-# Each arg is an independent Spike run setting — not bundleable
+# Each arg is an independent Spike run setting; not bundleable
 # without a config object this module doesn't otherwise need.
 def generate_golden(  # noqa: PLR0913, PLR0917
     spike_bin: str,
@@ -271,61 +96,57 @@ def generate_golden(  # noqa: PLR0913, PLR0917
     addr_end: int,
     ram_base: int = 0,
     entry_symbol: str = "_start",
+    objcopy_bin: str = "riscv32-unknown-elf-objcopy",
+    timeout_s: float = 60.0,
 ) -> dict[int, int]:
     """Run elf_path under Spike and snapshot a byte range of RAM.
 
-    Snapshots the moment it signals HTIF completion via tohost.
+    Snapshots the moment the program signals HTIF completion via tohost.
 
     Parameters
     ----------
     spike_bin : str
-        `spike` binary name/path (built from vendor/riscv-isa-sim).
+        `spike` binary name/path (see spike_exec.require_spike).
     nm_bin : str
         `nm` binary name/path for the target toolchain, used to
-        resolve tohost_symbol's address.
+        resolve the entry and tohost symbols.
     elf_path : Path
         Path to the compiled test ELF to run.
     isa : str
-        `--isa=` value to run Spike with (e.g. "rv32im") — should
+        `--isa=` value to run Spike with (e.g. "rv32im"); should
         match the test's own march.
     mem_regions : list of (int, int)
         (base, size) byte pairs describing every region of real
-        memory the target actually has — e.g. `[(0,
+        memory the target actually has, e.g. `[(0,
         memory.rom_words*4), (memory.ram_base,
-        memory.ram_words*4)]`. Passed straight through to
-        _read_words_after_tohost's own `-m` flag; see there for why
-        this is required (Spike's own default memory placement has
-        nothing to do with any particular target's real layout).
+        memory.ram_words*4)]`. Passed straight through as Spike's `-m`.
     tohost_symbol : str
-        Symbol name Spike watches for a nonzero write before reading
-        memory (default "tohost" — see
-        golden_generator.__config__.DEFAULTS). The consuming project's
-        crt0.S/link.ld must define this symbol and write to it on
-        completion.
-    entry_symbol : str, optional
-        Symbol Spike starts execution at (see
-        _read_words_after_tohost's entry_pc) — "_start" (the usual
-        crt0 entry label) unless a project names it something else.
+        Symbol the program writes a nonzero value to on completion
+        (default "tohost", see golden_generator.__config__.DEFAULTS).
+        The consuming project's crt0.S/link.ld must define it.
     addr_start : int
-        First byte address to snapshot (inclusive) — an ABSOLUTE
+        First byte address to snapshot (inclusive); an ABSOLUTE
         ELF/Spike address (e.g. straight from `nm`), not RAM-relative.
     addr_end : int
-        One past the last byte address to snapshot (exclusive) —
-        addr_end - addr_start must be a multiple of 4. Same absolute
-        convention as addr_start.
-    ram_base : int
+        One past the last byte address to snapshot (exclusive). The
+        range is rounded up to whole 32-bit words, so a 1-byte symbol
+        yields the 4 bytes of its word. Same absolute convention as
+        addr_start.
+    ram_base : int, optional
         RAM's base byte address (memory.ram_base in the project's
-        config.yaml — 0 for a project where RAM starts at address 0,
-        e.g. RV32IM before its Harvard-modificado change). Subtracted
-        from every address before it's used as a golden JSON key, so
-        the output stays RAM-relative (word 0 = RAM's own first byte)
-        regardless of where RAM is actually mapped — matching
-        mem_validator.compare's dump_ram convention (a raw
-        In-System-Memory-Editor dump, which is always 0-based, no
-        matter ram_base) and mailbox.word_offset's same convention.
-        addr_start/addr_end themselves stay absolute (Spike's `mem`
-        command needs the real address); only the returned dict's
-        keys shift.
+        config.yaml, 0 for a project where RAM starts at address 0).
+        Subtracted from every address before it's used as a golden
+        JSON key, so the output stays RAM-relative (word 0 = RAM's own
+        first byte) regardless of where RAM is actually mapped,
+        matching mem_validator.compare's dump_ram convention.
+    entry_symbol : str, optional
+        Symbol execution starts at ("_start", the usual crt0 entry
+        label) unless a project names it something else.
+    objcopy_bin : str, optional
+        `objcopy` binary for the target toolchain, used to add the
+        symbols Spike needs to a copy of the ELF.
+    timeout_s : float, optional
+        Seconds to wait for the program to signal completion.
 
     Returns
     -------
@@ -334,18 +155,61 @@ def generate_golden(  # noqa: PLR0913, PLR0917
         [addr_start, addr_end), RAM-relative (see ram_base), in the
         same shape mem_validator.compare's golden JSON expects (see
         write_golden_json).
+
+    Raises
+    ------
+    RuntimeError
+        Spike didn't write a signature (the program never signalled
+        completion within timeout_s, or Spike failed), or the signature
+        has an unexpected size.
     """
-    tohost_addr = _symbol_address(nm_bin, elf_path, tohost_symbol)
-    entry_pc = _symbol_address(nm_bin, elf_path, entry_symbol)
-    word_addrs = list(range(addr_start, addr_end, 4))
-    words = _read_words_after_tohost(
-        spike_bin, isa, elf_path, mem_regions, entry_pc, tohost_addr, word_addrs
-    )
+    word_count = -(-(addr_end - addr_start) // _WORD_BYTES)
+    signature_end = addr_start + word_count * _WORD_BYTES
+
+    spike = require_spike(spike_bin)
+    entry_pc = symbol_address(nm_bin, elf_path, entry_symbol)
+    signature_symbols = {"begin_signature": addr_start, "end_signature": signature_end}
+
+    with (
+        tempfile.TemporaryDirectory(prefix="riscv-tools-golden-") as tmp,
+        prepared_elf(
+            objcopy_bin, nm_bin, elf_path, tohost_symbol, signature_symbols
+        ) as elf,
+    ):
+        signature = Path(tmp) / "signature.txt"
+        cmd = spike_command(
+            spike,
+            isa,
+            mem_regions,
+            entry_pc,
+            elf,
+            (f"+signature={signature}", f"+signature-granularity={_WORD_BYTES}"),
+        )
+        try:
+            proc = subprocess.run(
+                cmd, check=False, capture_output=True, text=True, timeout=timeout_s
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(
+                f"{elf_path} did not write {tohost_symbol} within {timeout_s}s"
+            ) from exc
+        if not signature.is_file():
+            raise RuntimeError(
+                f"spike wrote no signature for {elf_path} "
+                f"(exit {proc.returncode}):\n{proc.stdout}{proc.stderr}"
+            )
+        words = [int(line, 16) for line in signature.read_text().split()]
+
+    if len(words) != word_count:
+        raise RuntimeError(
+            f"expected {word_count} signature word(s) for {elf_path}, got {len(words)}"
+        )
 
     out: dict[int, int] = {}
-    for waddr, wval in zip(word_addrs, words, strict=True):
-        for i in range(4):
-            out[waddr - ram_base + i] = (wval >> (8 * i)) & 0xFF
+    for index, word in enumerate(words):
+        base = addr_start + index * _WORD_BYTES - ram_base
+        for i in range(_WORD_BYTES):
+            out[base + i] = (word >> (8 * i)) & 0xFF
     return out
 
 

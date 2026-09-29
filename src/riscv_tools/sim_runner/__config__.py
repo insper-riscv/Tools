@@ -34,5 +34,12 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         # run_suite). Empty by default — most toplevels need no
         # generic overrides at all.
         "parameters": {},
+        # Format of the .hex a simulation loads: "words" is one 32-bit
+        # word per line, with leading zero words so a program linked
+        # above address 0 lands at its real word index; "verilog" is
+        # what `objcopy -O verilog` writes, with `@<word address>`
+        # lines and four words per line, so the memory model loading it
+        # must understand both.
+        "hex_format": "words",
     },
 }
