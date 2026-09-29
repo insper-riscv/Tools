@@ -1,98 +1,99 @@
 # RISC-V Tools
 
-Config-driven build and test tooling for bare-metal RISC-V or virtual
-hardware simulation: the same compiled test runs either against real
-hardware over JTAG or against cocotb/GHDL simulation; results
-can be verified against Spike-generated or checked-in golden references.
-Organized as one module per responsibility, each with its own
-`__config__.py` of defaults; a consuming project supplies its own
-`config.yaml`, which overrides these defaults. See
-[docs/configuration.md](docs/configuration.md) for the full reference.
+🌐 [Português](README.md) · [English](README.en.md)
 
-## Modules
+Ferramentas de build e teste dirigidas por configuração, para RISC-V bare-metal
+ou simulação de hardware virtual: o mesmo teste compilado roda contra o
+hardware real via JTAG ou contra a simulação cocotb/GHDL; os resultados podem
+ser verificados contra referências (goldens) geradas pelo Spike ou versionadas
+no repositório. Organizado como um módulo por responsabilidade, cada um com o
+próprio `__config__.py` de padrões; o projeto consumidor fornece o seu
+`config.yaml`, que sobrescreve esses padrões. Veja
+[docs/configuration.md](docs/pt-br/configuration.md) para a referência completa.
 
-| Module              | Responsibility                                              | Doc |
+## Módulos
+
+| Módulo               | Responsabilidade                                            | Doc |
 |----------------------|--------------------------------------------------------------|-----|
-| `compiler`           | .c/.S -> .elf/.bin, header parsing (`RV32_EXT`/`RV32_TEST_KIND`/`RV32_TIMEOUT_S`) | [docs/modules/compiler.md](docs/modules/compiler.md) |
-| `bin_to_image`       | .bin -> .mif/.hex (memory-image formats, no compiler involved)    | [docs/modules/bin_to_image.md](docs/modules/bin_to_image.md) |
-| `c_to_asm`           | .c -> human-readable RISC-V assembly (`gcc -S`), for inspecting codegen | [docs/modules/c_to_asm.md](docs/modules/c_to_asm.md) |
-| `boot_rom`           | Builds the fixed, shared bootloader, once, reused across every test | [docs/modules/boot_rom.md](docs/modules/boot_rom.md) |
-| `jtag`               | Live JTAG cable detection, generic `.tcl` runner            | [docs/modules/jtag.md](docs/modules/jtag.md) |
-| `mem_edit`           | Generic In-System Memory Content Editor primitives (read/write word, write-full, dump) | [docs/modules/mem_edit.md](docs/modules/mem_edit.md) |
-| `rom_writer`         | JTAG-write a ROM image without reprogramming                | [docs/modules/rom_writer.md](docs/modules/rom_writer.md) |
-| `ram_zero`           | JTAG-zero the whole RAM without reprogramming                | [docs/modules/ram_zero.md](docs/modules/ram_zero.md) |
-| `ram_dump`           | JTAG-dump the whole RAM to a `.mif`                          | [docs/modules/ram_dump.md](docs/modules/ram_dump.md) |
-| `mailbox`            | PASS/FAIL mailbox read + restart "go flag" pulse             | [docs/modules/mailbox.md](docs/modules/mailbox.md) |
-| `quartus_program`    | Full recompile + `quartus_pgm` (the slow "base" path)        | [docs/modules/quartus_program.md](docs/modules/quartus_program.md) |
-| `mem_validator`      | Compare a RAM dump against a golden JSON                     | [docs/modules/mem_validator.md](docs/modules/mem_validator.md) |
-| `golden_generator`   | Generate a golden JSON dynamically by running an ELF under Spike | [docs/modules/golden_generator.md](docs/modules/golden_generator.md) |
-| `spike_exec`         | Prepares and launches Spike runs: preflight, ELF symbols, command line (shared by `golden_generator` and `spike_run`) | [docs/modules/spike_exec.md](docs/modules/spike_exec.md) |
-| `spike_run`          | Runs each compiled test to completion under Spike and reports PASS/FAIL from its HTIF verdict, with no hardware | [docs/modules/spike_run.md](docs/modules/spike_run.md) |
-| `orchestrator`       | Composes the above into a full real-hardware test-suite run, or a clock frequency sweep to find Fmax | [docs/modules/orchestrator.md](docs/modules/orchestrator.md) |
-| `sim_runner`         | Drives cocotb/GHDL simulation: the sim-side counterpart to `orchestrator` (needs the `sim` extra) | [docs/modules/sim_runner.md](docs/modules/sim_runner.md) |
-| `certify`            | Builds and runs the ACT4 architectural certification suite under cocotb/GHDL | [docs/modules/certify.md](docs/modules/certify.md) |
-| `vhdl_sort`          | Topologically sort VHDL sources by entity/package dependency, for GHDL `-a` | [docs/modules/vhdl_sort.md](docs/modules/vhdl_sort.md) |
-| `freq_sweep`         | Rewrite a PLL source's clock frequency/phase offsets: the mechanism `orchestrator`'s frequency sweep edits with | [docs/modules/freq_sweep.md](docs/modules/freq_sweep.md) |
-| `run_log`            | Rotates and tees a run's full console output into a persistent per-kind log history | [docs/modules/run_log.md](docs/modules/run_log.md) |
+| `compiler`           | .c/.S -> .elf/.bin, leitura dos cabeçalhos (`RV32_EXT`/`RV32_TEST_KIND`/`RV32_TIMEOUT_S`) | [docs/modules/compiler.md](docs/pt-br/modules/compiler.md) |
+| `bin_to_image`       | .bin -> .mif/.hex (formatos de imagem de memória, sem compilador) | [docs/modules/bin_to_image.md](docs/pt-br/modules/bin_to_image.md) |
+| `c_to_asm`           | .c -> assembly RISC-V legível (`gcc -S`), para inspecionar a geração de código | [docs/modules/c_to_asm.md](docs/pt-br/modules/c_to_asm.md) |
+| `boot_rom`           | Compila o bootloader fixo e compartilhado, uma vez, reutilizado em todos os testes | [docs/modules/boot_rom.md](docs/pt-br/modules/boot_rom.md) |
+| `jtag`               | Detecção do cabo JTAG em tempo real, executor genérico de `.tcl` | [docs/modules/jtag.md](docs/pt-br/modules/jtag.md) |
+| `mem_edit`           | Primitivas genéricas do In-System Memory Content Editor (ler/escrever palavra, escrita completa, dump) | [docs/modules/mem_edit.md](docs/pt-br/modules/mem_edit.md) |
+| `rom_writer`         | Grava uma imagem de ROM via JTAG sem reprogramar            | [docs/modules/rom_writer.md](docs/pt-br/modules/rom_writer.md) |
+| `ram_zero`           | Zera a RAM inteira via JTAG sem reprogramar                 | [docs/modules/ram_zero.md](docs/pt-br/modules/ram_zero.md) |
+| `ram_dump`           | Faz o dump da RAM inteira via JTAG para um `.mif`           | [docs/modules/ram_dump.md](docs/pt-br/modules/ram_dump.md) |
+| `mailbox`            | Leitura do mailbox PASS/FAIL e pulso da "go flag" de reinício | [docs/modules/mailbox.md](docs/pt-br/modules/mailbox.md) |
+| `quartus_program`    | Recompilação completa + `quartus_pgm` (o caminho lento, "base") | [docs/modules/quartus_program.md](docs/pt-br/modules/quartus_program.md) |
+| `mem_validator`      | Compara um dump de RAM com um golden JSON                   | [docs/modules/mem_validator.md](docs/pt-br/modules/mem_validator.md) |
+| `golden_generator`   | Gera um golden JSON dinamicamente rodando um ELF no Spike   | [docs/modules/golden_generator.md](docs/pt-br/modules/golden_generator.md) |
+| `spike_exec`         | Prepara e dispara execuções do Spike: preflight, símbolos do ELF, linha de comando (compartilhado por `golden_generator` e `spike_run`) | [docs/modules/spike_exec.md](docs/pt-br/modules/spike_exec.md) |
+| `spike_run`          | Roda cada teste compilado até o fim no Spike e reporta PASS/FAIL pelo veredito HTIF, sem hardware | [docs/modules/spike_run.md](docs/pt-br/modules/spike_run.md) |
+| `orchestrator`       | Compõe os módulos acima numa rodada completa de testes em hardware real, ou num sweep de frequência de clock para achar a Fmax | [docs/modules/orchestrator.md](docs/pt-br/modules/orchestrator.md) |
+| `sim_runner`         | Dirige a simulação cocotb/GHDL: a contraparte de simulação do `orchestrator` (precisa do extra `sim`) | [docs/modules/sim_runner.md](docs/pt-br/modules/sim_runner.md) |
+| `certify`            | Compila e roda a suíte de certificação arquitetural ACT4 sob cocotb/GHDL | [docs/modules/certify.md](docs/pt-br/modules/certify.md) |
+| `vhdl_sort`          | Ordena topologicamente fontes VHDL por dependência de entidade/pacote, para o `-a` do GHDL | [docs/modules/vhdl_sort.md](docs/pt-br/modules/vhdl_sort.md) |
+| `freq_sweep`         | Reescreve a frequência de clock e as defasagens de um fonte de PLL: o mecanismo com que o sweep de frequência do `orchestrator` edita | [docs/modules/freq_sweep.md](docs/pt-br/modules/freq_sweep.md) |
+| `run_log`            | Rotaciona e replica (tee) toda a saída de console de uma execução num histórico de logs persistente por tipo | [docs/modules/run_log.md](docs/pt-br/modules/run_log.md) |
 
-## Rule: one module, one responsibility
+## Regra: um módulo, uma responsabilidade
 
-Every module in the table above owns exactly one job. When adding or
-changing code:
+Cada módulo da tabela acima tem exatamente um trabalho. Ao adicionar ou
+alterar código:
 
-- New functionality that doesn't fit an existing module's
-  responsibility gets its **own new module**; don't bolt it onto the
-  nearest unrelated one just because it's convenient to import from
-  there.
-- Logic needed by **two or more** modules gets factored into its own
-  module (or a small private helper shared via an explicit import),
-  not copy-pasted into each caller. Duplication between modules is how
-  a fix applied to one copy silently leaves the other one broken, with
-  nothing at either call site hinting that a second copy even exists.
-- If you're unsure whether something is a new responsibility or fits
-  an existing one, prefer the smaller, more specific module: merging
-  two modules later is easy; un-tangling a module that grew several
-  unrelated jobs is not.
+- Funcionalidade nova que não cabe na responsabilidade de um módulo existente
+  ganha o **seu próprio módulo novo**; não a encaixe no módulo não relacionado
+  mais próximo só porque é conveniente importar dele.
+- Lógica necessária a **dois ou mais** módulos vira um módulo próprio (ou um
+  pequeno helper privado compartilhado por import explícito), em vez de ser
+  copiada em cada chamador. Duplicação entre módulos é como uma correção
+  aplicada a uma cópia deixa a outra quebrada em silêncio, sem nada nos
+  pontos de chamada indicando que existe uma segunda cópia.
+- Se houver dúvida entre uma responsabilidade nova e uma que cabe num módulo
+  existente, prefira o módulo menor e mais específico: juntar dois módulos
+  depois é fácil; desembaraçar um módulo que acumulou vários trabalhos
+  distintos não é.
 
-## Toolchain dependencies
+## Dependências da toolchain
 
-The RISC-V binaries (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) come
-from one GCC toolchain and are resolved through `PATH`; Spike is needed
-only to generate goldens.
+Os binários RISC-V (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) vêm de uma
+única toolchain GCC e são resolvidos pelo `PATH`; o Spike só é necessário para
+gerar goldens.
 
-| Command | GCC | objcopy | nm | Spike |
+| Comando | GCC | objcopy | nm | Spike |
 |---|---|---|---|---|
-| `compile --emit asm` | yes | no | no | no |
-| `compile --emit mif` / `--emit hex` | yes | yes | only for `memory` tests written in C | only for `memory` tests written in C |
-| `generate-golden` | no | no | yes | yes |
-| `spike-run` | no | yes | yes | yes |
-| `program`, `sim` | yes (boot ROM) | yes (boot ROM) | no | no |
-| `certify` | yes (through ACT4's own build) | yes | no | no |
+| `compile --emit asm` | sim | não | não | não |
+| `compile --emit mif` / `--emit hex` | sim | sim | só para testes `memory` escritos em C | só para testes `memory` escritos em C |
+| `generate-golden` | não | não | sim | sim |
+| `spike-run` | não | sim | sim | sim |
+| `program`, `sim` | sim (boot ROM) | sim (boot ROM) | não | não |
+| `certify` | sim (pelo build do próprio ACT4) | sim | não | não |
 
-## Installing the toolchain
+## Instalando a toolchain
 
-The RISC-V GCC toolchain and Spike come from the workstation install in
+A toolchain GCC RISC-V e o Spike vêm da instalação de workstation do
 [insper-riscv/Infra](https://github.com/insper-riscv/Infra)
-(`GCC_SETUP.md` and `SPIKE_SETUP.md`): both live in a shared cache
-(`/opt/riscv-foundation`) and are put on `PATH` by wrappers in
-`/usr/local/bin`. This package builds nothing itself.
+(`GCC_SETUP.md` e `SPIKE_SETUP.md`): os dois ficam num cache compartilhado
+(`/opt/riscv-foundation`) e entram no `PATH` por wrappers em
+`/usr/local/bin`. Este pacote não compila nada por conta própria.
 
-Spike has to keep its debug module away from address 0, which the Infra
-build does. A stock Spike aborts at startup with `devices at [0, 1000) and
-[0, 10000) overlap` for a target whose ROM starts at address 0; the golden
-generator checks this before its first run and points at `SPIKE_SETUP.md`
-when it fails.
+O Spike precisa manter o módulo de debug longe do endereço 0, o que o build do
+Infra faz. Um Spike padrão aborta na inicialização com `devices at [0, 1000)
+and [0, 10000) overlap` para um alvo cuja ROM começa no endereço 0; o gerador
+de goldens confere isso antes da primeira execução e aponta o
+`SPIKE_SETUP.md` quando falha.
 
 ## Docs
 
-- [Configuration reference](docs/configuration.md)
-- [Creating a test in C](docs/creating-a-c-test.md)
-- [Creating a test in ASM](docs/creating-an-asm-test.md)
-- [Generating a golden JSON via Spike](docs/generating-a-golden.md)
-- [Finding Fmax (clock frequency sweep)](docs/finding-fmax.md)
-- [Creating a GitHub Actions workflow per task](docs/github-actions.md)
+- [Referência de configuração](docs/pt-br/configuration.md)
+- [Criando um teste em C](docs/pt-br/creating-a-c-test.md)
+- [Criando um teste em ASM](docs/pt-br/creating-an-asm-test.md)
+- [Gerando um golden JSON pelo Spike](docs/pt-br/generating-a-golden.md)
+- [Achando a Fmax (sweep de frequência de clock)](docs/pt-br/finding-fmax.md)
+- [Criando um workflow do GitHub Actions por tarefa](docs/pt-br/github-actions.md)
 
-## Usage
+## Uso
 
 ```bash
 uv sync
@@ -102,50 +103,50 @@ uv run riscv-tools --config /path/to/project/config.yaml run
 uv run riscv-tools --config /path/to/project/config.yaml generate-golden \
     build/real/some_test.elf --march rv32im --start 0x10 --end 0x20 --out golden/some_test.json
 
-# Simulation (needs the "sim" extra: cocotb + cocotb-tools, and GHDL on PATH)
+# Simulação (precisa do extra "sim": cocotb + cocotb-tools, e do GHDL no PATH)
 uv sync --extra sim
 uv run riscv-tools --config /path/to/project/config.yaml compile --emit hex
 uv run riscv-tools --config /path/to/project/config.yaml sim
 ```
 
-See `riscv-tools --help` for the full subcommand list (`write-rom`,
+Veja `riscv-tools --help` para a lista completa de subcomandos (`write-rom`,
 `zero-ram`, `dump-ram`, `program`, `mailbox read|pulse`, `generate-header`,
 `generate-golden`, `spike-run`, `run`, `sim`, `vhdl-sort`, `freq-sweep`).
 
 ```bash
-# vhdl-sort needs no --config; pure file-content analysis, e.g. wired
-# into a Makefile's own VHDL-syntax-check target:
+# vhdl-sort não precisa de --config; é só análise do conteúdo dos arquivos,
+# por exemplo ligado ao alvo de checagem de sintaxe VHDL de um Makefile:
 uv run riscv-tools vhdl-sort src/**/*.vhd
 
-# freq-sweep: find Fmax by editing the PLL and doing a full
-# recompile+reprogram+RAM-compare at each candidate frequency. See
-# docs/finding-fmax.md.
+# freq-sweep: acha a Fmax editando o PLL e fazendo uma recompilação +
+# reprogramação + comparação da RAM completas a cada frequência candidata.
+# Veja docs/pt-br/finding-fmax.md.
 uv run riscv-tools --config /path/to/project/config.yaml freq-sweep \
     build/real/full.mif --golden golden/full.json --start 1 --stop 30 --step 2
 uv run riscv-tools --config /path/to/project/config.yaml freq-sweep \
     build/real/full.mif --golden golden/full.json --binary --low 1 --high 50
 ```
 
-## Development
+## Desenvolvimento
 
 ```bash
 uv sync --group dev --extra sim
 uv run pytest
 ```
 
-Tests that need GHDL, the RISC-V GCC or Spike skip when the tool is missing.
-Each module's doc lists its prerequisites and the tests that cover it. The
-tests check this package's own tooling; the processor is verified by the
-consuming project's suites.
+Os testes que precisam do GHDL, do GCC RISC-V ou do Spike são pulados quando a
+ferramenta não existe. A doc de cada módulo lista seus pré-requisitos e os
+testes que o cobrem. Os testes verificam o tooling deste pacote; o processador
+é verificado pelas suítes do projeto consumidor.
 
-`tests/test_static_analysis.py` runs `ruff`, `pyright` and `deptry` over the whole
-package, so it belongs to no single module.
+`tests/test_static_analysis.py` roda `ruff`, `pyright` e `deptry` sobre o
+pacote inteiro, por isso não pertence a nenhum módulo em particular.
 
-### Running the tests in Docker
+### Rodando os testes no Docker
 
-The `Dockerfile` builds an image with GHDL, the RISC-V GCC and a Spike patched
-as Infra's `SPIKE_SETUP.md` describes, at the same paths the workstation
-install uses, so nothing is skipped:
+O `Dockerfile` monta uma imagem com GHDL, o GCC RISC-V e um Spike com o patch
+descrito no `SPIKE_SETUP.md` do Infra, nos mesmos caminhos da instalação de
+workstation, de modo que nada é pulado:
 
 ```bash
 docker build -t riscv-tools-tests .
@@ -153,19 +154,20 @@ docker run --rm -v "$PWD:/workspace" riscv-tools-tests
 docker run --rm -v "$PWD:/workspace" riscv-tools-tests tests/test_sim_runner.py -v
 ```
 
-By default the image carries the riscv-collab GCC release, which has no
-picolibc, so the two tests that need picolibc skip. To use the toolchain
-Infra's `GCC_SETUP.md` installs on the workstation (with picolibc) instead of
-downloading one, hand its directory over as a named build context:
+Por padrão a imagem traz o release do GCC da riscv-collab, que não tem
+picolibc, então os dois testes que precisam de picolibc são pulados. Para usar
+a toolchain que o `GCC_SETUP.md` do Infra instala na workstation (com
+picolibc) em vez de baixar uma, passe o diretório dela como um contexto de
+build nomeado:
 
 ```bash
 docker build --build-context riscv-gcc=/opt/riscv-foundation/riscv32-elf \
     -t riscv-tools-tests .
 ```
 
-The `tests` workflow builds the default image and runs the whole suite on
-every push and pull request.
+O workflow `tests` monta a imagem padrão e roda a suíte inteira a cada push e
+pull request.
 
 ---
 
-Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](LICENSE).
+Copyright 2026 Insper. Licenciado sob a [Apache License, Version 2.0](LICENSE).

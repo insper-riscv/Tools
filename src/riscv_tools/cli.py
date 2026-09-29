@@ -208,7 +208,7 @@ def _generate_c_golden(  # noqa: PLR0913, PLR0917
     reference model) fresh every build, not a value someone worked out
     by hand once that can go stale after an edit. Convention: the test
     declares `volatile <type> results[N];` and writes what it wants
-    checked there — see docs/creating-a-c-test.md.
+    checked there — see docs/en/creating-a-c-test.md.
 
     Parameters
     ----------
