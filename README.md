@@ -66,34 +66,19 @@ only to generate goldens.
 | `program`, `sim` | yes (boot ROM) | yes (boot ROM) | no | no |
 | `certify` | yes (through ACT4's own build) | yes | no | no |
 
-## Vendored references (git submodules)
+## Installing the toolchain
 
-| Path                     | Points at                                              | Why                                                          |
-|---------------------------|--------------------------------------------------------|----------------------------------------------------------------|
-| `vendor/riscv-gnu-toolchain` | [riscv-collab/riscv-gnu-toolchain](https://github.com/riscv-collab/riscv-gnu-toolchain) | The GCC cross-toolchain `compiler` builds test programs with |
-| `vendor/riscv-isa-sim`    | [riscv-software-src/riscv-isa-sim](https://github.com/riscv-software-src/riscv-isa-sim) (Spike, RISC-V International's reference simulator) | Golden-reference source for `golden_generator` ([docs](docs/generating-a-golden.md)) |
+The RISC-V GCC toolchain and Spike come from the workstation install in
+[insper-riscv/Infra](https://github.com/insper-riscv/Infra)
+(`GCC_SETUP.md` and `SPIKE_SETUP.md`): both live in a shared cache
+(`/opt/riscv-foundation`) and are put on `PATH` by wrappers in
+`/usr/local/bin`. This package builds nothing itself.
 
-Neither needs to be checked out for normal use. On an org workstation set up
-per [insper-riscv/Infra](https://github.com/insper-riscv/Infra)'s
-`GCC_SETUP.md` and `SPIKE_SETUP.md`, a prebuilt GCC toolchain and a prebuilt
-Spike already live in a shared cache (`/opt/riscv-foundation`), with
-wrappers in `/usr/local/bin` putting them on `PATH`, so neither submodule
-needs building there at all. A Spike built outside this repo must carry
-`vendor/patches/riscv-isa-sim-debug-start.patch`, which moves Spike's debug
-module from address 0 to `0x70000000`. Without it, Spike aborts at startup
-with `devices at [0, 1000) and [0, 10000) overlap` for any target whose ROM
-starts at address 0. Off that kind of workstation, `compiler` still just
-expects a prebuilt GCC toolchain on `PATH` from somewhere (building
-`vendor/riscv-gnu-toolchain` from source takes tens of minutes), and
-`golden_generator` can point `RISCV_ISA_SIM_DIR` at any already-built Spike
-instead of building `vendor/riscv-isa-sim` locally (see
-[docs/generating-a-golden.md](docs/generating-a-golden.md)). Only initialize
-one of these submodules if you actually want to build it from source:
-
-```bash
-git submodule update --init vendor/riscv-gnu-toolchain
-git submodule update --init vendor/riscv-isa-sim
-```
+Spike has to keep its debug module away from address 0, which the Infra
+build does. A stock Spike aborts at startup with `devices at [0, 1000) and
+[0, 10000) overlap` for a target whose ROM starts at address 0; the golden
+generator checks this before its first run and points at `SPIKE_SETUP.md`
+when it fails.
 
 ## Docs
 

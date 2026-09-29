@@ -13,12 +13,8 @@ trigger and runner that actually fits it.
 | Regenerating goldens | The GCC toolchain + a built Spike (no hardware) | `workflow_dispatch`, on demand |
 
 Every job below starts the same way: checking out and setting up
-`uv`. None of the three tasks above need `vendor/riscv-gnu-toolchain`
-or `vendor/riscv-isa-sim` checked out (see the top-level
-[README](../README.md#vendored-references-git-submodules)), so
-`submodules: true` (this repo's own direct submodules only, not their
-own nested ones) is enough; avoid `submodules: recursive` here, which
-would also pull both of those multi-GB vendor trees for no benefit:
+`uv`. `submodules: true` is what brings this repo in when it is a
+submodule of the consuming project:
 
 ```yaml
 steps:
@@ -115,12 +111,10 @@ jobs:
 
 ## Regenerating goldens
 
-On demand only: `workflow_dispatch`, not on every push. Needs a
-built Spike, not hardware, so it can run on a normal GitHub-hosted
-runner. Cache the Spike build (see
-[generating-a-golden.md](generating-a-golden.md)'s `RISCV_ISA_SIM_DIR`
-section) so this doesn't rebuild Spike from scratch on every run, and
-so it never needs `vendor/riscv-isa-sim` checked out at all.
+On demand only: `workflow_dispatch`, not on every push. Needs Spike
+and the RISC-V GCC, not hardware, so it runs on any runner set up as in
+[insper-riscv/Infra](https://github.com/insper-riscv/Infra)
+(`GCC_SETUP.md` and `SPIKE_SETUP.md`).
 
 There's a real gap the CLI doesn't paper over: `generate-golden` needs
 `--start`/`--end` for the byte range to snapshot, which isn't
@@ -139,7 +133,7 @@ on: workflow_dispatch
 
 jobs:
   regenerate:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted   # a runner provisioned as in insper-riscv/Infra
     steps:
       - uses: actions/checkout@v4
         with:
@@ -147,15 +141,6 @@ jobs:
       - uses: astral-sh/setup-uv@v3
       - run: uv sync
         working-directory: Tools
-
-      - uses: actions/cache@v4
-        with:
-          path: ${{ runner.temp }}/riscv-isa-sim
-          key: riscv-isa-sim-${{ hashFiles('Tools/.git/modules/vendor/riscv-isa-sim/HEAD') }}
-      - run: uv run python -c "from riscv_tools import golden_generator; golden_generator.setup()"
-        working-directory: Tools
-        env:
-          RISCV_ISA_SIM_DIR: ${{ runner.temp }}/riscv-isa-sim
 
       - run: uv run riscv-tools --config ../config.yaml --root .. compile --emit mif
         working-directory: Tools

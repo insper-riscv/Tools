@@ -2,25 +2,25 @@
 
 ## Requirements
 
-Everything on this page depends on these being installed before
-`vendor/riscv-isa-sim` can be built:
+Spike and the RISC-V GCC toolchain (`riscv32-unknown-elf-gcc`,
+`-objcopy`, `-nm`) on `PATH`, installed as described in
+[insper-riscv/Infra](https://github.com/insper-riscv/Infra)
+(`GCC_SETUP.md` and `SPIKE_SETUP.md`). This package does not build
+either of them.
 
-```bash
-sudo apt-get install -y device-tree-compiler libboost-all-dev
-```
-
-`device-tree-compiler` (`dtc`) is required: Spike's `./configure`
-hard-fails without it. Boost is optional (`configure` degrades
-gracefully without it), but installing it avoids a slower fallback
-path in `make`.
+The Spike has to keep its debug module away from address 0, which the
+Infra build does. Without that, Spike aborts at startup with `devices at
+[0, 1000) and [0, 10000) overlap` for any target whose ROM starts at
+address 0. `generate-golden` runs a one-time probe for this before its
+first Spike run and stops with a pointer to `SPIKE_SETUP.md` when it
+fails.
 
 A `RV32_TEST_KIND: memory` test needs a golden JSON: the expected
 byte value at each address [`mem_validator`](modules/mem_validator.md)
 checks after the test runs (see [creating-a-c-test.md](creating-a-c-test.md#unit-vs-memory-tests)).
 Instead of working out those values by hand, `golden_generator` runs
-the compiled test under Spike (the RISC-V reference simulator,
-`vendor/riscv-isa-sim`) and reads them back directly from simulated
-memory.
+the compiled test under Spike (the RISC-V reference simulator) and
+reads them back from its memory dump.
 
 ## How it works
 
@@ -31,93 +31,32 @@ use) and translate the mailbox's PASS/FAIL value into a write to
 own docs, or [creating-an-asm-test.md](creating-an-asm-test.md) if
 you're writing the test in assembly).
 
-`golden_generator.generate_golden`:
+`generate-golden` takes these steps:
 
-1. Resolves `tohost`'s address from the compiled ELF's symbol table
-   (`nm`).
-2. Runs `spike -d --debug-cmd=<script>`: Spike's interactive debug
-   console, scripted via a command file rather than piped to stdin
-   (spike's console is written for an interactive TTY and doesn't
-   reliably detect EOF on a pipe).
-3. The script tells Spike to run *while* `tohost` reads 0, i.e. stop
-   the instant the test signals it's done, regardless of whether it
-   passed or failed, since either writes a nonzero value.
-4. Reads back the requested byte range and returns it as
-   `{byte_address: byte_value}`.
+1. Resolves the entry point and `tohost` from the compiled ELF's symbol
+   table (`nm`).
+2. Copies the ELF and, with `objcopy --add-symbol`, defines
+   `begin_signature` and `end_signature` at the requested range, plus
+   `fromhost` right after `tohost` when the link script doesn't define
+   it (Spike ignores `tohost` without it) and a `tohost` alias when
+   `emulator.tohost_symbol` names it differently. The original ELF is
+   untouched.
+3. Runs `spike --isa=... -m<regions> --disable-dtb --pc=<entry>
+   +signature=<file> +signature-granularity=4` on the copy. Spike runs
+   until the test writes a nonzero value to `tohost`, whether it
+   passed or failed, exits, and writes the range as one 32-bit word per
+   line.
+4. Converts the words into `{byte_address: byte_value}`, little-endian,
+   shifted to be RAM-relative.
 
-This never touches real hardware: it's a full software simulation,
+The step is bounded by `emulator.timeout_s`: a test that never writes
+`tohost` fails the generation instead of hanging it.
+
+This never touches real hardware: it is a full software simulation,
 useful specifically because it's fast and doesn't need a board or a
 JTAG cable connected.
 
-## Building Spike
-
-`vendor/riscv-isa-sim` needs to be compiled once before
-`generate-golden` can run (see Requirements above).
-`golden_generator.setup()` does this for you:
-
-```python
-from riscv_tools import golden_generator
-
-golden_generator.setup()
-```
-
-- If `emulator.spike_bin` (default `"spike"`) already resolves to a runnable
-  binary (on `PATH`, or an existing file), `setup()` leaves it alone and
-  does nothing. It does not check that the binary is patched. A Spike built
-  outside this repo must carry
-  `vendor/patches/riscv-isa-sim-debug-start.patch`, which moves Spike's
-  debug module from address 0 to `0x70000000`. Without it, Spike aborts at
-  startup with `devices at [0, 1000) and [0, 10000) overlap` for any target
-  whose ROM starts at address 0.
-- Otherwise it builds `vendor/riscv-isa-sim` if it hasn't been built
-  already.
-- Raises `FileNotFoundError` if the submodule was never checked out:
-  run `git submodule update --init --recursive` first.
-
-Run `golden_generator.update()` after pulling a change that moves the
-`vendor/riscv-isa-sim` submodule pin: it rebuilds only if the
-checked-out commit has actually moved since the last build, so it's
-cheap to call unconditionally (e.g. in a setup script that runs on
-every checkout).
-
-The resulting binary ends up at `vendor/riscv-isa-sim/build/spike`:
-either put it on `PATH`, or set `emulator.spike_bin` in your project's
-config.yaml to that path (`setup()`/`update()` honor whatever
-`spike_bin` resolves to).
-
-### `RISCV_ISA_SIM_DIR` (pointing at a cache directory instead)
-
-This repo's own `vendor/riscv-isa-sim` isn't the only place a
-riscv-isa-sim checkout can live. Set the `RISCV_ISA_SIM_DIR`
-environment variable to make `setup()`/`update()` operate on a
-different directory entirely: e.g. in CI, point it at a persistent
-cache (`actions/cache`) instead of this repo's own submodule path, so
-a fresh checkout of `riscv-tools` doesn't have to re-clone and rebuild
-Spike from scratch (and burn CI minutes/bandwidth) on every run:
-
-```yaml
-# GitHub Actions example
-- uses: actions/cache@v4
-  with:
-    path: ${{ runner.temp }}/riscv-isa-sim
-    key: riscv-isa-sim-${{ <pinned commit/version> }}
-- run: uv run python -c "from riscv_tools import golden_generator; golden_generator.setup()"
-  env:
-    RISCV_ISA_SIM_DIR: ${{ runner.temp }}/riscv-isa-sim
-```
-
-On a cache miss (directory empty or not yet a checkout), `setup()`
-clones riscv-isa-sim there itself, checking out the same commit this
-repo's own `vendor/riscv-isa-sim` submodule is pinned to (so the
-override still runs the exact Spike version this repo vendors, not
-just whatever the remote's default branch happens to be at clone
-time). This repo's own submodule is never auto-cloned into this way;
-only an override directory is, since the submodule itself is meant to
-be populated with `git submodule update --init`.
-
 ## Generating a golden JSON
-
-Once Spike is built:
 
 ```bash
 uv run riscv-tools --config <project>/config.yaml compile --emit mif   # produces the .elf
@@ -148,9 +87,9 @@ need to (e.g. to intentionally relax a check).
 real end-to-end test of this whole path: it compiles two tiny fixture
 programs (one C, one hand-written asm; see
 `tests/fixtures/htif_min/`), runs them through `generate_golden`
-against a real built Spike, and checks the bytes that come back are
+against the installed Spike, and checks the bytes that come back are
 exactly right, little-endian order included. Run it yourself to
-confirm your Spike build works before trusting a golden it produces:
+confirm your Spike works before trusting a golden it produces:
 
 ```bash
 uv sync --group dev

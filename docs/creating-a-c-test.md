@@ -118,10 +118,9 @@ test. Nothing about its `RV32_PASS()`/`RV32_FAIL()` logic changes.
   Correctness is validated as "this project's CPU produces the same
   memory contents Spike does for the same program," not against a
   value someone worked out by hand once that can silently go stale
-  after an edit. Requires `vendor/riscv-isa-sim` built first (handled
-  automatically: see [generating-a-golden.md](generating-a-golden.md)
-  for the mechanics if you want to run Spike by hand instead, e.g. to
-  debug a mismatch).
+  after an edit. Requires Spike on `PATH` (see
+  [generating-a-golden.md](generating-a-golden.md) for the mechanics if
+  you want to run Spike by hand instead, e.g. to debug a mismatch).
 
   `results` can hold whatever the test wants checked (plain values, a
   small struct, an array); the only requirement is that it's a real,
