@@ -238,3 +238,21 @@ def test_cmd_spike_run_rejects_a_test_missing_from_the_manifest(
     args.only = "nope"  # type: ignore[attr-defined]
     with pytest.raises(SystemExit):
         cmd_spike_run(args)
+
+
+@pytest.mark.skipif(
+    shutil.which(GCC) is None or shutil.which(SPIKE) is None,
+    reason=f"needs {GCC} and {SPIKE} on PATH",
+)
+def test_cmd_compile_hex_uses_the_verilog_format_when_configured(
+    tmp_path: Path,
+) -> None:
+    _make_project(tmp_path)
+    cfg = _cfg_dict(tmp_path)
+    cfg["sim"] = {"hex_format": "verilog"}
+    (tmp_path / "config.yaml").write_text(yaml.safe_dump(cfg))
+
+    cmd_compile(_args(tmp_path, "hex"))
+
+    hex_text = (tmp_path / "build" / "sim" / "add.hex").read_text()
+    assert hex_text.startswith("@00000000\n")

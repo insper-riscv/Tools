@@ -13,6 +13,19 @@ A test's own source file declares its build/run requirements in comments at the 
 | `// RV32_TEST_KIND: memory` | Also dumps RAM and compares it against a golden JSON (see [`mem_validator`](mem_validator.md), [`golden_generator`](golden_generator.md)). |
 | `// RV32_TIMEOUT_S: 5` | How long [`orchestrator`](orchestrator.md) waits for this test's mailbox before falling back to a full reprogram. Defaults to `orchestrator`'s `default_timeout_s`. |
 
+## Hex output
+
+With `sim.hex_format: verilog`, the simulation `.hex` comes straight from the linked ELF through `objcopy -O verilog --verilog-data-width=4` instead of from the flat binary. The file keeps the image's real word addresses:
+
+```
+@00000200
+00100293 00200313 FF9FF06F
+@00000203
+DEADBEEF
+```
+
+A program linked at `0x800` starts at `@00000200` (word address), so it needs no leading zero words, and a gap between sections becomes a new `@` line. The default `words` format keeps one 32-bit word per line.
+
 ## Configuration
 
 | Key | Meaning |

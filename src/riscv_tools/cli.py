@@ -310,6 +310,39 @@ def _discover_tests(root: Path, cfg: dict[str, Any]) -> list[Path]:
     return sorted(kept, key=lambda p: p.parent.name)
 
 
+def _write_sim_hex(
+    cfg: dict[str, Any], stem: Path, bin_: Path, hex_: Path, pad_words: int
+) -> None:
+    """Write a test's simulation .hex in the format sim.hex_format selects.
+
+    Parameters
+    ----------
+    cfg : dict of {str: Any}
+        The merged project config.
+    stem : Path
+        The test's build path without extension; `<stem>.elf` is the
+        ELF used for the "verilog" format.
+    bin_ : Path
+        The flat binary used for the "words" format.
+    hex_ : Path
+        Where to write the .hex.
+    pad_words : int
+        Leading zero words for the "words" format (see
+        bin_to_image.read_words); the "verilog" format carries real
+        addresses instead.
+
+    Returns
+    -------
+    None
+    """
+    if cfg["sim"]["hex_format"] == "verilog":
+        compiler_mod.elf_to_verilog_hex(
+            cfg["toolchain"], stem.with_suffix(".elf"), hex_
+        )
+    else:
+        bin_to_image.bin_to_hex(bin_, hex_, pad_words=pad_words)
+
+
 def cmd_compile(args: argparse.Namespace) -> None:
     """Implement `riscv-tools compile`.
 
@@ -425,7 +458,7 @@ def cmd_compile(args: argparse.Namespace) -> None:
             entry["mif"] = str(mif.relative_to(root))
         else:
             hex_ = build_dir / f"{name}.hex"
-            bin_to_image.bin_to_hex(bin_, hex_, pad_words=flash_pad_words)
+            _write_sim_hex(cfg, build_dir / name, bin_, hex_, flash_pad_words)
             entry["hex"] = str(hex_.relative_to(root))
 
         # Attached the same way for "real" and "sim": sim_runner's own
@@ -1003,7 +1036,11 @@ def cmd_sim(args: argparse.Namespace) -> None:
     boot_rom_hex_path = None
     if cfg.get("paths", {}).get("boot_rom"):
         boot_rom_hex_path = boot_rom.build_boot_rom(
-            cfg["toolchain"], cfg["paths"], root, build_dir / "boot_rom"
+            cfg["toolchain"],
+            cfg["paths"],
+            root,
+            build_dir / "boot_rom",
+            hex_format=cfg["sim"]["hex_format"],
         )
 
     results = sim_runner.run_suite(

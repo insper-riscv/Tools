@@ -30,7 +30,7 @@ from typing import Any
 
 import yaml
 
-from riscv_tools import bin_to_image, proc, sim_runner
+from riscv_tools import bin_to_image, compiler, proc, sim_runner
 
 _ACT_TEST_MODULE = "tools.riscv_build.act.sim.test_act"
 
@@ -189,7 +189,10 @@ def run_suite(cfg: dict[str, Any], root: Path, build_dir: Path) -> dict[str, boo
             [str(cfg["toolchain"]["objcopy"]), "-O", "binary", str(elf), str(bin_path)],
             check=True,
         )
-        bin_to_image.bin_to_hex(bin_path, hex_path)
+        if cfg["sim"]["hex_format"] == "verilog":
+            compiler.elf_to_verilog_hex(cfg["toolchain"], elf, hex_path)
+        else:
+            bin_to_image.bin_to_hex(bin_path, hex_path)
 
         parameters: dict[str, Any] = {
             k: v.format(hex_path=str(hex_path.resolve())) if isinstance(v, str) else v

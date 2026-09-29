@@ -124,3 +124,44 @@ def compile_test(  # noqa: PLR0913, PLR0917
         [str(toolchain_cfg["objcopy"]), "-O", "binary", str(elf), str(bin_)], check=True
     )
     return bin_, march, kind, timeout_s
+
+
+def elf_to_verilog_hex(
+    toolchain_cfg: dict[str, Any], elf: Path, hex_path: Path
+) -> None:
+    """Write an ELF's loadable content as a Verilog-style hex file.
+
+    Uses `objcopy -O verilog` with one 32-bit word per entry. The file has
+    a `@<word address>` line wherever the image starts or jumps, so a
+    program linked above address 0 keeps its real word address and needs
+    no leading zero padding; four words share a line.
+
+    Parameters
+    ----------
+    toolchain_cfg : dict of {str: Any}
+        The project's `toolchain:` config section; needs `objcopy`.
+    elf : Path
+        Linked ELF to convert.
+    hex_path : Path
+        Path to write the hex file to (overwritten if it exists).
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    subprocess.CalledProcessError
+        `objcopy` failed.
+    """
+    subprocess.run(
+        [
+            str(toolchain_cfg["objcopy"]),
+            "-O",
+            "verilog",
+            "--verilog-data-width=4",
+            str(elf),
+            str(hex_path),
+        ],
+        check=True,
+    )
