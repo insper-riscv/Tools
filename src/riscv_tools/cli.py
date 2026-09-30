@@ -3,8 +3,8 @@
 
 Every subcommand takes --config, pointing at the CONSUMING project's
 own config.yaml (memory map, Quartus project paths, toolchain, etc.)
-— except `vhdl-sort` and `check-memory-map`, which read only files and need no
-project config at all.
+— except `vhdl-sort`, `check-memory-map` and `check-paths`, which read only
+files and need no project config at all.
 """
 
 import argparse
@@ -22,6 +22,7 @@ from riscv_tools import (
     mailbox,
     memory_map,
     orchestrator,
+    path_check,
     quartus_program,
     ram_dump,
     ram_zero,
@@ -1208,6 +1209,36 @@ def cmd_vhdl_sort(args: argparse.Namespace) -> None:
     print(" ".join(str(f) for f in ordered))
 
 
+def cmd_check_paths(args: argparse.Namespace) -> None:
+    """Implement `riscv-tools check-paths`.
+
+    Fails when a file path listed in the project's configuration does not
+    exist (see path_check.check_paths). Doesn't touch args.config: the
+    manifest lists the references to read.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed CLI arguments — uses args.manifest and args.root.
+
+    Returns
+    -------
+    None
+        Prints the result; exits the process with status 1 on any problem.
+    """
+    root = _root(args)
+    manifest = Path(args.manifest)
+    if not manifest.is_absolute():
+        manifest = root / manifest
+    count, problems = path_check.check_paths(manifest, root)
+    if problems:
+        for problem in problems:
+            print(f"PATH {problem}", file=sys.stderr)
+        print(f"{len(problems)} problem(s)", file=sys.stderr)
+        sys.exit(1)
+    print(f"paths OK: {count} paths from {manifest.name}")
+
+
 def cmd_check_memory_map(args: argparse.Namespace) -> None:
     """Implement `riscv-tools check-memory-map`.
 
@@ -1340,7 +1371,8 @@ def main() -> None:  # noqa: PLR0915
         "--config",
         default=None,
         help="Path to the consuming project's config.yaml "
-        "(required for every subcommand except vhdl-sort and check-memory-map)",
+        "(required for every subcommand except vhdl-sort, check-memory-map "
+        "and check-paths)",
     )
     parser.add_argument(
         "--root", default=None, help="Consuming project's root dir (default: cwd)"
@@ -1528,6 +1560,18 @@ def main() -> None:  # noqa: PLR0915
     p.set_defaults(func=cmd_check_memory_map)
 
     p = sub.add_parser(
+        "check-paths",
+        help="Fail when a file path listed in the project's configuration "
+        "does not exist",
+    )
+    p.add_argument(
+        "--manifest",
+        required=True,
+        help="Manifest YAML (relative to --root) listing the references to check",
+    )
+    p.set_defaults(func=cmd_check_paths)
+
+    p = sub.add_parser(
         "freq-sweep",
         help="Sweep/binary-search clock frequency to find Fmax "
         "(edits the PLL + full recompile+reprogram per candidate)",
@@ -1558,7 +1602,10 @@ def main() -> None:  # noqa: PLR0915
     p.set_defaults(func=cmd_freq_sweep)
 
     args = parser.parse_args()
-    if args.command not in {"vhdl-sort", "check-memory-map"} and args.config is None:
+    if (
+        args.command not in {"vhdl-sort", "check-memory-map", "check-paths"}
+        and args.config is None
+    ):
         parser.error("--config is required for this subcommand")
     args.func(args)
 
