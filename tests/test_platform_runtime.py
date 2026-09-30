@@ -78,6 +78,20 @@ def _make_project(root: Path) -> None:
         "}\n"
     )
 
+    # A `results` too big for the small-data section, so it lands in .bss
+    # after the platform's own objects: the address the golden holds must
+    # still be the one in the image the hardware loads.
+    (root / "c" / "wide").mkdir()
+    (root / "c" / "wide" / "src.c").write_text(
+        "// RV32_TEST_KIND: memory\n"
+        '#include "rv32_test.h"\n'
+        "volatile unsigned int results[8];\n"
+        "int main(void) {\n"
+        "    for (int i = 0; i < 8; i++) { results[i] = i + 1; }\n"
+        "    RV32_PASS();\n"
+        "}\n"
+    )
+
     # Declares `results` and never touches it: the linker must still keep
     # it, since the golden is read from it.
     (root / "c" / "declared").mkdir()
@@ -234,6 +248,7 @@ def test_cmd_compile_builds_every_kind_and_the_goldens(tmp_path: Path) -> None:
         "mem",
         "raw",
         "returns",
+        "wide",
     }
     mem_entry = next(e for e in manifest if e["name"] == "mem")
     # Golden addresses are relative to the start of RAM.
@@ -259,6 +274,12 @@ def test_cmd_compile_builds_every_kind_and_the_goldens(tmp_path: Path) -> None:
     spike_elf = _symbols(tmp_path / "build" / "real" / "mem.golden.elf")
     assert spike_elf["rv32_wait_restart"] != 0x100
     assert "tohost" in spike_elf
+    # The stand-in takes no space: a variable has the same address in both
+    # images, so the golden's addresses are the hardware image's.
+    for name in ("mem", "wide", "declared"):
+        hardware = _symbols(tmp_path / "build" / "real" / f"{name}.elf")
+        spike = _symbols(tmp_path / "build" / "real" / f"{name}.golden.elf")
+        assert hardware["results"] == spike["results"], name
 
 
 def test_cmd_spike_run_passes_programs_that_return_from_main(
@@ -271,11 +292,11 @@ def test_cmd_spike_run_passes_programs_that_return_from_main(
     cmd_compile(_args(tmp_path, "mif"))
 
     args = _args(tmp_path, "mif")
-    args.only = "add,data,declared,mem,raw,returns"  # type: ignore[attr-defined]
+    args.only = "add,data,declared,mem,raw,returns,wide"  # type: ignore[attr-defined]
     cmd_spike_run(args)
 
     out = capsys.readouterr().out
-    for name in ("add", "data", "declared", "mem", "raw", "returns"):
+    for name in ("add", "data", "declared", "mem", "raw", "returns", "wide"):
         assert f"PASS  {name}" in out
 
 
