@@ -144,9 +144,13 @@ pacote inteiro, por isso não pertence a nenhum módulo em particular.
 
 ### Rodando os testes no Docker
 
-O `Dockerfile` monta uma imagem com GHDL, o GCC RISC-V e um Spike com o patch
-descrito no `SPIKE_SETUP.md` do Infra, nos mesmos caminhos da instalação de
-workstation, de modo que nada é pulado:
+O `Dockerfile` parte da imagem de toolchain que o
+[insper-riscv/Infra](https://github.com/insper-riscv/Infra) publica
+(`ghcr.io/insper-riscv/infra-toolchain`, veja o `TOOLCHAIN_IMAGE.md` dele):
+GHDL, o GCC RISC-V com picolibc, um Spike com o patch descrito no
+`SPIKE_SETUP.md` e o `uv`, nos mesmos caminhos da instalação de workstation.
+Ele acrescenta as dependências deste projeto, de modo que nada é pulado e
+nada é compilado:
 
 ```bash
 docker build -t riscv-tools-tests .
@@ -154,19 +158,16 @@ docker run --rm -v "$PWD:/workspace" riscv-tools-tests
 docker run --rm -v "$PWD:/workspace" riscv-tools-tests tests/test_sim_runner.py -v
 ```
 
-Por padrão a imagem traz o release do GCC da riscv-collab, que não tem
-picolibc, então os dois testes que precisam de picolibc são pulados. Para usar
-a toolchain que o `GCC_SETUP.md` do Infra instala na workstation (com
-picolibc) em vez de baixar uma, passe o diretório dela como um contexto de
-build nomeado:
+A imagem base está fixada numa tag `sha-`. Para testar contra outra
+publicação, passe a tag dela:
 
 ```bash
-docker build --build-context riscv-gcc=/opt/riscv-foundation/riscv32-elf \
+docker build --build-arg TOOLCHAIN_IMAGE=ghcr.io/insper-riscv/infra-toolchain:latest \
     -t riscv-tools-tests .
 ```
 
-O workflow `tests` monta a imagem padrão e roda a suíte inteira a cada push e
-pull request.
+O workflow `tests` monta esta imagem e roda a suíte inteira a cada push e pull
+request.
 
 ---
 
