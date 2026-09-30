@@ -47,6 +47,8 @@ crt0-hosted%O%s
 
 A test compiled this way is a hosted program: `-ffreestanding` is not passed, `main` may return (and falls back to `return 0`), and `-nostartfiles` is passed only when `paths.crt0` names a startup file of the project's own. `toolchain.libc` is ignored.
 
+The toolchain's linker script drops sections nothing references (`--gc-sections`). A C test of kind `memory` is checked through its `results` array, which it may only declare (a test that just checks `.bss` is zeroed never reads it), so the compile passes `-Wl,--undefined=results` for those tests to keep it.
+
 The same specs file serves any `gcc` command, outside this package: `gcc --specs=rv32im-fpga.specs main.c _exit.c`.
 
 ### Image for Spike

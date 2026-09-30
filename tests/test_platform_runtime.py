@@ -78,6 +78,16 @@ def _make_project(root: Path) -> None:
         "}\n"
     )
 
+    # Declares `results` and never touches it: the linker must still keep
+    # it, since the golden is read from it.
+    (root / "c" / "declared").mkdir()
+    (root / "c" / "declared" / "src.c").write_text(
+        "// RV32_TEST_KIND: memory\n"
+        '#include "rv32_test.h"\n'
+        "volatile unsigned int results[1];\n"
+        "int main(void) { RV32_PASS(); }\n"
+    )
+
     # Returns from main, as any C program does: the crt0 calls exit().
     (root / "c" / "returns").mkdir()
     (root / "c" / "returns" / "src.c").write_text("int main(void) { return 0; }\n")
@@ -217,7 +227,14 @@ def test_cmd_compile_builds_every_kind_and_the_goldens(tmp_path: Path) -> None:
     cmd_compile(_args(tmp_path, "mif"))
 
     manifest = json.loads((tmp_path / "build" / "real" / "manifest.json").read_text())
-    assert {e["name"] for e in manifest} == {"add", "data", "mem", "raw", "returns"}
+    assert {e["name"] for e in manifest} == {
+        "add",
+        "data",
+        "declared",
+        "mem",
+        "raw",
+        "returns",
+    }
     mem_entry = next(e for e in manifest if e["name"] == "mem")
     # Golden addresses are relative to the start of RAM.
     assert json.loads((tmp_path / mem_entry["golden"]).read_text()) == {
@@ -225,6 +242,14 @@ def test_cmd_compile_builds_every_kind_and_the_goldens(tmp_path: Path) -> None:
         "0x00000001": 17,
         "0x00000002": 17,
         "0x00000003": 17,
+    }
+    # `results` is kept by the linker even though the test never touches it.
+    declared_entry = next(e for e in manifest if e["name"] == "declared")
+    assert json.loads((tmp_path / declared_entry["golden"]).read_text()) == {
+        "0x00000000": 0,
+        "0x00000001": 0,
+        "0x00000002": 0,
+        "0x00000003": 0,
     }
     # The image Spike runs is the test's own program with the Spike
     # stand-in; the image the hardware loads has the routine's fixed address.
@@ -246,11 +271,11 @@ def test_cmd_spike_run_passes_programs_that_return_from_main(
     cmd_compile(_args(tmp_path, "mif"))
 
     args = _args(tmp_path, "mif")
-    args.only = "add,data,mem,raw,returns"  # type: ignore[attr-defined]
+    args.only = "add,data,declared,mem,raw,returns"  # type: ignore[attr-defined]
     cmd_spike_run(args)
 
     out = capsys.readouterr().out
-    for name in ("add", "data", "mem", "raw", "returns"):
+    for name in ("add", "data", "declared", "mem", "raw", "returns"):
         assert f"PASS  {name}" in out
 
 

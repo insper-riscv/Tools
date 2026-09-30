@@ -152,6 +152,16 @@ def compile_test(  # noqa: PLR0913, PLR0917
     elf = build_dir / f"{name}.elf"
     bin_ = build_dir / f"{name}.bin"
 
+    # A C memory test is checked through its `results` array, which it may
+    # only declare (a test that just checks .bss is zeroed never reads it).
+    # The toolchain's linker script collects unreferenced sections
+    # (--gc-sections), so the symbol is named as needed to keep it.
+    keep_results = (
+        ["-Wl,--undefined=results"]
+        if kind == "memory" and c_file.suffix == ".c"
+        else []
+    )
+
     specs = toolchain_cfg.get("specs")
     # A specs file describes a hosted platform: main() returns to the
     # crt0, which calls exit(), so the compiler must not be told the
@@ -173,6 +183,7 @@ def compile_test(  # noqa: PLR0913, PLR0917
             *(["-nostartfiles"] if crt0 is not None else []),
             f"-I{include_dir}",
             *_linker_script_flags(linker),
+            *keep_results,
             *(link_flags or []),
             *([str(crt0)] if crt0 is not None else []),
             *[str(p) for p in (extra_sources or [])],
