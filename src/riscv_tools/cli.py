@@ -1237,6 +1237,8 @@ def cmd_freq_sweep(args: argparse.Namespace) -> None:
     project_dir = root / cfg["quartus"]["project_dir"]
     build_dir = root / cfg["paths"]["build_dir"] / "freq_sweep"
     build_dir.mkdir(parents=True, exist_ok=True)
+    # documented as relative to the project root, not to the cwd
+    cfg["freq_sweep"]["pll_file"] = str(root / cfg["freq_sweep"]["pll_file"])
 
     mif_path = Path(args.mif)
     golden_path = Path(args.golden)
