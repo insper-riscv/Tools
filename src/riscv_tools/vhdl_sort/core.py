@@ -51,7 +51,7 @@ def topo_sort(files: list[Path]) -> list[Path]:
     for f in files:
         try:
             text = f.read_text()
-        except (OSError, UnicodeDecodeError):
+        except OSError, UnicodeDecodeError:
             continue
 
         for m in ENTITY_DECL_RE.finditer(text):

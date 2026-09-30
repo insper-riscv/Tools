@@ -3,12 +3,13 @@ name = "riscv-tools"
 version = "1.0.0"
 description = "Config-driven build and test tooling for bare-metal RISC-V programs: compile, run against real hardware over JTAG or against cocotb/GHDL simulation, and verify results against Spike-generated or checked-in golden references."
 license = "Apache-2.0"
-# Capped at <3.14: cocotb (the "sim" extra) officially supports only
-# up to CPython 3.13 (https://docs.cocotb.org/en/stable/platform_support.html)
-# — 2.0.1 hard-fails its own build on anything newer. Since one venv
-# has to satisfy the whole project, the ceiling applies project-wide,
-# not just to the sim extra.
-requires-python = ">=3.13,<3.14"
+# Capped at <3.15: 3.14 is the newest CPython the suite has run on.
+# cocotb (the "sim" extra) added 3.14 support in 2.1.0
+# (https://docs.cocotb.org/en/v2.1.0/release_notes.html), which is why
+# the sim extra below needs at least that. Since one venv has to
+# satisfy the whole project, the ceiling applies project-wide, not just
+# to the sim extra.
+requires-python = ">=3.14,<3.15"
 dependencies = [
     "PyYAML>=6.0",
 ]
@@ -19,7 +20,7 @@ dependencies = [
 # an extra rather than a hard dependency. GHDL itself isn't
 # pip-installable and must be installed separately (a system package
 # or the ghdl/ghdl Docker image — see docs/en/github-actions.md).
-sim = ["cocotb>=2.0", "cocotb-tools>=0.1"]
+sim = ["cocotb>=2.1", "cocotb-tools>=0.1"]
 
 [project.scripts]
 riscv-tools = "riscv_tools.cli:main"
@@ -49,15 +50,14 @@ known_first_party = ["riscv_tools"]
 venvPath = "."
 venv = ".venv"
 stubPath = "stubs"
-# 3.13, not 3.14: this project's own ceiling (see requires-python
-# above — cocotb caps at 3.13).
-pythonVersion = "3.13"
+# The project's own Python (see requires-python above).
+pythonVersion = "3.14"
 typeCheckingMode = "strict"
 reportMissingModuleSource = "none"
 
 [tool.ruff]
-# 3.13, not 3.14: matches requires-python's ceiling (see above).
-target-version = "py313"
+# Matches requires-python (see above).
+target-version = "py314"
 line-length = 88
 
 [tool.ruff.lint]
