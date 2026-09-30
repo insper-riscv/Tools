@@ -30,8 +30,6 @@ jobs:
           context: .
           load: true
           tags: riscv-tools-tests:ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Run the test suite
         run: docker run --rm -v "$PWD:/workspace" riscv-tools-tests:ci -v

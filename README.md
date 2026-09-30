@@ -158,11 +158,11 @@ docker run --rm -v "$PWD:/workspace" riscv-tools-tests
 docker run --rm -v "$PWD:/workspace" riscv-tools-tests tests/test_sim_runner.py -v
 ```
 
-A imagem base está fixada numa tag `sha-`. Para testar contra outra
-publicação, passe a tag dela:
+A imagem base é a `latest` da imagem de toolchain. Para testar contra uma
+publicação específica, passe a tag `sha-` dela:
 
 ```bash
-docker build --build-arg TOOLCHAIN_IMAGE=ghcr.io/insper-riscv/infra-toolchain:latest \
+docker build --build-arg TOOLCHAIN_IMAGE=ghcr.io/insper-riscv/infra-toolchain:sha-<commit> \
     -t riscv-tools-tests .
 ```
 
