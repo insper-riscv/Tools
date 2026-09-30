@@ -16,6 +16,13 @@ default (a memory address, a path inside your repo) is `None` in the
 built-in defaults, meaning your `config.yaml` **must** set it: every
 such key is marked "**required**" below.
 
+A config file can start from another one with `extends: <path>` (relative
+to the file that names it). The file is merged over its base with the same
+rules: a section present in both is merged key by key, and any other value
+(including a list) replaces the base's. A variant then only lists what
+differs, for example a simulation profile that changes `sim:` and keeps
+everything else. A chain that loops back is an error.
+
 ## Reference
 
 Your `config.yaml` is a nested YAML file with these top-level
@@ -96,6 +103,13 @@ No `tests_real_dir`/`tests_sim_dir`/`golden_dir` split: every test under `c_dir`
 | `ghdl_std` | `08` | `sim_runner`: GHDL `--std=` value. VHDL-2008 (IEEE Std 1076-2008) by default, matching Quartus' own ceiling: Quartus (even the latest, 25.1std) only accepts `VHDL93`/`VHDL_2008` for `VHDL_INPUT_VERSION`, `VHDL_2019` is rejected outright, so this keeps simulation and synthesis on the same dialect |
 | `parameters` | `{}` | `sim_runner`: VHDL generics to set on `toplevel` at GHDL's run step, e.g. `{"ROM_FILE": "{hex_path}"}` for a project whose sim-only ROM model loads its program image via a VHDL generic rather than reading `sim_runner`'s own `ROM_HEX` env var. `"{hex_path}"` is substituted with each test's compiled `.hex` path; any other value is passed through as-is (e.g. a fixed memory-depth generic). Empty by default: most toplevels need no generic overrides |
 | `hex_format` | `words` | `compile --emit hex`, `sim`, `certify`: layout of the `.hex` a simulation loads. `words` is one 32-bit word per line with leading zero words for a program linked above address 0. `verilog` is what `objcopy -O verilog` writes (see [compiler.md](modules/compiler.md#hex-output)), so the memory model that loads it must handle `@<word address>` lines and four words per line |
+| `image` | `hex` | `sim`: which image a simulation loads. `hex` reads `<build_dir>/sim/manifest.json` (from `compile --emit hex`). `mif` reads `<build_dir>/real/manifest.json` (from `compile --emit mif`), the same images the hardware loads, and also builds the boot ROM's `.mif` |
+| `ghdl_flags` | `[]` | `sim_runner`: extra GHDL arguments for the analyze, elaborate and run steps, e.g. `["-fsynopsys", "-fexplicit"]` for a vendor simulation library |
+| `libraries` | `{}` | `sim_runner`: VHDL libraries analyzed once per `sim` run before `vhdl_sources`, as `{library: [files]}`, e.g. Quartus' `altera_mf` for a toplevel that instantiates its memory IP. Paths are relative to the project root, and `$VAR` or `${VAR}` is replaced from the environment (an unset variable is an error) |
+| `run_files` | `{}` | `sim_runner`: files copied into each test's run directory before it runs, as `{file name: source}`, for a design that opens a file by a fixed name, e.g. an `altsyncram` `init_file`. The source takes the same templates as `parameters` |
+| `env` | `{}` | `sim_runner`: extra environment variables for your cocotb test module, as `{name: template}`, with the same templates as `parameters` |
+
+The templates of `parameters`, `run_files` and `env` are `{hex_path}` and `{mif_path}` (the test's image, for whichever `image` selects; the other is empty), and `{boot_rom_hex_path}` and `{boot_rom_mif_path}` (the boot ROM's, the same for every test).
 
 ### `freq_sweep:` (only needed for `riscv-tools freq-sweep`)
 

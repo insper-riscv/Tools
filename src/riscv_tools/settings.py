@@ -103,5 +103,43 @@ def load_config(project_config_path: Path) -> dict[str, Any]:
     for defaults in _MODULE_DEFAULTS:
         cfg = deep_merge(cfg, defaults)
 
-    overlay: dict[str, Any] = yaml.safe_load(Path(project_config_path).read_text())
-    return deep_merge(cfg, overlay)
+    return deep_merge(cfg, _read_project_config(Path(project_config_path), ()))
+
+
+def _read_project_config(path: Path, chain: tuple[Path, ...]) -> dict[str, Any]:
+    """Read one project config file, resolving its `extends:` chain.
+
+    `extends: <path>` (relative to the file that names it) makes that
+    file the base this one is merged over, with the same rules as
+    `deep_merge`, so a variant config only has to say what differs.
+
+    Parameters
+    ----------
+    path : Path
+        The config file to read.
+    chain : tuple of Path
+        The files already being resolved, to reject a cycle.
+
+    Returns
+    -------
+    dict of {str: Any}
+        The file's content merged over its base, without the `extends`
+        key.
+
+    Raises
+    ------
+    ValueError
+        The `extends` chain loops back to a file already in it.
+    """
+    resolved = path.resolve()
+    if resolved in chain:
+        loop = " -> ".join(str(p) for p in (*chain, resolved))
+        raise ValueError(f"config `extends` loop: {loop}")
+
+    data: dict[str, Any] = yaml.safe_load(path.read_text()) or {}
+    base_ref = data.pop("extends", None)
+    if base_ref is None:
+        return data
+
+    base = _read_project_config(path.parent / str(base_ref), (*chain, resolved))
+    return deep_merge(base, data)

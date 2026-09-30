@@ -16,6 +16,13 @@ config.yaml sempre vence. Uma chave sem um padrão razoável entre projetos
 padrões embutidos, o que significa que o seu `config.yaml` **precisa**
 defini-la: toda chave assim está marcada como "**obrigatória**" abaixo.
 
+Um arquivo de configuração pode partir de outro com `extends: <caminho>`
+(relativo ao arquivo que o declara). O arquivo é mesclado por cima da sua
+base com as mesmas regras: uma seção presente nos dois é mesclada chave a
+chave, e qualquer outro valor (inclusive uma lista) substitui o da base. Uma
+variante lista só o que muda, por exemplo um perfil de simulação que altera
+o `sim:` e mantém o resto. Uma cadeia que volta a si mesma é um erro.
+
 ## Referência
 
 O seu `config.yaml` é um YAML aninhado com estas seções de nível superior.
@@ -96,6 +103,13 @@ Não há divisão `tests_real_dir`/`tests_sim_dir`/`golden_dir`: todo teste em `
 | `ghdl_std` | `08` | `sim_runner`: valor do `--std=` do GHDL. VHDL-2008 (IEEE Std 1076-2008) por padrão, acompanhando o teto do próprio Quartus: o Quartus (mesmo o mais recente, 25.1std) só aceita `VHDL93`/`VHDL_2008` em `VHDL_INPUT_VERSION`, e `VHDL_2019` é rejeitado de cara, então isso mantém simulação e síntese no mesmo dialeto |
 | `parameters` | `{}` | `sim_runner`: generics VHDL a definir no `toplevel` na etapa de execução do GHDL, por exemplo `{"ROM_FILE": "{hex_path}"}` para um projeto cujo modelo de ROM só de simulação carrega a imagem do programa por um generic VHDL, em vez de ler a variável de ambiente `ROM_HEX` do próprio `sim_runner`. `"{hex_path}"` é substituído pelo caminho do `.hex` compilado de cada teste; qualquer outro valor é repassado como está (por exemplo um generic de profundidade de memória fixa). Vazio por padrão: a maioria dos toplevels não precisa sobrescrever generics |
 | `hex_format` | `words` | `compile --emit hex`, `sim`, `certify`: layout do `.hex` que uma simulação carrega. `words` é uma palavra de 32 bits por linha, com palavras zero à esquerda para um programa linkado acima do endereço 0. `verilog` é o que o `objcopy -O verilog` escreve (veja [compiler.md](modules/compiler.md#formato-do-arquivo-hex)), então o modelo de memória que o carrega precisa tratar linhas `@<endereço de palavra>` e quatro palavras por linha |
+| `image` | `hex` | `sim`: qual imagem a simulação carrega. `hex` lê `<build_dir>/sim/manifest.json` (de `compile --emit hex`). `mif` lê `<build_dir>/real/manifest.json` (de `compile --emit mif`), as mesmas imagens que o hardware carrega, e também gera o `.mif` da boot ROM |
+| `ghdl_flags` | `[]` | `sim_runner`: argumentos extras do GHDL nas etapas de análise, elaboração e execução, por exemplo `["-fsynopsys", "-fexplicit"]` para uma biblioteca de simulação de fornecedor |
+| `libraries` | `{}` | `sim_runner`: bibliotecas VHDL analisadas uma vez por execução do `sim`, antes de `vhdl_sources`, como `{biblioteca: [arquivos]}`, por exemplo a `altera_mf` do Quartus para um toplevel que instancia a IP de memória dele. Os caminhos são relativos à raiz do projeto, e `$VAR` ou `${VAR}` é substituído a partir do ambiente (variável não definida é um erro) |
+| `run_files` | `{}` | `sim_runner`: arquivos copiados para o diretório de execução de cada teste antes de ele rodar, como `{nome do arquivo: origem}`, para um projeto que abre um arquivo por um nome fixo, por exemplo o `init_file` de um `altsyncram`. A origem aceita os mesmos modelos que `parameters` |
+| `env` | `{}` | `sim_runner`: variáveis de ambiente extras para o módulo de teste cocotb, como `{nome: modelo}`, com os mesmos modelos que `parameters` |
+
+Os modelos de `parameters`, `run_files` e `env` são `{hex_path}` e `{mif_path}` (a imagem do teste, a que o `image` seleciona; a outra fica vazia), e `{boot_rom_hex_path}` e `{boot_rom_mif_path}` (as da boot ROM, iguais para todos os testes).
 
 ### `freq_sweep:` (só necessária para `riscv-tools freq-sweep`)
 
