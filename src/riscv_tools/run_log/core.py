@@ -59,7 +59,7 @@ def _rotate(latest: Path) -> Path | None:
             stamp = datetime.datetime.fromisoformat(match.group(1)).strftime(
                 _FS_TIMESTAMP_FMT
             )
-    except (OSError, ValueError):
+    except OSError, ValueError:
         stamp = None
 
     if stamp is None:

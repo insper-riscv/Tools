@@ -1015,13 +1015,18 @@ def cmd_sim(args: argparse.Namespace) -> None:
     root = _root(args)
     run_log.start(root, "sim", cfg["run_log"]["logs_dir"])
     build_dir = root / cfg["paths"]["build_dir"] / "sim"
+    # sim.image "mif" simulates the same images the hardware loads,
+    # which `compile --emit mif` writes (and lists) under build/real.
+    use_mif = cfg["sim"]["image"] == "mif"
+    manifest_dir = root / cfg["paths"]["build_dir"] / ("real" if use_mif else "sim")
     manifest_path = (
-        Path(args.manifest) if args.manifest else build_dir / "manifest.json"
+        Path(args.manifest) if args.manifest else manifest_dir / "manifest.json"
     )
 
     if not manifest_path.is_file():
         print(
-            f"{manifest_path} not found — run `riscv-tools compile --emit hex` first",
+            f"{manifest_path} not found — run "
+            f"`riscv-tools compile --emit {'mif' if use_mif else 'hex'}` first",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -1034,17 +1039,31 @@ def cmd_sim(args: argparse.Namespace) -> None:
     # sim toplevel actually has a BOOT_ROM/FLASH split (paths.boot_rom
     # set) -- skipped otherwise.
     boot_rom_hex_path = None
+    boot_rom_mif_path = None
     if cfg.get("paths", {}).get("boot_rom"):
+        boot_rom_dir = build_dir / "boot_rom"
         boot_rom_hex_path = boot_rom.build_boot_rom(
             cfg["toolchain"],
             cfg["paths"],
             root,
-            build_dir / "boot_rom",
+            boot_rom_dir,
             hex_format=cfg["sim"]["hex_format"],
         )
+        if use_mif:
+            boot_rom_mif_path = boot_rom_dir / "boot_rom.mif"
+            bin_to_image.bin_to_mif(
+                boot_rom_dir / "boot_rom.bin",
+                boot_rom_mif_path,
+                depth=cfg["memory"]["boot_rom_words"],
+            )
 
     results = sim_runner.run_suite(
-        cfg, manifest, root, build_dir / "sim_work", boot_rom_hex_path=boot_rom_hex_path
+        cfg,
+        manifest,
+        root,
+        build_dir / "sim_work",
+        boot_rom_hex_path=boot_rom_hex_path,
+        boot_rom_mif_path=boot_rom_mif_path,
     )
 
     print("\n=== Summary ===")
