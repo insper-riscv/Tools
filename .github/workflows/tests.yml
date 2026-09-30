@@ -16,7 +16,7 @@ jobs:
   tests:
     # The image carries GHDL, the RISC-V GCC and a patched Spike, so the whole
     # suite (simulation and Spike tests included) runs on a hosted runner.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 60
 
     steps:
