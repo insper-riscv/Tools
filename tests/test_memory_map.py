@@ -247,3 +247,22 @@ def test_cmd_check_memory_map_exit_status(
         cli.cmd_check_memory_map(args)
     assert exc.value.code == 1
     assert "MISMATCH ip words" in capsys.readouterr().err
+
+
+def test_a_negative_offset_is_reported_with_its_sign(tmp_path: Path) -> None:
+    platform = _with(
+        checks=[
+            {
+                "name": "offset",
+                "file": "off.S",
+                "pattern": r"(-\d+)\(t0\)",
+                "expect": "mailbox.base - RAM.end",
+            }
+        ]
+    )
+    path = _project(tmp_path, platform)
+    (tmp_path / "off.S").write_text("sw x0, -12(t0)\n")
+    _, problems = check_memory_map(path, tmp_path)
+    assert "found -12 (-0xC), expected mailbox.base - RAM.end (-0x4)" in str(
+        problems[0]
+    )

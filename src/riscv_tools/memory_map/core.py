@@ -295,6 +295,22 @@ def symbols(platform: dict[str, Any]) -> dict[str, int]:
     return out
 
 
+def _hex(value: int) -> str:
+    """Format an integer as hexadecimal, keeping the sign in front.
+
+    Parameters
+    ----------
+    value : int
+        The number.
+
+    Returns
+    -------
+    str
+        `0x1F`, or `-0x8` for a negative value.
+    """
+    return f"-0x{-value:X}" if value < 0 else f"0x{value:X}"
+
+
 def _span(base: int, size: int) -> str:
     """Format an address range for messages.
 
@@ -503,8 +519,8 @@ def _run_check(
                 Mismatch(
                     name,
                     check["file"],
-                    f"found {text.strip()} (0x{actual:X}), "
-                    f"expected {check['expect']} (0x{expected:X})",
+                    f"found {text.strip()} ({_hex(actual)}), "
+                    f"expected {check['expect']} ({_hex(expected)})",
                 )
             )
     return problems
