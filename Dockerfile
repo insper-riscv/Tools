@@ -8,7 +8,7 @@
 #   docker run --rm -v "$PWD:/workspace" riscv-tools-tests            # whole suite
 #   docker run --rm -v "$PWD:/workspace" riscv-tools-tests tests/test_sim_runner.py -v
 
-ARG TOOLCHAIN_IMAGE=ghcr.io/insper-riscv/infra-toolchain:sha-a3481e0
+ARG TOOLCHAIN_IMAGE=ghcr.io/insper-riscv/infra-toolchain:latest
 FROM ${TOOLCHAIN_IMAGE}
 
 # libatomic1: the node that pyright downloads.
