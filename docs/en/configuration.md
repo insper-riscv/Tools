@@ -36,6 +36,7 @@ sections. Any key you omit falls back to the built-in default shown.
 | `objcopy` | `riscv32-unknown-elf-objcopy` | `compiler`, `boot_rom`, `certify`, `golden_generator` |
 | `nm` | `riscv32-unknown-elf-nm` | `golden_generator` (`generate-golden`) |
 | `libc` | `none` | `compiler`: the C library tests link against. `none` passes `-nostdlib`, so a project supplies what it needs (such as `malloc`) through `paths.syscalls`. `picolibc` passes `--specs=picolibc.specs` (and `-Wl,--no-gc-sections`, see [compiler.md](modules/compiler.md#c-library)) for a GCC configured with picolibc, such as the one Infra's `GCC_SETUP.md` builds |
+| `specs` | unset | `compiler`: path (relative to your project root) of a GCC specs file that describes your platform. It includes `picolibc.specs` and adds the memory map (`--defsym=__flash=...`, `__ram=...`) and the crt0 to use, so tests link against the toolchain's own crt0 and `picolibc.ld` and need no `crt0.S` or linker script of yours. Tests are then compiled as hosted programs (`main` may return), and `libc` is ignored. See [compiler.md](modules/compiler.md#platform-specs-file) |
 
 ### `isa:`
 
@@ -45,13 +46,16 @@ sections. Any key you omit falls back to the built-in default shown.
 | `canonical_order` | `MAFDQLCBJTPVNH` | `compiler`, `c_to_asm`: the letter order a test's `RV32_EXT` extensions get sorted into (see [creating-a-c-test.md](creating-a-c-test.md#header-comments)) |
 | `default_ext` | `""` | **not currently read by any code path**: declared here for documentation purposes only; a test with no `RV32_EXT` header always resolves to plain `base`, regardless of what this is set to |
 
-### `paths:` (all **required**, no generic default; paths inside YOUR repo)
+### `paths:` (no generic default; paths inside YOUR repo)
+
+All are **required** except `crt0`, `linker_script` and `sources`.
 
 | Key | Meaning |
 |---|---|
 | `include_dir` | Passed as `-I` to gcc: where your `rv32_test.h` lives |
-| `crt0` | Path to your project's `crt0.S`, compiled+linked into every test |
-| `linker_script` | Path to your project's linker script |
+| `crt0` | Path to your project's `crt0.S`, compiled+linked into every test. Leave it unset with `toolchain.specs`, which selects the toolchain's crt0 |
+| `linker_script` | Path to your project's linker script. Leave it unset with `toolchain.specs`: the GCC driver then adds the toolchain's `picolibc.ld` |
+| `sources` | List of source files (relative to the project root) compiled into every test: the platform's own parts of the runtime, such as the `_exit` the toolchain's crt0 ends in. Empty by default |
 | `build_dir` | Where compiled artifacts (`.elf`/`.bin`/`.mif`/`.hex`/`manifest.json`) are written |
 | `c_dir` | Directory holding one `<name>/src.c` folder per C test (see [creating-a-c-test.md](creating-a-c-test.md)) |
 | `asm_dir` | Directory holding one `<name>/src.S` folder per assembly test (see [creating-an-asm-test.md](creating-an-asm-test.md)) |
@@ -92,6 +96,8 @@ No `tests_real_dir`/`tests_sim_dir`/`golden_dir` split: every test under `c_dir`
 | `spike_bin` | `spike` | `golden_generator`: name/path of the `spike` binary. It must keep its debug module away from address 0 (see [generating-a-golden.md](generating-a-golden.md#requirements)) |
 | `timeout_s` | `60` | `golden_generator`: seconds to wait for a test to write `tohost` before failing the generation |
 | `tohost_symbol` | `tohost` | `golden_generator`: the HTIF symbol Spike watches for a nonzero write. Standard convention; rarely needs overriding |
+| `sources` | `[]` | `golden_generator`, `spike_run`: source files (relative to the project root) linked into the ELF Spike runs and not into the test's own image. For an image that ends in code living elsewhere on the hardware (a boot ROM routine at a fixed address): a stand-in for it, plus the `tohost` and `fromhost` symbols Spike needs. With it empty, Spike runs the test's own image |
+| `gcc_flags` | `[]` | `golden_generator`, `spike_run`: extra gcc arguments for that ELF, for example a `-D` that makes the specs file leave the hardware's fixed address out |
 
 ### `sim:` (requires the `sim` extra, `uv sync --extra sim`)
 

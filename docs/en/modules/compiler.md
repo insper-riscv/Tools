@@ -24,7 +24,35 @@ A test's own source file declares its build/run requirements in comments at the 
 
 The startup code stays the project's own `crt0.S` (`-nostartfiles` in both cases). `picolibc.specs` turns on `--gc-sections`, which drops every section a link script neither keeps nor reaches from its entry, so it is switched off again. That toolchain has a single library variant (`rv32im`/`ilp32`), so a test built for a narrower `-march` links library code that may use instructions its core lacks, such as multiplication and division in `printf`.
 
-## Hex output
+## Platform specs file
+
+With `toolchain.specs`, the project has no `crt0.S` and no linker script. The specs file is the whole description of the platform, and the toolchain does the rest:
+
+```
+%include <picolibc.specs>
+%rename link rv32imfpga_picolibc_link
+
+*link:
+%(rv32imfpga_picolibc_link) --defsym=__flash=0x800 --defsym=__flash_size=30K --defsym=__ram=0x8000 --defsym=__ram_size=160K-24 %{!DRV32_SPIKE:--defsym=rv32_wait_restart=0x100}
+
+*startfile:
+crt0-hosted%O%s
+```
+
+| Piece | Comes from |
+| :--- | :--- |
+| Linker script | The toolchain's `picolibc.ld`, which the GCC driver adds when it sees no `-T`; the `--defsym` values place flash and RAM |
+| Startup | The toolchain's `crt0-hosted`: sets `sp` and `gp`, copies `.data` from flash, clears `.bss`, sets up TLS, runs constructors, calls `main`, and calls `exit` with what `main` returns |
+| `_exit` | The project, through `paths.sources` (picolibc does not provide it) |
+
+A test compiled this way is a hosted program: `-ffreestanding` is not passed, `main` may return (and falls back to `return 0`), and `-nostartfiles` is passed only when `paths.crt0` names a startup file of the project's own. `toolchain.libc` is ignored.
+
+The same specs file serves any `gcc` command, outside this package: `gcc --specs=rv32im-fpga.specs main.c _exit.c`.
+
+### Image for Spike
+
+When a program's image ends in code that lives elsewhere on the hardware, Spike cannot run it as is. `emulator.sources` and `emulator.gcc_flags` build a second ELF for Spike from the same sources plus a stand-in: in the example above, the hardware's `rv32_wait_restart` is a boot ROM routine at address `0x100`, and the Spike ELF is built with `-DRV32_SPIKE`, which leaves that fixed address out of the link, and with a source that defines `rv32_wait_restart` as ordinary code (the mailbox translated to HTIF) and the `tohost` and `fromhost` symbols. Without `emulator.sources`, Spike runs the test's own image.
+
 
 With `sim.hex_format: verilog`, the simulation `.hex` comes straight from the linked ELF through `objcopy -O verilog --verilog-data-width=4` instead of from the flat binary. The file keeps the image's real word addresses:
 
@@ -47,7 +75,9 @@ A program linked at `0x800` starts at `@00000200` (word address), so it needs no
 | `isa.base` | Base ISA letter, always `i`, never written in a test's own header. |
 | `isa.default_ext` | Extension string used when a test has no `RV32_EXT` header at all. Empty by default (plain `rv32i`). |
 | `isa.canonical_order` | Fixed letter order extension letters get sorted into before being appended to the base ISA string, so `RV32_EXT: A,M` and `RV32_EXT: M,A` both normalize to the same `-march=` value. |
-| `paths.include_dir`, `paths.crt0`, `paths.linker_script`, `paths.build_dir`, `paths.c_dir`, `paths.asm_dir` | All project-specific paths inside the consuming repo; no default, every project must set these. |
+| `toolchain.specs` | Optional path of the platform's GCC specs file; with it, `paths.crt0` and `paths.linker_script` are not needed (see Platform specs file). |
+| `paths.sources` | Optional list of source files compiled into every test (the platform's `_exit`, for instance). |
+| `paths.include_dir`, `paths.crt0`, `paths.linker_script`, `paths.build_dir`, `paths.c_dir`, `paths.asm_dir` | All project-specific paths inside the consuming repo; no default, every project must set (except `paths.crt0` and `paths.linker_script`, optional with `toolchain.specs`) these. |
 
 ## Prerequisites
 
@@ -73,6 +103,10 @@ A program linked at `0x800` starts at `@00000200` (word address), so it needs no
 | `tests/test_compiler_libc.py::test_libc_flags_rejects_an_unknown_library` | An unknown value raises an error naming the key. |
 | `tests/test_compiler_libc.py::test_picolibc_provides_libc_functions` | A test calling `strlen` links with `picolibc` (skipped without a GCC configured with picolibc). |
 | `tests/test_compiler_libc.py::test_no_libc_leaves_libc_functions_undefined` | The same test fails to link with `none` (skipped without a GCC configured with picolibc). |
+| `tests/test_platform_runtime.py::test_compile_needs_no_crt0_or_linker_script` | With a specs file, a test compiles and links with no `crt0` and no linker script: `_start` is at the flash base and the boot ROM's routine at its fixed address. |
+| `tests/test_platform_runtime.py::test_cmd_compile_builds_every_kind_and_the_goldens` | A C test, a C memory test, a test that returns from `main`, one with initialized data and an assembly test compile; Spike generates the golden from the image built with the stand-in. |
+| `tests/test_platform_runtime.py::test_cmd_spike_run_passes_programs_that_return_from_main` | The same tests pass under Spike, including the ones that return from `main` and the one checking `.data`, `.bss` and a constant. |
+| `tests/test_platform_runtime.py::test_cmd_compile_hex_places_the_image_at_the_flash_base` | The simulation image starts at the flash base. |
 
 ## Usage
 
