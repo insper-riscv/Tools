@@ -35,6 +35,7 @@ próprio `__config__.py` de padrões; o projeto consumidor fornece o seu
 | `certify`            | Compila e roda a suíte de certificação arquitetural ACT4 sob cocotb/GHDL | [docs/modules/certify.md](docs/pt-br/modules/certify.md) |
 | `vhdl_sort`          | Ordena topologicamente fontes VHDL por dependência de entidade/pacote, para o `-a` do GHDL | [docs/modules/vhdl_sort.md](docs/pt-br/modules/vhdl_sort.md) |
 | `memory_map`         | Confere que todas as cópias escritas à mão do mapa de memória concordam com o YAML da plataforma | [docs/modules/memory_map.md](docs/pt-br/modules/memory_map.md) |
+| `path_check`         | Falha quando um caminho de arquivo listado na configuração do projeto não existe (antes e depois de mover arquivos) | [docs/modules/path_check.md](docs/pt-br/modules/path_check.md) |
 | `freq_sweep`         | Reescreve a frequência de clock e as defasagens de um fonte de PLL: o mecanismo com que o sweep de frequência do `orchestrator` edita | [docs/modules/freq_sweep.md](docs/pt-br/modules/freq_sweep.md) |
 | `run_log`            | Rotaciona e replica (tee) toda a saída de console de uma execução num histórico de logs persistente por tipo | [docs/modules/run_log.md](docs/pt-br/modules/run_log.md) |
 
@@ -112,7 +113,7 @@ uv run riscv-tools --config /path/to/project/config.yaml sim
 
 Veja `riscv-tools --help` para a lista completa de subcomandos (`write-rom`,
 `zero-ram`, `dump-ram`, `program`, `mailbox read|pulse`, `generate-header`,
-`generate-golden`, `spike-run`, `run`, `sim`, `vhdl-sort`, `check-memory-map`, `freq-sweep`).
+`generate-golden`, `spike-run`, `run`, `sim`, `vhdl-sort`, `check-memory-map`, `check-paths`, `freq-sweep`).
 
 ```bash
 # vhdl-sort não precisa de --config; é só análise do conteúdo dos arquivos,
