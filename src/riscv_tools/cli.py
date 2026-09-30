@@ -3,7 +3,7 @@
 
 Every subcommand takes --config, pointing at the CONSUMING project's
 own config.yaml (memory map, Quartus project paths, toolchain, etc.)
-— except `vhdl-sort`, which is pure file-content analysis and needs no
+— except `vhdl-sort` and `check-memory-map`, which read only files and need no
 project config at all.
 """
 
@@ -20,6 +20,7 @@ from riscv_tools import (
     certify,
     golden_generator,
     mailbox,
+    memory_map,
     orchestrator,
     quartus_program,
     ram_dump,
@@ -1207,6 +1208,36 @@ def cmd_vhdl_sort(args: argparse.Namespace) -> None:
     print(" ".join(str(f) for f in ordered))
 
 
+def cmd_check_memory_map(args: argparse.Namespace) -> None:
+    """Implement `riscv-tools check-memory-map`.
+
+    Checks every copy of a platform's memory map against the platform's YAML
+    (see memory_map.check_memory_map). Doesn't touch args.config: the
+    platform file lists the copies to read.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed CLI arguments — uses args.platform and args.root.
+
+    Returns
+    -------
+    None
+        Prints the result; exits the process with status 1 on any disagreement.
+    """
+    root = _root(args)
+    platform = Path(args.platform)
+    if not platform.is_absolute():
+        platform = root / platform
+    count, problems = memory_map.check_memory_map(platform, root)
+    if problems:
+        for problem in problems:
+            print(f"MISMATCH {problem}", file=sys.stderr)
+        print(f"{len(problems)} disagreement(s)", file=sys.stderr)
+        sys.exit(1)
+    print(f"memory map OK: {count} checks against {platform.name}")
+
+
 def cmd_freq_sweep(args: argparse.Namespace) -> None:
     """Implement `riscv-tools freq-sweep`.
 
@@ -1309,7 +1340,7 @@ def main() -> None:  # noqa: PLR0915
         "--config",
         default=None,
         help="Path to the consuming project's config.yaml "
-        "(required for every subcommand except vhdl-sort)",
+        "(required for every subcommand except vhdl-sort and check-memory-map)",
     )
     parser.add_argument(
         "--root", default=None, help="Consuming project's root dir (default: cwd)"
@@ -1485,6 +1516,18 @@ def main() -> None:  # noqa: PLR0915
     p.set_defaults(func=cmd_vhdl_sort)
 
     p = sub.add_parser(
+        "check-memory-map",
+        help="Check every hand-written copy of the memory map against the "
+        "platform YAML",
+    )
+    p.add_argument(
+        "--platform",
+        required=True,
+        help="Platform YAML (relative to --root): the map and the checks",
+    )
+    p.set_defaults(func=cmd_check_memory_map)
+
+    p = sub.add_parser(
         "freq-sweep",
         help="Sweep/binary-search clock frequency to find Fmax "
         "(edits the PLL + full recompile+reprogram per candidate)",
@@ -1515,7 +1558,7 @@ def main() -> None:  # noqa: PLR0915
     p.set_defaults(func=cmd_freq_sweep)
 
     args = parser.parse_args()
-    if args.command != "vhdl-sort" and args.config is None:
+    if args.command not in {"vhdl-sort", "check-memory-map"} and args.config is None:
         parser.error("--config is required for this subcommand")
     args.func(args)
 
