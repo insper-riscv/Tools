@@ -1,5 +1,10 @@
+import argparse
 from pathlib import Path
+from typing import Any
 
+import pytest
+
+from riscv_tools import cli
 from riscv_tools.freq_sweep import get_pll_freq, set_pll_freq
 
 THREE_PHASE_PLL = """\
@@ -127,3 +132,44 @@ def test_set_then_get_pll_freq_round_trips(tmp_path: Path) -> None:
     )
 
     assert get_pll_freq(pll_file, "output_clock_frequency{idx}", "MHz") == 33.5
+
+
+def test_cmd_freq_sweep_resolves_pll_file_against_the_project_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: dict[str, Any] = {}
+
+    def fake_linear(cfg: dict[str, Any], *_: Any) -> list[dict[str, Any]]:
+        seen["pll_file"] = cfg["freq_sweep"]["pll_file"]
+        return [{"freq_mhz": 10.0, "status": "pass"}]
+
+    cfg = {
+        "quartus": {"project_dir": "q"},
+        "paths": {"build_dir": "build"},
+        "freq_sweep": {"pll_file": "../src/pll.v"},
+    }
+
+    def fake_load_config(_path: str) -> dict[str, Any]:
+        return cfg
+
+    def fake_link(_cfg: dict[str, Any]) -> None:
+        return None
+
+    monkeypatch.setattr(cli, "load_config", fake_load_config)
+    monkeypatch.setattr(cli, "_link", fake_link)
+    monkeypatch.setattr(cli.orchestrator, "run_freq_sweep_linear", fake_linear)
+
+    args = argparse.Namespace(
+        config="unused",
+        root=str(tmp_path),
+        mif="a.mif",
+        golden="g.json",
+        binary=False,
+        start=1.0,
+        stop=2.0,
+        step=1.0,
+        out=None,
+    )
+    cli.cmd_freq_sweep(args)
+
+    assert seen["pll_file"] == str(tmp_path / "../src/pll.v")
