@@ -36,6 +36,7 @@ Qualquer chave omitida volta ao padrão embutido mostrado.
 | `objcopy` | `riscv32-unknown-elf-objcopy` | `compiler`, `boot_rom`, `certify`, `golden_generator` |
 | `nm` | `riscv32-unknown-elf-nm` | `golden_generator` (`generate-golden`) |
 | `libc` | `none` | `compiler`: a biblioteca C com que os testes linkam. `none` passa `-nostdlib`, então o projeto fornece o que precisar (como `malloc`) por `paths.syscalls`. `picolibc` passa `--specs=picolibc.specs` (e `-Wl,--no-gc-sections`, veja [compiler.md](modules/compiler.md#biblioteca-c)) para um GCC configurado com picolibc, como o que o `GCC_SETUP.md` do Infra compila |
+| `specs` | não definida | `compiler`: caminho (relativo à raiz do projeto) de um arquivo de especificação do GCC que descreve a sua plataforma. Ele inclui o `picolibc.specs` e acrescenta o mapa de memória (`--defsym=__flash=...`, `__ram=...`) e o `crt0` a usar, então os testes linkam com o `crt0` e o `picolibc.ld` da própria toolchain e não precisam de `crt0.S` nem de linker script seu. Os testes são então compilados como programas hospedados (o `main` pode retornar), e `libc` é ignorada. Veja [compiler.md](modules/compiler.md#arquivo-de-especificação-da-plataforma) |
 
 ### `isa:`
 
@@ -45,13 +46,16 @@ Qualquer chave omitida volta ao padrão embutido mostrado.
 | `canonical_order` | `MAFDQLCBJTPVNH` | `compiler`, `c_to_asm`: a ordem das letras em que as extensões de `RV32_EXT` de um teste são ordenadas (veja [creating-a-c-test.md](creating-a-c-test.md#comentários-de-cabeçalho)) |
 | `default_ext` | `""` | **não é lida por nenhum caminho de código atualmente**: declarada aqui só para documentação; um teste sem o cabeçalho `RV32_EXT` sempre resolve para a `base` pura, independentemente do valor definido aqui |
 
-### `paths:` (todas **obrigatórias**, sem padrão genérico; caminhos dentro do SEU repositório)
+### `paths:` (sem padrão genérico; caminhos dentro do SEU repositório)
+
+Todas são **obrigatórias**, exceto `crt0`, `linker_script` e `sources`.
 
 | Chave | Significado |
 |---|---|
 | `include_dir` | Passado como `-I` ao gcc: onde fica o seu `rv32_test.h` |
-| `crt0` | Caminho do `crt0.S` do seu projeto, compilado e linkado em todo teste |
-| `linker_script` | Caminho do linker script do seu projeto |
+| `crt0` | Caminho do `crt0.S` do seu projeto, compilado e linkado em todo teste. Deixe sem definir com `toolchain.specs`, que seleciona o `crt0` da toolchain |
+| `linker_script` | Caminho do linker script do seu projeto. Deixe sem definir com `toolchain.specs`: o driver do GCC então acrescenta o `picolibc.ld` da toolchain |
+| `sources` | Lista de arquivos-fonte (relativos à raiz do projeto) compilados em todo teste: as partes do runtime que são da plataforma, como o `_exit` em que o `crt0` da toolchain termina. Vazia por padrão |
 | `build_dir` | Onde os artefatos compilados (`.elf`/`.bin`/`.mif`/`.hex`/`manifest.json`) são escritos |
 | `c_dir` | Diretório com uma pasta `<name>/src.c` por teste em C (veja [creating-a-c-test.md](creating-a-c-test.md)) |
 | `asm_dir` | Diretório com uma pasta `<name>/src.S` por teste em assembly (veja [creating-an-asm-test.md](creating-an-asm-test.md)) |
@@ -92,6 +96,8 @@ Não há divisão `tests_real_dir`/`tests_sim_dir`/`golden_dir`: todo teste em `
 | `spike_bin` | `spike` | `golden_generator`: nome/caminho do binário `spike`. Ele precisa manter o módulo de debug longe do endereço 0 (veja [generating-a-golden.md](generating-a-golden.md#requisitos)) |
 | `timeout_s` | `60` | `golden_generator`: segundos de espera até um teste escrever `tohost`, antes de a geração falhar |
 | `tohost_symbol` | `tohost` | `golden_generator`: o símbolo HTIF que o Spike observa até uma escrita diferente de zero. Convenção padrão; raramente precisa ser alterado |
+| `sources` | `[]` | `golden_generator`, `spike_run`: arquivos-fonte (relativos à raiz do projeto) linkados no ELF que o Spike executa e não na imagem do próprio teste. Para uma imagem que termina em código que, no hardware, fica em outro lugar (uma rotina da boot ROM num endereço fixo): um substituto dela, mais os símbolos `tohost` e `fromhost` de que o Spike precisa. Vazia, o Spike executa a imagem do próprio teste |
+| `gcc_flags` | `[]` | `golden_generator`, `spike_run`: argumentos extras do gcc para esse ELF, por exemplo um `-D` que faz o arquivo de especificação omitir o endereço fixo do hardware |
 
 ### `sim:` (exige o extra `sim`, `uv sync --extra sim`)
 

@@ -47,6 +47,26 @@ def libc_flags(toolchain_cfg: dict[str, Any]) -> list[str]:
     return list(_LIBC_FLAGS[libc])
 
 
+def _linker_script_flags(linker: Path | None) -> list[str]:
+    """Return the gcc flags that select a project's own linker script.
+
+    Parameters
+    ----------
+    linker : Path or None
+        The project's linker script, or None to leave it to the toolchain.
+
+    Returns
+    -------
+    list of str
+        `-T <script>` plus `-L` for its directory (ld's own `INCLUDE`
+        only searches the process cwd plus -L dirs, NOT the including
+        script's own directory), or an empty list.
+    """
+    if linker is None:
+        return []
+    return [f"-Wl,-L,{linker.parent}", "-T", str(linker)]
+
+
 # Each arg below is an independent gcc input, not bundleable without a
 # config object this module doesn't otherwise need.
 def compile_test(  # noqa: PLR0913, PLR0917
@@ -57,19 +77,27 @@ def compile_test(  # noqa: PLR0913, PLR0917
     name: str,
     build_dir: Path,
     include_dir: Path,
-    crt0: Path,
-    linker: Path,
+    crt0: Path | None,
+    linker: Path | None,
     extra_sources: list[Path] | None = None,
+    link_flags: list[str] | None = None,
 ) -> tuple[Path, str, str, float]:
-    """Compile one bare-metal test source (.c or .S) against crt0/linker.
+    """Compile one bare-metal test source (.c or .S) into a flat binary.
 
-    Produces a flat binary.
+    The runtime comes from one of two places. With `toolchain.specs`, the
+    test is a hosted program linked by `--specs=<file>` against the
+    toolchain's own crt0 and linker script, which the specs file
+    selects and gives the memory map to, so crt0 and linker are None.
+    Without it, the project's own crt0 and linker script are linked in, as
+    before.
 
     Parameters
     ----------
     toolchain_cfg : dict of {str: Any}
         The project's `toolchain:` config section — needs `gcc` and
-        `objcopy` (binary names or full paths).
+        `objcopy` (binary names or full paths); `specs`, when set, must
+        be a path that resolves from the current directory (the CLI makes
+        it absolute).
     isa_cfg : dict of {str: Any}
         The project's `isa:` config section, passed through to
         headers.parse_header.
@@ -87,11 +115,14 @@ def compile_test(  # noqa: PLR0913, PLR0917
         Directory to write the .elf/.bin into (created if missing).
     include_dir : Path
         Passed as `-I` — where `rv32_test.h` lives.
-    crt0 : Path
+    crt0 : Path or None
         Path to the project's crt0.S, compiled and linked in alongside
-        c_file.
-    linker : Path
-        Path to the project's linker script, passed as `-T`.
+        c_file (which also turns the toolchain's startup files off).
+        None to use the toolchain's crt0.
+    linker : Path or None
+        Path to the project's linker script, passed as `-T`. None to
+        use the toolchain's (picolibc.ld, which the GCC driver adds when
+        it sees no `-T`).
     extra_sources : list of Path, optional
         Additional source files to compile in alongside crt0/c_file,
         before c_file on the command line (e.g. a fixed shared
@@ -100,6 +131,10 @@ def compile_test(  # noqa: PLR0913, PLR0917
         ELF an offline reference model can run from cold; a project's
         normal, separately-linked BOOT_ROM never needs this). Empty
         by default — most callers don't need it.
+    link_flags : list of str, optional
+        Extra gcc arguments placed before the sources (for that combined
+        ELF: where the boot ROM's sections go, the entry symbol). Empty
+        by default.
 
     Returns
     -------
@@ -117,25 +152,40 @@ def compile_test(  # noqa: PLR0913, PLR0917
     elf = build_dir / f"{name}.elf"
     bin_ = build_dir / f"{name}.bin"
 
+    # A C memory test is checked through its `results` array, which it may
+    # only declare (a test that just checks .bss is zeroed never reads it).
+    # The toolchain's linker script collects unreferenced sections
+    # (--gc-sections), so the symbol is named as needed to keep it.
+    keep_results = (
+        ["-Wl,--undefined=results"]
+        if kind == "memory" and c_file.suffix == ".c"
+        else []
+    )
+
+    specs = toolchain_cfg.get("specs")
+    # A specs file describes a hosted platform: main() returns to the
+    # crt0, which calls exit(), so the compiler must not be told the
+    # program is freestanding (that also drops main's implicit return 0).
+    runtime_flags = (
+        [f"--specs={specs}"]
+        if specs
+        else ["-ffreestanding", *libc_flags(toolchain_cfg)]
+    )
+
     subprocess.run(
         [
             str(toolchain_cfg["gcc"]),
             f"-march={march}",
             "-mabi=ilp32",
             "-Os",
-            "-ffreestanding",
-            *libc_flags(toolchain_cfg),
-            "-nostartfiles",
+            *runtime_flags,
+            # Own startup file: the toolchain's are turned off.
+            *(["-nostartfiles"] if crt0 is not None else []),
             f"-I{include_dir}",
-            # -L so linker.ld's own `INCLUDE boot_rom_symbols.ld`
-            # (rv32_wait_restart's fixed address, see boot_rom.S)
-            # resolves regardless of this process' own cwd — ld's
-            # INCLUDE only searches the process cwd plus -L dirs, NOT
-            # the including script's own directory.
-            f"-Wl,-L,{linker.parent}",
-            "-T",
-            str(linker),
-            str(crt0),
+            *_linker_script_flags(linker),
+            *keep_results,
+            *(link_flags or []),
+            *([str(crt0)] if crt0 is not None else []),
             *[str(p) for p in (extra_sources or [])],
             str(c_file),
             "-o",

@@ -99,10 +99,57 @@ def _spike_mem_regions(cfg: dict[str, Any]) -> list[tuple[int, int]]:
     ]
 
 
-def _syscalls_sources(cfg: dict[str, Any], root: Path) -> list[Path]:
-    """Resolve paths.syscalls (self-contained shims, e.g. malloc), if configured.
+def _toolchain_cfg(cfg: dict[str, Any], root: Path) -> dict[str, Any]:
+    """Return the `toolchain:` section with `specs` resolved against the project root.
 
-    compile_test still passes -nostdlib — a downloaded toolchain's own
+    Parameters
+    ----------
+    cfg : dict of {str: Any}
+        The merged project config.
+    root : Path
+        The consuming project's root directory.
+
+    Returns
+    -------
+    dict of {str: Any}
+        A copy of `cfg["toolchain"]` whose `specs` (when set) is an
+        absolute path, so gcc finds it from any working directory.
+    """
+    toolchain = dict(cfg["toolchain"])
+    if toolchain.get("specs"):
+        toolchain["specs"] = str((root / toolchain["specs"]).resolve())
+    return toolchain
+
+
+def _optional_path(cfg: dict[str, Any], root: Path, key: str) -> Path | None:
+    """Resolve an optional `paths.<key>` against the project root.
+
+    Parameters
+    ----------
+    cfg : dict of {str: Any}
+        The merged project config.
+    root : Path
+        The consuming project's root directory.
+    key : str
+        The key under `paths:` (e.g. "crt0", "linker_script").
+
+    Returns
+    -------
+    Path or None
+        `root / paths.<key>`, or None when the key is not set.
+    """
+    value = cfg.get("paths", {}).get(key)
+    return root / value if value else None
+
+
+def _syscalls_sources(cfg: dict[str, Any], root: Path) -> list[Path]:
+    """Resolve the platform sources every test is compiled with.
+
+    That is `paths.sources` (the platform's own parts of the runtime, for
+    instance `_exit`) and the legacy `paths.syscalls`, described below.
+
+    `paths.syscalls`, for the legacy libc "none": compile_test then passes
+    -nostdlib — a downloaded toolchain's own
     bundled libc.a isn't guaranteed to match this project's -march/
     -mabi at all (confirmed the hard way: a real CI failure where the
     riscv-collab prebuilt release's libc.a turned out built for
@@ -126,11 +173,16 @@ def _syscalls_sources(cfg: dict[str, Any], root: Path) -> list[Path]:
     Returns
     -------
     list of Path
-        [] if paths.syscalls isn't set, else [root / paths.syscalls]
-        — meant to be spliced into a compile_test call's extra_sources.
+        The `paths.sources` entries, then `paths.syscalls` if set, each
+        under the project root — meant to be spliced into a compile_test
+        call's extra_sources.
     """
-    syscalls = cfg.get("paths", {}).get("syscalls")
-    return [root / syscalls] if syscalls else []
+    paths = cfg.get("paths", {})
+    syscalls = paths.get("syscalls")
+    return [
+        *[root / source for source in paths.get("sources", [])],
+        *([root / syscalls] if syscalls else []),
+    ]
 
 
 def _spike_elf(
@@ -161,32 +213,42 @@ def _spike_elf(
     Path
         The ELF to hand to Spike.
     """
-    # A project with a 3-memory BOOT_ROM/FLASH/RAM split (see
-    # riscv_tools.boot_rom) can't hand Spike its normal, FLASH-only
-    # elf_path: that image has no entry point Spike can run from cold
-    # (BOOT_ROM's own gp/sp/.data-copy setup lives in a SEPARATE,
-    # unlinked file on real hardware). paths.golden_linker_script
-    # (golden.ld in this project) links boot_rom.S + crt0.S + this
-    # test's own source together into one self-contained ELF instead,
-    # so Spike can start at BOOT_ROM's real entry point
-    # (emulator.entry_symbol, e.g. "_reset") the same way real
-    # hardware actually boots. A project without that split just
-    # keeps reusing build_dir/{name}.elf as before.
-    golden_linker = cfg.get("paths", {}).get("golden_linker_script")
-    boot_rom_src = cfg.get("paths", {}).get("boot_rom")
-    if golden_linker and boot_rom_src:
+    # A project with a BOOT_ROM/FLASH/RAM split (see riscv_tools.boot_rom)
+    # can't always hand Spike its normal, FLASH-only elf_path: on real
+    # hardware the boot ROM is a SEPARATE image, so that ELF has nothing
+    # at the address the program jumps to when it finishes
+    # (rv32_wait_restart, the code that signals HTIF).
+    #
+    # - emulator.sources: a stand-in for that code (and the tohost/
+    #   fromhost symbols), linked into an ELF built just for Spike, with
+    #   emulator.gcc_flags. No linker script of the project's: the
+    #   toolchain's does the linking (see toolchain.specs).
+    # - paths.golden_linker_script (legacy): the test linked together with
+    #   the boot ROM source (paths.boot_rom) by the project's own script,
+    #   and Spike starts at the boot ROM's entry (emulator.entry_symbol).
+    # - Neither: reuse build_dir/{name}.elf.
+    golden_linker = _optional_path(cfg, root, "golden_linker_script")
+    boot_rom_src = _optional_path(cfg, root, "boot_rom")
+    spike_sources = [root / s for s in cfg["emulator"].get("sources", [])]
+    legacy_combined = golden_linker is not None and boot_rom_src is not None
+    if spike_sources or legacy_combined:
         elf_path = build_dir / f"{name}.golden.elf"
         compiler_mod.compile_test(
-            cfg["toolchain"],
+            _toolchain_cfg(cfg, root),
             cfg["isa"],
             0.0,
             src,
             f"{name}.golden",
             build_dir,
             root / cfg["paths"]["include_dir"],
-            root / cfg["paths"]["crt0"],
-            root / golden_linker,
-            extra_sources=[root / boot_rom_src, *_syscalls_sources(cfg, root)],
+            _optional_path(cfg, root, "crt0"),
+            golden_linker,
+            extra_sources=[
+                *([boot_rom_src] if legacy_combined and boot_rom_src else []),
+                *spike_sources,
+                *_syscalls_sources(cfg, root),
+            ],
+            link_flags=list(cfg["emulator"].get("gcc_flags", [])),
         )
     else:
         elf_path = build_dir / f"{name}.elf"
@@ -417,15 +479,15 @@ def cmd_compile(args: argparse.Namespace) -> None:
         print(f"Building {src.relative_to(root)} ...")
 
         bin_, march, kind, timeout_s = compiler_mod.compile_test(
-            cfg["toolchain"],
+            _toolchain_cfg(cfg, root),
             cfg["isa"],
             cfg["quartus"]["default_timeout_s"],
             src,
             name,
             build_dir,
             root / cfg["paths"]["include_dir"],
-            root / cfg["paths"]["crt0"],
-            root / cfg["paths"]["linker_script"],
+            _optional_path(cfg, root, "crt0"),
+            _optional_path(cfg, root, "linker_script"),
             extra_sources=_syscalls_sources(cfg, root),
         )
 
