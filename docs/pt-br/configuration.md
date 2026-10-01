@@ -114,6 +114,7 @@ Não há divisão `tests_real_dir`/`tests_sim_dir`/`golden_dir`: todo teste em `
 | `libraries` | `{}` | `sim_runner`: bibliotecas VHDL analisadas uma vez por execução do `sim`, antes de `vhdl_sources`, como `{biblioteca: [arquivos]}`, por exemplo a `altera_mf` do Quartus para um toplevel que instancia a IP de memória dele. Os caminhos são relativos à raiz do projeto, e `$VAR` ou `${VAR}` é substituído a partir do ambiente (variável não definida é um erro) |
 | `run_files` | `{}` | `sim_runner`: arquivos copiados para o diretório de execução de cada teste antes de ele rodar, como `{nome do arquivo: origem}`, para um projeto que abre um arquivo por um nome fixo, por exemplo o `init_file` de um `altsyncram`. A origem aceita os mesmos modelos que `parameters` |
 | `env` | `{}` | `sim_runner`: variáveis de ambiente extras para o módulo de teste cocotb, como `{nome: modelo}`, com os mesmos modelos que `parameters` |
+| `python_path` | `[]` | `sim_runner`: diretórios (relativos à raiz do seu projeto) colocados no caminho de módulos da simulação, para que o `test_module` possa ficar fora do seu projeto, por exemplo no repositório da plataforma que um `extends:` da configuração usa |
 
 Os modelos de `parameters`, `run_files` e `env` são `{hex_path}` e `{mif_path}` (a imagem do teste, a que o `image` seleciona; a outra fica vazia), e `{boot_rom_hex_path}` e `{boot_rom_mif_path}` (as da boot ROM, iguais para todos os testes).
 

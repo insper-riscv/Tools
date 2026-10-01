@@ -271,6 +271,32 @@ def run_test(  # noqa: PLR0913, PLR0917
 
 # The two boot ROM images are the same kind of independent input as the
 # rest; bundling them would add a type for one caller.
+def extend_python_path(root: Path, entries: list[str]) -> None:
+    """Put directories on the module search path, ahead of what is there.
+
+    The simulation's test module is imported by a cocotb subprocess that
+    inherits `sys.path` from this process, so a module is found only if its
+    directory is on it.
+
+    Parameters
+    ----------
+    root : Path
+        The project root that relative entries are resolved against.
+    entries : list of str
+        Directories, relative to `root` (or absolute). Ones already on the
+        path are left where they are.
+
+    Returns
+    -------
+    None
+        Inserts into `sys.path`.
+    """
+    for entry in entries:
+        path = str((root / entry).resolve())
+        if path not in sys.path:
+            sys.path.insert(0, path)
+
+
 def run_suite(  # noqa: PLR0913, PLR0917
     cfg: dict[str, Any],
     manifest: list[dict[str, Any]],
@@ -318,19 +344,12 @@ def run_suite(  # noqa: PLR0913, PLR0917
         A {test_name: passed} dict, one entry per manifest test, in
         manifest order.
     """
-    # cocotb_tools.runner's cocotb subprocess inherits PYTHONPATH from
-    # *this* process' sys.path (see Simulator._set_env) — needed for
-    # sim.test_module (a project-root-relative dotted path, e.g.
-    # "tools.riscv_build.sim.test_c_program") to import at all when
-    # riscv-tools itself runs as an installed console script rather
-    # than via `python -m` from the project root (confirmed
-    # empirically: without this, cocotb's subprocess raised
-    # "ModuleNotFoundError: No module named 'tools'").
-    root_str = str(root)
-    if root_str not in sys.path:
-        sys.path.insert(0, root_str)
-
+    # sim.test_module is a root-relative dotted path (e.g.
+    # "tools.riscv_build.sim.test_c_program"): the cocotb subprocess finds it
+    # only through the sys.path of this process, also when riscv-tools runs as an
+    # installed console script (without it: "No module named 'tools'").
     sim_cfg = cfg["sim"]
+    extend_python_path(root, [".", *sim_cfg["python_path"]])
     image_key = "mif" if sim_cfg["image"] == "mif" else "hex"
     ghdl_flags: list[str] = list(sim_cfg["ghdl_flags"])
     # `root / <absolute path>` is that absolute path, so a variable that

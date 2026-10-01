@@ -69,5 +69,10 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         # Extra environment variables for the project's test module, as
         # {name: template}; same templates as `parameters`.
         "env": {},
+        # Directories (relative to the project root) put on the module
+        # search path of the simulation's test module, so `test_module`
+        # can live outside the project, e.g. in the platform repository
+        # a config `extends:`.
+        "python_path": [],
     },
 }
