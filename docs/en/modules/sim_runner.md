@@ -51,6 +51,7 @@ The tests skip when GHDL or cocotb is missing.
 | `tests/test_sim_runner.py::test_sim_runner_parameters_reach_ghdl` | `sim.parameters` become VHDL generics at the GHDL run step. |
 | `tests/test_sim_runner.py::test_sim_runner_libraries_flags_run_files_and_env` | A separately analyzed library is found, `sim.ghdl_flags` reach it, `sim.run_files` land in the run directory and `sim.env` reaches the cocotb module. |
 | `tests/test_sim_runner.py::test_sim_runner_env_reaches_the_test_module` | A wrong expected value in `sim.env` fails the test, so the previous one proves the value arrives. |
+| `tests/test_sim_runner_python_path.py::test_extend_python_path_adds_the_root_relative_entries_once` | `sim.python_path` entries (and the project root) are added to `sys.path` once, ahead of what is there. |
 | `tests/test_sim_runner.py::test_build_libraries_needs_the_flags_the_library_needs` | A library that needs `-fsynopsys` fails to analyze without it. |
 | `tests/test_sim_runner.py::test_expand_env_replaces_variables` | `$VAR` and `${VAR}` in a path are replaced from the environment. |
 | `tests/test_sim_runner.py::test_expand_env_rejects_an_unset_variable` | An unset variable is an error that names it. |
