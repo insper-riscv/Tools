@@ -25,6 +25,7 @@ próprio `__config__.py` de padrões; o projeto consumidor fornece o seu
 | `ram_zero`           | Zera a RAM inteira via JTAG sem reprogramar                 | [docs/modules/ram_zero.md](docs/pt-br/modules/ram_zero.md) |
 | `ram_target`         | Onde fica a RAM (instância da FPGA ou porta de debug da SDRAM) | [docs/modules/ram_target.md](docs/pt-br/modules/ram_target.md) |
 | `sdram_debug`        | Lê, escreve e preenche a SDRAM pela porta de debug JTAG      | [docs/modules/sdram_debug.md](docs/pt-br/modules/sdram_debug.md) |
+| `uart_console`       | Mostra a saída do programa pela UART JTAG enquanto ele roda  | [docs/modules/uart_console.md](docs/pt-br/modules/uart_console.md) |
 | `ram_dump`           | Faz o dump da RAM inteira via JTAG para um `.mif`           | [docs/modules/ram_dump.md](docs/pt-br/modules/ram_dump.md) |
 | `mailbox`            | Leitura do mailbox PASS/FAIL e pulso da "go flag" de reinício | [docs/modules/mailbox.md](docs/pt-br/modules/mailbox.md) |
 | `quartus_program`    | Recompilação completa + `quartus_pgm` (o caminho lento, "base") | [docs/modules/quartus_program.md](docs/pt-br/modules/quartus_program.md) |
