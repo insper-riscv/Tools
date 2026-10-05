@@ -3,7 +3,7 @@
 import tempfile
 from pathlib import Path
 
-from riscv_tools import mem_edit
+from riscv_tools import mem_edit, ram_target, sdram_debug
 from riscv_tools.jtag import JtagLink
 
 
@@ -42,7 +42,9 @@ def _blank_mif(depth: int) -> Path:
     return Path(f.name)
 
 
-def zero_ram(link: JtagLink, ram_mem_instance: int, ram_words: int) -> None:
+def zero_ram(
+    link: JtagLink, ram_mem_instance: ram_target.RamTarget, ram_words: int
+) -> None:
     """Clear every word of RAM over JTAG, without reprogramming the FPGA.
 
     Useful between test runs when a program's own crt0 restart path
@@ -54,9 +56,11 @@ def zero_ram(link: JtagLink, ram_mem_instance: int, ram_words: int) -> None:
     ----------
     link : JtagLink
         Which JTAG cable/chip to write to.
-    ram_mem_instance : int
-        In-System Memory Content Editor instance index of the RAM
-        (quartus.ram_mem_instance in the project's config.yaml).
+    ram_mem_instance : int or SdramDebugRam
+        How the RAM is reached: the In-System Memory Content Editor instance
+        index of the RAM (quartus.ram_mem_instance in the project's
+        config.yaml), or SdramDebugRam for a RAM in the SDRAM, which is filled
+        by the board itself (no shift per word).
     ram_words : int
         Word depth of the RAM instance — every word in [0, ram_words)
         is cleared.
@@ -65,6 +69,9 @@ def zero_ram(link: JtagLink, ram_mem_instance: int, ram_words: int) -> None:
     -------
     None
     """
+    if isinstance(ram_mem_instance, ram_target.SdramDebugRam):
+        sdram_debug.fill(link, 0, ram_words, 0)
+        return
     blank = _blank_mif(ram_words)
     try:
         mem_edit.write_full(link, ram_mem_instance, blank)

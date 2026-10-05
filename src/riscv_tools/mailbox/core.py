@@ -1,6 +1,6 @@
 """Read the PASS/FAIL mailbox and pulse the restart "go flag" over JTAG."""
 
-from riscv_tools import mem_edit
+from riscv_tools import ram_target
 from riscv_tools.jtag import JtagLink
 
 PASS = 1
@@ -54,7 +54,10 @@ def word_offset(ram_base: int, addr: int, *, relative: bool = True) -> int:
 
 
 def read_mailbox(
-    link: JtagLink, ram_mem_instance: int, ram_base: int, mailbox_addr: int
+    link: JtagLink,
+    ram_mem_instance: ram_target.RamTarget,
+    ram_base: int,
+    mailbox_addr: int,
 ) -> int:
     """Read the PASS(1)/FAIL(2)/still-running(0) mailbox word.
 
@@ -65,8 +68,10 @@ def read_mailbox(
     ----------
     link : JtagLink
         Which JTAG cable/chip to read from.
-    ram_mem_instance : int
-        In-System Memory Content Editor instance index of the RAM.
+    ram_mem_instance : int or SdramDebugRam
+        How the RAM is reached: the In-System Memory Content Editor instance
+        index of the RAM, or SdramDebugRam for a RAM in the SDRAM (see
+        ram_target).
     ram_base : int
         RAM's base byte address (memory.ram_base).
     mailbox_addr : int
@@ -79,14 +84,17 @@ def read_mailbox(
         The current mailbox value: PASS (1), FAIL (2), or 0 if the
         test hasn't finished yet.
     """
-    words = mem_edit.read_words(
+    words = ram_target.read_words(
         link, ram_mem_instance, word_offset(ram_base, mailbox_addr), 1
     )
     return words[0]
 
 
 def pulse_go_flag(
-    link: JtagLink, ram_mem_instance: int, ram_base: int, go_flag_addr: int
+    link: JtagLink,
+    ram_mem_instance: ram_target.RamTarget,
+    ram_base: int,
+    go_flag_addr: int,
 ) -> None:
     """Set the restart "go" flag.
 
@@ -98,8 +106,10 @@ def pulse_go_flag(
     ----------
     link : JtagLink
         Which JTAG cable/chip to write to.
-    ram_mem_instance : int
-        In-System Memory Content Editor instance index of the RAM.
+    ram_mem_instance : int or SdramDebugRam
+        How the RAM is reached: the In-System Memory Content Editor instance
+        index of the RAM, or SdramDebugRam for a RAM in the SDRAM (see
+        ram_target).
     ram_base : int
         RAM's base byte address (memory.ram_base).
     go_flag_addr : int
@@ -110,4 +120,6 @@ def pulse_go_flag(
     -------
     None
     """
-    mem_edit.write_word(link, ram_mem_instance, word_offset(ram_base, go_flag_addr), 1)
+    ram_target.write_word(
+        link, ram_mem_instance, word_offset(ram_base, go_flag_addr), 1
+    )
