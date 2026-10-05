@@ -27,7 +27,10 @@ set OP_READ_NEXT 5
 set BUSY 1
 set ERROR 2
 set INITIALIZED 4
-set MAX_POLLS 400
+# how long a command may take before it is declared lost: a read or a write is quick; a fill of the whole
+# SDRAM runs for about two seconds on the board
+set DEADLINE_MS 3000
+set FILL_DEADLINE_MS 60000
 
 proc fail {code message} {
     puts stderr $message
@@ -45,10 +48,11 @@ proc shift {op word data be} {
     return [list [expr {($x >> 56) & 0xFF}] [expr {($x >> 32) & 0xFFFFFF}] [expr {$x & 0xFFFFFFFF}]]
 }
 
-# shifts until the previous command has finished: returns its {status word data}
-proc settle {} {
-    global OP_STATUS BUSY ERROR MAX_POLLS
-    for {set i 0} {$i < $MAX_POLLS} {incr i} {
+# shifts until the previous command has finished (or deadline_ms passes): returns its {status word data}
+proc settle {{deadline_ms 3000}} {
+    global OP_STATUS BUSY ERROR
+    set end [expr {[clock milliseconds] + $deadline_ms}]
+    while {[clock milliseconds] < $end} {
         lassign [shift $OP_STATUS 0 0 0xF] status word data
         if {!($status & $BUSY)} {
             if {$status & $ERROR} { fail 4 "the SDRAM controller did not answer" }
@@ -67,7 +71,7 @@ if {[catch {
     fail 2 "cannot open the debug port: $err"
 }
 
-lassign [settle] status word data
+lassign [settle $DEADLINE_MS] status word data
 if {!($status & $INITIALIZED)} { fail 6 "the SDRAM is not initialized" }
 
 switch $CMD {
@@ -93,7 +97,7 @@ switch $CMD {
         shift $OP_COUNT 0 $count 0xF
         settle
         shift $OP_FILL $first $value 0xF
-        settle
+        settle $FILL_DEADLINE_MS
         puts "OK"
     }
     default { fail 1 "unknown command $CMD" }
