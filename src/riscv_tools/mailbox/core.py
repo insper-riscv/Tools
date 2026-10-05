@@ -123,3 +123,40 @@ def pulse_go_flag(
     ram_target.write_word(
         link, ram_mem_instance, word_offset(ram_base, go_flag_addr), 1
     )
+
+
+def clear_mailbox(
+    link: JtagLink,
+    ram_mem_instance: ram_target.RamTarget,
+    ram_base: int,
+    mailbox_addr: int,
+) -> None:
+    """Set the mailbox back to 0 (still running) before a test is started.
+
+    Without this, a test is judged by whatever the previous test left in the
+    mailbox until the new one writes its own: if the boot code does not clear
+    it (for instance because the board holds the boot ROM of another
+    platform), the host reads the old PASS at once and reports a test that
+    never ran as passed.
+
+    Parameters
+    ----------
+    link : JtagLink
+        Which JTAG cable/chip to write to.
+    ram_mem_instance : int or SdramDebugRam
+        How the RAM is reached: the In-System Memory Content Editor instance
+        index of the RAM, or SdramDebugRam for a RAM in the SDRAM (see
+        ram_target).
+    ram_base : int
+        RAM's base byte address (memory.ram_base).
+    mailbox_addr : int
+        Byte address of the mailbox word (memory.mailbox_addr in the
+        project's config.yaml).
+
+    Returns
+    -------
+    None
+    """
+    ram_target.write_word(
+        link, ram_mem_instance, word_offset(ram_base, mailbox_addr), 0
+    )

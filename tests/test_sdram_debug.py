@@ -85,6 +85,11 @@ def test_the_mailbox_and_the_go_flag_use_the_target(fake: FakeTcl) -> None:
     ]
 
 
+def test_the_mailbox_is_cleared_before_a_test(fake: FakeTcl) -> None:
+    mailbox.clear_mailbox(LINK, SdramDebugRam(), 0x40000000, 0x40000040)
+    assert fake.calls == [("sdram_dbg.tcl", "write", 0x10, 0, 0xF)]
+
+
 def test_zero_ram_fills_the_sdram(fake: FakeTcl) -> None:
     ram_zero.zero_ram(LINK, SdramDebugRam(), 1 << 24)
     assert fake.calls == [("sdram_dbg.tcl", "fill", 0, 1 << 24, 0)]

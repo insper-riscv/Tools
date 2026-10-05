@@ -148,6 +148,14 @@ def run_test_via_jtag(
         signals completion, or None if entry["timeout_s"] elapses
         first.
     """
+    # The core is parked after the previous test: clear its mailbox first, so the
+    # host never mistakes that test's result for this one's.
+    mailbox.clear_mailbox(
+        link,
+        ram_target.target_from_config(cfg),
+        cfg["memory"]["ram_base"],
+        cfg["memory"]["mailbox_addr"],
+    )
     rom_writer.write_rom(link, cfg["quartus"]["rom_mem_instances"], root / entry["mif"])
     mailbox.pulse_go_flag(
         link,
