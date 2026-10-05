@@ -29,6 +29,7 @@ from riscv_tools import (
     mem_validator,
     quartus_program,
     ram_dump,
+    ram_target,
     rom_writer,
 )
 from riscv_tools.jtag import JtagLink, jtag_chain_healthy
@@ -147,10 +148,18 @@ def run_test_via_jtag(
         signals completion, or None if entry["timeout_s"] elapses
         first.
     """
+    # The core is parked after the previous test: clear its mailbox first, so the
+    # host never mistakes that test's result for this one's.
+    mailbox.clear_mailbox(
+        link,
+        ram_target.target_from_config(cfg),
+        cfg["memory"]["ram_base"],
+        cfg["memory"]["mailbox_addr"],
+    )
     rom_writer.write_rom(link, cfg["quartus"]["rom_mem_instances"], root / entry["mif"])
     mailbox.pulse_go_flag(
         link,
-        cfg["quartus"]["ram_mem_instance"],
+        ram_target.target_from_config(cfg),
         cfg["memory"]["ram_base"],
         cfg["memory"]["go_flag_addr"],
     )
@@ -160,7 +169,7 @@ def run_test_via_jtag(
     while time.monotonic() < deadline:
         value = mailbox.read_mailbox(
             link,
-            cfg["quartus"]["ram_mem_instance"],
+            ram_target.target_from_config(cfg),
             cfg["memory"]["ram_base"],
             cfg["memory"]["mailbox_addr"],
         )
@@ -377,7 +386,7 @@ def _run_with_recovery(
         time.sleep(wait_s)
         return mailbox.read_mailbox(
             link,
-            cfg["quartus"]["ram_mem_instance"],
+            ram_target.target_from_config(cfg),
             cfg["memory"]["ram_base"],
             cfg["memory"]["mailbox_addr"],
         )
@@ -489,7 +498,12 @@ def run_one(  # noqa: PLR0913, PLR0917
         # logic.
         try:
             dump_path = build_dir / f"{name}_ram.mif"
-            ram_dump.dump_ram(link, cfg["quartus"]["ram_mem_instance"], dump_path)
+            ram_dump.dump_ram(
+                link,
+                ram_target.target_from_config(cfg),
+                dump_path,
+                mem_validator.golden_word_offsets(root / entry["golden"]),
+            )
             passed = mem_validator.compare(dump_path, root / entry["golden"]) and passed
         except subprocess.CalledProcessError as exc:
             _raise_if_hardware_failure(exc)
@@ -856,7 +870,12 @@ def run_freq_sweep_at(  # noqa: PLR0913, PLR0917
 
     dump_path = build_dir / f"freq_{mhz}mhz_ram.mif"
     try:
-        ram_dump.dump_ram(link, cfg["quartus"]["ram_mem_instance"], dump_path)
+        ram_dump.dump_ram(
+            link,
+            ram_target.target_from_config(cfg),
+            dump_path,
+            mem_validator.golden_word_offsets(golden_path),
+        )
     except subprocess.CalledProcessError:
         print(f"{mhz} MHz: RAM dump failed")
         return {"freq_mhz": mhz, "status": "dump_fail"}

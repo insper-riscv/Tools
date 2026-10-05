@@ -25,11 +25,13 @@ from riscv_tools import (
     path_check,
     quartus_program,
     ram_dump,
+    ram_target,
     ram_zero,
     rom_writer,
     run_log,
     sim_runner,
     spike_run,
+    uart_console,
     vhdl_sort,
 )
 from riscv_tools import c_to_asm as c_to_asm_mod
@@ -601,20 +603,21 @@ def cmd_zero_ram(args: argparse.Namespace) -> None:
     cfg = load_config(args.config)
     link = _link(cfg)
     ram_zero.zero_ram(
-        link, cfg["quartus"]["ram_mem_instance"], cfg["memory"]["ram_words"]
+        link, ram_target.target_from_config(cfg), cfg["memory"]["ram_words"]
     )
 
 
-def cmd_dump_ram(args: argparse.Namespace) -> None:
-    """Implement `riscv-tools dump-ram`.
+def cmd_console(args: argparse.Namespace) -> None:
+    """Implement `riscv-tools console`.
 
-    JTAG-saves the whole RAM instance of the already-programmed board
-    to a .mif.
+    Shows what the program prints through the JTAG UART while it runs,
+    until interrupted or for args.seconds seconds, and gives it args.send
+    first.
 
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments — uses args.config, args.out.
+        Parsed CLI arguments — uses args.config, args.seconds, args.send.
 
     Returns
     -------
@@ -622,7 +625,37 @@ def cmd_dump_ram(args: argparse.Namespace) -> None:
     """
     cfg = load_config(args.config)
     link = _link(cfg)
-    ram_dump.dump_ram(link, cfg["quartus"]["ram_mem_instance"], Path(args.out))
+
+    def show(chunk: bytes) -> None:
+        sys.stdout.buffer.write(chunk)
+        sys.stdout.buffer.flush()
+
+    uart_console.read_console(link, show, seconds=args.seconds, send=args.send.encode())
+
+
+def cmd_dump_ram(args: argparse.Namespace) -> None:
+    """Implement `riscv-tools dump-ram`.
+
+    JTAG-saves the RAM of the already-programmed board to a .mif: the
+    whole RAM instance of the FPGA, or, for a RAM in the SDRAM (too big
+    to read whole), the args.words words from args.start_word.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed CLI arguments — uses args.config, args.out, args.start_word,
+        args.words.
+
+    Returns
+    -------
+    None
+    """
+    cfg = load_config(args.config)
+    link = _link(cfg)
+    words = None
+    if args.words is not None:
+        words = list(range(args.start_word, args.start_word + args.words))
+    ram_dump.dump_ram(link, ram_target.target_from_config(cfg), Path(args.out), words)
 
 
 def cmd_program(args: argparse.Namespace) -> None:
@@ -699,7 +732,7 @@ def cmd_mailbox(args: argparse.Namespace) -> None:
     if args.action == "read":
         value = mailbox.read_mailbox(
             link,
-            cfg["quartus"]["ram_mem_instance"],
+            ram_target.target_from_config(cfg),
             cfg["memory"]["ram_base"],
             cfg["memory"]["mailbox_addr"],
         )
@@ -708,7 +741,7 @@ def cmd_mailbox(args: argparse.Namespace) -> None:
     else:
         mailbox.pulse_go_flag(
             link,
-            cfg["quartus"]["ram_mem_instance"],
+            ram_target.target_from_config(cfg),
             cfg["memory"]["ram_base"],
             cfg["memory"]["go_flag_addr"],
         )
@@ -1405,9 +1438,39 @@ def main() -> None:  # noqa: PLR0915
     p = sub.add_parser("zero-ram", help="JTAG-zero the whole RAM instance")
     p.set_defaults(func=cmd_zero_ram)
 
-    p = sub.add_parser("dump-ram", help="JTAG-dump the whole RAM instance to a .mif")
+    p = sub.add_parser(
+        "dump-ram",
+        help="JTAG-dump the RAM to a .mif (a RAM in the SDRAM: only --words words)",
+    )
     p.add_argument("out")
+    p.add_argument(
+        "--start-word",
+        type=int,
+        default=0,
+        help="first word offset to dump from the base of the RAM (with --words)",
+    )
+    p.add_argument(
+        "--words",
+        type=int,
+        default=None,
+        help="how many words to dump; required when the RAM is in the SDRAM",
+    )
     p.set_defaults(func=cmd_dump_ram)
+
+    p = sub.add_parser(
+        "console",
+        help="Show the program's output through the JTAG UART while it runs",
+    )
+    p.add_argument(
+        "--seconds",
+        type=float,
+        default=0,
+        help="how long to listen; 0 (the default) listens until Ctrl-C",
+    )
+    p.add_argument(
+        "--send", default="", help="text to give to the program as it starts listening"
+    )
+    p.set_defaults(func=cmd_console)
 
     p = sub.add_parser(
         "program",
