@@ -8,13 +8,12 @@ Two stages, kept separate since they're owned by different tools:
    tools/riscv_build/act/rv32im-min/). ACT4 owns test generation/
    compilation entirely; this project only supplies the DUT-specific
    config (test_config.yaml, UDB YAML, rvmodel_macros.h, link.ld).
-2. `run_suite` converts each built ELF the same way `compiler.build`
-   converts this project's own tests (objcopy -> raw .bin ->
-   bin_to_image.bin_to_hex), then drives it through the SAME
-   cocotb/GHDL toplevel `sim_runner.run_test` uses for the regular
-   suite — only `test_module` differs (tools.riscv_build.act.sim.test_act
-   instead of the project's own mailbox-watching module), since ACT4
-   tests signal completion via HTIF tohost, not this project's own
+2. `run_suite` splits each built ELF by address into the images the simulation
+   loads (the code region into the instruction memory and the boot ROM, the data
+   region into the RAM; every section of an ACT4 ELF is loaded at the address it
+   runs from), and drives it through the SAME cocotb/GHDL toplevel
+   `sim_runner.run_test` uses for the regular suite, with `test_module` the ACT4
+   one: ACT4 tests signal completion via HTIF tohost, not this project's own
    PASS/FAIL mailbox convention (see rv32im-min/rvmodel_macros.h).
 
 Doesn't touch real hardware at all — ACT4 tests have no golden.json/
@@ -24,13 +23,14 @@ long before this project ever sees it), so there's nothing here
 analogous to orchestrator.run_suite's real-hardware path.
 """
 
-import subprocess
+import resource
+import struct
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-from riscv_tools import bin_to_image, compiler, proc, sim_runner
+from riscv_tools import bin_to_image, proc, sim_runner
 
 _ACT_TEST_MODULE = "tools.riscv_build.act.sim.test_act"
 
@@ -122,6 +122,128 @@ def discover_elfs(elfs_dir: Path) -> list[Path]:
     return sorted(p for p in elfs_dir.rglob("*.elf") if not p.name.endswith(".sig.elf"))
 
 
+_PT_LOAD = 1
+_ELF32_HEADER = struct.Struct("<16xHHIIIIIHHHHHH")
+_ELF32_PHDR = struct.Struct("<IIIIIIII")
+
+
+def load_segments(elf: Path) -> list[tuple[int, bytes]]:
+    """Read the loadable segments of a little-endian 32-bit ELF.
+
+    Parameters
+    ----------
+    elf : Path
+        The ELF file.
+
+    Returns
+    -------
+    list of (int, bytes)
+        The physical address and the file contents of every `PT_LOAD` segment that has
+        contents. Segments that only reserve zeroed space (`.bss`, the HTIF
+        words) have none.
+    """
+    data = elf.read_bytes()
+    if data[:4] != b"\x7fELF" or data[4] != 1 or data[5] != 1:
+        raise ValueError(f"{elf} is not a little-endian 32-bit ELF")
+    fields = _ELF32_HEADER.unpack_from(data)
+    phoff, phentsize, phnum = fields[4], fields[8], fields[9]
+    segments: list[tuple[int, bytes]] = []
+    for index in range(phnum):
+        kind, offset, _vaddr, paddr, filesz, _memsz, _flags, _align = (
+            _ELF32_PHDR.unpack_from(data, phoff + index * phentsize)
+        )
+        if kind == _PT_LOAD and filesz:
+            segments.append((paddr, data[offset : offset + filesz]))
+    return segments
+
+
+def region_image(segments: list[tuple[int, bytes]], start: int, end: int) -> bytes:
+    """Build the flat image of the address range `[start, end)` from the segments.
+
+    Parameters
+    ----------
+    segments : list of (int, bytes)
+        The result of `load_segments`.
+    start, end : int
+        The first address of the range and the first address past it.
+
+    Returns
+    -------
+    bytes
+        The bytes of the range from `start` to the last byte any segment puts
+        there, with zeros between segments; empty if no segment touches the range.
+    """
+    image = bytearray()
+    for address, contents in segments:
+        low, high = max(address, start), min(address + len(contents), end)
+        if low >= high:
+            continue
+        if len(image) < high - start:
+            image.extend(bytes(high - start - len(image)))
+        image[low - start : high - start] = contents[low - address : high - address]
+    return bytes(image)
+
+
+def write_images(
+    elf: Path, out_dir: Path, name: str, ram_base: int, boot_bytes: int
+) -> dict[str, Path]:
+    """Write the three hex images the simulation loads from one ACT4 ELF.
+
+    The ELF has every section loaded at the address it runs from. The code region
+    (below `ram_base`) goes to the instruction memory and its first `boot_bytes`
+    bytes also to the boot ROM, which the core fetches from below that address;
+    the data region (from `ram_base`) goes to the RAM.
+
+    Parameters
+    ----------
+    elf : Path
+        The ACT4 ELF.
+    out_dir : Path
+        Where the `.bin` and `.hex` files are written.
+    name : str
+        Stem of the file names.
+    ram_base : int
+        First address of the RAM.
+    boot_bytes : int
+        Size in bytes of the boot ROM, at address 0.
+
+    Returns
+    -------
+    dict of {str: Path}
+        The hex files, under the keys `boot_hex_path`, `hex_path` and `ram_hex_path`.
+    """
+    segments = load_segments(elf)
+    code = region_image(segments, 0, ram_base)
+    data = region_image(segments, ram_base, 1 << 32)
+    images = {
+        "boot_hex_path": code[:boot_bytes],
+        "hex_path": code,
+        "ram_hex_path": data,
+    }
+    paths: dict[str, Path] = {}
+    for key, image in images.items():
+        suffix = key.removesuffix("_hex_path") if key != "hex_path" else "rom"
+        bin_path = out_dir / f"{name}.{suffix}.bin"
+        hex_path = out_dir / f"{name}.{suffix}.hex"
+        # at least one word, so that the file is never empty
+        bin_path.write_bytes(image or bytes(4))
+        bin_to_image.bin_to_hex(bin_path, hex_path)
+        paths[key] = hex_path
+    return paths
+
+
+def _raise_stack_limit() -> None:
+    """Raise the soft stack limit of this process to the hard one.
+
+    The simulation memories of the ACT4 target are big arrays (millions of
+    words), and GHDL allocates them on the stack of the simulation; with the
+    default limit it ends with exit code 255 and no message. The simulation
+    processes inherit the limit.
+    """
+    _soft, hard = resource.getrlimit(resource.RLIMIT_STACK)
+    resource.setrlimit(resource.RLIMIT_STACK, (hard, hard))
+
+
 def run_suite(cfg: dict[str, Any], root: Path, build_dir: Path) -> dict[str, bool]:
     """Build then run every ACT4 ELF for this project's own target under cocotb/GHDL.
 
@@ -133,7 +255,7 @@ def run_suite(cfg: dict[str, Any], root: Path, build_dir: Path) -> dict[str, boo
         sim.parameters, for a memory-depth generic ACT4's own bigger
         images need but the regular suite doesn't) and sim.toplevel/
         vhdl_sources/ghdl_std/parameters (NOT sim.test_module — see
-        module docstring) and toolchain.objcopy.
+        module docstring).
     root : Path
         The consuming project's root directory — act.vendor_dir/
         target_config and sim.vhdl_sources are all resolved relative
@@ -149,6 +271,8 @@ def run_suite(cfg: dict[str, Any], root: Path, build_dir: Path) -> dict[str, boo
         A {elf stem: passed} dict, one entry per ELF `build_elfs`
         produced, in sorted order.
     """
+    _raise_stack_limit()
+    sim_runner.extend_python_path(root, [".", *(cfg["sim"].get("python_path") or [])])
     act_cfg = cfg["act"]
     vendor_dir = root / act_cfg["vendor_dir"]
     target_config = root / act_cfg["target_config"]
@@ -183,19 +307,19 @@ def run_suite(cfg: dict[str, Any], root: Path, build_dir: Path) -> dict[str, boo
         test_build_dir = build_dir / name
         test_build_dir.mkdir(parents=True, exist_ok=True)
 
-        bin_path = test_build_dir / f"{name}.bin"
-        hex_path = test_build_dir / f"{name}.hex"
-        subprocess.run(
-            [str(cfg["toolchain"]["objcopy"]), "-O", "binary", str(elf), str(bin_path)],
-            check=True,
+        images = write_images(
+            elf,
+            test_build_dir,
+            name,
+            ram_base=int(str(act_cfg["ram_base"]), 0),
+            boot_bytes=int(str(act_cfg["boot_rom_bytes"]), 0),
         )
-        if cfg["sim"]["hex_format"] == "verilog":
-            compiler.elf_to_verilog_hex(cfg["toolchain"], elf, hex_path)
-        else:
-            bin_to_image.bin_to_hex(bin_path, hex_path)
+        hex_path = images["hex_path"]
 
         parameters: dict[str, Any] = {
-            k: v.format(hex_path=str(hex_path.resolve())) if isinstance(v, str) else v
+            k: v.format(**{key: str(path.resolve()) for key, path in images.items()})
+            if isinstance(v, str)
+            else v
             for k, v in parameter_templates.items()
         }
         results[name] = sim_runner.run_test(
@@ -207,6 +331,9 @@ def run_suite(cfg: dict[str, Any], root: Path, build_dir: Path) -> dict[str, boo
             test_name=name,
             build_dir=test_build_dir / "sim_work",
             parameters=parameters,
+            # the memories are big arrays, which GHDL refuses to put on the
+            # stack by default
+            ghdl_run_flags=["--max-stack-alloc=0"],
         )
         print(f"{name}: {'PASS' if results[name] else 'FAIL'}")
 

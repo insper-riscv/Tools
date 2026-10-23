@@ -118,6 +118,7 @@ def run_test(  # noqa: PLR0913, PLR0917
     libraries_dir: Path | None = None,
     run_files: dict[str, Path] | None = None,
     extra_env: dict[str, str] | None = None,
+    ghdl_run_flags: list[str] | None = None,
 ) -> bool:
     """Build (if needed) and run one test under cocotb/GHDL.
 
@@ -183,6 +184,9 @@ def run_test(  # noqa: PLR0913, PLR0917
         runs in, before the simulation starts (sim.run_files).
     extra_env : dict of {str: str}, optional
         Environment variables added for the test module (sim.env).
+    ghdl_run_flags : list of str, optional
+        GHDL simulation options, which the analyze and elaborate steps reject
+        (for example `--max-stack-alloc=0`).
 
     Returns
     -------
@@ -249,6 +253,9 @@ def run_test(  # noqa: PLR0913, PLR0917
             test_module=test_module,
             build_dir=build_dir,
             test_args=ghdl_args,
+            # GHDL takes a simulation option only after the top-level unit, where cocotb
+            # puts the plusargs
+            plusargs=ghdl_run_flags or [],
             results_xml=str(results_xml),
             extra_env={
                 **(extra_env or {}),
