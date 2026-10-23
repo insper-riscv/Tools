@@ -17,6 +17,23 @@ def test_canonical_march_order_independent():
     assert canonical_march(ISA, "A,M") == "rv32ima"
 
 
+def test_canonical_march_multi_letter_ext():
+    assert canonical_march(ISA, "Zicsr") == "rv32i_zicsr"
+    assert canonical_march(ISA, "M,Zicsr") == "rv32im_zicsr"
+
+
+def test_canonical_march_multi_letter_sorted_and_order_independent():
+    assert canonical_march(ISA, "Zifencei,M,Zicsr") == "rv32im_zicsr_zifencei"
+    assert canonical_march(ISA, "Zicsr,Zifencei,M") == "rv32im_zicsr_zifencei"
+
+
+def test_canonical_march_unknown_single_letter_still_rejected():
+    import pytest
+
+    with pytest.raises(ValueError):
+        canonical_march(ISA, "M,K")
+
+
 def test_parse_header_defaults():
     march, kind, timeout_s = parse_header(ISA, 15, "int main(void) { return 0; }")
     assert march == "rv32i"
