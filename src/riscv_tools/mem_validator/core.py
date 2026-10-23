@@ -181,6 +181,24 @@ def load_golden(golden_json: Path) -> dict[int, int]:
     return {int(k, 16): int(v) for k, v in json.loads(golden_json.read_text()).items()}
 
 
+def golden_word_offsets(golden_json: Path) -> list[int]:
+    """List the words of RAM a golden checks, as word offsets from the base of the RAM.
+
+    A RAM too big to dump whole (the SDRAM) is dumped only at these words.
+
+    Parameters
+    ----------
+    golden_json : Path
+        Path to the golden JSON, see load_golden.
+
+    Returns
+    -------
+    list of int
+        The word offsets that hold at least one byte of the golden, ascending.
+    """
+    return sorted({address // 4 for address in load_golden(golden_json)})
+
+
 def compare(dump_mif: Path, golden_json: Path) -> bool:
     """Compare a RAM dump against a golden JSON and print a human-readable diff.
 
