@@ -23,6 +23,8 @@ Organized as one module per responsibility, each with its own
 | `mem_edit`           | Generic In-System Memory Content Editor primitives (read/write word, write-full, dump) | [docs/modules/mem_edit.md](docs/en/modules/mem_edit.md) |
 | `rom_writer`         | JTAG-write a ROM image without reprogramming                | [docs/modules/rom_writer.md](docs/en/modules/rom_writer.md) |
 | `ram_zero`           | JTAG-zero the whole RAM without reprogramming                | [docs/modules/ram_zero.md](docs/en/modules/ram_zero.md) |
+| `ram_target`         | Where the RAM lives (FPGA instance or SDRAM debug port)      | [docs/modules/ram_target.md](docs/en/modules/ram_target.md) |
+| `sdram_debug`        | Read, write and fill the SDRAM through its JTAG debug port   | [docs/modules/sdram_debug.md](docs/en/modules/sdram_debug.md) |
 | `ram_dump`           | JTAG-dump the whole RAM to a `.mif`                          | [docs/modules/ram_dump.md](docs/en/modules/ram_dump.md) |
 | `mailbox`            | PASS/FAIL mailbox read + restart "go flag" pulse             | [docs/modules/mailbox.md](docs/en/modules/mailbox.md) |
 | `quartus_program`    | Full recompile + `quartus_pgm` (the slow "base" path)        | [docs/modules/quartus_program.md](docs/en/modules/quartus_program.md) |
