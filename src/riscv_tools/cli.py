@@ -36,6 +36,7 @@ from riscv_tools import (
 )
 from riscv_tools import c_to_asm as c_to_asm_mod
 from riscv_tools import compiler as compiler_mod
+from riscv_tools import display as display_mod
 from riscv_tools.jtag import JtagLink, detect_jtag_hardware
 from riscv_tools.settings import load_config
 
@@ -617,7 +618,8 @@ def cmd_console(args: argparse.Namespace) -> None:
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments — uses args.config, args.seconds, args.send.
+        Parsed CLI arguments — uses args.config, args.seconds, args.send,
+        args.interactive.
 
     Returns
     -------
@@ -630,7 +632,43 @@ def cmd_console(args: argparse.Namespace) -> None:
         sys.stdout.buffer.write(chunk)
         sys.stdout.buffer.flush()
 
-    uart_console.read_console(link, show, seconds=args.seconds, send=args.send.encode())
+    uart_console.read_console(
+        link,
+        show,
+        seconds=args.seconds,
+        send=args.send.encode(),
+        typed=sys.stdin if args.interactive else None,
+    )
+
+
+def cmd_display(args: argparse.Namespace) -> None:
+    """Implement `riscv-tools display`.
+
+    Reads the seven-segment display register of the platform, or writes it first when
+    args.value is given, and prints what it holds.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed CLI arguments — uses args.config, args.value, args.check.
+
+    Returns
+    -------
+    None
+    """
+    cfg = load_config(args.config)
+    link = _link(cfg)
+    if args.check:
+        bad = display_mod.check_display(link, args.check)
+        print(f"{args.check} writes read back, {bad} differences")
+        if bad:
+            sys.exit(1)
+        return
+    if args.value is None:
+        value = display_mod.read_display(link)
+    else:
+        value = display_mod.write_display(link, int(args.value, 16))
+    print(f"{value:06x}")
 
 
 def cmd_dump_ram(args: argparse.Namespace) -> None:
@@ -1015,6 +1053,12 @@ def cmd_run(args: argparse.Namespace) -> None:
     # requested test's own kind/golden info, including ones this
     # particular invocation never touched.
     manifest_by_name = {entry["name"]: entry for entry in manifest}
+
+    # programs that wait for a host to talk to them (a monitor) would only time out in a
+    # suite; they run when --only asks for them
+    interactive = set(cfg.get("orchestrator", {}).get("interactive", []))
+    if not args.only and interactive:
+        manifest = [entry for entry in manifest if entry["name"] not in interactive]
 
     if args.only:
         wanted = [name for group in args.only for name in group.split(",") if name]
@@ -1514,7 +1558,31 @@ def main() -> None:  # noqa: PLR0915
     p.add_argument(
         "--send", default="", help="text to give to the program as it starts listening"
     )
+    p.add_argument(
+        "--interactive",
+        action="store_true",
+        help="give the program each line you type, until the input ends (Ctrl-D)",
+    )
     p.set_defaults(func=cmd_console)
+
+    p = sub.add_parser(
+        "display",
+        help="Read or write the seven-segment display register of the platform",
+    )
+    p.add_argument(
+        "value",
+        nargs="?",
+        default=None,
+        help="six hex digits to show (HEX5 first); omit to only read the register",
+    )
+    p.add_argument(
+        "--check",
+        type=int,
+        default=0,
+        metavar="N",
+        help="write N pseudo-random values and read each back; exit 1 on a difference",
+    )
+    p.set_defaults(func=cmd_display)
 
     p = sub.add_parser(
         "program",

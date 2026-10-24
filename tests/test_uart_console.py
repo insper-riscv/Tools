@@ -1,6 +1,7 @@
 """The JTAG UART console: decoding of the script lines, and the process around it."""
 
 import io
+import time
 from typing import Any
 
 import pytest
@@ -20,6 +21,8 @@ class FakeProcess:
         self.stderr = io.StringIO(stderr)
         self.returncode = returncode
         self.cmd: list[str] = []
+
+    stdin = io.StringIO()
 
     def wait(self) -> int:
         """Return the exit code."""
@@ -67,3 +70,36 @@ def test_read_console_reports_a_failed_script(monkeypatch: pytest.MonkeyPatch) -
     _popen(FakeProcess([], returncode=2, stderr="cannot open the UART"), monkeypatch)
     with pytest.raises(RuntimeError, match="cannot open the UART"):
         uart_console.read_console(LINK, lambda _c: None)
+
+
+def test_interactive_console_gives_the_typed_lines_to_the_script(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = FakeProcess(["BYTES=6f6b0a"])
+    fake.stdin = _KeepOpen()
+    _popen(fake, monkeypatch)
+    received: list[bytes] = []
+    typed = io.StringIO("peek 40000000\nquit\n")
+
+    got = uart_console.read_console(LINK, received.append, typed=typed)
+
+    assert fake.cmd[-1] == "-"
+    assert got == b"ok\n"
+    # the lines are forwarded by a thread: give it the time it needs
+    for _ in range(100):
+        if fake.stdin.closed_with is not None:
+            break
+        time.sleep(0.01)
+    assert fake.stdin.closed_with == (
+        b"peek 40000000\n".hex() + "\n" + b"quit\n".hex() + "\n"
+    )
+
+
+class _KeepOpen(io.StringIO):
+    """A stdin whose content survives close(), to be read by the test."""
+
+    closed_with: str | None = None
+
+    def close(self) -> None:
+        self.closed_with = self.getvalue()
+        super().close()

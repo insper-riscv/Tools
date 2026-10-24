@@ -96,3 +96,35 @@ def test_image_words_stop_before_tohost(tmp_path):
     elf.write_bytes(_elf(segments, {"tohost": SDRAM_BASE + 0x20}))
     # the HTIF segment starts at tohost and stays out of the image
     assert board.image_words(elf, SDRAM_BASE) == [0x03020100, 0x07060504]
+
+
+def test_display_follows_each_elf(monkeypatch, tmp_path):
+    """With board_display the display shows each ELF running, then its verdict."""
+    writes = []
+    monkeypatch.setattr(
+        board.display, "write_display", lambda _link, value: writes.append(value)
+    )
+    monkeypatch.setattr(board, "write_flash_stub", lambda *_a, **_k: None)
+    verdicts = iter([True, False, None])
+    monkeypatch.setattr(board, "run_elf", lambda *_a, **_k: (next(verdicts), 4, 0.1))
+    elfs = tmp_path / "work" / "t" / "elfs"
+    elfs.mkdir(parents=True)
+    for name in ("a", "b", "c"):
+        (elfs / f"{name}.elf").write_bytes(b"")
+    monkeypatch.setattr(board.certify_core, "target_name", lambda _c: "t")
+    monkeypatch.setattr(
+        board.certify_core, "discover_elfs", lambda d: sorted(d.glob("*.elf"))
+    )
+    cfg = {
+        "act": {
+            "sdram_base": "0x40000000",
+            "target_config": "x",
+            "vendor_dir": ".",
+            "extensions": "I",
+            "jobs": 1,
+            "board_display": True,
+        }
+    }
+    result = board.run_suite_on_board(cfg, tmp_path, tmp_path / "b", None, build=False)
+    assert result == {"a": True, "b": False, "c": None}
+    assert writes == [0x000000, 0x000001, 0x010000, 0x01000F, 0x020000, 0x02000F]

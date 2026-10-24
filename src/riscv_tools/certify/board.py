@@ -12,6 +12,9 @@ the SDRAM debug port while the core is parked in the boot ROM, then lets the cor
    it), the image is written, the go flag restarts the core, and the host reads the HTIF
    `tohost` word from the SDRAM until it holds an odd value (1 is a PASS) or the time
    runs out.
+3. With `act.board_display` set, the display shows the index of the ELF in the session
+   (HEX5 and HEX4) and its state (HEX3 to HEX0: 0000 running, 0001 passed, 000F failed
+   or timed out), and the five left LEDs light when it passed.
 
 The board must be programmed with the SDRAM platform and the core parked, as it is after
 `riscv-tools run` or right after the programming.
@@ -24,6 +27,7 @@ from typing import Any
 
 from riscv_tools import (
     bin_to_image,
+    display,
     mailbox,
     ram_target,
     rom_writer,
@@ -248,12 +252,20 @@ def run_suite_on_board(  # noqa: PLR0913
     build_dir.mkdir(parents=True, exist_ok=True)
     write_flash_stub(link, cfg, build_dir, sdram_base)
 
+    show_display = bool(act_cfg.get("board_display", False))
     results: dict[str, bool | None] = {}
-    for elf in elfs:
+    for index, elf in enumerate(elfs):
+        if show_display:
+            display.write_display(
+                link, display.encode_state(index, display.STATE_RUNNING)
+            )
         passed, words, seconds = run_elf(
             link, cfg, elf, sdram_base, region_words, timeout_s
         )
         results[elf.stem] = passed
+        if show_display:
+            state = display.STATE_PASSED if passed else display.STATE_FAILED
+            display.write_display(link, display.encode_state(index, state))
         verdict = {True: "PASS", False: "FAIL", None: "TIMEOUT"}[passed]
         print(f"{elf.stem}: {verdict} ({words * 4} bytes, {seconds:.1f}s)")
     return results
