@@ -33,6 +33,7 @@ import yaml
 from riscv_tools import bin_to_image, proc, sim_runner
 
 _ACT_TEST_MODULE = "tools.riscv_build.act.sim.test_act"
+_ACT_SDRAM_TEST_MODULE = "tools.riscv_build.act.sim.test_act_sdram"
 
 
 def _target_name(target_config: Path) -> str:
@@ -232,6 +233,68 @@ def write_images(
     return paths
 
 
+_NOP = 0x00000013
+
+
+def sdram_boot_words(sdram_base: int) -> list[int]:
+    """Return the boot ROM that jumps to the SDRAM.
+
+    The words are a nop, `lui x1, base` and `jalr x0, 0(x1)`. The core does not
+    execute the first word after the reset, and the base has the low 12 bits
+    clear (the SDRAM is 64 MB aligned).
+    """
+    if sdram_base & 0xFFF:
+        raise ValueError(f"the SDRAM base {sdram_base:#x} is not 4 KiB aligned")
+    lui_x1 = (sdram_base & 0xFFFFF000) | (1 << 7) | 0x37
+    jalr_x0 = (1 << 15) | 0x67
+    return [_NOP, lui_x1, jalr_x0]
+
+
+def write_sdram_images(
+    elf: Path, out_dir: Path, name: str, sdram_base: int
+) -> dict[str, Path]:
+    """Write the two hex images the SDRAM platform simulation loads from one ACT4 ELF.
+
+    The ELF has everything in the SDRAM, loaded at the address it runs from. The
+    image of the SDRAM chip starts at `sdram_base`; the boot ROM only jumps there.
+
+    Parameters
+    ----------
+    elf : Path
+        The ACT4 ELF.
+    out_dir : Path
+        Where the files are written.
+    name : str
+        Stem of the file names.
+    sdram_base : int
+        First address of the SDRAM.
+
+    Returns
+    -------
+    dict of {str: Path}
+        The hex files, under the keys `boot_hex_path` and `sdram_hex_path`;
+        `hex_path` is the boot image too, for the flash that the platform still
+        has and nobody reads.
+    """
+    segments = load_segments(elf)
+    sdram = region_image(segments, sdram_base, 1 << 32)
+    boot = b"".join(
+        word.to_bytes(4, "little") for word in sdram_boot_words(sdram_base)
+    )
+    paths: dict[str, Path] = {}
+    for key, suffix, image in (
+        ("boot_hex_path", "boot", boot),
+        ("sdram_hex_path", "sdram", sdram),
+    ):
+        bin_path = out_dir / f"{name}.{suffix}.bin"
+        hex_path = out_dir / f"{name}.{suffix}.hex"
+        bin_path.write_bytes(image or bytes(4))
+        bin_to_image.bin_to_hex(bin_path, hex_path)
+        paths[key] = hex_path
+    paths["hex_path"] = paths["boot_hex_path"]
+    return paths
+
+
 def _raise_stack_limit() -> None:
     """Raise the soft stack limit of this process to the hard one.
 
@@ -307,13 +370,18 @@ def run_suite(cfg: dict[str, Any], root: Path, build_dir: Path) -> dict[str, boo
         test_build_dir = build_dir / name
         test_build_dir.mkdir(parents=True, exist_ok=True)
 
-        images = write_images(
-            elf,
-            test_build_dir,
-            name,
-            ram_base=int(str(act_cfg["ram_base"]), 0),
-            boot_bytes=int(str(act_cfg["boot_rom_bytes"]), 0),
-        )
+        if act_cfg.get("sdram_base") is not None:
+            images = write_sdram_images(
+                elf, test_build_dir, name, sdram_base=int(str(act_cfg["sdram_base"]), 0)
+            )
+        else:
+            images = write_images(
+                elf,
+                test_build_dir,
+                name,
+                ram_base=int(str(act_cfg["ram_base"]), 0),
+                boot_bytes=int(str(act_cfg["boot_rom_bytes"]), 0),
+            )
         hex_path = images["hex_path"]
 
         parameters: dict[str, Any] = {
@@ -326,7 +394,11 @@ def run_suite(cfg: dict[str, Any], root: Path, build_dir: Path) -> dict[str, boo
             toplevel=cfg["sim"]["toplevel"],
             vhdl_sources=vhdl_sources,
             ghdl_std=cfg["sim"]["ghdl_std"],
-            test_module=_ACT_TEST_MODULE,
+            test_module=(
+                _ACT_SDRAM_TEST_MODULE
+                if act_cfg.get("sdram_base") is not None
+                else _ACT_TEST_MODULE
+            ),
             hex_path=hex_path,
             test_name=name,
             build_dir=test_build_dir / "sim_work",
