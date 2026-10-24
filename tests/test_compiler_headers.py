@@ -1,3 +1,5 @@
+import pytest
+
 from riscv_tools.compiler.__config__ import DEFAULTS
 from riscv_tools.compiler.headers import canonical_march, parse_header
 
@@ -28,8 +30,6 @@ def test_canonical_march_multi_letter_sorted_and_order_independent():
 
 
 def test_canonical_march_unknown_single_letter_still_rejected():
-    import pytest
-
     with pytest.raises(ValueError):
         canonical_march(ISA, "M,K")
 

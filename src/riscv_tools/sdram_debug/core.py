@@ -6,6 +6,10 @@ addresses counted from the base of the SDRAM. Pure mechanism, no policy: the
 callers decide which words to use.
 """
 
+import tempfile
+from collections.abc import Sequence
+from pathlib import Path
+
 from riscv_tools.jtag import JtagLink, run_tcl
 
 
@@ -81,3 +85,28 @@ def fill(link: JtagLink, word_address: int, word_count: int, value: int = 0) -> 
     None
     """
     run_tcl(link, "sdram_dbg.tcl", "fill", word_address, word_count, value)
+
+
+def load_words(link: JtagLink, word_address: int, words: Sequence[int]) -> None:
+    """Write contiguous 32-bit words of the SDRAM in one JTAG session.
+
+    One session for the whole image: starting the script once per word would
+    spend most of the time starting processes.
+
+    Parameters
+    ----------
+    link : JtagLink
+        Which JTAG cable/chip to write to.
+    word_address : int
+        Word address of the first word, counted from the base of the SDRAM.
+    words : sequence of int
+        The 32-bit values, in address order.
+
+    Returns
+    -------
+    None
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        image = Path(tmp) / "image.txt"
+        image.write_text("".join(f"{w & 0xFFFFFFFF:08x}\n" for w in words))
+        run_tcl(link, "sdram_dbg.tcl", "load", word_address, image)

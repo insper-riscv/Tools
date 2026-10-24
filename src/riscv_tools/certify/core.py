@@ -36,7 +36,7 @@ _ACT_TEST_MODULE = "tools.riscv_build.act.sim.test_act"
 _ACT_SDRAM_TEST_MODULE = "tools.riscv_build.act.sim.test_act_sdram"
 
 
-def _target_name(target_config: Path) -> str:
+def target_name(target_config: Path) -> str:
     """Read an ACT4 test_config.yaml's own `name:` field.
 
     Parameters
@@ -100,7 +100,7 @@ def build_elfs(
         ],
         cwd=vendor_dir,
     )
-    return vendor_dir / "work" / _target_name(target_config) / "elfs"
+    return vendor_dir / "work" / target_name(target_config) / "elfs"
 
 
 def discover_elfs(elfs_dir: Path) -> list[Path]:
@@ -278,9 +278,7 @@ def write_sdram_images(
     """
     segments = load_segments(elf)
     sdram = region_image(segments, sdram_base, 1 << 32)
-    boot = b"".join(
-        word.to_bytes(4, "little") for word in sdram_boot_words(sdram_base)
-    )
+    boot = b"".join(word.to_bytes(4, "little") for word in sdram_boot_words(sdram_base))
     paths: dict[str, Path] = {}
     for key, suffix, image in (
         ("boot_hex_path", "boot", boot),

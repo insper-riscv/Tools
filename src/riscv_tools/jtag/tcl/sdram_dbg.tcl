@@ -4,9 +4,11 @@
 # Usage: quartus_stp -t sdram_dbg.tcl <hardware> <device> read  <word_address> <word_count>
 #        quartus_stp -t sdram_dbg.tcl <hardware> <device> write <word_address> <value> [<byte_enable>]
 #        quartus_stp -t sdram_dbg.tcl <hardware> <device> fill  <word_address> <word_count> <value>
+#        quartus_stp -t sdram_dbg.tcl <hardware> <device> load  <word_address> <file>
 #
 # A word address counts 32-bit words from the base of the SDRAM. read prints WORDS=<values,
-# in decimal, separated by spaces>; write and fill print OK.
+# in decimal, separated by spaces>; write and fill print OK. load writes the words of a text file (one
+# hexadecimal word per line) from the word address, in one session, and prints OK <count>.
 package require ::quartus::jtag
 
 if {[llength $argv] < 3} {
@@ -99,6 +101,21 @@ switch $CMD {
         shift $OP_FILL $first $value 0xF
         settle $FILL_DEADLINE_MS
         puts "OK"
+    }
+    load {
+        lassign $ARGS first path
+        if {[catch {open $path r} fh]} { fail 1 "cannot open $path: $fh" }
+        set count 0
+        while {[gets $fh line] >= 0} {
+            set line [string trim $line]
+            if {$line eq ""} { continue }
+            if {[scan $line %x value] != 1} { fail 1 "not a hexadecimal word: $line" }
+            shift $OP_WRITE [expr {$first + $count}] $value 0xF
+            settle
+            incr count
+        }
+        close $fh
+        puts "OK $count"
     }
     default { fail 1 "unknown command $CMD" }
 }

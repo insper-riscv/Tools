@@ -1219,6 +1219,50 @@ def cmd_certify(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def cmd_certify_board(args: argparse.Namespace) -> None:
+    """Implement `riscv-tools certify-board`.
+
+    Builds the ACT4 ELFs of the SDRAM target and runs each one on the board: the
+    host writes the ELF into the SDRAM through the debug port, restarts the core and
+    reads the HTIF `tohost` word (see certify.board). The board must already be
+    programmed with the SDRAM platform.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed CLI arguments: args.config, args.root, args.only (comma-separated ELF
+        names, optional), args.extensions (overrides act.extensions) and
+        args.skip_build.
+
+    Returns
+    -------
+    None
+        Prints a result per ELF and a summary. Exits with status 1 if any ELF
+        did not pass.
+    """
+    cfg = load_config(args.config)
+    if args.extensions is not None:
+        cfg["act"]["extensions"] = args.extensions
+    root = _root(args)
+    run_log.start(root, "certification-board", cfg["run_log"]["logs_dir"])
+    only = [n for n in args.only.split(",") if n] if args.only else None
+    results = certify.run_suite_on_board(
+        cfg,
+        root,
+        root / (cfg["paths"].get("build_dir") or "build") / "act-board",
+        _link(cfg),
+        only,
+        build=not args.skip_build,
+    )
+
+    print("\n=== Summary ===")
+    for name, passed in results.items():
+        verdict = {True: "PASS", False: "FAIL", None: "TIMEOUT"}[passed]
+        print(f"  {verdict}  {name}")
+    if not results or not all(v is True for v in results.values()):
+        sys.exit(1)
+
+
 def cmd_vhdl_sort(args: argparse.Namespace) -> None:
     """Implement `riscv-tools vhdl-sort`.
 
@@ -1602,6 +1646,20 @@ def main() -> None:  # noqa: PLR0915
         "`make ... EXTENSIONS=` (default: config.yaml's act.extensions)",
     )
     p.set_defaults(func=cmd_certify)
+
+    p = sub.add_parser(
+        "certify-board",
+        help="Build the ACT4 ELFs of the SDRAM target and run each one on the board "
+        "(loaded into the SDRAM through the debug port)",
+    )
+    p.add_argument("--extensions", default=None, help="Overrides act.extensions")
+    p.add_argument("--only", default=None, help="Comma-separated ELF names to run")
+    p.add_argument(
+        "--skip-build",
+        action="store_true",
+        help="Use the ELFs that an earlier `certify` built, without ACT4's `make`",
+    )
+    p.set_defaults(func=cmd_certify_board)
 
     p = sub.add_parser(
         "vhdl-sort",
