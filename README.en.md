@@ -87,6 +87,9 @@ when it fails.
 
 ## Docs
 
+- [AUTHORS.en.md](AUTHORS.en.md): authors with commits in the repository, with name and GitHub account.
+- [CONTRIBUTING.en.md](CONTRIBUTING.en.md): mandatory contribution rules and verification before opening a Pull Request.
+- [CITATION.cff](CITATION.cff): software citation metadata.
 - [Configuration reference](docs/en/configuration.md)
 - [Creating a test in C](docs/en/creating-a-c-test.md)
 - [Creating a test in ASM](docs/en/creating-an-asm-test.md)

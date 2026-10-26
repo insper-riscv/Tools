@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "Se você usar este software, cite-o com os metadados abaixo. / If you use this software, please cite it using the metadata below."
+type: software
+title: "Tools: riscv-tools, compilação, simulação e certificação RISC-V"
+abstract: >-
+  Pacote Python riscv-tools: ferramentas dirigidas por configuração para
+  compilar, simular, executar em placa, verificar e certificar programas
+  RISC-V bare-metal. Desenvolvido no Capstone do Insper, financiado pelo CTI
+  Renato Archer.
+authors:
+  - family-names: Hix
+    given-names: Lucas
+    alias: Peng1104
+  - family-names: Cruz
+    given-names: Artur
+    alias: arturacruz
+repository-code: "https://github.com/insper-riscv/Tools"
+url: "https://github.com/insper-riscv/Tools"
+license: Apache-2.0
+keywords:
+  - RISC-V
+  - toolchain
+  - cocotb
+  - GHDL
+  - Python
