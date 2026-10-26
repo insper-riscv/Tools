@@ -4,6 +4,13 @@ Drives cocotb/GHDL simulation, the simulation-side counterpart to [`orchestrator
 
 Needs the optional `sim` extra (`cocotb` + `cocotb-tools`, plus GHDL on `PATH`); not a hard dependency of the package, so projects that only use the real-hardware side don't need it installed.
 
+The `sim` CLI runs every manifest entry by default. `--only` selects named
+tests and `--exclude` omits named tests; both are repeatable and accept
+comma-separated names. Exclusions win when both options name the same test.
+Unknown names and an empty final selection are errors.
+An explicitly empty filter value is also an error, so an empty CI variable cannot
+accidentally turn `--only` into a full-suite run.
+
 ## Configuration
 
 | Key | Meaning |
@@ -26,7 +33,7 @@ The last four are templates: `{hex_path}`, `{mif_path}`, `{boot_rom_hex_path}` a
 By default the simulation loads `.hex` images into plain VHDL array models of the memories. A design whose hardware top instantiates the vendor's memory IP (Quartus `altsyncram`) can be simulated with that IP instead, so the simulated memories behave as the ones on the FPGA do. The pieces, all configuration:
 
 1. `sim.image: mif`, so each test loads the `.mif` that `compile --emit mif` writes and that the hardware loads, and so the boot ROM's `.mif` is built too.
-2. `sim.libraries`, with the vendor library (for Quartus, `altera_mf_components.vhd` then `altera_mf.vhd` from the installation's `eda/sim_lib` directory, through an environment variable so the path is not fixed) and `sim.ghdl_flags` with what that library needs (`-fsynopsys -fexplicit -frelaxed`). The library is analyzed once per `sim` run, into `<build_dir>/sim/sim_work/libraries`.
+2. `sim.libraries`, with the vendor library (for Quartus, `altera_mf_components.vhd` then `altera_mf.vhd` from the installation's `eda/sim_lib` directory, through an environment variable so the path is not fixed) and `sim.ghdl_flags` with what that library needs (`-fsynopsys -fexplicit -frelaxed`). The library is analyzed once per `sim` run, below `<build_dir>/sim/sim_work/<simulation-profile>/libraries`. Each distinct `sim` configuration gets a stable, separate profile directory, with a readable top-level prefix and a configuration fingerprint, so incompatible GHDL units cannot cross profiles even when they use the same top-level entity.
 3. `sim.run_files`, because the IP reads its initial content from a file name fixed in the VHDL (for instance `init.mif`): each entry copies the test's image, or the boot ROM's, to that name in the run directory.
 4. `sim.env`, to tell a test module written for a different top (other clock and reset names, other timeout) what to drive.
 
@@ -55,6 +62,7 @@ The tests skip when GHDL or cocotb is missing.
 | `tests/test_sim_runner.py::test_build_libraries_needs_the_flags_the_library_needs` | A library that needs `-fsynopsys` fails to analyze without it. |
 | `tests/test_sim_runner.py::test_expand_env_replaces_variables` | `$VAR` and `${VAR}` in a path are replaced from the environment. |
 | `tests/test_sim_runner.py::test_expand_env_rejects_an_unset_variable` | An unset variable is an error that names it. |
+| `tests/test_sim_runner.py::test_run_suite_isolates_work_directories_by_simulation_profile` | Different `sim` configurations that share a top-level use different GHDL work directories, while repeating the same profile reuses its stable path. |
 | `tests/test_config_extends.py` | `extends:` merges over the base, replaces lists, is relative to the file that names it, rejects a loop, and leaves a config without it unchanged. |
 
 ## Usage
@@ -63,6 +71,7 @@ The tests skip when GHDL or cocotb is missing.
 uv sync --extra sim
 uv run riscv-tools --config /path/to/project/config.yaml compile --emit hex
 uv run riscv-tools --config /path/to/project/config.yaml sim
+uv run riscv-tools --config /path/to/project/config.yaml sim --exclude uart-echo,uart-tx
 ```
 
 ---

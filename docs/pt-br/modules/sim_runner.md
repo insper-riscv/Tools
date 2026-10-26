@@ -4,6 +4,14 @@ Dirige a simulação cocotb/GHDL, a contraparte de simulação do [`orchestrator
 
 Precisa do extra opcional `sim` (`cocotb` + `cocotb-tools`, mais o GHDL no `PATH`); não é uma dependência obrigatória do pacote, então projetos que só usam o lado de hardware real não precisam instalá-lo.
 
+A CLI `sim` roda todas as entradas do manifest por padrão. `--only` seleciona
+testes pelo nome e `--exclude` omite testes pelo nome; as duas opções podem ser
+repetidas e aceitam nomes separados por vírgulas. A exclusão prevalece quando
+as duas opções citam o mesmo teste. Nomes desconhecidos e uma seleção final
+vazia são erros.
+Um valor de filtro explicitamente vazio também é erro, impedindo que uma
+variável vazia de CI transforme `--only` numa execução da suíte inteira.
+
 ## Configuração
 
 | Chave | Significado |
@@ -26,7 +34,7 @@ As quatro últimas usam modelos: `{hex_path}`, `{mif_path}`, `{boot_rom_hex_path
 Por padrão a simulação carrega imagens `.hex` em modelos de memória feitos de arrays VHDL simples. Um projeto cujo topo de hardware instancia a IP de memória do fornecedor (o `altsyncram` do Quartus) pode ser simulado com essa IP, para que as memórias simuladas se comportem como as da FPGA. As peças são todas configuração:
 
 1. `sim.image: mif`, para cada teste carregar o `.mif` que o `compile --emit mif` escreve e que o hardware carrega, e para o `.mif` da boot ROM também ser gerado.
-2. `sim.libraries`, com a biblioteca do fornecedor (no Quartus, `altera_mf_components.vhd` e depois `altera_mf.vhd`, do diretório `eda/sim_lib` da instalação, por uma variável de ambiente para o caminho não ficar fixo) e `sim.ghdl_flags` com o que essa biblioteca exige (`-fsynopsys -fexplicit -frelaxed`). A biblioteca é analisada uma vez por execução do `sim`, em `<build_dir>/sim/sim_work/libraries`.
+2. `sim.libraries`, com a biblioteca do fornecedor (no Quartus, `altera_mf_components.vhd` e depois `altera_mf.vhd`, do diretório `eda/sim_lib` da instalação, por uma variável de ambiente para o caminho não ficar fixo) e `sim.ghdl_flags` com o que essa biblioteca exige (`-fsynopsys -fexplicit -frelaxed`). A biblioteca é analisada uma vez por execução do `sim`, abaixo de `<build_dir>/sim/sim_work/<perfil-de-simulacao>/libraries`. Cada configuração `sim` distinta recebe um diretório de perfil estável e separado, com um prefixo legível do toplevel e uma impressão digital da configuração, evitando que unidades incompatíveis do GHDL atravessem perfis mesmo quando usam a mesma entidade de topo.
 3. `sim.run_files`, porque a IP lê o conteúdo inicial de um nome de arquivo fixo no VHDL (por exemplo `init.mif`): cada entrada copia a imagem do teste, ou a da boot ROM, para esse nome no diretório de execução.
 4. `sim.env`, para dizer a um módulo de teste escrito para outro topo (outros nomes de clock e reset, outro limite de tempo) o que dirigir.
 
@@ -55,6 +63,7 @@ Os testes são pulados quando o GHDL ou o cocotb não estão disponíveis.
 | `tests/test_sim_runner.py::test_build_libraries_needs_the_flags_the_library_needs` | Uma biblioteca que exige `-fsynopsys` não é analisada sem ele. |
 | `tests/test_sim_runner.py::test_expand_env_replaces_variables` | `$VAR` e `${VAR}` num caminho são substituídos a partir do ambiente. |
 | `tests/test_sim_runner.py::test_expand_env_rejects_an_unset_variable` | Uma variável não definida é um erro que a nomeia. |
+| `tests/test_sim_runner.py::test_run_suite_isolates_work_directories_by_simulation_profile` | Configurações `sim` diferentes que compartilham um toplevel usam diretórios de trabalho distintos do GHDL, enquanto repetir o mesmo perfil reaproveita seu caminho estável. |
 | `tests/test_config_extends.py` | O `extends:` mescla por cima da base, substitui listas, é relativo ao arquivo que o declara, rejeita um laço e deixa uma configuração sem ele inalterada. |
 
 ## Uso
@@ -63,6 +72,7 @@ Os testes são pulados quando o GHDL ou o cocotb não estão disponíveis.
 uv sync --extra sim
 uv run riscv-tools --config /path/to/project/config.yaml compile --emit hex
 uv run riscv-tools --config /path/to/project/config.yaml sim
+uv run riscv-tools --config /path/to/project/config.yaml sim --exclude uart-echo,uart-tx
 ```
 
 ---
