@@ -4,35 +4,7 @@
 
 Este documento define as regras obrigatórias de codificação, organização estrutural, documentação e verificação para qualquer contribuição ao repositório `Tools`.
 
-## 1. Normas C (C23)
-
-Todo código C do projeto (programas de teste, runtime e fixtures) é escrito sob a norma **ISO/IEC 9899:2024 (C23)** e compilado com `-std=c23`, nunca com `-std=gnu23` nem com extensões do compilador que dispensem a norma.
-
-| Regra | Especificação |
-| :--- | :--- |
-| Norma da linguagem | C23 (`-std=c23`) em todos os arquivos `.c` e `.h` |
-| Avisos | `-Wall -Wextra -Wpedantic -Werror`; nenhum aviso é aceito |
-| Tipos de largura fixa | `<stdint.h>` (`uint32_t`, `int32_t`) em vez de `int`/`long` quando a largura importa |
-| Palavras-chave de C23 | Usar `bool`, `true`, `false`, `nullptr`, `constexpr`, `static_assert` sem mensagem e `typeof`; não incluir `<stdbool.h>` nem definir `NULL` próprio |
-| Atributos | Usar a sintaxe padrão `[[nodiscard]]`, `[[maybe_unused]]` e `[[noreturn]]` em vez de `__attribute__` |
-| Constantes | `constexpr` ou `enum` no lugar de macros `#define` numéricas; literais binários (`0b1010`) e separadores (`1'000'000`) permitidos |
-| Ambiente freestanding | Código bare-metal compilado com `-ffreestanding` depende apenas dos cabeçalhos garantidos pela norma e da libc do runtime |
-| Nomenclatura | Identificadores em **inglês** com `snake_case`, constantes e macros em `UPPER_SNAKE_CASE`, tipos com sufixo `_t`; comentários em **português** |
-| Comentários | Cada função e cada variável global recebem um comentário descritivo em português imediatamente acima da declaração |
-
-A norma de referência é a [ISO/IEC 9899:2024](https://www.iso.org/standard/82075.html). Em trabalhos acadêmicos, cite-a com a entrada BibTeX abaixo:
-
-```bibtex
-@misc{iso9899,
-  title        = {Information technology, Programming languages, C},
-  author       = {{ISO/IEC}},
-  year         = {2024},
-  note         = {ISO/IEC 9899:2024 (C23)},
-  howpublished = {\url{https://www.iso.org/standard/82075.html}}
-}
-```
-
-## 2. Normas Python
+## 1. Normas Python
 
 | Regra | Especificação |
 | :--- | :--- |
@@ -42,6 +14,24 @@ A norma de referência é a [ISO/IEC 9899:2024](https://www.iso.org/standard/820
 | Tipagem | Anotações completas, verificadas pelo Pyright em modo `strict` |
 | Estilo e qualidade | `ruff` para lint e formatação; `deptry` para dependências declaradas e usadas |
 | Nomenclatura | Identificadores em **inglês** com `snake_case`; comentários e docstrings em **português** |
+
+## 2. Organização em Módulos
+
+Cada módulo do pacote (a tabela do `README.md` lista todos) tem exatamente um trabalho. Ao adicionar ou
+alterar código:
+
+- Funcionalidade nova que não cabe na responsabilidade de um módulo existente
+  ganha o **seu próprio módulo novo**; não a encaixe no módulo não relacionado
+  mais próximo só porque é conveniente importar dele.
+- Lógica necessária a **dois ou mais** módulos vira um módulo próprio (ou um
+  pequeno helper privado compartilhado por import explícito), em vez de ser
+  copiada em cada chamador. Duplicação entre módulos é como uma correção
+  aplicada a uma cópia deixa a outra quebrada em silêncio, sem nada nos
+  pontos de chamada indicando que existe uma segunda cópia.
+- Se houver dúvida entre uma responsabilidade nova e uma que cabe num módulo
+  existente, prefira o módulo menor e mais específico: juntar dois módulos
+  depois é fácil; desembaraçar um módulo que acumulou vários trabalhos
+  distintos não é.
 
 ## 3. Regras de Documentação Markdown
 

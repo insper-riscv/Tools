@@ -35,7 +35,7 @@ Qualquer chave omitida volta ao padrão embutido mostrado.
 | `gcc` | `riscv32-unknown-elf-gcc` | `compiler`, `c_to_asm`, `boot_rom` |
 | `objcopy` | `riscv32-unknown-elf-objcopy` | `compiler`, `boot_rom`, `certify`, `golden_generator` |
 | `nm` | `riscv32-unknown-elf-nm` | `golden_generator` (`generate-golden`) |
-| `libc` | `none` | `compiler`: a biblioteca C com que os testes linkam. `none` passa `-nostdlib`, então o projeto fornece o que precisar (como `malloc`) por `paths.syscalls`. `picolibc` passa `--specs=picolibc.specs` (e `-Wl,--no-gc-sections`, veja [compiler.md](modules/compiler.md#biblioteca-c)) para um GCC configurado com picolibc, como o que o `GCC_SETUP.md` do Infra compila |
+| `libc` | `none` | `compiler`: a biblioteca C com que os testes linkam. `none` passa `-nostdlib`, então o projeto fornece o que precisar (como `malloc`) por `paths.syscalls`. `picolibc` passa `--specs=picolibc.specs` (e `-Wl,--no-gc-sections`, veja [compiler.md](modules/compiler.md#biblioteca-c)) para um GCC configurado com picolibc, como o que o `manual/GCC_SETUP.md` do Infra compila |
 | `specs` | não definida | `compiler`: caminho (relativo à raiz do projeto) de um arquivo de especificação do GCC que descreve a sua plataforma. Ele inclui o `picolibc.specs` e acrescenta o mapa de memória (`--defsym=__flash=...`, `__ram=...`) e o `crt0` a usar, então os testes linkam com o `crt0` e o `picolibc.ld` da própria toolchain e não precisam de `crt0.S` nem de linker script seu. Os testes são então compilados como programas hospedados (o `main` pode retornar), e `libc` é ignorada. Veja [compiler.md](modules/compiler.md#arquivo-de-especificação-da-plataforma) |
 
 ### `isa:`

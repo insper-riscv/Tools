@@ -27,8 +27,8 @@ A project with a separate boot ROM (`paths.golden_linker_script` and `paths.boot
 
 ## Prerequisites
 
-- `spike` on `PATH`, installed as in [insper-riscv/Infra](https://github.com/insper-riscv/Infra)'s `SPIKE_SETUP.md` (the build keeps Spike's debug module away from address 0).
-- The RISC-V GCC toolchain (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) on `PATH`, installed as in [insper-riscv/Infra](https://github.com/insper-riscv/Infra)'s `GCC_SETUP.md` (`nm` and `objcopy`; `gcc` builds the fixtures).
+- `spike` on `PATH`, provided by the `ci-elf` image of [insper-riscv/Infra](https://github.com/insper-riscv/Infra), or installed as in its `manual/SPIKE_SETUP.md` (the build keeps Spike's debug module away from address 0).
+- The RISC-V GCC toolchain (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) on `PATH`, provided by the `ci-elf` image of [insper-riscv/Infra](https://github.com/insper-riscv/Infra), or installed as in its `manual/GCC_SETUP.md` (`nm` and `objcopy`; `gcc` builds the fixtures).
 
 ## Tests
 

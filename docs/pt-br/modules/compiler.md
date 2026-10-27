@@ -20,7 +20,7 @@ O fonte de cada teste declara os requisitos de build/execução em comentários 
 | Valor | Flags | Uso |
 | :--- | :--- | :--- |
 | `none` (padrão) | `-nostdlib` | Funciona com qualquer toolchain. Um teste que precisa de `malloc` ou algo parecido o obtém do `paths.syscalls` do próprio projeto. |
-| `picolibc` | `--specs=picolibc.specs -Wl,--no-gc-sections` | Para um GCC configurado com picolibc, como o que o `GCC_SETUP.md` do Infra compila para `rv32im`/`ilp32`. `strlen`, `memcpy`, `printf` e o resto vêm da picolibc. |
+| `picolibc` | `--specs=picolibc.specs -Wl,--no-gc-sections` | Para um GCC configurado com picolibc, como o que o `manual/GCC_SETUP.md` do Infra compila para `rv32im`/`ilp32`. `strlen`, `memcpy`, `printf` e o resto vêm da picolibc. |
 
 O código de startup continua sendo o `crt0.S` do próprio projeto (`-nostartfiles` nos dois casos). O `picolibc.specs` liga o `--gc-sections`, que descarta toda seção que um link script não mantém nem alcança a partir da entrada, então ele é desligado de novo. Essa toolchain tem uma única variante de biblioteca (`rv32im`/`ilp32`), então um teste compilado para um `-march` mais estreito linka código de biblioteca que pode usar instruções que o seu núcleo não tem, como multiplicação e divisão no `printf`.
 
@@ -84,7 +84,7 @@ Um programa linkado em `0x800` começa em `@00000200` (endereço de palavra), en
 
 ## Pré-requisitos
 
-- A toolchain GCC RISC-V (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) no `PATH`, instalada como no `GCC_SETUP.md` do [insper-riscv/Infra](https://github.com/insper-riscv/Infra).
+- A toolchain GCC RISC-V (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) no `PATH`, que a imagem `ci-elf` do [insper-riscv/Infra](https://github.com/insper-riscv/Infra) já traz, ou instalada como no `manual/GCC_SETUP.md` dele.
 
 ## Testes
 

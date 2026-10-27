@@ -3,16 +3,16 @@
 ## Requirements
 
 Spike and the RISC-V GCC toolchain (`riscv32-unknown-elf-gcc`,
-`-objcopy`, `-nm`) on `PATH`, installed as described in
-[insper-riscv/Infra](https://github.com/insper-riscv/Infra)
-(`GCC_SETUP.md` and `SPIKE_SETUP.md`). This package does not build
-either of them.
+`-objcopy`, `-nm`) on `PATH`, which the `ci-elf` image of
+[insper-riscv/Infra](https://github.com/insper-riscv/Infra) already carries (or
+installed with its `manual/GCC_SETUP.md` and `manual/SPIKE_SETUP.md` guides). This
+package does not build either of them.
 
 The Spike has to keep its debug module away from address 0, which the
-Infra build does. Without that, Spike aborts at startup with `devices at
+Spike of the image and the one of Infra's manual guide do. Without that, Spike aborts at startup with `devices at
 [0, 1000) and [0, 10000) overlap` for any target whose ROM starts at
 address 0. `generate-golden` runs a one-time probe for this before its
-first Spike run and stops with a pointer to `SPIKE_SETUP.md` when it
+first Spike run and stops with a pointer to Infra's `manual/SPIKE_SETUP.md` when it
 fails.
 
 A `RV32_TEST_KIND: memory` test needs a golden JSON: the expected

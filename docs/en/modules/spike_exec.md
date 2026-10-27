@@ -6,7 +6,7 @@ Prepares and launches Spike runs. It is the shared step behind [`golden_generato
 
 | Step | Behaviour |
 | :--- | :--- |
-| Preflight | Finds `emulator.spike_bin` on `PATH` (or as a path) and probes it once per process. A Spike that places its debug module at address 0 aborts with `devices at [0, 1000) and [0, 10000) overlap` whenever the target's ROM starts at address 0, so it is rejected with a pointer to Infra's `SPIKE_SETUP.md`. |
+| Preflight | Finds `emulator.spike_bin` on `PATH` (or as a path) and probes it once per process. A Spike that places its debug module at address 0 aborts with `devices at [0, 1000) and [0, 10000) overlap` whenever the target's ROM starts at address 0, so it is rejected with a pointer to the `manual/SPIKE_SETUP.md` of Infra. |
 | ELF preparation | Copies the ELF to a temporary directory and, with `objcopy --add-symbol`, defines what Spike needs: `fromhost` right after `tohost` when the link script doesn't define it (without both, Spike warns and never exits on completion), a `tohost` alias when `emulator.tohost_symbol` names it differently, and any extra symbols a caller asks for (such as `begin_signature`). The original ELF is never modified. |
 | Command line | `--isa`, one `-m` region per real memory, `--disable-dtb` and `--pc`. Spike's own default memory sits at `0x80000000` and its reset vector goes through a boot ROM at `0x1000`, both of which collide with a target whose memory starts near address 0. |
 
@@ -20,8 +20,8 @@ Prepares and launches Spike runs. It is the shared step behind [`golden_generato
 
 ## Prerequisites
 
-- `spike` on `PATH`, installed as in [insper-riscv/Infra](https://github.com/insper-riscv/Infra)'s `SPIKE_SETUP.md` (the build keeps Spike's debug module away from address 0).
-- The RISC-V GCC toolchain (`riscv32-unknown-elf-nm` and `-objcopy`) on `PATH`, installed as in Infra's `GCC_SETUP.md`.
+- `spike` on `PATH`, provided by the `ci-elf` image of [insper-riscv/Infra](https://github.com/insper-riscv/Infra), or installed as in its `manual/SPIKE_SETUP.md` (the build keeps Spike's debug module away from address 0).
+- The RISC-V GCC toolchain (`riscv32-unknown-elf-nm` and `-objcopy`) on `PATH`, provided by the `ci-elf` image of Infra, or installed as in its `manual/GCC_SETUP.md`.
 
 ## Tests
 
