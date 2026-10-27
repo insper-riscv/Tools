@@ -2,14 +2,13 @@
 
 🌐 [Português](README.md) · [English](README.en.md)
 
-Ferramentas de build e teste dirigidas por configuração, para RISC-V bare-metal
-ou simulação de hardware virtual: o mesmo teste compilado roda contra o
-hardware real via JTAG ou contra a simulação cocotb/GHDL; os resultados podem
-ser verificados contra referências (goldens) geradas pelo Spike ou versionadas
-no repositório. Organizado como um módulo por responsabilidade, cada um com o
-próprio `__config__.py` de padrões; o projeto consumidor fornece o seu
-`config.yaml`, que sobrescreve esses padrões. Veja
-[docs/configuration.md](docs/pt-br/configuration.md) para a referência completa.
+O `riscv-tools` é um pacote Python que compila, simula, executa e certifica programas de teste para RISC-V bare-metal. Cada projeto descreve o seu fluxo em um `config.yaml`, e o mesmo teste compilado roda de duas formas: no hardware real, pela porta JTAG, ou na simulação cocotb/GHDL.
+
+Os resultados são conferidos contra referências (goldens), geradas pelo Spike ou versionadas no repositório do projeto.
+
+O pacote tem um módulo por responsabilidade, cada um com o seu `__config__.py` de valores padrão. O `config.yaml` do projeto consumidor sobrescreve esses padrões, e a referência completa está em [docs/configuration.md](docs/pt-br/configuration.md).
+
+Ele foi projetado para rodar em uma workstation com todas as ferramentas instaladas, ou dentro das imagens Docker de CI do repositório [Infra](https://github.com/insper-riscv/Infra).
 
 ## Módulos
 
@@ -41,42 +40,6 @@ próprio `__config__.py` de padrões; o projeto consumidor fornece o seu
 | `path_check`         | Falha quando um caminho de arquivo listado na configuração do projeto não existe (antes e depois de mover arquivos) | [docs/modules/path_check.md](docs/pt-br/modules/path_check.md) |
 | `freq_sweep`         | Reescreve a frequência de clock e as defasagens de um fonte de PLL: o mecanismo com que o sweep de frequência do `orchestrator` edita | [docs/modules/freq_sweep.md](docs/pt-br/modules/freq_sweep.md) |
 | `run_log`            | Rotaciona e replica (tee) toda a saída de console de uma execução num histórico de logs persistente por tipo | [docs/modules/run_log.md](docs/pt-br/modules/run_log.md) |
-
-## Dependências da toolchain
-
-Os binários RISC-V (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) vêm de uma
-única toolchain GCC e são resolvidos pelo `PATH`; o Spike só é necessário para
-gerar goldens.
-
-| Comando | GCC | objcopy | nm | Spike |
-|---|---|---|---|---|
-| `compile --emit asm` | sim | não | não | não |
-| `compile --emit mif` / `--emit hex` | sim | sim | só para testes `memory` escritos em C | só para testes `memory` escritos em C |
-| `generate-golden` | não | não | sim | sim |
-| `spike-run` | não | sim | sim | sim |
-| `program`, `sim` | sim (boot ROM) | sim (boot ROM) | não | não |
-| `certify` | sim (pelo build do próprio ACT4) | sim | não | não |
-
-## Ferramentas
-
-As ferramentas vêm das imagens do [insper-riscv/Infra](https://github.com/insper-riscv/Infra),
-que o CI usa e que servem também a quem trabalha localmente:
-
-| Imagem | Para que serve neste pacote |
-| :--- | :--- |
-| `ci-elf` | `compile`, `sim`, `generate-golden`, `spike-run`: GHDL, GCC RISC-V com picolibc, Spike, `uv` e Python |
-| `ci-act4` | tudo da `ci-elf` mais o Sail, o Ruby e as dependências do ACT4, para o `certify` |
-| `dev_tools` | a `ci-act4` mais o usuário `dev` e o GTKWave, para um Dev Container |
-
-Quem prefere instalar direto na máquina segue os guias de `docs/pt-br/manual/` do
-Infra (`GCC_SETUP.md`, `SPIKE_SETUP.md` e os demais). Este pacote não compila nada por
-conta própria.
-
-O Spike precisa manter o módulo de debug longe do endereço 0, o que o Spike das
-imagens e o do guia manual fazem. Um Spike padrão aborta na inicialização com
-`devices at [0, 1000) and [0, 10000) overlap` para um alvo cuja ROM começa no
-endereço 0; o gerador de goldens confere isso antes da primeira execução e
-aponta o `manual/SPIKE_SETUP.md` do Infra quando falha.
 
 ## Docs
 
