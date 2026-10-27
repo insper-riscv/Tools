@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 #
-# Test image for riscv-tools: insper-riscv/Infra's toolchain image (GHDL, the
+# Test image for riscv-tools: the ci-asm image of insper-riscv/Infra (GHDL, the
 # RISC-V GCC with picolibc, a patched Spike and uv, at the paths of the
 # workstation install) plus this project's dependencies.
 #
@@ -8,7 +8,7 @@
 #   docker run --rm -v "$PWD:/workspace" riscv-tools-tests            # whole suite
 #   docker run --rm -v "$PWD:/workspace" riscv-tools-tests tests/test_sim_runner.py -v
 
-ARG TOOLCHAIN_IMAGE=ghcr.io/insper-riscv/infra-toolchain:latest
+ARG TOOLCHAIN_IMAGE=ghcr.io/insper-riscv/ci-asm:latest
 FROM ${TOOLCHAIN_IMAGE}
 
 # libatomic1: the node that pyright downloads.

@@ -154,7 +154,7 @@ pacote inteiro, por isso não pertence a nenhum módulo em particular.
 
 O `Dockerfile` parte da imagem de toolchain que o
 [insper-riscv/Infra](https://github.com/insper-riscv/Infra) publica
-(`ghcr.io/insper-riscv/infra-toolchain`, veja o `TOOLCHAIN_IMAGE.md` dele):
+(`ghcr.io/insper-riscv/ci-asm`, veja o `docs/pt-br/docker/ci-asm.md` dele):
 GHDL, o GCC RISC-V com picolibc, um Spike com o patch descrito no
 `SPIKE_SETUP.md` e o `uv`, nos mesmos caminhos da instalação de workstation.
 Ele acrescenta as dependências deste projeto, de modo que nada é pulado e
@@ -170,7 +170,7 @@ A imagem base é a `latest` da imagem de toolchain. Para testar contra uma
 publicação específica, passe a tag `sha-` dela:
 
 ```bash
-docker build --build-arg TOOLCHAIN_IMAGE=ghcr.io/insper-riscv/infra-toolchain:sha-<commit> \
+docker build --build-arg TOOLCHAIN_IMAGE=ghcr.io/insper-riscv/ci-asm:sha-<commit> \
     -t riscv-tools-tests .
 ```
 

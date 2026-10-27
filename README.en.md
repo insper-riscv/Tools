@@ -152,7 +152,7 @@ package, so it belongs to no single module.
 
 The `Dockerfile` starts from the toolchain image that
 [insper-riscv/Infra](https://github.com/insper-riscv/Infra) publishes
-(`ghcr.io/insper-riscv/infra-toolchain`, see its `TOOLCHAIN_IMAGE.md`): GHDL,
+(`ghcr.io/insper-riscv/ci-asm`, see its `docs/en/docker/ci-asm.md`): GHDL,
 the RISC-V GCC with picolibc, a Spike patched as its `SPIKE_SETUP.md`
 describes and `uv`, at the same paths the workstation install uses. It adds
 this project's dependencies, so nothing is skipped and nothing is compiled:
@@ -167,7 +167,7 @@ The base image is the `latest` of the toolchain image. To test against a
 specific publication, pass its `sha-` tag:
 
 ```bash
-docker build --build-arg TOOLCHAIN_IMAGE=ghcr.io/insper-riscv/infra-toolchain:sha-<commit> \
+docker build --build-arg TOOLCHAIN_IMAGE=ghcr.io/insper-riscv/ci-asm:sha-<commit> \
     -t riscv-tools-tests .
 ```
 
