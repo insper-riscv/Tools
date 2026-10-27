@@ -39,25 +39,6 @@ Organized as one module per responsibility, each with its own
 | `freq_sweep`         | Rewrite a PLL source's clock frequency/phase offsets: the mechanism `orchestrator`'s frequency sweep edits with | [docs/modules/freq_sweep.md](docs/en/modules/freq_sweep.md) |
 | `run_log`            | Rotates and tees a run's full console output into a persistent per-kind log history | [docs/modules/run_log.md](docs/en/modules/run_log.md) |
 
-## Rule: one module, one responsibility
-
-Every module in the table above owns exactly one job. When adding or
-changing code:
-
-- New functionality that doesn't fit an existing module's
-  responsibility gets its **own new module**; don't bolt it onto the
-  nearest unrelated one just because it's convenient to import from
-  there.
-- Logic needed by **two or more** modules gets factored into its own
-  module (or a small private helper shared via an explicit import),
-  not copy-pasted into each caller. Duplication between modules is how
-  a fix applied to one copy silently leaves the other one broken, with
-  nothing at either call site hinting that a second copy even exists.
-- If you're unsure whether something is a new responsibility or fits
-  an existing one, prefer the smaller, more specific module: merging
-  two modules later is easy; un-tangling a module that grew several
-  unrelated jobs is not.
-
 ## Toolchain dependencies
 
 The RISC-V binaries (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) come

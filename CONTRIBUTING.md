@@ -15,7 +15,25 @@ Este documento define as regras obrigatórias de codificação, organização es
 | Estilo e qualidade | `ruff` para lint e formatação; `deptry` para dependências declaradas e usadas |
 | Nomenclatura | Identificadores em **inglês** com `snake_case`; comentários e docstrings em **português** |
 
-## 2. Regras de Documentação Markdown
+## 2. Organização em Módulos
+
+Cada módulo do pacote (a tabela do `README.md` lista todos) tem exatamente um trabalho. Ao adicionar ou
+alterar código:
+
+- Funcionalidade nova que não cabe na responsabilidade de um módulo existente
+  ganha o **seu próprio módulo novo**; não a encaixe no módulo não relacionado
+  mais próximo só porque é conveniente importar dele.
+- Lógica necessária a **dois ou mais** módulos vira um módulo próprio (ou um
+  pequeno helper privado compartilhado por import explícito), em vez de ser
+  copiada em cada chamador. Duplicação entre módulos é como uma correção
+  aplicada a uma cópia deixa a outra quebrada em silêncio, sem nada nos
+  pontos de chamada indicando que existe uma segunda cópia.
+- Se houver dúvida entre uma responsabilidade nova e uma que cabe num módulo
+  existente, prefira o módulo menor e mais específico: juntar dois módulos
+  depois é fácil; desembaraçar um módulo que acumulou vários trabalhos
+  distintos não é.
+
+## 3. Regras de Documentação Markdown
 
 Todo `README` e todo `CONTRIBUTING` e `AUTHORS` mantêm versões espelhadas em português (`*.md`) e em inglês (`*.en.md`), obedecendo às seguintes regras:
 
@@ -29,7 +47,7 @@ Todo `README` e todo `CONTRIBUTING` e `AUTHORS` mantêm versões espelhadas em p
 6. **Sem histórico ou pendências na documentação técnica:** documentos de arquitetura e contratos descrevem exclusivamente o estado atual, sem changelogs internos nem listas de tarefas futuras.
 7. **Guias de uso apenas instruem:** instruções de instalação e execução dizem como fazer, sem justificar a escolha do método.
 
-## 3. Verificação Obrigatória Antes de Abrir Pull Request
+## 4. Verificação Obrigatória Antes de Abrir Pull Request
 
 Qualquer alteração em código, configuração ou documentação deve passar sem erros pelos comandos abaixo antes do envio:
 

@@ -15,7 +15,26 @@ This document defines the mandatory coding, structural organization, documentati
 | Style and quality | `ruff` for lint and formatting; `deptry` for declared and used dependencies |
 | Naming | Identifiers in **English** with `snake_case`; comments and docstrings in **Portuguese** |
 
-## 2. Markdown Documentation Rules
+## 2. Module Organization
+
+Every module of the package (the table in `README.en.md` lists them all) owns exactly one job. When adding or
+changing code:
+
+- New functionality that doesn't fit an existing module's
+  responsibility gets its **own new module**; don't bolt it onto the
+  nearest unrelated one just because it's convenient to import from
+  there.
+- Logic needed by **two or more** modules gets factored into its own
+  module (or a small private helper shared via an explicit import),
+  not copy-pasted into each caller. Duplication between modules is how
+  a fix applied to one copy silently leaves the other one broken, with
+  nothing at either call site hinting that a second copy even exists.
+- If you're unsure whether something is a new responsibility or fits
+  an existing one, prefer the smaller, more specific module: merging
+  two modules later is easy; un-tangling a module that grew several
+  unrelated jobs is not.
+
+## 3. Markdown Documentation Rules
 
 Every `README`, `CONTRIBUTING`, and `AUTHORS` maintains mirrored versions in Portuguese (`*.md`) and English (`*.en.md`), following these rules:
 
@@ -29,7 +48,7 @@ Every `README`, `CONTRIBUTING`, and `AUTHORS` maintains mirrored versions in Por
 6. **No changelog or open TODOs in technical docs:** architecture and contract documents describe exclusively the current state, without historical bugfix notes or unimplemented work lists.
 7. **Usage guides only instruct:** installation and run instructions say how to do it, without justifying the choice of method.
 
-## 3. Mandatory Verification Before Opening a Pull Request
+## 4. Mandatory Verification Before Opening a Pull Request
 
 Any change to code, configuration, or documentation must pass all commands below without errors before submission:
 

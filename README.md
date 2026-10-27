@@ -42,24 +42,6 @@ próprio `__config__.py` de padrões; o projeto consumidor fornece o seu
 | `freq_sweep`         | Reescreve a frequência de clock e as defasagens de um fonte de PLL: o mecanismo com que o sweep de frequência do `orchestrator` edita | [docs/modules/freq_sweep.md](docs/pt-br/modules/freq_sweep.md) |
 | `run_log`            | Rotaciona e replica (tee) toda a saída de console de uma execução num histórico de logs persistente por tipo | [docs/modules/run_log.md](docs/pt-br/modules/run_log.md) |
 
-## Regra: um módulo, uma responsabilidade
-
-Cada módulo da tabela acima tem exatamente um trabalho. Ao adicionar ou
-alterar código:
-
-- Funcionalidade nova que não cabe na responsabilidade de um módulo existente
-  ganha o **seu próprio módulo novo**; não a encaixe no módulo não relacionado
-  mais próximo só porque é conveniente importar dele.
-- Lógica necessária a **dois ou mais** módulos vira um módulo próprio (ou um
-  pequeno helper privado compartilhado por import explícito), em vez de ser
-  copiada em cada chamador. Duplicação entre módulos é como uma correção
-  aplicada a uma cópia deixa a outra quebrada em silêncio, sem nada nos
-  pontos de chamada indicando que existe uma segunda cópia.
-- Se houver dúvida entre uma responsabilidade nova e uma que cabe num módulo
-  existente, prefira o módulo menor e mais específico: juntar dois módulos
-  depois é fácil; desembaraçar um módulo que acumulou vários trabalhos
-  distintos não é.
-
 ## Dependências da toolchain
 
 Os binários RISC-V (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) vêm de uma
