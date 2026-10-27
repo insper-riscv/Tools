@@ -4,35 +4,7 @@
 
 Este documento define as regras obrigatórias de codificação, organização estrutural, documentação e verificação para qualquer contribuição ao repositório `Tools`.
 
-## 1. Normas C (C23)
-
-Todo código C do projeto (programas de teste, runtime e fixtures) é escrito sob a norma **ISO/IEC 9899:2024 (C23)** e compilado com `-std=c23`, nunca com `-std=gnu23` nem com extensões do compilador que dispensem a norma.
-
-| Regra | Especificação |
-| :--- | :--- |
-| Norma da linguagem | C23 (`-std=c23`) em todos os arquivos `.c` e `.h` |
-| Avisos | `-Wall -Wextra -Wpedantic -Werror`; nenhum aviso é aceito |
-| Tipos de largura fixa | `<stdint.h>` (`uint32_t`, `int32_t`) em vez de `int`/`long` quando a largura importa |
-| Palavras-chave de C23 | Usar `bool`, `true`, `false`, `nullptr`, `constexpr`, `static_assert` sem mensagem e `typeof`; não incluir `<stdbool.h>` nem definir `NULL` próprio |
-| Atributos | Usar a sintaxe padrão `[[nodiscard]]`, `[[maybe_unused]]` e `[[noreturn]]` em vez de `__attribute__` |
-| Constantes | `constexpr` ou `enum` no lugar de macros `#define` numéricas; literais binários (`0b1010`) e separadores (`1'000'000`) permitidos |
-| Ambiente freestanding | Código bare-metal compilado com `-ffreestanding` depende apenas dos cabeçalhos garantidos pela norma e da libc do runtime |
-| Nomenclatura | Identificadores em **inglês** com `snake_case`, constantes e macros em `UPPER_SNAKE_CASE`, tipos com sufixo `_t`; comentários em **português** |
-| Comentários | Cada função e cada variável global recebem um comentário descritivo em português imediatamente acima da declaração |
-
-A norma de referência é a [ISO/IEC 9899:2024](https://www.iso.org/standard/82075.html). Em trabalhos acadêmicos, cite-a com a entrada BibTeX abaixo:
-
-```bibtex
-@misc{iso9899,
-  title        = {Information technology, Programming languages, C},
-  author       = {{ISO/IEC}},
-  year         = {2024},
-  note         = {ISO/IEC 9899:2024 (C23)},
-  howpublished = {\url{https://www.iso.org/standard/82075.html}}
-}
-```
-
-## 2. Normas Python
+## 1. Normas Python
 
 | Regra | Especificação |
 | :--- | :--- |
@@ -43,7 +15,7 @@ A norma de referência é a [ISO/IEC 9899:2024](https://www.iso.org/standard/820
 | Estilo e qualidade | `ruff` para lint e formatação; `deptry` para dependências declaradas e usadas |
 | Nomenclatura | Identificadores em **inglês** com `snake_case`; comentários e docstrings em **português** |
 
-## 3. Regras de Documentação Markdown
+## 2. Regras de Documentação Markdown
 
 Todo `README` e todo `CONTRIBUTING` e `AUTHORS` mantêm versões espelhadas em português (`*.md`) e em inglês (`*.en.md`), obedecendo às seguintes regras:
 
@@ -57,7 +29,7 @@ Todo `README` e todo `CONTRIBUTING` e `AUTHORS` mantêm versões espelhadas em p
 6. **Sem histórico ou pendências na documentação técnica:** documentos de arquitetura e contratos descrevem exclusivamente o estado atual, sem changelogs internos nem listas de tarefas futuras.
 7. **Guias de uso apenas instruem:** instruções de instalação e execução dizem como fazer, sem justificar a escolha do método.
 
-## 4. Verificação Obrigatória Antes de Abrir Pull Request
+## 3. Verificação Obrigatória Antes de Abrir Pull Request
 
 Qualquer alteração em código, configuração ou documentação deve passar sem erros pelos comandos abaixo antes do envio:
 

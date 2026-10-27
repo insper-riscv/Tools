@@ -75,19 +75,26 @@ gerar goldens.
 | `program`, `sim` | sim (boot ROM) | sim (boot ROM) | não | não |
 | `certify` | sim (pelo build do próprio ACT4) | sim | não | não |
 
-## Instalando a toolchain
+## Ferramentas
 
-A toolchain GCC RISC-V e o Spike vêm da instalação de workstation do
-[insper-riscv/Infra](https://github.com/insper-riscv/Infra)
-(`GCC_SETUP.md` e `SPIKE_SETUP.md`): os dois ficam num cache compartilhado
-(`/opt/riscv-foundation`) e entram no `PATH` por wrappers em
-`/usr/local/bin`. Este pacote não compila nada por conta própria.
+As ferramentas vêm das imagens do [insper-riscv/Infra](https://github.com/insper-riscv/Infra),
+que o CI usa e que servem também a quem trabalha localmente:
 
-O Spike precisa manter o módulo de debug longe do endereço 0, o que o build do
-Infra faz. Um Spike padrão aborta na inicialização com `devices at [0, 1000)
-and [0, 10000) overlap` para um alvo cuja ROM começa no endereço 0; o gerador
-de goldens confere isso antes da primeira execução e aponta o
-`SPIKE_SETUP.md` quando falha.
+| Imagem | Para que serve neste pacote |
+| :--- | :--- |
+| `ci-asm` | `compile`, `sim`, `generate-golden`, `spike-run`: GHDL, GCC RISC-V com picolibc, Spike, `uv` e Python |
+| `ci-elf` | tudo da `ci-asm` mais o Sail, o Ruby e as dependências do ACT4, para o `certify` |
+| `dev_tools` | a `ci-elf` mais o usuário `dev` e o GTKWave, para um Dev Container |
+
+Quem prefere instalar direto na máquina segue os guias de `docs/pt-br/manual/` do
+Infra (`GCC_SETUP.md`, `SPIKE_SETUP.md` e os demais). Este pacote não compila nada por
+conta própria.
+
+O Spike precisa manter o módulo de debug longe do endereço 0, o que o Spike das
+imagens e o do guia manual fazem. Um Spike padrão aborta na inicialização com
+`devices at [0, 1000) and [0, 10000) overlap` para um alvo cuja ROM começa no
+endereço 0; o gerador de goldens confere isso antes da primeira execução e
+aponta o `manual/SPIKE_SETUP.md` do Infra quando falha.
 
 ## Docs
 
@@ -154,12 +161,11 @@ pacote inteiro, por isso não pertence a nenhum módulo em particular.
 
 ### Rodando os testes no Docker
 
-O `Dockerfile` parte da imagem de toolchain que o
+O `Dockerfile` parte da imagem `ci-asm` que o
 [insper-riscv/Infra](https://github.com/insper-riscv/Infra) publica
 (`ghcr.io/insper-riscv/ci-asm`, veja o `docs/pt-br/docker/ci-asm.md` dele):
-GHDL, o GCC RISC-V com picolibc, um Spike com o patch descrito no
-`SPIKE_SETUP.md` e o `uv`, nos mesmos caminhos da instalação de workstation.
-Ele acrescenta as dependências deste projeto, de modo que nada é pulado e
+GHDL, o GCC RISC-V com picolibc, o Spike com o módulo de debug longe do endereço 0
+e o `uv`. Ele acrescenta as dependências deste projeto, de modo que nada é pulado e
 nada é compilado:
 
 ```bash
@@ -168,7 +174,7 @@ docker run --rm -v "$PWD:/workspace" riscv-tools-tests
 docker run --rm -v "$PWD:/workspace" riscv-tools-tests tests/test_sim_runner.py -v
 ```
 
-A imagem base é a `latest` da imagem de toolchain. Para testar contra uma
+A imagem base é a `latest` da `ci-asm`. Para testar contra uma
 publicação específica, passe a tag `sha-` dela:
 
 ```bash

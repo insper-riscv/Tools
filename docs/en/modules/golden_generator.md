@@ -15,8 +15,8 @@ Generates a golden JSON dynamically by running a compiled test's ELF under Spike
 
 ## Prerequisites
 
-- The RISC-V GCC toolchain (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) on `PATH`, installed as in [insper-riscv/Infra](https://github.com/insper-riscv/Infra)'s `GCC_SETUP.md` (`gcc` builds the fixtures, `nm` and `objcopy` prepare the ELF).
-- `spike` on `PATH`, installed as in [insper-riscv/Infra](https://github.com/insper-riscv/Infra)'s `SPIKE_SETUP.md` (the build keeps Spike's debug module away from address 0).
+- The RISC-V GCC toolchain (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) on `PATH`, provided by the `ci-asm` image of [insper-riscv/Infra](https://github.com/insper-riscv/Infra), or installed as in its `manual/GCC_SETUP.md` (`gcc` builds the fixtures, `nm` and `objcopy` prepare the ELF).
+- `spike` on `PATH`, provided by the `ci-asm` image of [insper-riscv/Infra](https://github.com/insper-riscv/Infra), or installed as in its `manual/SPIKE_SETUP.md` (the build keeps Spike's debug module away from address 0).
 
 ## Tests
 

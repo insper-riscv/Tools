@@ -4,35 +4,7 @@
 
 This document defines the mandatory coding, structural organization, documentation, and verification rules for any contribution to the `Tools` repository.
 
-## 1. C Standard (C23)
-
-All C code in the project (test programs, runtime, and fixtures) is written under the **ISO/IEC 9899:2024 (C23)** standard and compiled with `-std=c23`, never with `-std=gnu23` or compiler extensions that bypass the standard.
-
-| Rule | Specification |
-| :--- | :--- |
-| Language standard | C23 (`-std=c23`) across all `.c` and `.h` files |
-| Warnings | `-Wall -Wextra -Wpedantic -Werror`; no warning is accepted |
-| Fixed-width types | `<stdint.h>` (`uint32_t`, `int32_t`) instead of `int`/`long` when width matters |
-| C23 keywords | Use `bool`, `true`, `false`, `nullptr`, `constexpr`, `static_assert` without a message, and `typeof`; do not include `<stdbool.h>` or define a custom `NULL` |
-| Attributes | Use the standard `[[nodiscard]]`, `[[maybe_unused]]`, and `[[noreturn]]` syntax instead of `__attribute__` |
-| Constants | `constexpr` or `enum` instead of numeric `#define` macros; binary literals (`0b1010`) and digit separators (`1'000'000`) are allowed |
-| Freestanding environment | Bare-metal code compiled with `-ffreestanding` depends only on the headers guaranteed by the standard and on the runtime libc |
-| Naming | Identifiers in **English** with `snake_case`, constants and macros in `UPPER_SNAKE_CASE`, types with the `_t` suffix; comments in **Portuguese** |
-| Comments | Every function and global variable has a descriptive comment in Portuguese immediately above its declaration |
-
-The reference standard is [ISO/IEC 9899:2024](https://www.iso.org/standard/82075.html). In academic work, cite it with the BibTeX entry below:
-
-```bibtex
-@misc{iso9899,
-  title        = {Information technology, Programming languages, C},
-  author       = {{ISO/IEC}},
-  year         = {2024},
-  note         = {ISO/IEC 9899:2024 (C23)},
-  howpublished = {\url{https://www.iso.org/standard/82075.html}}
-}
-```
-
-## 2. Python Standards
+## 1. Python Standards
 
 | Rule | Specification |
 | :--- | :--- |
@@ -43,7 +15,7 @@ The reference standard is [ISO/IEC 9899:2024](https://www.iso.org/standard/82075
 | Style and quality | `ruff` for lint and formatting; `deptry` for declared and used dependencies |
 | Naming | Identifiers in **English** with `snake_case`; comments and docstrings in **Portuguese** |
 
-## 3. Markdown Documentation Rules
+## 2. Markdown Documentation Rules
 
 Every `README`, `CONTRIBUTING`, and `AUTHORS` maintains mirrored versions in Portuguese (`*.md`) and English (`*.en.md`), following these rules:
 
@@ -57,7 +29,7 @@ Every `README`, `CONTRIBUTING`, and `AUTHORS` maintains mirrored versions in Por
 6. **No changelog or open TODOs in technical docs:** architecture and contract documents describe exclusively the current state, without historical bugfix notes or unimplemented work lists.
 7. **Usage guides only instruct:** installation and run instructions say how to do it, without justifying the choice of method.
 
-## 4. Mandatory Verification Before Opening a Pull Request
+## 3. Mandatory Verification Before Opening a Pull Request
 
 Any change to code, configuration, or documentation must pass all commands below without errors before submission:
 

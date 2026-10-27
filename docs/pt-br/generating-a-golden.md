@@ -3,15 +3,16 @@
 ## Requisitos
 
 Spike e a toolchain GCC RISC-V (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`)
-no `PATH`, instalados como descrito no
-[insper-riscv/Infra](https://github.com/insper-riscv/Infra)
-(`GCC_SETUP.md` e `SPIKE_SETUP.md`). Este pacote não compila nenhum dos dois.
+no `PATH`, que a imagem `ci-asm` do
+[insper-riscv/Infra](https://github.com/insper-riscv/Infra) já traz (ou instalados
+pelos guias `manual/GCC_SETUP.md` e `manual/SPIKE_SETUP.md` dele). Este pacote
+não compila nenhum dos dois.
 
-O Spike precisa manter o módulo de debug longe do endereço 0, o que o build do
-Infra faz. Sem isso, o Spike aborta na inicialização com `devices at [0, 1000)
+O Spike precisa manter o módulo de debug longe do endereço 0, o que o Spike da
+imagem e o do guia manual do Infra fazem. Sem isso, o Spike aborta na inicialização com `devices at [0, 1000)
 and [0, 10000) overlap` para qualquer alvo cuja ROM começa no endereço 0. O
 `generate-golden` faz uma sondagem única disso antes da primeira execução do
-Spike e para com uma indicação do `SPIKE_SETUP.md` quando ela falha.
+Spike e para com uma indicação do `manual/SPIKE_SETUP.md` do Infra quando ela falha.
 
 Um teste `RV32_TEST_KIND: memory` precisa de um golden JSON: o valor de byte
 esperado em cada endereço que o [`mem_validator`](modules/mem_validator.md)

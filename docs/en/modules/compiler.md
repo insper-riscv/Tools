@@ -20,7 +20,7 @@ A test's own source file declares its build/run requirements in comments at the 
 | Value | Flags | Use |
 | :--- | :--- | :--- |
 | `none` (default) | `-nostdlib` | Works with any toolchain. A test that needs `malloc` or similar gets it from the project's own `paths.syscalls`. |
-| `picolibc` | `--specs=picolibc.specs -Wl,--no-gc-sections` | For a GCC configured with picolibc, such as the one Infra's `GCC_SETUP.md` builds for `rv32im`/`ilp32`. `strlen`, `memcpy`, `printf` and the rest come from picolibc. |
+| `picolibc` | `--specs=picolibc.specs -Wl,--no-gc-sections` | For a GCC configured with picolibc, such as the one Infra's `manual/GCC_SETUP.md` builds (and its `ci-asm` image carries) for `rv32im`/`ilp32`. `strlen`, `memcpy`, `printf` and the rest come from picolibc. |
 
 The startup code stays the project's own `crt0.S` (`-nostartfiles` in both cases). `picolibc.specs` turns on `--gc-sections`, which drops every section a link script neither keeps nor reaches from its entry, so it is switched off again. That toolchain has a single library variant (`rv32im`/`ilp32`), so a test built for a narrower `-march` links library code that may use instructions its core lacks, such as multiplication and division in `printf`.
 
@@ -83,7 +83,7 @@ A program linked at `0x800` starts at `@00000200` (word address), so it needs no
 
 ## Prerequisites
 
-- The RISC-V GCC toolchain (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) on `PATH`, installed as in [insper-riscv/Infra](https://github.com/insper-riscv/Infra)'s `GCC_SETUP.md`.
+- The RISC-V GCC toolchain (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) on `PATH`, provided by the `ci-asm` image of [insper-riscv/Infra](https://github.com/insper-riscv/Infra), or installed as in its `manual/GCC_SETUP.md`.
 
 ## Tests
 
