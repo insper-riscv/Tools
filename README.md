@@ -23,6 +23,9 @@ próprio `__config__.py` de padrões; o projeto consumidor fornece o seu
 | `mem_edit`           | Primitivas genéricas do In-System Memory Content Editor (ler/escrever palavra, escrita completa, dump) | [docs/modules/mem_edit.md](docs/pt-br/modules/mem_edit.md) |
 | `rom_writer`         | Grava uma imagem de ROM via JTAG sem reprogramar            | [docs/modules/rom_writer.md](docs/pt-br/modules/rom_writer.md) |
 | `ram_zero`           | Zera a RAM inteira via JTAG sem reprogramar                 | [docs/modules/ram_zero.md](docs/pt-br/modules/ram_zero.md) |
+| `ram_target`         | Onde fica a RAM (instância da FPGA ou porta de debug da SDRAM) | [docs/modules/ram_target.md](docs/pt-br/modules/ram_target.md) |
+| `sdram_debug`        | Lê, escreve e preenche a SDRAM pela porta de debug JTAG      | [docs/modules/sdram_debug.md](docs/pt-br/modules/sdram_debug.md) |
+| `uart_console`       | Mostra a saída do programa pela UART JTAG enquanto ele roda  | [docs/modules/uart_console.md](docs/pt-br/modules/uart_console.md) |
 | `ram_dump`           | Faz o dump da RAM inteira via JTAG para um `.mif`           | [docs/modules/ram_dump.md](docs/pt-br/modules/ram_dump.md) |
 | `mailbox`            | Leitura do mailbox PASS/FAIL e pulso da "go flag" de reinício | [docs/modules/mailbox.md](docs/pt-br/modules/mailbox.md) |
 | `quartus_program`    | Recompilação completa + `quartus_pgm` (o caminho lento, "base") | [docs/modules/quartus_program.md](docs/pt-br/modules/quartus_program.md) |
@@ -88,6 +91,9 @@ de goldens confere isso antes da primeira execução e aponta o
 
 ## Docs
 
+- [AUTHORS.md](AUTHORS.md): autores com commits no repositório, com nome e conta do GitHub.
+- [CONTRIBUTING.md](CONTRIBUTING.md): regras obrigatórias de contribuição e verificação antes de abrir Pull Request.
+- [CITATION.cff](CITATION.cff): metadados para citação do software.
 - [Referência de configuração](docs/pt-br/configuration.md)
 - [Criando um teste em C](docs/pt-br/creating-a-c-test.md)
 - [Criando um teste em ASM](docs/pt-br/creating-an-asm-test.md)
@@ -102,6 +108,7 @@ uv sync
 uv run riscv-tools --config /path/to/project/config.yaml compile --emit mif
 uv run riscv-tools --config /path/to/project/config.yaml compile --emit asm
 uv run riscv-tools --config /path/to/project/config.yaml run
+uv run riscv-tools --config /path/to/project/config.yaml run --exclude test-a,test-b
 uv run riscv-tools --config /path/to/project/config.yaml generate-golden \
     build/real/some_test.elf --march rv32im --start 0x10 --end 0x20 --out golden/some_test.json
 
@@ -109,6 +116,7 @@ uv run riscv-tools --config /path/to/project/config.yaml generate-golden \
 uv sync --extra sim
 uv run riscv-tools --config /path/to/project/config.yaml compile --emit hex
 uv run riscv-tools --config /path/to/project/config.yaml sim
+uv run riscv-tools --config /path/to/project/config.yaml sim --only test-a,test-b
 ```
 
 Veja `riscv-tools --help` para a lista completa de subcomandos (`write-rom`,
@@ -148,7 +156,7 @@ pacote inteiro, por isso não pertence a nenhum módulo em particular.
 
 O `Dockerfile` parte da imagem de toolchain que o
 [insper-riscv/Infra](https://github.com/insper-riscv/Infra) publica
-(`ghcr.io/insper-riscv/infra-toolchain`, veja o `TOOLCHAIN_IMAGE.md` dele):
+(`ghcr.io/insper-riscv/ci-asm`, veja o `docs/pt-br/docker/ci-asm.md` dele):
 GHDL, o GCC RISC-V com picolibc, um Spike com o patch descrito no
 `SPIKE_SETUP.md` e o `uv`, nos mesmos caminhos da instalação de workstation.
 Ele acrescenta as dependências deste projeto, de modo que nada é pulado e
@@ -164,7 +172,7 @@ A imagem base é a `latest` da imagem de toolchain. Para testar contra uma
 publicação específica, passe a tag `sha-` dela:
 
 ```bash
-docker build --build-arg TOOLCHAIN_IMAGE=ghcr.io/insper-riscv/infra-toolchain:sha-<commit> \
+docker build --build-arg TOOLCHAIN_IMAGE=ghcr.io/insper-riscv/ci-asm:sha-<commit> \
     -t riscv-tools-tests .
 ```
 

@@ -41,8 +41,8 @@ def canonical_march(isa_cfg: dict[str, Any], ext_csv: str) -> str:
     Returns
     -------
     str
-        The full march string, e.g. "rv32ima". Extension order in
-        ext_csv doesn't affect the result — "M,A" and "A,M" both
+        The full march string, e.g. "rv32ima" or "rv32im_zicsr". Extension
+        order in ext_csv doesn't affect the result — "M,A" and "A,M" both
         produce the same string, per canonical_order.
 
     Raises
@@ -55,7 +55,11 @@ def canonical_march(isa_cfg: dict[str, Any], ext_csv: str) -> str:
     if not ext_csv:
         return base
     order = isa_cfg["canonical_order"]
-    letters = {e.strip().upper() for e in ext_csv.split(",") if e.strip()}
+    names = {e.strip().upper() for e in ext_csv.split(",") if e.strip()}
+    # Multi-letter extensions (Zicsr, Zifencei, ...) start with Z and come after
+    # the single-letter ones, each preceded by "_" and sorted alphabetically.
+    multi = {n for n in names if len(n) > 1 and n[0] == "Z"}
+    letters = names - multi
     unknown = letters - set(order)
     if unknown:
         raise ValueError(
@@ -63,7 +67,8 @@ def canonical_march(isa_cfg: dict[str, Any], ext_csv: str) -> str:
             f"isa.canonical_order in config.yaml"
         )
     sorted_ext = "".join(letter for letter in order if letter in letters).lower()
-    return base + sorted_ext
+    sorted_multi = "".join(f"_{name.lower()}" for name in sorted(multi))
+    return base + sorted_ext + sorted_multi
 
 
 def parse_header(

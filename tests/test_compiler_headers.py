@@ -1,3 +1,5 @@
+import pytest
+
 from riscv_tools.compiler.__config__ import DEFAULTS
 from riscv_tools.compiler.headers import canonical_march, parse_header
 
@@ -15,6 +17,21 @@ def test_canonical_march_single_ext():
 def test_canonical_march_order_independent():
     assert canonical_march(ISA, "M,A") == canonical_march(ISA, "A,M")
     assert canonical_march(ISA, "A,M") == "rv32ima"
+
+
+def test_canonical_march_multi_letter_ext():
+    assert canonical_march(ISA, "Zicsr") == "rv32i_zicsr"
+    assert canonical_march(ISA, "M,Zicsr") == "rv32im_zicsr"
+
+
+def test_canonical_march_multi_letter_sorted_and_order_independent():
+    assert canonical_march(ISA, "Zifencei,M,Zicsr") == "rv32im_zicsr_zifencei"
+    assert canonical_march(ISA, "Zicsr,Zifencei,M") == "rv32im_zicsr_zifencei"
+
+
+def test_canonical_march_unknown_single_letter_still_rejected():
+    with pytest.raises(ValueError):
+        canonical_march(ISA, "M,K")
 
 
 def test_parse_header_defaults():

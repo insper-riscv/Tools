@@ -17,6 +17,8 @@ this module targets that (cocotb>=2.0), not the older `cocotb.runner`
 some 1.x docs/examples still reference.
 """
 
+import hashlib
+import json
 import os
 import re
 import shutil
@@ -24,6 +26,16 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Any
+
+
+def _profile_build_dir(build_dir: Path, sim_cfg: dict[str, Any]) -> Path:
+    """Return a stable, path-safe work directory for one simulation profile."""
+    toplevel = str(sim_cfg["toplevel"])
+    readable = re.sub(r"[^A-Za-z0-9_.-]+", "-", toplevel).strip("._-")
+    readable = (readable or "toplevel")[:48]
+    identity = json.dumps(sim_cfg, sort_keys=True, separators=(",", ":"), default=str)
+    fingerprint = hashlib.sha256(identity.encode()).hexdigest()[:12]
+    return build_dir / f"{readable}-{fingerprint}"
 
 
 def expand_env(text: str) -> str:
@@ -118,6 +130,7 @@ def run_test(  # noqa: PLR0913, PLR0917
     libraries_dir: Path | None = None,
     run_files: dict[str, Path] | None = None,
     extra_env: dict[str, str] | None = None,
+    ghdl_run_flags: list[str] | None = None,
 ) -> bool:
     """Build (if needed) and run one test under cocotb/GHDL.
 
@@ -183,6 +196,9 @@ def run_test(  # noqa: PLR0913, PLR0917
         runs in, before the simulation starts (sim.run_files).
     extra_env : dict of {str: str}, optional
         Environment variables added for the test module (sim.env).
+    ghdl_run_flags : list of str, optional
+        GHDL simulation options, which the analyze and elaborate steps reject
+        (for example `--max-stack-alloc=0`).
 
     Returns
     -------
@@ -249,6 +265,9 @@ def run_test(  # noqa: PLR0913, PLR0917
             test_module=test_module,
             build_dir=build_dir,
             test_args=ghdl_args,
+            # GHDL takes a simulation option only after the top-level unit, where cocotb
+            # puts the plusargs
+            plusargs=ghdl_run_flags or [],
             results_xml=str(results_xml),
             extra_env={
                 **(extra_env or {}),
@@ -324,8 +343,11 @@ def run_suite(  # noqa: PLR0913, PLR0917
         relative to this, and vhdl_sources are resolved relative to
         this too.
     build_dir : Path
-        Base directory for per-test GHDL build+run artifacts — each
-        test gets its own build_dir/<name>/ subdirectory.
+        Base directory for GHDL build+run artifacts. Each simulation
+        profile gets a stable, path-safe subdirectory, and each test
+        gets a directory below it. The readable prefix identifies the
+        top; the fingerprint covers the full sim configuration so stale
+        GHDL units cannot cross profiles that happen to share a top.
     boot_rom_hex_path : Path, optional
         Path to the FIXED, shared bootloader's compiled .hex (see
         boot_rom.S) — built once by the caller, not per test, unlike
@@ -349,6 +371,7 @@ def run_suite(  # noqa: PLR0913, PLR0917
     # only through the sys.path of this process, also when riscv-tools runs as an
     # installed console script (without it: "No module named 'tools'").
     sim_cfg = cfg["sim"]
+    profile_build_dir = _profile_build_dir(build_dir, sim_cfg)
     extend_python_path(root, [".", *sim_cfg["python_path"]])
     image_key = "mif" if sim_cfg["image"] == "mif" else "hex"
     ghdl_flags: list[str] = list(sim_cfg["ghdl_flags"])
@@ -359,7 +382,7 @@ def run_suite(  # noqa: PLR0913, PLR0917
 
     libraries_dir: Path | None = None
     if sim_cfg["libraries"]:
-        libraries_dir = build_dir / "libraries"
+        libraries_dir = profile_build_dir / "libraries"
         build_libraries(
             {
                 name: [str(root / expand_env(src)) for src in files]
@@ -407,7 +430,7 @@ def run_suite(  # noqa: PLR0913, PLR0917
             test_module=sim_cfg["test_module"],
             hex_path=image_path,
             test_name=name,
-            build_dir=build_dir / name,
+            build_dir=profile_build_dir / name,
             parameters=parameters,
             ram_base=cfg["memory"]["ram_base"],
             golden_path=golden_path,

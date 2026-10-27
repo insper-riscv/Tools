@@ -25,15 +25,18 @@ from riscv_tools import (
     path_check,
     quartus_program,
     ram_dump,
+    ram_target,
     ram_zero,
     rom_writer,
     run_log,
     sim_runner,
     spike_run,
+    uart_console,
     vhdl_sort,
 )
 from riscv_tools import c_to_asm as c_to_asm_mod
 from riscv_tools import compiler as compiler_mod
+from riscv_tools import display as display_mod
 from riscv_tools.jtag import JtagLink, detect_jtag_hardware
 from riscv_tools.settings import load_config
 
@@ -601,20 +604,22 @@ def cmd_zero_ram(args: argparse.Namespace) -> None:
     cfg = load_config(args.config)
     link = _link(cfg)
     ram_zero.zero_ram(
-        link, cfg["quartus"]["ram_mem_instance"], cfg["memory"]["ram_words"]
+        link, ram_target.target_from_config(cfg), cfg["memory"]["ram_words"]
     )
 
 
-def cmd_dump_ram(args: argparse.Namespace) -> None:
-    """Implement `riscv-tools dump-ram`.
+def cmd_console(args: argparse.Namespace) -> None:
+    """Implement `riscv-tools console`.
 
-    JTAG-saves the whole RAM instance of the already-programmed board
-    to a .mif.
+    Shows what the program prints through the JTAG UART while it runs,
+    until interrupted or for args.seconds seconds, and gives it args.send
+    first.
 
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments — uses args.config, args.out.
+        Parsed CLI arguments — uses args.config, args.seconds, args.send,
+        args.interactive.
 
     Returns
     -------
@@ -622,7 +627,73 @@ def cmd_dump_ram(args: argparse.Namespace) -> None:
     """
     cfg = load_config(args.config)
     link = _link(cfg)
-    ram_dump.dump_ram(link, cfg["quartus"]["ram_mem_instance"], Path(args.out))
+
+    def show(chunk: bytes) -> None:
+        sys.stdout.buffer.write(chunk)
+        sys.stdout.buffer.flush()
+
+    uart_console.read_console(
+        link,
+        show,
+        seconds=args.seconds,
+        send=args.send.encode(),
+        typed=sys.stdin if args.interactive else None,
+    )
+
+
+def cmd_display(args: argparse.Namespace) -> None:
+    """Implement `riscv-tools display`.
+
+    Reads the seven-segment display register of the platform, or writes it first when
+    args.value is given, and prints what it holds.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed CLI arguments — uses args.config, args.value, args.check.
+
+    Returns
+    -------
+    None
+    """
+    cfg = load_config(args.config)
+    link = _link(cfg)
+    if args.check:
+        bad = display_mod.check_display(link, args.check)
+        print(f"{args.check} writes read back, {bad} differences")
+        if bad:
+            sys.exit(1)
+        return
+    if args.value is None:
+        value = display_mod.read_display(link)
+    else:
+        value = display_mod.write_display(link, int(args.value, 16))
+    print(f"{value:06x}")
+
+
+def cmd_dump_ram(args: argparse.Namespace) -> None:
+    """Implement `riscv-tools dump-ram`.
+
+    JTAG-saves the RAM of the already-programmed board to a .mif: the
+    whole RAM instance of the FPGA, or, for a RAM in the SDRAM (too big
+    to read whole), the args.words words from args.start_word.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed CLI arguments — uses args.config, args.out, args.start_word,
+        args.words.
+
+    Returns
+    -------
+    None
+    """
+    cfg = load_config(args.config)
+    link = _link(cfg)
+    words = None
+    if args.words is not None:
+        words = list(range(args.start_word, args.start_word + args.words))
+    ram_dump.dump_ram(link, ram_target.target_from_config(cfg), Path(args.out), words)
 
 
 def cmd_program(args: argparse.Namespace) -> None:
@@ -699,7 +770,7 @@ def cmd_mailbox(args: argparse.Namespace) -> None:
     if args.action == "read":
         value = mailbox.read_mailbox(
             link,
-            cfg["quartus"]["ram_mem_instance"],
+            ram_target.target_from_config(cfg),
             cfg["memory"]["ram_base"],
             cfg["memory"]["mailbox_addr"],
         )
@@ -708,7 +779,7 @@ def cmd_mailbox(args: argparse.Namespace) -> None:
     else:
         mailbox.pulse_go_flag(
             link,
-            cfg["quartus"]["ram_mem_instance"],
+            ram_target.target_from_config(cfg),
             cfg["memory"]["ram_base"],
             cfg["memory"]["go_flag_addr"],
         )
@@ -910,12 +981,86 @@ def cmd_spike_run(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def _split_test_name_groups(groups: list[str] | None) -> list[str]:
+    """Expand repeatable comma-separated CLI values without duplicates."""
+    names: list[str] = []
+    seen: set[str] = set()
+    for group in groups or []:
+        for raw_name in group.split(","):
+            name = raw_name.strip()
+            if name and name not in seen:
+                names.append(name)
+                seen.add(name)
+    return names
+
+
+def _filter_manifest(
+    manifest: list[dict[str, Any]],
+    manifest_path: Path,
+    only_groups: list[str] | None,
+    exclude_groups: list[str] | None,
+) -> list[dict[str, Any]]:
+    """Select manifest entries requested by repeatable CLI name filters.
+
+    ``--only`` establishes an explicit ordered subset when present;
+    otherwise the manifest's own order is kept. ``--exclude`` is then
+    applied to that result, so exclusions win when both options name the
+    same test. Unknown names and an empty final selection are errors: a
+    misspelled exclusion must never silently run the test it meant to omit.
+
+    Parameters
+    ----------
+    manifest : list of dict of {str: Any}
+        Original manifest entries.
+    manifest_path : Path
+        Path used in error diagnostics.
+    only_groups : list of str, optional
+        Repeatable comma-separated ``--only`` values.
+    exclude_groups : list of str, optional
+        Repeatable comma-separated ``--exclude`` values.
+
+    Returns
+    -------
+    list of dict of {str: Any}
+        The non-empty filtered manifest.
+    """
+    by_name = {entry["name"]: entry for entry in manifest}
+    only_names = _split_test_name_groups(only_groups)
+    exclude_names = _split_test_name_groups(exclude_groups)
+
+    for option, groups, names in (
+        ("--only", only_groups, only_names),
+        ("--exclude", exclude_groups, exclude_names),
+    ):
+        if groups and not names:
+            print(f"{option} requires at least one test name", file=sys.stderr)
+            sys.exit(1)
+        missing = [name for name in names if name not in by_name]
+        if missing:
+            print(
+                f"{option} names not found in {manifest_path}: {', '.join(missing)}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+    selected = [by_name[name] for name in only_names] if only_names else list(manifest)
+    excluded = set(exclude_names)
+    selected = [entry for entry in selected if entry["name"] not in excluded]
+    if not selected:
+        print(
+            f"No tests selected from {manifest_path}; check --only/--exclude",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return selected
+
+
 def cmd_run(args: argparse.Namespace) -> None:
     """Implement `riscv-tools run`.
 
     Runs the real-hardware test suite from a manifest.json (see
     orchestrator.run_suite) — the full manifest by default, or a
-    caller-picked subset via --only. Stops early (doesn't raise) the
+    caller-picked subset via --only/--exclude. Stops early (doesn't raise) the
     moment a test hits a JTAG/hardware failure no automated retry can
     fix (orchestrator.NeedsHumanInterventionError) — progress is saved
     to <build_dir>/real/run_progress.json as it goes, and simply
@@ -935,8 +1080,8 @@ def cmd_run(args: argparse.Namespace) -> None:
         Parsed CLI arguments — uses args.config, args.root,
         args.manifest (defaults to <build_dir>/real/manifest.json if
         not given), args.only (list of test names to run instead of
-        the whole manifest — each entry may itself be a comma-
-        separated list; repeat --only to add more), args.
+        the whole manifest), args.exclude (list of test names to omit;
+        both accept repeatable comma-separated values), args.
         skip_reconfigure (see orchestrator.run_suite's reconfigure
         param), args.wait_for_hardware (see orchestrator.run_suite's
         wait_for_hardware param — off by default, so this still exits
@@ -954,9 +1099,9 @@ def cmd_run(args: argparse.Namespace) -> None:
         test — see cli._generate_c_golden) or is checked into the
         repo (a .S test). Deletes run_progress.json, since there's nothing left
         to resume. Exits the process with status 1 if the manifest file
-        is missing, if --only names a test that isn't in the
-        manifest, or if any completed test failed; status 2 if the
-        suite stopped early for human intervention (run_progress.json
+        is missing, if --only/--exclude names a test that isn't in
+        the manifest or selects no tests, or if any completed test failed;
+        status 2 if the suite stopped early for human intervention (run_progress.json
         is left in place in that case, specifically so a re-run finds
         it).
     """
@@ -983,17 +1128,18 @@ def cmd_run(args: argparse.Namespace) -> None:
     # particular invocation never touched.
     manifest_by_name = {entry["name"]: entry for entry in manifest}
 
-    if args.only:
-        wanted = [name for group in args.only for name in group.split(",") if name]
-        by_name = {entry["name"]: entry for entry in manifest}
-        missing = [name for name in wanted if name not in by_name]
-        if missing:
-            print(
-                f"--only names not found in {manifest_path}: {', '.join(missing)}",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        manifest = [by_name[name] for name in wanted]
+    # programs that wait for a host to talk to them (a monitor) would only time out in a
+    # suite; they run when --only asks for them
+    interactive = set(cfg.get("orchestrator", {}).get("interactive", []))
+    if not getattr(args, "only", None) and interactive:
+        manifest = [entry for entry in manifest if entry["name"] not in interactive]
+
+    manifest = _filter_manifest(
+        manifest,
+        manifest_path,
+        getattr(args, "only", []),
+        getattr(args, "exclude", []),
+    )
 
     requested_names = {entry["name"] for entry in manifest}
     results_path = build_dir / "run_progress.json"
@@ -1052,9 +1198,10 @@ def cmd_run(args: argparse.Namespace) -> None:
 def cmd_sim(args: argparse.Namespace) -> None:
     """Implement `riscv-tools sim`.
 
-    Runs the full simulation test suite under cocotb/GHDL from a
-    manifest.json (see sim_runner.run_suite). Requires the "sim"
-    extra (cocotb) to be installed.
+    Runs a simulation test suite under cocotb/GHDL from a manifest.json
+    (see sim_runner.run_suite). Runs every entry by default, with
+    --only/--exclude available for DUT-specific subsets. Requires the
+    "sim" extra (cocotb) to be installed.
 
     Everything this invocation prints, including GHDL/cocotb's own
     output, is also written to <run_log.logs_dir>/sim/latest.log (see
@@ -1066,14 +1213,15 @@ def cmd_sim(args: argparse.Namespace) -> None:
     args : argparse.Namespace
         Parsed CLI arguments — uses args.config, args.root,
         args.manifest (defaults to <build_dir>/sim/manifest.json if
-        not given).
+        not given), args.only and args.exclude (repeatable,
+        comma-separated test-name filters).
 
     Returns
     -------
     None
         Prints a PASS/FAIL summary to stdout. Exits the process with
-        status 1 if the manifest file is missing, or if any test
-        failed.
+        status 1 if the manifest file is missing, a filter names an
+        unknown test, no tests remain selected, or any test failed.
     """
     cfg = load_config(args.config)
     root = _root(args)
@@ -1096,6 +1244,12 @@ def cmd_sim(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     manifest: list[dict[str, Any]] = json.loads(manifest_path.read_text())
+    manifest = _filter_manifest(
+        manifest,
+        manifest_path,
+        getattr(args, "only", []),
+        getattr(args, "exclude", []),
+    )
 
     # Built ONCE per invocation, reused across every manifest entry --
     # see boot_rom.build_boot_rom / sim_runner.run_suite's own
@@ -1183,6 +1337,50 @@ def cmd_certify(args: argparse.Namespace) -> None:
     for name, ok in results.items():
         print(f"  {'PASS' if ok else 'FAIL'}  {name}")
     if not results or not all(results.values()):
+        sys.exit(1)
+
+
+def cmd_certify_board(args: argparse.Namespace) -> None:
+    """Implement `riscv-tools certify-board`.
+
+    Builds the ACT4 ELFs of the SDRAM target and runs each one on the board: the
+    host writes the ELF into the SDRAM through the debug port, restarts the core and
+    reads the HTIF `tohost` word (see certify.board). The board must already be
+    programmed with the SDRAM platform.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed CLI arguments: args.config, args.root, args.only (comma-separated ELF
+        names, optional), args.extensions (overrides act.extensions) and
+        args.skip_build.
+
+    Returns
+    -------
+    None
+        Prints a result per ELF and a summary. Exits with status 1 if any ELF
+        did not pass.
+    """
+    cfg = load_config(args.config)
+    if args.extensions is not None:
+        cfg["act"]["extensions"] = args.extensions
+    root = _root(args)
+    run_log.start(root, "certification-board", cfg["run_log"]["logs_dir"])
+    only = [n for n in args.only.split(",") if n] if args.only else None
+    results = certify.run_suite_on_board(
+        cfg,
+        root,
+        root / (cfg["paths"].get("build_dir") or "build") / "act-board",
+        _link(cfg),
+        only,
+        build=not args.skip_build,
+    )
+
+    print("\n=== Summary ===")
+    for name, passed in results.items():
+        verdict = {True: "PASS", False: "FAIL", None: "TIMEOUT"}[passed]
+        print(f"  {verdict}  {name}")
+    if not results or not all(v is True for v in results.values()):
         sys.exit(1)
 
 
@@ -1405,9 +1603,63 @@ def main() -> None:  # noqa: PLR0915
     p = sub.add_parser("zero-ram", help="JTAG-zero the whole RAM instance")
     p.set_defaults(func=cmd_zero_ram)
 
-    p = sub.add_parser("dump-ram", help="JTAG-dump the whole RAM instance to a .mif")
+    p = sub.add_parser(
+        "dump-ram",
+        help="JTAG-dump the RAM to a .mif (a RAM in the SDRAM: only --words words)",
+    )
     p.add_argument("out")
+    p.add_argument(
+        "--start-word",
+        type=int,
+        default=0,
+        help="first word offset to dump from the base of the RAM (with --words)",
+    )
+    p.add_argument(
+        "--words",
+        type=int,
+        default=None,
+        help="how many words to dump; required when the RAM is in the SDRAM",
+    )
     p.set_defaults(func=cmd_dump_ram)
+
+    p = sub.add_parser(
+        "console",
+        help="Show the program's output through the JTAG UART while it runs",
+    )
+    p.add_argument(
+        "--seconds",
+        type=float,
+        default=0,
+        help="how long to listen; 0 (the default) listens until Ctrl-C",
+    )
+    p.add_argument(
+        "--send", default="", help="text to give to the program as it starts listening"
+    )
+    p.add_argument(
+        "--interactive",
+        action="store_true",
+        help="give the program each line you type, until the input ends (Ctrl-D)",
+    )
+    p.set_defaults(func=cmd_console)
+
+    p = sub.add_parser(
+        "display",
+        help="Read or write the seven-segment display register of the platform",
+    )
+    p.add_argument(
+        "value",
+        nargs="?",
+        default=None,
+        help="six hex digits to show (HEX5 first); omit to only read the register",
+    )
+    p.add_argument(
+        "--check",
+        type=int,
+        default=0,
+        metavar="N",
+        help="write N pseudo-random values and read each back; exit 1 on a difference",
+    )
+    p.set_defaults(func=cmd_display)
 
     p = sub.add_parser(
         "program",
@@ -1474,6 +1726,14 @@ def main() -> None:  # noqa: PLR0915
         "running a compatible bitstream.",
     )
     p.add_argument(
+        "--exclude",
+        action="append",
+        default=[],
+        metavar="NAME[,NAME...]",
+        help="Omit these test(s) by manifest name — repeatable, and/or "
+        "comma-separated in one use. Unknown names are errors.",
+    )
+    p.add_argument(
         "--skip-reconfigure",
         action="store_true",
         help="Skip the initial compile+program step and go straight to "
@@ -1522,9 +1782,25 @@ def main() -> None:  # noqa: PLR0915
 
     p = sub.add_parser(
         "sim",
-        help="Run the full simulation test suite (cocotb/GHDL) from a manifest.json",
+        help="Run a simulation test suite (cocotb/GHDL) from a manifest.json",
     )
     p.add_argument("--manifest", default=None)
+    p.add_argument(
+        "--only",
+        action="append",
+        default=[],
+        metavar="NAME[,NAME...]",
+        help="Only run these test(s) by manifest name — repeatable, and/or "
+        "comma-separated in one use.",
+    )
+    p.add_argument(
+        "--exclude",
+        action="append",
+        default=[],
+        metavar="NAME[,NAME...]",
+        help="Omit these test(s) by manifest name — repeatable, and/or "
+        "comma-separated in one use. Unknown names are errors.",
+    )
     p.set_defaults(func=cmd_sim)
 
     p = sub.add_parser(
@@ -1539,6 +1815,20 @@ def main() -> None:  # noqa: PLR0915
         "`make ... EXTENSIONS=` (default: config.yaml's act.extensions)",
     )
     p.set_defaults(func=cmd_certify)
+
+    p = sub.add_parser(
+        "certify-board",
+        help="Build the ACT4 ELFs of the SDRAM target and run each one on the board "
+        "(loaded into the SDRAM through the debug port)",
+    )
+    p.add_argument("--extensions", default=None, help="Overrides act.extensions")
+    p.add_argument("--only", default=None, help="Comma-separated ELF names to run")
+    p.add_argument(
+        "--skip-build",
+        action="store_true",
+        help="Use the ELFs that an earlier `certify` built, without ACT4's `make`",
+    )
+    p.set_defaults(func=cmd_certify_board)
 
     p = sub.add_parser(
         "vhdl-sort",
