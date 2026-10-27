@@ -1,6 +1,7 @@
 """certify: the images the simulation loads from an ACT4 ELF."""
 
 import struct
+from pathlib import Path
 
 import pytest
 
@@ -9,7 +10,7 @@ from riscv_tools.certify import core
 SDRAM_BASE = 0x40000000
 
 
-def _elf(segments):
+def _elf(segments: list[tuple[int, bytes]]) -> bytes:
     """Build a little-endian 32-bit ELF with one PT_LOAD per (address, bytes)."""
     phoff, phentsize = 52, 32
     header = bytearray(52)
@@ -63,7 +64,7 @@ def test_sdram_boot_words_reject_an_unaligned_base():
         core.sdram_boot_words(SDRAM_BASE + 4)
 
 
-def test_write_sdram_images_joins_the_segments_from_the_base(tmp_path):
+def test_write_sdram_images_joins_the_segments_from_the_base(tmp_path: Path) -> None:
     code = bytes(range(16))
     data = b"\xaa\xbb\xcc\xdd"
     elf = tmp_path / "t.elf"

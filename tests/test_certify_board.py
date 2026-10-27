@@ -1,19 +1,24 @@
 """certify.board: the pieces that need no board."""
 
 import struct
+from collections.abc import Iterator
+from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
 from riscv_tools.certify import board
+from riscv_tools.jtag import JtagLink
 
 SDRAM_BASE = 0x40000000
 
 
-def _elf(segments, symbols):
+def _elf(segments: list[tuple[int, bytes]], symbols: dict[str, int]) -> bytes:
     """Build a 32-bit ELF with PT_LOAD segments and a symbol table."""
     phoff, phentsize, shentsize = 52, 32, 40
     names = b"\0" + b"".join(n.encode() + b"\0" for n in symbols)
-    offsets, pos = {}, 1
+    offsets: dict[str, int] = {}
+    pos = 1
     for n in symbols:
         offsets[n] = pos
         pos += len(n) + 1
@@ -21,7 +26,7 @@ def _elf(segments, symbols):
         struct.pack("<IIIBBH", offsets[n], v, 4, 0, 0, 1) for n, v in symbols.items()
     )
     body = bytearray()
-    seg_offsets = []
+    seg_offsets: list[int] = []
     base = phoff + phentsize * len(segments)
     for _, data in segments:
         seg_offsets.append(base + len(body))
@@ -66,19 +71,19 @@ def _elf(segments, symbols):
     return bytes(header) + phdrs + bytes(body) + sections
 
 
-def test_flash_stub_words():
+def test_flash_stub_words() -> None:
     fence_i, lui_t0, jr_t0 = board.flash_stub_words(SDRAM_BASE)
     assert fence_i == 0x0000100F
     assert lui_t0 == 0x400002B7  # lui t0, 0x40000
     assert jr_t0 == 0x00028067  # jalr x0, 0(t0)
 
 
-def test_flash_stub_rejects_an_unaligned_base():
+def test_flash_stub_rejects_an_unaligned_base() -> None:
     with pytest.raises(ValueError):
         board.flash_stub_words(SDRAM_BASE + 8)
 
 
-def test_elf_symbol(tmp_path):
+def test_elf_symbol(tmp_path: Path) -> None:
     elf = tmp_path / "t.elf"
     symbols = {"tohost": 0x400FFFE0, "main": 0x40000010}
     elf.write_bytes(_elf([(SDRAM_BASE, bytes(8))], symbols))
@@ -88,7 +93,7 @@ def test_elf_symbol(tmp_path):
         board.elf_symbol(elf, "absent")
 
 
-def test_image_words_stop_before_tohost(tmp_path):
+def test_image_words_stop_before_tohost(tmp_path: Path) -> None:
     code = bytes(range(8))
     htif = b"\xff" * 8
     elf = tmp_path / "t.elf"
@@ -98,24 +103,38 @@ def test_image_words_stop_before_tohost(tmp_path):
     assert board.image_words(elf, SDRAM_BASE) == [0x03020100, 0x07060504]
 
 
-def test_display_follows_each_elf(monkeypatch, tmp_path):
+def test_display_follows_each_elf(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     """With board_display the display shows each ELF running, then its verdict."""
-    writes = []
-    monkeypatch.setattr(
-        board.display, "write_display", lambda _link, value: writes.append(value)
-    )
-    monkeypatch.setattr(board, "write_flash_stub", lambda *_a, **_k: None)
-    verdicts = iter([True, False, None])
-    monkeypatch.setattr(board, "run_elf", lambda *_a, **_k: (next(verdicts), 4, 0.1))
+    writes: list[int] = []
+    verdicts: Iterator[bool | None] = iter([True, False, None])
+
+    def write_display(_link: object, value: int) -> None:
+        writes.append(value)
+
+    def write_flash_stub(*_a: object, **_k: object) -> None:
+        return None
+
+    def run_elf(*_a: object, **_k: object) -> tuple[bool | None, int, float]:
+        return (next(verdicts), 4, 0.1)
+
+    def target_name(_cfg: object) -> str:
+        return "t"
+
+    def discover_elfs(directory: Path) -> list[Path]:
+        return sorted(directory.glob("*.elf"))
+
+    monkeypatch.setattr(board.display, "write_display", write_display)
+    monkeypatch.setattr(board, "write_flash_stub", write_flash_stub)
+    monkeypatch.setattr(board, "run_elf", run_elf)
     elfs = tmp_path / "work" / "t" / "elfs"
     elfs.mkdir(parents=True)
     for name in ("a", "b", "c"):
         (elfs / f"{name}.elf").write_bytes(b"")
-    monkeypatch.setattr(board.certify_core, "target_name", lambda _c: "t")
-    monkeypatch.setattr(
-        board.certify_core, "discover_elfs", lambda d: sorted(d.glob("*.elf"))
-    )
-    cfg = {
+    monkeypatch.setattr(board.certify_core, "target_name", target_name)
+    monkeypatch.setattr(board.certify_core, "discover_elfs", discover_elfs)
+    cfg: dict[str, Any] = {
         "act": {
             "sdram_base": "0x40000000",
             "target_config": "x",
@@ -125,6 +144,8 @@ def test_display_follows_each_elf(monkeypatch, tmp_path):
             "board_display": True,
         }
     }
-    result = board.run_suite_on_board(cfg, tmp_path, tmp_path / "b", None, build=False)
+    result = board.run_suite_on_board(
+        cfg, tmp_path, tmp_path / "b", cast(JtagLink, None), build=False
+    )
     assert result == {"a": True, "b": False, "c": None}
     assert writes == [0x000000, 0x000001, 0x010000, 0x01000F, 0x020000, 0x02000F]

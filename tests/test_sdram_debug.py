@@ -1,6 +1,7 @@
 """The SDRAM debug backend: the RAM target, the JTAG helpers, the sparse dump."""
 
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -69,8 +70,12 @@ def test_reads_and_writes_go_to_the_debug_port(fake: FakeTcl) -> None:
 
 
 def test_a_missing_reply_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    reply = type("Completed", (), {"stdout": "oops"})()
-    monkeypatch.setattr(sdram_debug.core, "run_tcl", lambda *_args, **_kw: reply)
+    reply = SimpleNamespace(stdout="oops")
+
+    def run_tcl(*_args: object, **_kw: object) -> SimpleNamespace:
+        return reply
+
+    monkeypatch.setattr(sdram_debug.core, "run_tcl", run_tcl)
     with pytest.raises(RuntimeError, match="no WORDS= line"):
         sdram_debug.read_words(LINK, 0)
 
