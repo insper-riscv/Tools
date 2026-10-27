@@ -3,7 +3,7 @@
 ## Requisitos
 
 Spike e a toolchain GCC RISC-V (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`)
-no `PATH`, que a imagem `ci-asm` do
+no `PATH`, que a imagem `ci-elf` do
 [insper-riscv/Infra](https://github.com/insper-riscv/Infra) já traz (ou instalados
 pelos guias `manual/GCC_SETUP.md` e `manual/SPIKE_SETUP.md` dele). Este pacote
 não compila nenhum dos dois.

@@ -8,7 +8,7 @@ Compartilha as mesmas configurações de toolchain/ISA do [`compiler`](compiler.
 
 ## Pré-requisitos
 
-- A toolchain GCC RISC-V (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) no `PATH`, que a imagem `ci-asm` do [insper-riscv/Infra](https://github.com/insper-riscv/Infra) já traz, ou instalada como no `manual/GCC_SETUP.md` dele.
+- A toolchain GCC RISC-V (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) no `PATH`, que a imagem `ci-elf` do [insper-riscv/Infra](https://github.com/insper-riscv/Infra) já traz, ou instalada como no `manual/GCC_SETUP.md` dele.
 
 ## Testes
 

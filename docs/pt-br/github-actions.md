@@ -7,9 +7,9 @@ preocupação, cada um com o gatilho e o runner que realmente combinam.
 
 | Tarefa | Precisa de | Gatilho típico |
 |---|---|---|
-| Testes só de simulação | A imagem `ci-asm` do Infra (GCC, GHDL, Spike e uv); qualquer runner hospedado do GitHub | Todo push/PR |
+| Testes só de simulação | A imagem `ci-elf` do Infra (GCC, GHDL, Spike e uv); qualquer runner hospedado do GitHub | Todo push/PR |
 | Testes em hardware real | Um runner self-hosted com a placa + cabo JTAG conectados | Todo push/PR, ou `workflow_dispatch` se o tempo de hardware for escasso |
-| Regenerar goldens | A imagem `ci-asm` do Infra (GCC e Spike, sem hardware) | `workflow_dispatch`, sob demanda |
+| Regenerar goldens | A imagem `ci-elf` do Infra (GCC e Spike, sem hardware) | `workflow_dispatch`, sob demanda |
 
 Todo job abaixo começa do mesmo jeito: fazer o checkout e preparar o `uv`. O
 `submodules: true` é o que traz este repositório quando ele é um submódulo do
@@ -111,7 +111,7 @@ jobs:
 ## Regenerando goldens
 
 Só sob demanda: `workflow_dispatch`, não a cada push. Precisa do Spike e do GCC
-RISC-V, não de hardware, então roda em qualquer runner hospedado, dentro da imagem `ci-asm` do
+RISC-V, não de hardware, então roda em qualquer runner hospedado, dentro da imagem `ci-elf` do
 [insper-riscv/Infra](https://github.com/insper-riscv/Infra), que traz os dois.
 
 Há uma lacuna real que a CLI não disfarça: o `generate-golden` precisa de

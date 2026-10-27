@@ -41,7 +41,7 @@ Finds the fastest clock frequency (Fmax) a design still passes its test suite at
 ## Prerequisites
 
 - Quartus Prime Lite on `PATH` (`quartus_stp`, `quartus_sh`, `quartus_pgm`, `jtagconfig`), installed as in Infra's `QUARTUS_INSTALL.md`, and a board with a USB-Blaster attached over JTAG.
-- The RISC-V GCC toolchain (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) on `PATH`, provided by the `ci-asm` image of [insper-riscv/Infra](https://github.com/insper-riscv/Infra), or installed as in its `manual/GCC_SETUP.md`, for the boot ROM build.
+- The RISC-V GCC toolchain (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) on `PATH`, provided by the `ci-elf` image of [insper-riscv/Infra](https://github.com/insper-riscv/Infra), or installed as in its `manual/GCC_SETUP.md`, for the boot ROM build.
 
 ## Tests
 

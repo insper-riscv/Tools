@@ -8,7 +8,7 @@ Uses the same `toolchain.gcc`/`toolchain.objcopy` settings as [`compiler`](compi
 
 ## Prerequisites
 
-- The RISC-V GCC toolchain (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) on `PATH`, provided by the `ci-asm` image of [insper-riscv/Infra](https://github.com/insper-riscv/Infra), or installed as in its `manual/GCC_SETUP.md`.
+- The RISC-V GCC toolchain (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) on `PATH`, provided by the `ci-elf` image of [insper-riscv/Infra](https://github.com/insper-riscv/Infra), or installed as in its `manual/GCC_SETUP.md`.
 
 ## Tests
 

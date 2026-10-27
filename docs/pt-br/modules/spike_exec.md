@@ -20,8 +20,8 @@ Prepara e dispara execuções do Spike. É a etapa compartilhada por trás do [`
 
 ## Pré-requisitos
 
-- O `spike` no `PATH`, que a imagem `ci-asm` do [insper-riscv/Infra](https://github.com/insper-riscv/Infra) já traz, ou instalado como no `manual/SPIKE_SETUP.md` dele (o build mantém o módulo de debug do Spike longe do endereço 0).
-- A toolchain GCC RISC-V (`riscv32-unknown-elf-nm` e `-objcopy`) no `PATH`, que a imagem `ci-asm` do Infra já traz, ou instalada como no `manual/GCC_SETUP.md` dele.
+- O `spike` no `PATH`, que a imagem `ci-elf` do [insper-riscv/Infra](https://github.com/insper-riscv/Infra) já traz, ou instalado como no `manual/SPIKE_SETUP.md` dele (o build mantém o módulo de debug do Spike longe do endereço 0).
+- A toolchain GCC RISC-V (`riscv32-unknown-elf-nm` e `-objcopy`) no `PATH`, que a imagem `ci-elf` do Infra já traz, ou instalada como no `manual/GCC_SETUP.md` dele.
 
 ## Testes
 

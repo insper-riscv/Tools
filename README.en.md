@@ -61,9 +61,9 @@ which CI uses and which also serve anyone working locally:
 
 | Image | What it is for in this package |
 | :--- | :--- |
-| `ci-asm` | `compile`, `sim`, `generate-golden`, `spike-run`: GHDL, the RISC-V GCC with picolibc, Spike, `uv`, and Python |
-| `ci-elf` | everything in `ci-asm` plus Sail, Ruby, and the ACT4 dependencies, for `certify` |
-| `dev_tools` | `ci-elf` plus the `dev` user and GTKWave, for a Dev Container |
+| `ci-elf` | `compile`, `sim`, `generate-golden`, `spike-run`: GHDL, the RISC-V GCC with picolibc, Spike, `uv`, and Python |
+| `ci-act4` | everything in `ci-elf` plus Sail, Ruby, and the ACT4 dependencies, for `certify` |
+| `dev_tools` | `ci-act4` plus the `dev` user and GTKWave, for a Dev Container |
 
 Whoever prefers to install directly on a machine follows the guides in Infra's
 `docs/en/manual/` (`GCC_SETUP.md`, `SPIKE_SETUP.md`, and the others). This package builds
@@ -140,9 +140,9 @@ package, so it belongs to no single module.
 
 ### Running the tests in Docker
 
-The `Dockerfile` starts from the `ci-asm` image that
+The `Dockerfile` starts from the `ci-elf` image that
 [insper-riscv/Infra](https://github.com/insper-riscv/Infra) publishes
-(`ghcr.io/insper-riscv/ci-asm`, see its `docs/en/docker/ci-asm.md`): GHDL,
+(`ghcr.io/insper-riscv/ci-elf`, see its `docs/en/docker/ci-elf.md`): GHDL,
 the RISC-V GCC with picolibc, a Spike with its debug module away from address 0,
 and `uv`. It adds
 this project's dependencies, so nothing is skipped and nothing is compiled:
@@ -153,11 +153,11 @@ docker run --rm -v "$PWD:/workspace" riscv-tools-tests
 docker run --rm -v "$PWD:/workspace" riscv-tools-tests tests/test_sim_runner.py -v
 ```
 
-The base image is the `latest` of `ci-asm`. To test against a
+The base image is the `latest` of `ci-elf`. To test against a
 specific publication, pass its `sha-` tag:
 
 ```bash
-docker build --build-arg TOOLCHAIN_IMAGE=ghcr.io/insper-riscv/ci-asm:sha-<commit> \
+docker build --build-arg TOOLCHAIN_IMAGE=ghcr.io/insper-riscv/ci-elf:sha-<commit> \
     -t riscv-tools-tests .
 ```
 

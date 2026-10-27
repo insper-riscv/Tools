@@ -21,7 +21,7 @@ Needs a RISC-V GCC on `PATH` for ACT4's own build (the `compile_exe` in the ACT4
 
 ## Prerequisites
 
-- The RISC-V GCC toolchain (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) on `PATH`, provided by the `ci-asm` image of [insper-riscv/Infra](https://github.com/insper-riscv/Infra), or installed as in its `manual/GCC_SETUP.md`, for ACT4's own build.
+- The RISC-V GCC toolchain (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) on `PATH`, provided by the `ci-elf` image of [insper-riscv/Infra](https://github.com/insper-riscv/Infra), or installed as in its `manual/GCC_SETUP.md`, for ACT4's own build.
 - The `sim` extra (`uv sync --extra sim`) and GHDL on `PATH`.
 - ACT4's Ruby, Bundler and UDB toolchain, and the ACT4 checkout the `act.vendor_dir` key points at.
 

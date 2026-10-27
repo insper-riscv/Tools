@@ -64,9 +64,9 @@ que o CI usa e que servem também a quem trabalha localmente:
 
 | Imagem | Para que serve neste pacote |
 | :--- | :--- |
-| `ci-asm` | `compile`, `sim`, `generate-golden`, `spike-run`: GHDL, GCC RISC-V com picolibc, Spike, `uv` e Python |
-| `ci-elf` | tudo da `ci-asm` mais o Sail, o Ruby e as dependências do ACT4, para o `certify` |
-| `dev_tools` | a `ci-elf` mais o usuário `dev` e o GTKWave, para um Dev Container |
+| `ci-elf` | `compile`, `sim`, `generate-golden`, `spike-run`: GHDL, GCC RISC-V com picolibc, Spike, `uv` e Python |
+| `ci-act4` | tudo da `ci-elf` mais o Sail, o Ruby e as dependências do ACT4, para o `certify` |
+| `dev_tools` | a `ci-act4` mais o usuário `dev` e o GTKWave, para um Dev Container |
 
 Quem prefere instalar direto na máquina segue os guias de `docs/pt-br/manual/` do
 Infra (`GCC_SETUP.md`, `SPIKE_SETUP.md` e os demais). Este pacote não compila nada por
@@ -143,9 +143,9 @@ pacote inteiro, por isso não pertence a nenhum módulo em particular.
 
 ### Rodando os testes no Docker
 
-O `Dockerfile` parte da imagem `ci-asm` que o
+O `Dockerfile` parte da imagem `ci-elf` que o
 [insper-riscv/Infra](https://github.com/insper-riscv/Infra) publica
-(`ghcr.io/insper-riscv/ci-asm`, veja o `docs/pt-br/docker/ci-asm.md` dele):
+(`ghcr.io/insper-riscv/ci-elf`, veja o `docs/pt-br/docker/ci-elf.md` dele):
 GHDL, o GCC RISC-V com picolibc, o Spike com o módulo de debug longe do endereço 0
 e o `uv`. Ele acrescenta as dependências deste projeto, de modo que nada é pulado e
 nada é compilado:
@@ -156,11 +156,11 @@ docker run --rm -v "$PWD:/workspace" riscv-tools-tests
 docker run --rm -v "$PWD:/workspace" riscv-tools-tests tests/test_sim_runner.py -v
 ```
 
-A imagem base é a `latest` da `ci-asm`. Para testar contra uma
+A imagem base é a `latest` da `ci-elf`. Para testar contra uma
 publicação específica, passe a tag `sha-` dela:
 
 ```bash
-docker build --build-arg TOOLCHAIN_IMAGE=ghcr.io/insper-riscv/ci-asm:sha-<commit> \
+docker build --build-arg TOOLCHAIN_IMAGE=ghcr.io/insper-riscv/ci-elf:sha-<commit> \
     -t riscv-tools-tests .
 ```
 

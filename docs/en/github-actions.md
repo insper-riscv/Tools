@@ -8,7 +8,7 @@ trigger and runner that actually fits it.
 
 | Task | Needs | Typical trigger |
 |---|---|---|
-| Simulation-only tests | The Infra `ci-asm` image (GCC, GHDL, Spike, and uv); any GitHub-hosted runner | Every push/PR |
+| Simulation-only tests | The Infra `ci-elf` image (GCC, GHDL, Spike, and uv); any GitHub-hosted runner | Every push/PR |
 | Real-hardware tests | A self-hosted runner with the board + JTAG cable attached | Every push/PR, or `workflow_dispatch` if hardware time is scarce |
 | Regenerating goldens | The GCC toolchain + a built Spike (no hardware) | `workflow_dispatch`, on demand |
 
@@ -112,7 +112,7 @@ jobs:
 ## Regenerating goldens
 
 On demand only: `workflow_dispatch`, not on every push. Needs Spike
-and the RISC-V GCC, not hardware, so it runs on any hosted runner, inside the `ci-asm` image of
+and the RISC-V GCC, not hardware, so it runs on any hosted runner, inside the `ci-elf` image of
 [insper-riscv/Infra](https://github.com/insper-riscv/Infra), which carries both.
 
 There's a real gap the CLI doesn't paper over: `generate-golden` needs

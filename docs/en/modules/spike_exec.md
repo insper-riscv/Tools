@@ -20,8 +20,8 @@ Prepares and launches Spike runs. It is the shared step behind [`golden_generato
 
 ## Prerequisites
 
-- `spike` on `PATH`, provided by the `ci-asm` image of [insper-riscv/Infra](https://github.com/insper-riscv/Infra), or installed as in its `manual/SPIKE_SETUP.md` (the build keeps Spike's debug module away from address 0).
-- The RISC-V GCC toolchain (`riscv32-unknown-elf-nm` and `-objcopy`) on `PATH`, provided by the `ci-asm` image of Infra, or installed as in its `manual/GCC_SETUP.md`.
+- `spike` on `PATH`, provided by the `ci-elf` image of [insper-riscv/Infra](https://github.com/insper-riscv/Infra), or installed as in its `manual/SPIKE_SETUP.md` (the build keeps Spike's debug module away from address 0).
+- The RISC-V GCC toolchain (`riscv32-unknown-elf-nm` and `-objcopy`) on `PATH`, provided by the `ci-elf` image of Infra, or installed as in its `manual/GCC_SETUP.md`.
 
 ## Tests
 
