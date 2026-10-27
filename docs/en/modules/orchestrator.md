@@ -6,6 +6,15 @@ Composes every other real-hardware module into a full test-suite run, or into a 
 
 For each test in a manifest: reload its ROM image over JTAG (see [`rom_writer`](rom_writer.md)), pulse the restart flag (see [`mailbox`](mailbox.md)), wait for the PASS/FAIL mailbox, and for `memory`-kind tests, dump and validate RAM (see [`ram_dump`](ram_dump.md), [`mem_validator`](mem_validator.md)).
 
+The CLI runs the entire manifest by default. `--only` selects named tests and
+`--exclude` omits named tests; both options are repeatable and accept
+comma-separated names. Exclusions are applied after selections, and an unknown
+name or an empty final selection is an error. This safely routes tests that
+need dedicated external equipment to a separate harness without a typo
+silently putting them back into the generic mailbox-only suite.
+An explicitly empty filter value is also rejected, so an empty CI variable
+cannot turn `--only` into a full hardware run.
+
 If a test's mailbox never responds, three recovery tiers run in order, each only attempted if the one before it didn't already succeed:
 
 1. **JTAG reload retry**: try the same ROM reload once more, in case the previous attempt was a one-off glitch.
@@ -44,6 +53,7 @@ No automated test in this repository. A self-hosted runner set up as in Infra's 
 uv run riscv-tools --config /path/to/project/config.yaml run
 uv run riscv-tools --config /path/to/project/config.yaml run --wait-for-hardware
 uv run riscv-tools --config /path/to/project/config.yaml run --only test-a,test-b
+uv run riscv-tools --config /path/to/project/config.yaml run --exclude uart-echo,uart-tx
 uv run riscv-tools --config /path/to/project/config.yaml freq-sweep \
     build/real/full.mif --golden golden/full.json --start 1 --stop 30 --step 2
 ```

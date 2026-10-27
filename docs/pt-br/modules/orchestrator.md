@@ -6,6 +6,16 @@ Compõe todos os outros módulos de hardware real numa rodada completa de testes
 
 Para cada teste de um manifest: recarrega a imagem de ROM dele por JTAG (veja [`rom_writer`](rom_writer.md)), dá um pulso na flag de reinício (veja [`mailbox`](mailbox.md)), espera o mailbox PASS/FAIL e, nos testes do tipo `memory`, faz o dump da RAM e a valida (veja [`ram_dump`](ram_dump.md), [`mem_validator`](mem_validator.md)).
 
+A CLI roda o manifest inteiro por padrão. `--only` seleciona testes pelo nome e
+`--exclude` omite testes pelo nome; as duas opções podem ser repetidas e aceitam
+nomes separados por vírgulas. As exclusões são aplicadas depois das seleções, e
+um nome desconhecido ou uma seleção final vazia é erro. Assim, testes que
+precisam de equipamento externo dedicado podem ser encaminhados a outro harness
+sem um erro de digitação recolocá-los silenciosamente na suíte genérica de
+mailbox.
+Um valor de filtro explicitamente vazio também é rejeitado, para uma variável
+vazia de CI não transformar `--only` numa execução completa no hardware.
+
 Se o mailbox de um teste nunca responde, três níveis de recuperação rodam em ordem, cada um só tentado se o anterior não resolveu:
 
 1. **Nova tentativa de recarga por JTAG**: tenta a mesma recarga de ROM mais uma vez, caso a tentativa anterior tenha sido um problema isolado.
@@ -44,6 +54,7 @@ Não há teste automatizado neste repositório. Um runner self-hosted preparado 
 uv run riscv-tools --config /path/to/project/config.yaml run
 uv run riscv-tools --config /path/to/project/config.yaml run --wait-for-hardware
 uv run riscv-tools --config /path/to/project/config.yaml run --only test-a,test-b
+uv run riscv-tools --config /path/to/project/config.yaml run --exclude uart-echo,uart-tx
 uv run riscv-tools --config /path/to/project/config.yaml freq-sweep \
     build/real/full.mif --golden golden/full.json --start 1 --stop 30 --step 2
 ```

@@ -981,12 +981,86 @@ def cmd_spike_run(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def _split_test_name_groups(groups: list[str] | None) -> list[str]:
+    """Expand repeatable comma-separated CLI values without duplicates."""
+    names: list[str] = []
+    seen: set[str] = set()
+    for group in groups or []:
+        for raw_name in group.split(","):
+            name = raw_name.strip()
+            if name and name not in seen:
+                names.append(name)
+                seen.add(name)
+    return names
+
+
+def _filter_manifest(
+    manifest: list[dict[str, Any]],
+    manifest_path: Path,
+    only_groups: list[str] | None,
+    exclude_groups: list[str] | None,
+) -> list[dict[str, Any]]:
+    """Select manifest entries requested by repeatable CLI name filters.
+
+    ``--only`` establishes an explicit ordered subset when present;
+    otherwise the manifest's own order is kept. ``--exclude`` is then
+    applied to that result, so exclusions win when both options name the
+    same test. Unknown names and an empty final selection are errors: a
+    misspelled exclusion must never silently run the test it meant to omit.
+
+    Parameters
+    ----------
+    manifest : list of dict of {str: Any}
+        Original manifest entries.
+    manifest_path : Path
+        Path used in error diagnostics.
+    only_groups : list of str, optional
+        Repeatable comma-separated ``--only`` values.
+    exclude_groups : list of str, optional
+        Repeatable comma-separated ``--exclude`` values.
+
+    Returns
+    -------
+    list of dict of {str: Any}
+        The non-empty filtered manifest.
+    """
+    by_name = {entry["name"]: entry for entry in manifest}
+    only_names = _split_test_name_groups(only_groups)
+    exclude_names = _split_test_name_groups(exclude_groups)
+
+    for option, groups, names in (
+        ("--only", only_groups, only_names),
+        ("--exclude", exclude_groups, exclude_names),
+    ):
+        if groups and not names:
+            print(f"{option} requires at least one test name", file=sys.stderr)
+            sys.exit(1)
+        missing = [name for name in names if name not in by_name]
+        if missing:
+            print(
+                f"{option} names not found in {manifest_path}: {', '.join(missing)}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+    selected = [by_name[name] for name in only_names] if only_names else list(manifest)
+    excluded = set(exclude_names)
+    selected = [entry for entry in selected if entry["name"] not in excluded]
+    if not selected:
+        print(
+            f"No tests selected from {manifest_path}; check --only/--exclude",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return selected
+
+
 def cmd_run(args: argparse.Namespace) -> None:
     """Implement `riscv-tools run`.
 
     Runs the real-hardware test suite from a manifest.json (see
     orchestrator.run_suite) — the full manifest by default, or a
-    caller-picked subset via --only. Stops early (doesn't raise) the
+    caller-picked subset via --only/--exclude. Stops early (doesn't raise) the
     moment a test hits a JTAG/hardware failure no automated retry can
     fix (orchestrator.NeedsHumanInterventionError) — progress is saved
     to <build_dir>/real/run_progress.json as it goes, and simply
@@ -1006,8 +1080,8 @@ def cmd_run(args: argparse.Namespace) -> None:
         Parsed CLI arguments — uses args.config, args.root,
         args.manifest (defaults to <build_dir>/real/manifest.json if
         not given), args.only (list of test names to run instead of
-        the whole manifest — each entry may itself be a comma-
-        separated list; repeat --only to add more), args.
+        the whole manifest), args.exclude (list of test names to omit;
+        both accept repeatable comma-separated values), args.
         skip_reconfigure (see orchestrator.run_suite's reconfigure
         param), args.wait_for_hardware (see orchestrator.run_suite's
         wait_for_hardware param — off by default, so this still exits
@@ -1025,9 +1099,9 @@ def cmd_run(args: argparse.Namespace) -> None:
         test — see cli._generate_c_golden) or is checked into the
         repo (a .S test). Deletes run_progress.json, since there's nothing left
         to resume. Exits the process with status 1 if the manifest file
-        is missing, if --only names a test that isn't in the
-        manifest, or if any completed test failed; status 2 if the
-        suite stopped early for human intervention (run_progress.json
+        is missing, if --only/--exclude names a test that isn't in
+        the manifest or selects no tests, or if any completed test failed;
+        status 2 if the suite stopped early for human intervention (run_progress.json
         is left in place in that case, specifically so a re-run finds
         it).
     """
@@ -1057,20 +1131,15 @@ def cmd_run(args: argparse.Namespace) -> None:
     # programs that wait for a host to talk to them (a monitor) would only time out in a
     # suite; they run when --only asks for them
     interactive = set(cfg.get("orchestrator", {}).get("interactive", []))
-    if not args.only and interactive:
+    if not getattr(args, "only", None) and interactive:
         manifest = [entry for entry in manifest if entry["name"] not in interactive]
 
-    if args.only:
-        wanted = [name for group in args.only for name in group.split(",") if name]
-        by_name = {entry["name"]: entry for entry in manifest}
-        missing = [name for name in wanted if name not in by_name]
-        if missing:
-            print(
-                f"--only names not found in {manifest_path}: {', '.join(missing)}",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        manifest = [by_name[name] for name in wanted]
+    manifest = _filter_manifest(
+        manifest,
+        manifest_path,
+        getattr(args, "only", []),
+        getattr(args, "exclude", []),
+    )
 
     requested_names = {entry["name"] for entry in manifest}
     results_path = build_dir / "run_progress.json"
@@ -1129,9 +1198,10 @@ def cmd_run(args: argparse.Namespace) -> None:
 def cmd_sim(args: argparse.Namespace) -> None:
     """Implement `riscv-tools sim`.
 
-    Runs the full simulation test suite under cocotb/GHDL from a
-    manifest.json (see sim_runner.run_suite). Requires the "sim"
-    extra (cocotb) to be installed.
+    Runs a simulation test suite under cocotb/GHDL from a manifest.json
+    (see sim_runner.run_suite). Runs every entry by default, with
+    --only/--exclude available for DUT-specific subsets. Requires the
+    "sim" extra (cocotb) to be installed.
 
     Everything this invocation prints, including GHDL/cocotb's own
     output, is also written to <run_log.logs_dir>/sim/latest.log (see
@@ -1143,14 +1213,15 @@ def cmd_sim(args: argparse.Namespace) -> None:
     args : argparse.Namespace
         Parsed CLI arguments — uses args.config, args.root,
         args.manifest (defaults to <build_dir>/sim/manifest.json if
-        not given).
+        not given), args.only and args.exclude (repeatable,
+        comma-separated test-name filters).
 
     Returns
     -------
     None
         Prints a PASS/FAIL summary to stdout. Exits the process with
-        status 1 if the manifest file is missing, or if any test
-        failed.
+        status 1 if the manifest file is missing, a filter names an
+        unknown test, no tests remain selected, or any test failed.
     """
     cfg = load_config(args.config)
     root = _root(args)
@@ -1173,6 +1244,12 @@ def cmd_sim(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     manifest: list[dict[str, Any]] = json.loads(manifest_path.read_text())
+    manifest = _filter_manifest(
+        manifest,
+        manifest_path,
+        getattr(args, "only", []),
+        getattr(args, "exclude", []),
+    )
 
     # Built ONCE per invocation, reused across every manifest entry --
     # see boot_rom.build_boot_rom / sim_runner.run_suite's own
@@ -1649,6 +1726,14 @@ def main() -> None:  # noqa: PLR0915
         "running a compatible bitstream.",
     )
     p.add_argument(
+        "--exclude",
+        action="append",
+        default=[],
+        metavar="NAME[,NAME...]",
+        help="Omit these test(s) by manifest name — repeatable, and/or "
+        "comma-separated in one use. Unknown names are errors.",
+    )
+    p.add_argument(
         "--skip-reconfigure",
         action="store_true",
         help="Skip the initial compile+program step and go straight to "
@@ -1697,9 +1782,25 @@ def main() -> None:  # noqa: PLR0915
 
     p = sub.add_parser(
         "sim",
-        help="Run the full simulation test suite (cocotb/GHDL) from a manifest.json",
+        help="Run a simulation test suite (cocotb/GHDL) from a manifest.json",
     )
     p.add_argument("--manifest", default=None)
+    p.add_argument(
+        "--only",
+        action="append",
+        default=[],
+        metavar="NAME[,NAME...]",
+        help="Only run these test(s) by manifest name — repeatable, and/or "
+        "comma-separated in one use.",
+    )
+    p.add_argument(
+        "--exclude",
+        action="append",
+        default=[],
+        metavar="NAME[,NAME...]",
+        help="Omit these test(s) by manifest name — repeatable, and/or "
+        "comma-separated in one use. Unknown names are errors.",
+    )
     p.set_defaults(func=cmd_sim)
 
     p = sub.add_parser(

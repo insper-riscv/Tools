@@ -12,6 +12,7 @@ import importlib
 import shutil
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -165,3 +166,55 @@ def test_expand_env_rejects_an_unset_variable(monkeypatch: pytest.MonkeyPatch) -
 
     with pytest.raises(SystemExit, match="SIM_TEST_UNSET"):
         sim_runner.expand_env("$SIM_TEST_UNSET/eda")
+
+
+def test_run_suite_isolates_work_directories_by_simulation_profile(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    work_dirs: list[Path] = []
+
+    def fake_run_test(**kwargs: Any) -> bool:
+        work_dirs.append(kwargs["build_dir"])
+        return True
+
+    def fake_extend_python_path(_root: Path, _entries: list[str]) -> None:
+        pass
+
+    monkeypatch.setattr("riscv_tools.sim_runner.core.run_test", fake_run_test)
+    monkeypatch.setattr(
+        "riscv_tools.sim_runner.core.extend_python_path",
+        fake_extend_python_path,
+    )
+
+    def config(ghdl_flags: list[str]) -> dict[str, Any]:
+        return {
+            "memory": {"ram_base": 0},
+            "sim": {
+                "toplevel": "core/sim",
+                "vhdl_sources": [],
+                "test_module": "unused",
+                "python_path": [],
+                "ghdl_std": "08",
+                "image": "hex",
+                "ghdl_flags": ghdl_flags,
+                "libraries": {},
+                "parameters": {},
+                "run_files": {},
+                "env": {},
+            },
+        }
+
+    manifest = [{"name": "same-test", "march": "rv32i", "hex": "dummy.hex"}]
+    base = tmp_path / "sim_work"
+    sim_runner.run_suite(config([]), manifest, tmp_path, base)
+    sim_runner.run_suite(config(["-frelaxed"]), manifest, tmp_path, base)
+    sim_runner.run_suite(config([]), manifest, tmp_path, base)
+
+    first, second, repeated = work_dirs
+    assert first == repeated
+    assert first != second
+    assert first.name == second.name == "same-test"
+    assert first.parent.parent == second.parent.parent == base
+    assert first.parent.name.startswith("core-sim-")
+    assert second.parent.name.startswith("core-sim-")

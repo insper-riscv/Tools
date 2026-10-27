@@ -106,6 +106,7 @@ uv sync
 uv run riscv-tools --config /path/to/project/config.yaml compile --emit mif
 uv run riscv-tools --config /path/to/project/config.yaml compile --emit asm
 uv run riscv-tools --config /path/to/project/config.yaml run
+uv run riscv-tools --config /path/to/project/config.yaml run --exclude test-a,test-b
 uv run riscv-tools --config /path/to/project/config.yaml generate-golden \
     build/real/some_test.elf --march rv32im --start 0x10 --end 0x20 --out golden/some_test.json
 
@@ -113,6 +114,7 @@ uv run riscv-tools --config /path/to/project/config.yaml generate-golden \
 uv sync --extra sim
 uv run riscv-tools --config /path/to/project/config.yaml compile --emit hex
 uv run riscv-tools --config /path/to/project/config.yaml sim
+uv run riscv-tools --config /path/to/project/config.yaml sim --only test-a,test-b
 ```
 
 See `riscv-tools --help` for the full subcommand list (`write-rom`,
