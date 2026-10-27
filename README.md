@@ -91,6 +91,9 @@ de goldens confere isso antes da primeira execução e aponta o
 
 ## Docs
 
+- [AUTHORS.md](AUTHORS.md): autores com commits no repositório, com nome e conta do GitHub.
+- [CONTRIBUTING.md](CONTRIBUTING.md): regras obrigatórias de contribuição e verificação antes de abrir Pull Request.
+- [CITATION.cff](CITATION.cff): metadados para citação do software.
 - [Referência de configuração](docs/pt-br/configuration.md)
 - [Criando um teste em C](docs/pt-br/creating-a-c-test.md)
 - [Criando um teste em ASM](docs/pt-br/creating-an-asm-test.md)
