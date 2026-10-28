@@ -103,3 +103,14 @@ def test_cli_prints_ghdl_generics(
         " -ghas_m=true -ghas_zicclsm=false"
     )
     assert expected in lines
+
+
+def test_the_command_needs_no_config(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    spec = _write(tmp_path, CORE_SPEC)
+    monkeypatch.setattr("sys.argv", ["riscv-tools", "profiles", "--spec", str(spec)])
+    cli.main()
+    assert len(capsys.readouterr().out.splitlines()) == 18

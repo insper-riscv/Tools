@@ -1950,7 +1950,7 @@ def main() -> None:  # noqa: PLR0915
 
     args = parser.parse_args()
     if (
-        args.command not in {"vhdl-sort", "check-memory-map", "check-paths"}
+        args.command not in {"vhdl-sort", "check-memory-map", "check-paths", "profiles"}
         and args.config is None
     ):
         parser.error("--config is required for this subcommand")
