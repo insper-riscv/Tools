@@ -23,6 +23,7 @@ from riscv_tools import (
     memory_map,
     orchestrator,
     path_check,
+    profiles,
     quartus_program,
     ram_dump,
     ram_target,
@@ -1437,6 +1438,47 @@ def cmd_check_paths(args: argparse.Namespace) -> None:
     print(f"paths OK: {count} paths from {manifest.name}")
 
 
+def cmd_profiles(args: argparse.Namespace) -> None:
+    """Implement `riscv-tools profiles`.
+
+    Prints every valid combination of the extensions of a profile specification (see
+    profiles.expand). Doesn't touch args.config: the specification lists the
+    extensions and the rules between them.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed CLI arguments — uses args.spec and args.format.
+
+    Returns
+    -------
+    None
+        Prints one line per profile, or one JSON list.
+    """
+    found = profiles.expand(profiles.load_spec(Path(args.spec)))
+    if args.format == "json":
+        print(
+            json.dumps(
+                [
+                    {
+                        "name": p.name,
+                        "extensions": list(p.extensions),
+                        "generics": dict(p.generics),
+                    }
+                    for p in found
+                ],
+                indent=2,
+            )
+        )
+    elif args.format == "generics":
+        for p in found:
+            flags = " ".join(f"-g{k}={str(v).lower()}" for k, v in p.generics.items())
+            print(f"{p.name} {flags}")
+    else:
+        for p in found:
+            print(p.name)
+
+
 def cmd_check_memory_map(args: argparse.Namespace) -> None:
     """Implement `riscv-tools check-memory-map`.
 
@@ -1675,6 +1717,21 @@ def main() -> None:  # noqa: PLR0915
     )
     p.add_argument("action", choices=["read", "pulse"])
     p.set_defaults(func=cmd_mailbox)
+
+    p = sub.add_parser(
+        "profiles",
+        help="List every valid core profile of a profile specification",
+    )
+    p.add_argument(
+        "--spec", required=True, help="YAML with the extensions and their rules"
+    )
+    p.add_argument(
+        "--format",
+        choices=["names", "json", "generics"],
+        default="names",
+        help="names: one per line; generics: name and GHDL -g flags; json: all",
+    )
+    p.set_defaults(func=cmd_profiles)
 
     p = sub.add_parser(
         "generate-header",
