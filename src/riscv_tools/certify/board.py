@@ -12,9 +12,10 @@ the SDRAM debug port while the core is parked in the boot ROM, then lets the cor
    it), the image is written, the go flag restarts the core, and the host reads the HTIF
    `tohost` word from the SDRAM until it holds an odd value (1 is a PASS) or the time
    runs out.
-3. With `act.board_display` set, the display shows the index of the ELF in the session
-   (HEX5 and HEX4) and its state (HEX3 to HEX0: 0000 running, 0001 passed, 000F failed
-   or timed out), and the five left LEDs light when it passed.
+3. With `act.board_display` set, the display shows `AC` on HEX5 and HEX4 and the number
+   of the ELF in the session, in decimal and counted from 1, on HEX3 to HEX0 (`AC0001`
+   to `AC0059`). The first red LED lights when an ELF fails or times out and stays lit
+   until the next session.
 
 The board must be programmed with the SDRAM platform and the core parked, as it is after
 `riscv-tools run` or right after the programming.
@@ -263,19 +264,20 @@ def run_suite_on_board(  # noqa: PLR0913
     write_flash_stub(link, cfg, build_dir, sdram_base)
 
     show_display = bool(act_cfg.get("board_display", False))
+    if show_display:
+        # a new session starts without a failure
+        display.write_fail(link, False)
     results: dict[str, bool | None] = {}
     for index, elf in enumerate(elfs):
         if show_display:
-            display.write_display(
-                link, display.encode_state(index, display.STATE_RUNNING)
-            )
+            display.write_display(link, display.encode_act(index + 1))
         passed, words, seconds = run_elf(
             link, cfg, elf, sdram_base, region_words, timeout_s
         )
         results[elf.stem] = passed
-        if show_display:
-            state = display.STATE_PASSED if passed else display.STATE_FAILED
-            display.write_display(link, display.encode_state(index, state))
+        if show_display and passed is not True:
+            # the first red LED stays lit once any ELF has failed or timed out
+            display.write_fail(link, True)
         verdict = {True: "PASS", False: "FAIL", None: "TIMEOUT"}[passed]
         print(f"{elf.stem}: {verdict} ({words * 4} bytes, {seconds:.1f}s)")
     return results

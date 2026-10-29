@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from riscv_tools import (
+    display,
     freq_sweep,
     mailbox,
     mem_validator,
@@ -549,7 +550,7 @@ def _wait_for_hardware_healthy(poll_interval_s: float = _HARDWARE_WAIT_POLL_S) -
     print("jtagconfig reports the chain is healthy again — resuming.")
 
 
-def run_suite(  # noqa: PLR0913, PLR0917
+def run_suite(  # noqa: PLR0912, PLR0913, PLR0915, PLR0917
     cfg: dict[str, Any],
     link: JtagLink,
     manifest: list[dict[str, Any]],
@@ -761,7 +762,14 @@ def run_suite(  # noqa: PLR0913, PLR0917
     # far along the suite actually is and what N even means.
     already_done = len(results_so_far or {})
     total = already_done + len(manifest)
+    show_display = bool(cfg.get("orchestrator", {}).get("board_display", False))
+    if show_display and not already_done:
+        # a new session starts without a failure; a resumed one keeps the flag it had
+        display.write_fail(link, False)
     for i, entry in enumerate(manifest, start=already_done + 1):
+        if show_display:
+            # the number of the program in the session, in decimal, on the six digits
+            display.write_display(link, display.encode_test(i))
         while True:
             try:
                 results[entry["name"]] = run_one(
@@ -774,6 +782,9 @@ def run_suite(  # noqa: PLR0913, PLR0917
                     position=(i, total),
                     duration=durations,
                 )
+                if show_display and not results[entry["name"]]:
+                    # the first red LED stays lit once any program has failed
+                    display.write_fail(link, True)
                 break
             except NeedsHumanInterventionError as exc:
                 if _handle_hi(entry["name"], exc):
