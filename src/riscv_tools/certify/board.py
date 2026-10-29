@@ -135,7 +135,8 @@ def write_flash_stub(
     link : JtagLink
         Which JTAG cable/chip to write to.
     cfg : dict of {str: Any}
-        The merged project config: memory.rom_words and quartus.rom_mem_instances.
+        The merged project config: memory.rom_base, memory.rom_words and
+        quartus.rom_mem_instances.
     build_dir : Path
         Where the scratch image files go.
     sdram_base : int
@@ -145,7 +146,16 @@ def write_flash_stub(
     bin_path = build_dir / "flash_stub.bin"
     mif_path = build_dir / "flash_stub.mif"
     bin_path.write_bytes(stub)
-    bin_to_image.bin_to_mif(bin_path, mif_path, int(cfg["memory"]["rom_words"]))
+    # The FLASH is addressed raw by the instruction bus, so the stub sits at the
+    # word index of memory.rom_base, where the boot ROM jumps to (the same
+    # padding `compile` gives an image).
+    pad_words = int(cfg["memory"]["rom_base"]) // 4
+    bin_to_image.bin_to_mif(
+        bin_path,
+        mif_path,
+        depth=pad_words + int(cfg["memory"]["rom_words"]),
+        pad_words=pad_words,
+    )
     rom_writer.write_rom(link, cfg["quartus"]["rom_mem_instances"], mif_path)
 
 
