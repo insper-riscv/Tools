@@ -4,6 +4,7 @@
 # Usage: quartus_stp -t display.tcl <hardware> <device> read
 #        quartus_stp -t display.tcl <hardware> <device> write <24-bit value in hex>
 #        quartus_stp -t display.tcl <hardware> <device> check <count>
+#        quartus_stp -t display.tcl <hardware> <device> fail read|set|clear
 #
 # Prints VALUE=<six hex digits>: the register as it was when the scan started. After a write, a
 # second scan reads it back, so the line shows what the register holds now.
@@ -41,6 +42,26 @@ if {[catch {
     device_virtual_ir_shift -instance_index $INSTANCE -ir_value 1 -no_captured_ir_value
 } err]} {
     fail 2 "cannot open the display: $err"
+}
+
+# the failure flag has its own 2-bit register (instruction 2): bit 0 is the value, bit 1 writes it
+if {$MODE eq "fail"} {
+    if {[llength $argv] < 4} { fail 1 "fail needs read, set or clear" }
+    switch -- [lindex $argv 3] {
+        read  { set word 0 }
+        set   { set word 3 }
+        clear { set word 2 }
+        default { fail 1 "fail needs read, set or clear" }
+    }
+    device_virtual_ir_shift -instance_index $INSTANCE -ir_value 2 -no_captured_ir_value
+    device_virtual_dr_shift -instance_index $INSTANCE -length 2 -dr_value [format %x $word] -value_in_hex
+    # a second scan reads back what the flag holds now
+    set r [device_virtual_dr_shift -instance_index $INSTANCE -length 2 -dr_value 0 -value_in_hex]
+    scan $r %x x
+    puts [format "FLAG=%d" [expr {$x & 1}]]
+    catch { device_unlock }
+    catch { close_device }
+    exit 0
 }
 
 if {$MODE eq "check"} {

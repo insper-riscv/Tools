@@ -106,7 +106,7 @@ def test_image_words_stop_before_tohost(tmp_path: Path) -> None:
 def test_display_follows_each_elf(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """With board_display the display shows each ELF running, then its verdict."""
+    """With board_display the display shows AC and the ELF number; the flag follows."""
     writes: list[int] = []
     verdicts: Iterator[bool | None] = iter([True, False, None])
 
@@ -125,7 +125,14 @@ def test_display_follows_each_elf(
     def discover_elfs(directory: Path) -> list[Path]:
         return sorted(directory.glob("*.elf"))
 
+    flags: list[bool] = []
+
+    def write_fail(_link: object, failed: bool) -> bool:
+        flags.append(failed)
+        return failed
+
     monkeypatch.setattr(board.display, "write_display", write_display)
+    monkeypatch.setattr(board.display, "write_fail", write_fail)
     monkeypatch.setattr(board, "write_flash_stub", write_flash_stub)
     monkeypatch.setattr(board, "run_elf", run_elf)
     elfs = tmp_path / "work" / "t" / "elfs"
@@ -148,7 +155,9 @@ def test_display_follows_each_elf(
         cfg, tmp_path, tmp_path / "b", cast(JtagLink, None), build=False
     )
     assert result == {"a": True, "b": False, "c": None}
-    assert writes == [0x000000, 0x000001, 0x010000, 0x01000F, 0x020000, 0x02000F]
+    assert writes == [0xAC0001, 0xAC0002, 0xAC0003]
+    # cleared at the start, then set by the failed ELF and by the timed-out one
+    assert flags == [False, True, True]
 
 
 def test_flash_stub_sits_at_rom_base(

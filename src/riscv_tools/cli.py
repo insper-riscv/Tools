@@ -38,6 +38,7 @@ from riscv_tools import (
 from riscv_tools import c_to_asm as c_to_asm_mod
 from riscv_tools import compiler as compiler_mod
 from riscv_tools import display as display_mod
+from riscv_tools import timing_paths as timing_paths_mod
 from riscv_tools.jtag import JtagLink, detect_jtag_hardware
 from riscv_tools.settings import load_config
 
@@ -1509,6 +1510,37 @@ def cmd_check_memory_map(args: argparse.Namespace) -> None:
     print(f"memory map OK: {count} checks against {platform.name}")
 
 
+def cmd_timing_paths(args: argparse.Namespace) -> None:
+    """Implement `riscv-tools timing-paths`.
+
+    Runs the Timing Analyzer on the compiled project and prints the worst setup
+    paths of every clock domain, the bits of a register folded into one row.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed CLI arguments: args.config, args.root, args.npaths, args.model and
+        args.out (optional file for the table).
+
+    Returns
+    -------
+    None
+        Prints the table, and writes it to args.out when given.
+    """
+    cfg = load_config(args.config)
+    root = _root(args)
+    paths = timing_paths_mod.run_timing_paths(
+        root / cfg["quartus"]["project_dir"],
+        cfg["quartus"]["project_name"],
+        args.npaths,
+        args.model,
+    )
+    table = timing_paths_mod.format_table(timing_paths_mod.group_paths(paths))
+    if args.out:
+        Path(args.out).write_text(table)
+    print(table, end="")
+
+
 def cmd_freq_sweep(args: argparse.Namespace) -> None:
     """Implement `riscv-tools freq-sweep`.
 
@@ -1917,6 +1949,26 @@ def main() -> None:  # noqa: PLR0915
         help="Manifest YAML (relative to --root) listing the references to check",
     )
     p.set_defaults(func=cmd_check_paths)
+
+    p = sub.add_parser(
+        "timing-paths",
+        help="List the worst setup paths of every clock domain of the compiled "
+        "Quartus project, grouped by register",
+    )
+    p.add_argument(
+        "--npaths",
+        type=int,
+        default=30,
+        help="Setup paths to ask for in each clock domain (default: 30)",
+    )
+    p.add_argument(
+        "--model",
+        choices=["slow", "fast"],
+        default="slow",
+        help="Timing model (default: slow, 1100 mV and 85 C)",
+    )
+    p.add_argument("--out", help="Also write the table to this file")
+    p.set_defaults(func=cmd_timing_paths)
 
     p = sub.add_parser(
         "freq-sweep",

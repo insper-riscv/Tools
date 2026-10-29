@@ -1,23 +1,23 @@
 """Host side of the seven-segment display register."""
 
 from riscv_tools.display.core import (
-    STATE_FAILED,
-    STATE_PASSED,
-    STATE_RUNNING,
     check_display,
     decode_value,
-    encode_state,
+    encode_act,
+    encode_test,
     read_display,
+    read_fail,
     write_display,
+    write_fail,
 )
 
 __all__ = [
-    "STATE_FAILED",
-    "STATE_PASSED",
-    "STATE_RUNNING",
     "check_display",
     "decode_value",
-    "encode_state",
+    "encode_act",
+    "encode_test",
     "read_display",
+    "read_fail",
     "write_display",
+    "write_fail",
 ]
