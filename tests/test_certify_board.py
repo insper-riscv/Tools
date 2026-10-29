@@ -149,3 +149,31 @@ def test_display_follows_each_elf(
     )
     assert result == {"a": True, "b": False, "c": None}
     assert writes == [0x000000, 0x000001, 0x010000, 0x01000F, 0x020000, 0x02000F]
+
+
+def test_flash_stub_sits_at_rom_base(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    written: list[Path] = []
+
+    def write_rom(_link: object, _instances: object, mif: Path) -> None:
+        written.append(mif)
+
+    monkeypatch.setattr(board.rom_writer, "write_rom", write_rom)
+    cfg = {
+        "memory": {"rom_base": 0x800, "rom_words": 4},
+        "quartus": {"rom_mem_instances": ["rom"]},
+    }
+    board.write_flash_stub(cast(JtagLink, None), cfg, tmp_path, SDRAM_BASE)
+    lines = written[0].read_text().splitlines()
+    data = {
+        int(a, 16): int(v, 16)
+        for a, v in (
+            ln.strip().rstrip(";").split(":")
+            for ln in lines
+            if ":" in ln and "[" not in ln
+        )
+    }
+    first = board.flash_stub_words(SDRAM_BASE)[0]
+    assert data[0x800 // 4] == first
+    assert data.get(0, 0) == 0
