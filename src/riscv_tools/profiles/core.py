@@ -1,26 +1,30 @@
 r"""Expand a profile specification into every valid combination of extensions.
 
 A core profile is a set of optional extensions on top of a base ISA. Writing the list by
-hand lets an impossible combination slip in (M together with Zmmul, a core with neither
-Zicsr nor Zicclsm), so a specification states the extensions and the rules between them,
-and this module expands it into the combinations that obey every rule.
+hand lets an impossible combination slip in (M together with Zmmul, Zicntr together with
+Zicsr), so a specification states the extensions and the rules between them, and this
+module expands it into the combinations that obey every rule.
 
 ```yaml
 base: rv32i                       # name of a profile with no extension
 extensions:                       # the order is the order of the name's tokens
+  - {name: Zicclsm,  generic: has_zicclsm}
   - {name: Zicsr,    generic: has_zicsr}
+  - {name: Zicntr,   generic: has_zicntr, implies: [has_zicsr]}
   - {name: Zifencei, generic: has_zifencei}
   - {name: Zmmul,    generic: has_zmmul}
   - {name: M,        generic: has_m, base_letter: m}      # rv32i + m = rv32im
-  - {name: Zicclsm,  generic: has_zicclsm, absent_token: nozicclsm}
 mutually_exclusive:               # at most one extension of each group
   - [M, Zmmul]
-requires_any:                     # at least one extension of each group
+  - [Zicsr, Zicntr]
+requires_any:                     # at least one extension of each group (optional)
   - [Zicsr, Zicclsm]
 ```
 
 A profile is named after the extensions it has: `base_letter` goes into the base name
 (`rv32i` + `m` = `rv32im`) and every other extension adds `_<name in lowercase>`. An
+extension with `implies` also turns on the listed generics of the core, which is why its
+name never cites the extension it implies and the two are mutually exclusive. An
 extension with an `absent_token` is on by default: its name stays out of the name while
 it is present, and the token is added when it is missing.
 """
@@ -44,6 +48,7 @@ class Extension:
     generic: str
     base_letter: str | None = None
     absent_token: str | None = None
+    implies: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -112,6 +117,7 @@ def load_spec(path: Path) -> Spec:
             generic=str(e["generic"]),
             base_letter=_optional(e, "base_letter"),
             absent_token=_optional(e, "absent_token"),
+            implies=tuple(str(g) for g in e.get("implies") or []),
         )
         for e in cast("list[dict[str, Any]]", raw["extensions"])
     )
@@ -125,6 +131,16 @@ def load_spec(path: Path) -> Spec:
         mutually_exclusive=_groups(raw, "mutually_exclusive", known),
         requires_any=_groups(raw, "requires_any", known),
     )
+
+
+def _generics(present: frozenset[str], spec: Spec) -> dict[str, bool]:
+    """Give the generics on for the extensions present and for what they imply."""
+    generics = {e.generic: e.name in present for e in spec.extensions}
+    for e in spec.extensions:
+        if e.name in present:
+            for implied in e.implies:
+                generics[implied] = True
+    return generics
 
 
 def _valid(present: frozenset[str], spec: Spec) -> bool:
@@ -170,7 +186,7 @@ def expand(spec: Spec) -> list[Profile]:
             Profile(
                 name=_name(present, spec),
                 extensions=tuple(n for n in names if n in present),
-                generics={e.generic: e.name in present for e in spec.extensions},
+                generics=_generics(present, spec),
             )
         )
     return sorted(
