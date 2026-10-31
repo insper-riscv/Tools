@@ -1,6 +1,6 @@
 # `quartus_program`
 
-O caminho lento, "base": um `quartus_sh --flow compile` completo seguido de `quartus_pgm`, ou um atalho só de reprogramação quando o bitstream não mudou. Feito para rodar uma vez no início, para estabelecer um bitstream de base, e de novo como fallback se um teste recarregado por JTAG (veja [`rom_writer`](rom_writer.md), [`mailbox`](mailbox.md)) estoura o timeout, caso a própria placa tenha travado em vez de o teste ter travado.
+O caminho lento, "base": um `quartus_sh --flow compile` completo seguido de `quartus_pgm`, ou um atalho só de reprogramação quando o bitstream não mudou. Feito para rodar uma vez no início, para estabelecer um bitstream de base, e de novo como fallback se um teste recarregado por JTAG (veja [`rom_writer`](rom_writer.md), [`htif`](htif.md)) estoura o timeout, caso a própria placa tenha travado em vez de o teste ter travado.
 
 ## Dois pontos de entrada
 
@@ -35,7 +35,7 @@ Não há teste automatizado neste repositório. Um runner self-hosted preparado 
 uv run riscv-tools --config /path/to/project/config.yaml program <path-to.mif>
 ```
 
-Também é chamado internamente pelo [`orchestrator`](orchestrator.md) como o passo inicial de reconfiguração de uma rodada completa da suíte, e como o seu próprio nível de recuperação automática quando o mailbox de um teste recarregado por JTAG nunca responde.
+Também é chamado internamente pelo [`orchestrator`](orchestrator.md) como o passo inicial de reconfiguração de uma rodada completa da suíte, e como o seu próprio nível de recuperação automática quando o `tohost` de um teste recarregado por JTAG nunca muda.
 
 ---
 

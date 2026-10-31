@@ -1,15 +1,13 @@
 """End-to-end test of sim_runner.run_test against a real GHDL install.
 
-Uses the "sim" extra (cocotb + cocotb-tools) — proves the whole chain
-(GHDL build via cocotb_tools.runner -> simulate -> parse results.xml)
-actually works, for both a passing and a failing cocotb test (see
-fixtures/sim_min/).
-
-Skipped automatically if either tool isn't available.
+Covers the whole chain (GHDL build, simulation, results.xml parsing) for
+a passing and a failing cocotb test (fixtures/sim_min/). Skipped if
+GHDL is missing.
 """
 
 import importlib
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -23,7 +21,7 @@ FIXTURES_LIB = Path(__file__).resolve().parent / "fixtures" / "sim_lib"
 # cocotb_tools.runner's subprocess inherits PYTHONPATH from *this*
 # process' sys.path (see cocotb_tools.runner.Simulator._set_env), so
 # test_module below can use bare names ("test_pass") once this is on
-# sys.path — no __init__.py/dotted-package plumbing needed.
+# sys.path, no __init__.py/dotted-package plumbing needed.
 sys.path.insert(0, str(FIXTURES))
 sys.path.insert(0, str(FIXTURES_LIB))
 
@@ -44,12 +42,14 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.fixture
 def dummy_hex(tmp_path: Path) -> Path:
+    """Return the path of a placeholder hex file."""
     hex_path = tmp_path / "dummy.hex"
     hex_path.write_text("00000000\n")
     return hex_path
 
 
 def test_sim_runner_reports_pass(tmp_path: Path, dummy_hex: Path) -> None:
+    """Sim runner reports pass."""
     passed = sim_runner.run_test(
         toplevel="dut",
         vhdl_sources=[str(FIXTURES / "dut.vhd")],
@@ -63,6 +63,7 @@ def test_sim_runner_reports_pass(tmp_path: Path, dummy_hex: Path) -> None:
 
 
 def test_sim_runner_reports_fail(tmp_path: Path, dummy_hex: Path) -> None:
+    """Sim runner reports fail."""
     passed = sim_runner.run_test(
         toplevel="dut",
         vhdl_sources=[str(FIXTURES / "dut.vhd")],
@@ -75,13 +76,16 @@ def test_sim_runner_reports_fail(tmp_path: Path, dummy_hex: Path) -> None:
     assert passed is False
 
 
-def test_sim_runner_parameters_reach_ghdl(tmp_path: Path, dummy_hex: Path) -> None:
+def test_sim_runner_parameters_reach_ghdl(
+    tmp_path: Path, dummy_hex: Path
+) -> None:
     # dut.vhd's CYCLES generic defaults to 5 (test_pass passes well
     # within its own 20-cycle poll loop). Overriding it to 50 via
-    # `parameters` must make the same otherwise-passing test fail —
+    # `parameters` must make the same otherwise-passing test fail,
     # if `parameters` weren't actually reaching GHDL's `-g` (e.g. sat
     # in .build() instead of .test(), which GHDL silently ignores),
     # CYCLES would stay at its default and this would wrongly pass.
+    """Sim runner parameters reach ghdl."""
     passed = sim_runner.run_test(
         toplevel="dut",
         vhdl_sources=[str(FIXTURES / "dut.vhd")],
@@ -107,7 +111,10 @@ def _run_lib_test(
     data.write_text("42\n")
     libraries_dir = tmp_path / "libraries"
     sim_runner.build_libraries(
-        {"helper": [str(FIXTURES_LIB / "helper.vhd")]}, "08", flags, libraries_dir
+        {"helper": [str(FIXTURES_LIB / "helper.vhd")]},
+        "08",
+        flags,
+        libraries_dir,
     )
     return sim_runner.run_test(
         toplevel="dut",
@@ -131,20 +138,24 @@ def test_sim_runner_libraries_flags_run_files_and_env(
     # helper.bump, in a library analyzed separately and found by -P;
     # the library only analyzes with -fsynopsys; EXPECTED reaches the
     # cocotb module as an environment variable.
+    """Sim runner libraries flags run files and env."""
     assert _run_lib_test(tmp_path, dummy_hex, flags=["-fsynopsys"]) is True
 
 
 def test_sim_runner_env_reaches_the_test_module(
     tmp_path: Path, dummy_hex: Path
 ) -> None:
+    """Sim runner env reaches the test module."""
     assert (
-        _run_lib_test(tmp_path, dummy_hex, flags=["-fsynopsys"], expected=99) is False
+        _run_lib_test(tmp_path, dummy_hex, flags=["-fsynopsys"], expected=99)
+        is False
     )
 
 
-def test_build_libraries_needs_the_flags_the_library_needs(tmp_path: Path) -> None:
-    import subprocess  # noqa: PLC0415
-
+def test_build_libraries_needs_the_flags_the_library_needs(
+    tmp_path: Path,
+) -> None:
+    """Build libraries needs the flags the library needs."""
     with pytest.raises(subprocess.CalledProcessError):
         sim_runner.build_libraries(
             {"helper": [str(FIXTURES_LIB / "helper.vhd")]},
@@ -154,14 +165,20 @@ def test_build_libraries_needs_the_flags_the_library_needs(tmp_path: Path) -> No
         )
 
 
-def test_expand_env_replaces_variables(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_expand_env_replaces_variables(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Expand env replaces variables."""
     monkeypatch.setenv("SIM_TEST_DIR", "/opt/quartus")
 
     assert sim_runner.expand_env("$SIM_TEST_DIR/eda") == "/opt/quartus/eda"
     assert sim_runner.expand_env("${SIM_TEST_DIR}/eda") == "/opt/quartus/eda"
 
 
-def test_expand_env_rejects_an_unset_variable(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_expand_env_rejects_an_unset_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Expand env rejects an unset variable."""
     monkeypatch.delenv("SIM_TEST_UNSET", raising=False)
 
     with pytest.raises(SystemExit, match="SIM_TEST_UNSET"):
@@ -172,6 +189,7 @@ def test_run_suite_isolates_work_directories_by_simulation_profile(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
+    """Run suite isolates work directories by simulation profile."""
     work_dirs: list[Path] = []
 
     def fake_run_test(**kwargs: Any) -> bool:
@@ -181,9 +199,9 @@ def test_run_suite_isolates_work_directories_by_simulation_profile(
     def fake_extend_python_path(_root: Path, _entries: list[str]) -> None:
         pass
 
-    monkeypatch.setattr("riscv_tools.sim_runner.core.run_test", fake_run_test)
+    monkeypatch.setattr("riscv_tools.sim_runner.suite.run_test", fake_run_test)
     monkeypatch.setattr(
-        "riscv_tools.sim_runner.core.extend_python_path",
+        "riscv_tools.sim_runner.suite.extend_python_path",
         fake_extend_python_path,
     )
 
@@ -211,7 +229,8 @@ def test_run_suite_isolates_work_directories_by_simulation_profile(
     sim_runner.run_suite(config(["-frelaxed"]), manifest, tmp_path, base)
     sim_runner.run_suite(config([]), manifest, tmp_path, base)
 
-    first, second, repeated = work_dirs
+    assert len(work_dirs) == 3
+    first, second, repeated = work_dirs[0], work_dirs[1], work_dirs[2]
     assert first == repeated
     assert first != second
     assert first.name == second.name == "same-test"

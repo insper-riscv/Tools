@@ -14,7 +14,7 @@ use helper.helper_pkg.all;
 entity dut is
     port (
         clk     : in  std_logic;
-        mailbox : out integer
+        tohost : out integer
     );
 end entity dut;
 
@@ -31,5 +31,5 @@ architecture rtl of dut is
 
     constant BASE : integer := read_value;
 begin
-    mailbox <= to_integer(unsigned(bump(std_logic_vector(to_unsigned(BASE, 8)))));
+    tohost <= to_integer(unsigned(bump(std_logic_vector(to_unsigned(BASE, 8)))));
 end architecture rtl;

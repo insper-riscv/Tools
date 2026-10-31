@@ -4,18 +4,18 @@ Composes every other real-hardware module into a full test-suite run, or into a 
 
 ## Running a suite
 
-For each test in a manifest: reload its ROM image over JTAG (see [`rom_writer`](rom_writer.md)), pulse the restart flag (see [`mailbox`](mailbox.md)), wait for the PASS/FAIL mailbox, and for `memory`-kind tests, dump and validate RAM (see [`ram_dump`](ram_dump.md), [`mem_validator`](mem_validator.md)).
+For each test in a manifest: reload its ROM image over JTAG (see [`rom_writer`](rom_writer.md)), write `fromhost` to restart (see [`htif`](htif.md)), wait for `tohost`, and for `memory`-kind tests, dump and validate RAM (see [`ram_dump`](ram_dump.md), [`mem_validator`](mem_validator.md)).
 
 The CLI runs the entire manifest by default. `--only` selects named tests and
 `--exclude` omits named tests; both options are repeatable and accept
 comma-separated names. Exclusions are applied after selections, and an unknown
 name or an empty final selection is an error. This safely routes tests that
 need dedicated external equipment to a separate harness without a typo
-silently putting them back into the generic mailbox-only suite.
+silently putting them back into the generic suite.
 An explicitly empty filter value is also rejected, so an empty CI variable
 cannot turn `--only` into a full hardware run.
 
-If a test's mailbox never responds, three recovery tiers run in order, each only attempted if the one before it didn't already succeed:
+If a test's `tohost` never changes, three recovery tiers run in order, each only attempted if the one before it didn't already succeed:
 
 1. **JTAG reload retry**: try the same ROM reload once more, in case the previous attempt was a one-off glitch.
 2. **Reprogram from the existing `.sof`**: cheap (~10s), safe only if the VHDL source hasn't changed since that `.sof` was built (see [`quartus_program`](quartus_program.md)'s `program_only`).
@@ -35,7 +35,7 @@ Finds the fastest clock frequency (Fmax) a design still passes its test suite at
 
 | Key | Meaning |
 | :--- | :--- |
-| `quartus.program_wait_seconds` | How long to wait after a full reconfigure (fallback path only) before reading the mailbox (default `15`). |
+| `quartus.program_wait_seconds` | How long to wait after a full reconfigure (fallback path only) before reading `tohost` (default `15`). |
 | `quartus.default_timeout_s` | Default per-test timeout if a test doesn't set its own `RV32_TIMEOUT_S` header (default `15`; see [`compiler`](compiler.md)). |
 
 ## Prerequisites

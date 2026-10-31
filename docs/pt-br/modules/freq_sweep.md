@@ -27,9 +27,6 @@ Nenhum para reescrever o fonte do PLL. Um sweep completo também precisa do que 
 | `tests/test_freq_sweep.py::test_set_pll_freq_single_phase_default` | Uma única fase usa a defasagem padrão. |
 | `tests/test_freq_sweep.py::test_set_pll_freq_missing_param_left_unchanged` | Um parâmetro que o arquivo não tem é deixado como está. |
 | `tests/test_freq_sweep.py::test_set_pll_freq_custom_param_template` | Um template de nome de parâmetro personalizado é respeitado. |
-| `tests/test_freq_sweep.py::test_get_pll_freq_reads_phase_zero` | A frequência é lida da fase 0. |
-| `tests/test_freq_sweep.py::test_get_pll_freq_returns_none_when_absent` | Uma frequência ausente é lida como `None`. |
-| `tests/test_freq_sweep.py::test_set_then_get_pll_freq_round_trips` | Uma frequência escrita é lida de volta sem alteração. |
 
 ## Uso
 

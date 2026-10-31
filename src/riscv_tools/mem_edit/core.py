@@ -1,6 +1,6 @@
 """Generic In-System Memory Content Editor primitives.
 
-Shared by rom_writer/ram_zero/ram_dump/mailbox. Pure mechanism, no
+Shared by rom_writer/ram_zero/ram_dump/htif. Pure mechanism, no
 policy: each of those modules decides WHICH instance/address/content
 to use.
 """
@@ -33,21 +33,22 @@ def write_full(link: JtagLink, instance: int, mif_path: Path) -> None:
     run_tcl(link, "write_full.tcl", instance, mif_path)
 
 
-def write_full_multi(link: JtagLink, instances: Sequence[int], mif_path: Path) -> None:
-    """Overwrite several memory instances' ENTIRE depth from the SAME .mif.
+def write_full_multi(
+    link: JtagLink, instances: Sequence[int], mif_path: Path
+) -> None:
+    """Overwrite the entire depth of several instances from one .mif.
 
-    Does every instance inside one JTAG session (one write_full_multi.tcl
-    invocation) instead of one write_full() call per instance — each
-    JTAG session has real open/close overhead, worth avoiding when a
-    project physically duplicates a memory across instances that must
-    always hold identical content (see rom_writer.write_rom).
+    Writes every instance in one JTAG session instead of one
+    write_full() call each, which avoids the open and close overhead
+    when a memory is duplicated across instances that must hold the same
+    content (see rom_writer.write_rom).
 
     Parameters
     ----------
     link : JtagLink
         Which JTAG cable/chip to write to.
     instances : sequence of int
-        In-System Memory Content Editor instance indices to write —
+        In-System Memory Content Editor instance indices to write,
         every one gets the exact same content, in order.
     mif_path : Path
         Path to the .mif whose content replaces each instance's entire
@@ -60,8 +61,10 @@ def write_full_multi(link: JtagLink, instances: Sequence[int], mif_path: Path) -
     run_tcl(link, "write_full_multi.tcl", mif_path, *instances)
 
 
-def write_word(link: JtagLink, instance: int, word_offset: int, value: int) -> None:
-    """Overwrite exactly one word, leaving the rest of the instance untouched.
+def write_word(
+    link: JtagLink, instance: int, word_offset: int, value: int
+) -> None:
+    """Overwrite exactly one word, leaving the rest untouched.
 
     Parameters
     ----------
@@ -116,7 +119,9 @@ def read_words(
     for line in result.stdout.splitlines():
         if line.startswith("WORDS="):
             return [int(w) for w in line.split("=", 1)[1].split()]
-    raise RuntimeError(f"read_words.tcl produced no WORDS= line:\n{result.stdout}")
+    raise RuntimeError(
+        f"read_words.tcl produced no WORDS= line:\n{result.stdout}"
+    )
 
 
 def dump(link: JtagLink, instance: int, out_mif: Path) -> None:

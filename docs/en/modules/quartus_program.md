@@ -1,6 +1,6 @@
 # `quartus_program`
 
-The slow "base" path: a full `quartus_sh --flow compile` followed by `quartus_pgm`, or a reprogram-only shortcut when the bitstream hasn't changed. Meant to run once up front to establish a baseline bitstream, and again as a fallback if a JTAG-reloaded test (see [`rom_writer`](rom_writer.md), [`mailbox`](mailbox.md)) times out, in case the board itself wedged rather than the test hanging.
+The slow "base" path: a full `quartus_sh --flow compile` followed by `quartus_pgm`, or a reprogram-only shortcut when the bitstream hasn't changed. Meant to run once up front to establish a baseline bitstream, and again as a fallback if a JTAG-reloaded test (see [`rom_writer`](rom_writer.md), [`htif`](htif.md)) times out, in case the board itself wedged rather than the test hanging.
 
 ## Two entry points
 
@@ -35,7 +35,7 @@ No automated test in this repository. A self-hosted runner set up as in Infra's 
 uv run riscv-tools --config /path/to/project/config.yaml program <path-to.mif>
 ```
 
-Also called internally by [`orchestrator`](orchestrator.md) as the initial reconfigure step of a full suite run, and as its own automatic recovery tier when a JTAG-reloaded test's mailbox never responds.
+Also called internally by [`orchestrator`](orchestrator.md) as the initial reconfigure step of a full suite run, and as its own automatic recovery tier when a JTAG-reloaded test's `tohost` never changes.
 
 ---
 

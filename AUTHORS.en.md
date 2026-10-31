@@ -9,6 +9,7 @@ This repository is part of the Computer Engineering and Computer Science Capston
 | Period | Name | GitHub account |
 | :--- | :--- | :--- |
 | 2026.2 | Lucas Hix | [@Peng1104](https://github.com/Peng1104) |
+| 2026.2 | Breno Schneider Salles de Oliveira | [@brnoschsaloli](https://github.com/brnoschsaloli) |
 | 2026.2 | Artur Cruz | [@arturacruz](https://github.com/arturacruz) |
 
 ## 2. Project History

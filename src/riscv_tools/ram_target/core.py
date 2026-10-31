@@ -1,15 +1,10 @@
 """Where a project's RAM lives, and how the host reaches it over JTAG.
 
-Two kinds of RAM exist. A RAM inside the FPGA is a memory instance of the
-In-System Memory Content Editor, named by its instance index (an int). A RAM
-outside the FPGA, the SDRAM of the SDRAM platform, is reached through the SDRAM
-debug port (SdramDebugRam). The modules that read the mailbox, set the go flag,
-dump or zero the RAM take a RamTarget and call these functions, so they work
-with either.
-
-Word offsets are counted from the base of the RAM (memory.ram_base). For the
-SDRAM that base is the base of the SDRAM, so a word offset is also a word
-address of the debug port.
+A RAM inside the FPGA is a memory instance of the In-System Memory
+Content Editor, named by its instance index (an int). A RAM outside the
+FPGA, such as the SDRAM, is reached through the SDRAM debug port
+(SdramDebugRam). Callers take a RamTarget and work with either. Word
+offsets count from the RAM base (memory.ram_base).
 """
 
 from collections.abc import Sequence
@@ -35,8 +30,9 @@ def target_from_config(cfg: dict[str, Any]) -> RamTarget:
     Parameters
     ----------
     cfg : dict of {str: Any}
-        The merged project config: quartus.ram_backend is "ismce" (the default: a memory
-        instance of the FPGA, quartus.ram_mem_instance) or "sdram_debug".
+        The merged project config; quartus.ram_backend is "ismce" (the
+        default, a memory instance of the FPGA given by
+        quartus.ram_mem_instance) or "sdram_debug".
 
     Returns
     -------
@@ -55,7 +51,8 @@ def target_from_config(cfg: dict[str, Any]) -> RamTarget:
     if backend == "ismce":
         return int(quartus["ram_mem_instance"])
     raise ValueError(
-        f"quartus.ram_backend must be 'ismce' or 'sdram_debug', not {backend!r}"
+        "quartus.ram_backend must be 'ismce' or 'sdram_debug', "
+        f"not {backend!r}"
     )
 
 
@@ -85,7 +82,9 @@ def read_words(
     return mem_edit.read_words(link, target, word_offset, word_count)
 
 
-def write_word(link: JtagLink, target: RamTarget, word_offset: int, value: int) -> None:
+def write_word(
+    link: JtagLink, target: RamTarget, word_offset: int, value: int
+) -> None:
     """Write one word of the RAM.
 
     Parameters
@@ -112,11 +111,11 @@ def write_word(link: JtagLink, target: RamTarget, word_offset: int, value: int) 
 def sparse_mif_words(
     link: JtagLink, target: RamTarget, words: Sequence[int], out_mif: Path
 ) -> None:
-    """Save only the given words of the RAM to a .mif (the rest is left out).
+    """Save only the given words of the RAM to a .mif.
 
-    A RAM of 64 MB cannot be dumped whole over JTAG, and a golden checks a few
-    words. The file has one line per word, which mem_validator reads like any
-    other dump.
+    A RAM of 64 MB cannot be dumped whole over JTAG, and a golden checks
+    a few words. The file has one line per word, which mem_validator
+    reads like any other dump.
 
     Parameters
     ----------
@@ -151,7 +150,10 @@ def sparse_mif_words(
         "ADDRESS_RADIX=HEX;",
         "DATA_RADIX=HEX;",
         "CONTENT BEGIN",
-        *[f"  {offset:X} : {value:08X};" for offset, value in sorted(values.items())],
+        *[
+            f"  {offset:X} : {value:08X};"
+            for offset, value in sorted(values.items())
+        ],
         "END;",
     ]
     out_mif.write_text("\n".join(lines) + "\n")

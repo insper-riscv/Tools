@@ -1,8 +1,8 @@
 """Compare a RAM dump against a golden JSON of expected byte values.
 
 The RAM dump is a .mif, one 32-bit word per line. Used for
-RV32_TEST_KIND: memory tests, where the PASS/FAIL mailbox alone isn't
-enough to prove the test did the right thing — e.g. it wrote the
+RV32_TEST_KIND: memory tests, where the PASS/FAIL result alone isn't
+enough to prove the test did the right thing, e.g. it wrote the
 right values to memory, not just that it reached RV32_PASS().
 """
 
@@ -10,7 +10,9 @@ import json
 import re
 from pathlib import Path
 
-CONTENT_RE = re.compile(r"CONTENT\s+BEGIN(.*)END\s*;", re.IGNORECASE | re.DOTALL)
+CONTENT_RE = re.compile(
+    r"CONTENT\s+BEGIN(.*)END\s*;", re.IGNORECASE | re.DOTALL
+)
 LINE_RE = re.compile(r"^\s*([0-9A-Fa-f]+)\s*:\s*([0-9A-Fa-f]+)\s*;")
 RANGE_RE = re.compile(
     r"^\s*\[([0-9A-Fa-f]+)\.\.([0-9A-Fa-f]+)\]\s*:\s*([0-9A-Fa-f]+)\s*;"
@@ -18,9 +20,40 @@ RANGE_RE = re.compile(
 DATA_RADIX_RE = re.compile(r"DATA_RADIX\s*=\s*(\w+)\s*;", re.IGNORECASE)
 # Quartus' own .mif radix names, mapped to Python's int() base.
 _RADIX_TO_BASE = {"BIN": 2, "HEX": 16, "DEC": 10, "OCT": 8}
-# How many individual byte diffs compare() prints before truncating —
+# How many individual byte diffs compare() prints before truncating,
 # more than this and the output stops being useful anyway.
 _MAX_DIFFS_SHOWN = 50
+_BYTE_MASK = 0xFF
+
+
+def _parse_mif_line(line: str, base: int) -> dict[int, int]:
+    """Parse one CONTENT line, a single address or an address range.
+
+    Parameters
+    ----------
+    line : str
+        The stripped line, `ADDR : VALUE;` or `[START..END] : VALUE;`.
+    base : int
+        Numeric base of the value column.
+
+    Returns
+    -------
+    dict of {int: int}
+        The {word_address: word_value} entries the line defines, empty
+        when the line is neither form.
+    """
+    rm = RANGE_RE.match(line)
+    if rm:
+        start, end, val = (
+            int(rm.group(1), 16),
+            int(rm.group(2), 16),
+            int(rm.group(3), base),
+        )
+        return dict.fromkeys(range(start, end + 1), val)
+    lm = LINE_RE.match(line)
+    if lm:
+        return {int(lm.group(1), 16): int(lm.group(2), base)}
+    return {}
 
 
 def parse_mif_words(mif_path: Path) -> dict[int, int]:
@@ -53,7 +86,7 @@ def parse_mif_words(mif_path: Path) -> dict[int, int]:
     if not m:
         raise ValueError(f"{mif_path}: no CONTENT ... END; block found")
     # Address column is always ADDRESS_RADIX=HEX in the files this
-    # package writes/reads, but DATA_RADIX varies — Quartus'
+    # package writes/reads, but DATA_RADIX varies; Quartus'
     # save_content_from_memory_to_file (see dump_mem.tcl) emits BIN,
     # not HEX, so the value column must be parsed with the base the
     # header actually declares rather than assumed.
@@ -64,20 +97,7 @@ def parse_mif_words(mif_path: Path) -> dict[int, int]:
     base = _RADIX_TO_BASE[radix]
     words: dict[int, int] = {}
     for raw_line in m.group(1).splitlines():
-        line = raw_line.strip()
-        rm = RANGE_RE.match(line)
-        if rm:
-            start, end, val = (
-                int(rm.group(1), 16),
-                int(rm.group(2), 16),
-                int(rm.group(3), base),
-            )
-            for addr in range(start, end + 1):
-                words[addr] = val
-            continue
-        lm = LINE_RE.match(line)
-        if lm:
-            words[int(lm.group(1), 16)] = int(lm.group(2), base)
+        words.update(_parse_mif_line(raw_line.strip(), base))
     return words
 
 
@@ -94,7 +114,7 @@ def words_to_bytes(words: dict[int, int]) -> dict[int, int]:
     Returns
     -------
     dict of {int: int}
-        A {byte_address: byte_value} dict — each word_address maps to
+        A {byte_address: byte_value} dict; each word_address maps to
         4 consecutive byte_address entries (word_address*4 ..
         word_address*4+3), least-significant byte first.
     """
@@ -102,7 +122,7 @@ def words_to_bytes(words: dict[int, int]) -> dict[int, int]:
     for waddr, wval in words.items():
         base = waddr * 4
         for i in range(4):
-            out[base + i] = (wval >> (8 * i)) & 0xFF
+            out[base + i] = (wval >> (8 * i)) & _BYTE_MASK
     return out
 
 
@@ -113,22 +133,20 @@ def compare_bytes(
     actual_label: str,
     golden_label: str,
 ) -> bool:
-    """Compare an in-memory byte map against golden bytes and print the diff.
+    """Compare an in-memory byte map against golden bytes.
 
-    The shared core of compare() (a real-hardware JTAG dump, parsed
-    from a .mif) and a GHDL sim testbench's own bus-snooped
-    reconstruction of RAM's final content (see a project's own
-    sim/test_c_program.py) — both end up with the same {byte_address:
-    byte_value} shape, so both go through the exact same diff/print
-    logic here instead of duplicating it.
+    The diff is printed. This is the shared core of compare() (a JTAG
+    dump parsed from a .mif) and of a simulation testbench that rebuilds
+    RAM from the bus: both produce the same {byte_address: byte_value}
+    map, so both use the same diff and print logic.
 
     Parameters
     ----------
     actual : dict of {int: int}
-        {byte_address: byte_value} — RAM-relative (see
-        mailbox.word_offset's convention), same as golden.
+        {byte_address: byte_value}, RAM-relative (see
+        htif.word_offset's convention), same as golden.
     golden : dict of {int: int}
-        {byte_address: expected_byte_value} — only these addresses are
+        {byte_address: expected_byte_value}; only these addresses are
         checked; extra bytes in actual that aren't in golden are
         ignored.
     actual_label : str
@@ -165,12 +183,12 @@ def compare_bytes(
 
 
 def load_golden(golden_json: Path) -> dict[int, int]:
-    """Load a golden JSON into a {byte_address: expected_byte_value} dict.
+    """Load a golden JSON into a {byte_address: expected_byte} dict.
 
     Parameters
     ----------
     golden_json : Path
-        Path to the golden JSON — a {hex byte address string: expected
+        Path to the golden JSON, a {hex byte address string: expected
         int byte value} map.
 
     Returns
@@ -178,13 +196,17 @@ def load_golden(golden_json: Path) -> dict[int, int]:
     dict of {int: int}
         {byte_address: expected_byte_value}, keys parsed as hex.
     """
-    return {int(k, 16): int(v) for k, v in json.loads(golden_json.read_text()).items()}
+    return {
+        int(k, 16): int(v)
+        for k, v in json.loads(golden_json.read_text()).items()
+    }
 
 
 def golden_word_offsets(golden_json: Path) -> list[int]:
-    """List the words of RAM a golden checks, as word offsets from the base of the RAM.
+    """List the RAM words a golden checks, as offsets from the RAM base.
 
-    A RAM too big to dump whole (the SDRAM) is dumped only at these words.
+    A RAM too big to dump whole (the SDRAM) is dumped only at these
+    words.
 
     Parameters
     ----------
@@ -194,13 +216,14 @@ def golden_word_offsets(golden_json: Path) -> list[int]:
     Returns
     -------
     list of int
-        The word offsets that hold at least one byte of the golden, ascending.
+        The word offsets that hold at least one byte of the golden,
+        ascending.
     """
     return sorted({address // 4 for address in load_golden(golden_json)})
 
 
 def compare(dump_mif: Path, golden_json: Path) -> bool:
-    """Compare a RAM dump against a golden JSON and print a human-readable diff.
+    """Compare a RAM dump against a golden JSON and print the diff.
 
     Prints OK/FAIL, with a per-address breakdown of the first 50
     mismatches on failure.
@@ -210,7 +233,7 @@ def compare(dump_mif: Path, golden_json: Path) -> bool:
     dump_mif : Path
         Path to a RAM dump .mif (e.g. from ram_dump.dump_ram).
     golden_json : Path
-        Path to the golden JSON — a {hex byte address string: expected
+        Path to the golden JSON, a {hex byte address string: expected
         int byte value} map. Only the addresses listed here are
         checked; extra bytes in dump_mif that aren't in golden_json
         are ignored.
@@ -224,5 +247,8 @@ def compare(dump_mif: Path, golden_json: Path) -> bool:
     actual = words_to_bytes(parse_mif_words(dump_mif))
     golden = load_golden(golden_json)
     return compare_bytes(
-        actual, golden, actual_label=dump_mif.name, golden_label=golden_json.name
+        actual,
+        golden,
+        actual_label=dump_mif.name,
+        golden_label=golden_json.name,
     )

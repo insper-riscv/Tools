@@ -1,130 +1,148 @@
 # Creating a GitHub Actions workflow per task
 
-`riscv-tools` doesn't ship a single "the" CI workflow: different
-tasks need different runners and different triggers, and bundling
-them into one workflow makes each slower and harder to reason about.
-Split by task instead: one workflow per concern, each with the
-trigger and runner that actually fits it.
+`riscv-tools` doesn't ship a single "the" CI workflow: different tasks need different runners and different triggers, and bundling them into one workflow makes each slower and harder to reason about. Split by task instead: one workflow per concern, each with the trigger and runner that actually fits it.
 
 | Task | Needs | Typical trigger |
 |---|---|---|
-| Simulation-only tests | The Infra `ci-elf` image (GCC, GHDL, Spike, and uv); any GitHub-hosted runner | Every push/PR |
-| Real-hardware tests | A self-hosted runner with the board + JTAG cable attached | Every push/PR, or `workflow_dispatch` if hardware time is scarce |
-| Regenerating goldens | The GCC toolchain + a built Spike (no hardware) | `workflow_dispatch`, on demand |
+| Simulation-only tests | The `ci-elf` image (GHDL, RISC-V GCC, Spike, uv, Python and cocotb) on a GitHub-hosted runner | Every push/PR |
+| Real-hardware tests | A self-hosted runner with Quartus, the board and the JTAG cable, running the `ci-elf` image in a container | Push to the main branch, or `workflow_dispatch` |
+| Regenerating goldens | The `ci-elf` image (GCC and Spike) on a GitHub-hosted runner, no hardware | `workflow_dispatch`, on demand |
 
-Every job below starts the same way: checking out and setting up
-`uv`. `submodules: true` is what brings this repo in when it is a
-submodule of the consuming project:
+## 1. The CI images
+
+The images come from [insper-riscv/Infra](https://github.com/insper-riscv/Infra) and already carry everything a job needs, so a workflow installs no toolchain and no `uv`: it runs the job inside the image.
+
+| Image | Adds | Use it for |
+|---|---|---|
+| `ghcr.io/insper-riscv/ci-vhdl` | GHDL, Yosys, `uv`, Python 3.14, cocotb | Jobs that only simulate VHDL |
+| `ghcr.io/insper-riscv/ci-elf` | The RISC-V GCC with picolibc and Spike | Jobs that compile tests and run `riscv-tools` |
+| `ghcr.io/insper-riscv/ci-act4` | The ACT4 dependencies | `certify` |
+
+`latest` is the last publication. For a reproducible run, use the `sha-<commit>` tag of the publication you want.
+
+The consuming project depends on this repository as a submodule (normally `tools/Tools`) and lists `riscv-tools` as an editable path dependency in its own `pyproject.toml`, so `uv sync` at the root of the project installs everything and `uv run riscv-tools` works from there. Every job below starts the same way:
 
 ```yaml
+runs-on: ubuntu-26.04
+container:
+  image: ghcr.io/insper-riscv/ci-elf:latest
 steps:
-  - uses: actions/checkout@v4
+  - uses: actions/checkout@v7
     with:
       submodules: true
-  - uses: astral-sh/setup-uv@v3
   - run: uv sync
-    working-directory: Tools   # wherever this repo is checked out relative to your project
 ```
 
-## Simulation-only tests
+`submodules: true` is what brings this repository in. If the project's config refers to sibling repositories (such as `../Core`), the job also clones them next to the checkout, since a bare CI checkout has no parent directory with them.
 
-Cheapest to run: no hardware, no self-hosted runner, just the RISC-V
-toolchain, GHDL, and the `sim` extra (cocotb + cocotb-tools; see
-[configuration.md](configuration.md#sim-requires-the-sim-extra-uv-sync---extra-sim)
-for the `sim:` config keys `sim_runner` needs). `sim_runner`/`riscv-tools
-sim` drives cocotb/GHDL against every test's `.hex`, polling the same
-PASS/FAIL mailbox convention as real hardware: your project still
-supplies its own `sim.test_module` (the cocotb test that knows the
-DUT's actual VHDL signal names), `sim_runner` just runs it per test and
-collects results.
+## 2. Simulation-only tests
+
+The cheapest to run: no hardware and no self-hosted runner. `sim` drives cocotb/GHDL against the `.hex` of every test, polling the same `tohost` convention as real hardware (see [configuration.md](configuration.md#sim) for the `sim:` keys). Your project still supplies its own `sim.test_module`, the cocotb test that knows the real VHDL signal names of the design under test.
 
 ```yaml
 name: sim
 on: [push, pull_request]
 
+concurrency:
+  group: sim-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   sim:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     container:
-      image: ghdl/ghdl:6.0.0-mcode-ubuntu-24.04   # ships GHDL pre-installed
+      image: ghcr.io/insper-riscv/ci-elf:latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: true
-      - uses: astral-sh/setup-uv@v3
-      - run: uv sync --extra sim
-        working-directory: Tools
+      - run: uv sync
 
-      # your own toolchain install step here (riscv32-unknown-elf-gcc on PATH)
-
-      - run: uv run riscv-tools --config ../config.yaml --root .. compile --emit hex
-        working-directory: Tools
-      - run: uv run riscv-tools --config ../config.yaml --root .. sim
-        working-directory: Tools
+      - run: uv run riscv-tools --config config.yaml generate-header
+      - run: uv run riscv-tools --config config.yaml compile --emit hex
+      - run: uv run riscv-tools --config config.yaml sim
 
       - name: Upload waveforms
-        if: always()
-        uses: actions/upload-artifact@v4
+        if: failure()
+        uses: actions/upload-artifact@v7
         with:
           name: waveforms
           path: "**/*.ghw"
           if-no-files-found: ignore
 ```
 
-## Real-hardware tests
+`compile` also generates the golden of every C `memory` test under Spike, which is why this job needs the `ci-elf` image and not only `ci-vhdl`.
 
-Needs a self-hosted runner with the board and JTAG cable physically
-attached: see your runner setup docs for how that's configured. The
-important CI-specific detail is `concurrency`: the default push-trigger
-behavior silently cancels a superseded run, which is dangerous mid
-`quartus_pgm` (leaves the board in a partially-programmed state); pin
-`cancel-in-progress: false` so a run always finishes before the
-next one starts.
+## 3. Real-hardware tests
+
+Needs a self-hosted runner with Quartus, the board and the JTAG cable. Its setup is in the `RUNNER_SETUP.md` and `QUARTUS_INSTALL.md` guides of Infra. The host provides only Quartus, Docker, the JTAG server (`jtagd`) and the runner: the job runs everything else in the `ci-elf` image, with Quartus mounted read-only.
+
+The `concurrency` block matters here. Canceling a run in the middle of a `quartus_pgm` leaves the board half programmed, so every ref shares one group and `cancel-in-progress` stays `false`. A manual run also asks for a `confirm` input that must equal a repository secret, as a second check on top of the write access that already gates who can trigger it.
 
 ```yaml
 name: real
 on:
   push:
+    branches: [main]
   workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Value of the FPGA_RUN_SECRET secret"
+        required: true
 
 concurrency:
-  group: real-${{ github.ref }}
+  group: physical-fpga
   cancel-in-progress: false
 
 jobs:
   real:
-    runs-on: [self-hosted, fpga]   # whatever label your runner registered under
+    runs-on: [self-hosted, quartus, fpga]   # the labels your runner was registered with
+    env:
+      IMAGE: ghcr.io/insper-riscv/ci-elf:latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Authorize manual run
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          [ "${{ inputs.confirm }}" = "${{ secrets.FPGA_RUN_SECRET }}" ] \
+            || { echo "::error::confirmation does not match"; exit 1; }
+
+      - uses: actions/checkout@v7
         with:
           submodules: true
-      - uses: astral-sh/setup-uv@v3
-      - run: uv sync
-        working-directory: Tools
 
-      - run: uv run riscv-tools --config ../config.yaml --root .. compile --emit mif
-        working-directory: Tools
-      - run: uv run riscv-tools --config ../config.yaml --root .. run
-        working-directory: Tools
+      - run: docker pull "$IMAGE"
+
+      # jtagconfig starts the host's jtagd if none is running.
+      - name: Start the JTAG server of the host
+        run: /opt/altera_lite/25.1std/quartus/bin/jtagconfig
+
+      - name: Build, program and run
+        run: |
+          docker run --rm --network host --userns=host \
+            --user "$(id -u):$(id -g)" -e HOME=/tmp/h \
+            -v /opt/altera_lite:/opt/altera_lite:ro \
+            -v "$PWD:/workspace" -w /workspace "$IMAGE" bash -c '
+              export PATH=/opt/altera_lite/25.1std/quartus/bin:$PATH
+              uv sync
+              uv run riscv-tools --config config.yaml generate-header
+              uv run riscv-tools --config config.yaml compile --emit mif
+              uv run riscv-tools --config config.yaml run'
 ```
 
-## Regenerating goldens
+| Option | What it does |
+|---|---|
+| `-v /opt/altera_lite:/opt/altera_lite:ro` | The Quartus installation of the host, read-only; the image has none |
+| `--network host` | The `jtagd` of the host listens on `localhost:1309`, and the programmer inside the container connects to it there |
+| `--user "$(id -u):$(id -g)"` and `-e HOME=/tmp/h` | The files the build writes belong to the runner user, and Quartus gets a writable home |
+| `--userns=host` | Keeps `--network host` valid on a Docker daemon that remaps users, and does nothing on one that does not |
 
-On demand only: `workflow_dispatch`, not on every push. Needs Spike
-and the RISC-V GCC, not hardware, so it runs on any hosted runner, inside the `ci-elf` image of
-[insper-riscv/Infra](https://github.com/insper-riscv/Infra), which carries both.
+## 4. Regenerating goldens
 
-There's a real gap the CLI doesn't paper over: `generate-golden` needs
-`--start`/`--end` for the byte range to snapshot, which isn't
-recorded anywhere for a *brand-new* test: you still choose that by
-hand the first time (see
-[creating-a-c-test.md](creating-a-c-test.md#unit-vs-memory-tests)).
-What CI *can* fully automate is **re**generating already-existing
-goldens (e.g. after an RTL or toolchain change, to confirm the
-expected values haven't shifted) by reading each existing golden
-JSON's own address range and re-running `generate-golden` over the
-same range:
+On demand only: `workflow_dispatch`, not on every push. It needs Spike and the RISC-V GCC but no hardware, so it runs on a GitHub-hosted runner inside the `ci-elf` image.
+
+C `memory` tests need nothing here, since `compile` regenerates their golden every time. The goldens to regenerate are the versioned ones that sit next to an assembly test's `src.S` (see [creating-an-asm-test.md](creating-an-asm-test.md)). A gap the CLI doesn't hide: `generate-golden` needs `--start`/`--end` for the byte range to capture, and nothing records it for a *new* test, so you still choose it by hand the first time. What CI can fully automate is **re**generating the existing goldens (for example after an RTL or toolchain change, to confirm the expected values did not move), reading the address range from the existing golden JSON itself:
 
 ```yaml
 name: regenerate-goldens
@@ -132,43 +150,39 @@ on: workflow_dispatch
 
 jobs:
   regenerate:
-    runs-on: self-hosted   # a runner provisioned as in insper-riscv/Infra
+    runs-on: ubuntu-26.04
+    container:
+      image: ghcr.io/insper-riscv/ci-elf:latest
+
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: true
-      - uses: astral-sh/setup-uv@v3
       - run: uv sync
-        working-directory: Tools
 
-      - run: uv run riscv-tools --config ../config.yaml --root .. compile --emit mif
-        working-directory: Tools
+      - run: uv run riscv-tools --config config.yaml compile --emit mif
 
       - name: Regenerate every existing golden
-        working-directory: Tools
         run: |
-          # golden.json only exists next to src.c/src.S for
-          # "memory"-kind tests (see creating-a-c-test.md); every
-          # other test has nothing to regenerate here.
-          for golden in ../c/*/golden.json ../asm/*/golden.json; do
+          for golden in asm/*/golden.json; do
             [ -f "$golden" ] || continue
             name=$(basename "$(dirname "$golden")")
-            elf="../build/real/$name.elf"
-            march=$(jq -r --arg n "$name" '.[] | select(.name == $n) | .march' ../build/real/manifest.json)
-            # jq has no hex-parsing builtin, but its keys are always
-            # zero-padded to the same width (write_golden_json's own
-            # format), so lexicographic min/max already equals numeric
-            # min/max; only the "+1" for the exclusive end needs real
-            # arithmetic, which bash's $(( )) does natively on 0x literals.
+            elf="build/real/$name.elf"
+            march=$(jq -r --arg n "$name" '.[] | select(.name == $n) | .march' build/real/manifest.json)
+            # The keys always have the same width, zero-padded (the
+            # format golden JSON files are written in), so their
+            # lexicographic min/max is also the numeric one. Only the
+            # exclusive "+1" at the end needs real arithmetic, which
+            # bash does natively on 0x literals.
             start=$(jq -r 'keys | min' "$golden")
             max_key=$(jq -r 'keys | max' "$golden")
             end=$(printf '0x%X' $((max_key + 1)))
-            uv run riscv-tools --config ../config.yaml generate-golden "$elf" \
+            uv run riscv-tools --config config.yaml generate-golden "$elf" \
                 --march "$march" --start "$start" --end "$end" --out "$golden"
           done
 
-      # then diff/commit/open a PR with whatever changed, using your
-      # own git steps: regenerating on its own never pushes anything
+      # then diff/commit/open a PR with what changed, using your own git
+      # steps: regenerating on its own never pushes anything
 ```
 
 ---

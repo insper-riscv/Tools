@@ -7,10 +7,12 @@ from riscv_tools import mem_edit
 from riscv_tools.jtag import JtagLink
 
 
-def write_rom(link: JtagLink, rom_mem_instances: Sequence[int], mif_path: Path) -> None:
+def write_rom(
+    link: JtagLink, rom_mem_instances: Sequence[int], mif_path: Path
+) -> None:
     """Load a new ROM image into an already-programmed board over JTAG.
 
-    Pairs with mailbox.pulse_go_flag to make the core jump back to
+    Pairs with htif.pulse_fromhost to make the core jump back to
     _start and run it (see crt0.S in the consuming project).
 
     Parameters
@@ -18,16 +20,10 @@ def write_rom(link: JtagLink, rom_mem_instances: Sequence[int], mif_path: Path) 
     link : JtagLink
         Which JTAG cable/chip to write to.
     rom_mem_instances : sequence of int
-        In-System Memory Content Editor instance index/indices of the
-        ROM (quartus.rom_mem_instances in the project's config.yaml) —
-        a list rather than a single int because a Harvard-modificado
-        project (see RV32IM) physically duplicates ROM into a second
-        BRAM for its MEM-stage read port instead of using one true
-        dual-port memory (Quartus's ENABLE_RUNTIME_MOD/In-System Memory
-        Content Editor doesn't support DUAL_PORT operation_mode in the
-        Lite edition — confirmed via a real quartus_map run). Every
-        instance listed gets the exact same content, in order, so they
-        never drift out of sync with each other.
+        In-System Memory Content Editor instance indices of the ROM
+        (quartus.rom_mem_instances). Every instance gets the same
+        content, in order, so a ROM duplicated into several BRAMs stays
+        in sync.
     mif_path : Path
         Path to the .mif whose content replaces each ROM instance's
         entire depth.

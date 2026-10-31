@@ -4,19 +4,18 @@ Compõe todos os outros módulos de hardware real numa rodada completa de testes
 
 ## Rodando uma suíte
 
-Para cada teste de um manifest: recarrega a imagem de ROM dele por JTAG (veja [`rom_writer`](rom_writer.md)), dá um pulso na flag de reinício (veja [`mailbox`](mailbox.md)), espera o mailbox PASS/FAIL e, nos testes do tipo `memory`, faz o dump da RAM e a valida (veja [`ram_dump`](ram_dump.md), [`mem_validator`](mem_validator.md)).
+Para cada teste de um manifest: recarrega a imagem de ROM dele por JTAG (veja [`rom_writer`](rom_writer.md)), escreve o `fromhost` para reiniciar (veja [`htif`](htif.md)), espera o `tohost` e, nos testes do tipo `memory`, faz o dump da RAM e a valida (veja [`ram_dump`](ram_dump.md), [`mem_validator`](mem_validator.md)).
 
 A CLI roda o manifest inteiro por padrão. `--only` seleciona testes pelo nome e
 `--exclude` omite testes pelo nome; as duas opções podem ser repetidas e aceitam
 nomes separados por vírgulas. As exclusões são aplicadas depois das seleções, e
 um nome desconhecido ou uma seleção final vazia é erro. Assim, testes que
 precisam de equipamento externo dedicado podem ser encaminhados a outro harness
-sem um erro de digitação recolocá-los silenciosamente na suíte genérica de
-mailbox.
+sem um erro de digitação recolocá-los silenciosamente na suíte genérica.
 Um valor de filtro explicitamente vazio também é rejeitado, para uma variável
 vazia de CI não transformar `--only` numa execução completa no hardware.
 
-Se o mailbox de um teste nunca responde, três níveis de recuperação rodam em ordem, cada um só tentado se o anterior não resolveu:
+Se o `tohost` de um teste nunca muda, três níveis de recuperação rodam em ordem, cada um só tentado se o anterior não resolveu:
 
 1. **Nova tentativa de recarga por JTAG**: tenta a mesma recarga de ROM mais uma vez, caso a tentativa anterior tenha sido um problema isolado.
 2. **Reprogramar a partir do `.sof` existente**: barato (~10s), seguro só se o fonte VHDL não mudou desde que esse `.sof` foi gerado (veja o `program_only` do [`quartus_program`](quartus_program.md)).
@@ -36,7 +35,7 @@ Acha a maior frequência de clock (Fmax) em que um design ainda passa na sua su�
 
 | Chave | Significado |
 | :--- | :--- |
-| `quartus.program_wait_seconds` | Quanto esperar após uma reconfiguração completa (só no caminho de fallback) antes de ler o mailbox (padrão `15`). |
+| `quartus.program_wait_seconds` | Quanto esperar após uma reconfiguração completa (só no caminho de fallback) antes de ler o `tohost` (padrão `15`). |
 | `quartus.default_timeout_s` | Timeout padrão por teste se o teste não define o próprio cabeçalho `RV32_TIMEOUT_S` (padrão `15`; veja [`compiler`](compiler.md)). |
 
 ## Pré-requisitos

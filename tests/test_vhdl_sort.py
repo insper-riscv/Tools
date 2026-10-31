@@ -1,9 +1,12 @@
+"""Tests for vhdl_sort."""
+
 from pathlib import Path
 
 from riscv_tools.vhdl_sort import topo_sort
 
 
 def test_topo_sort_orders_entity_dependency(tmp_path: Path) -> None:
+    """Topo sort orders entity dependency."""
     sub = tmp_path / "sub.vhd"
     sub.write_text("entity sub is\nend entity;\n")
     top = tmp_path / "top.vhd"
@@ -19,10 +22,13 @@ def test_topo_sort_orders_entity_dependency(tmp_path: Path) -> None:
 
 
 def test_topo_sort_orders_package_dependency(tmp_path: Path) -> None:
+    """Topo sort orders package dependency."""
     pkg = tmp_path / "pkg.vhd"
     pkg.write_text("package pkg_types is\nend package;\n")
     consumer = tmp_path / "consumer.vhd"
-    consumer.write_text("use work.pkg_types.all;\nentity consumer is\nend entity;\n")
+    consumer.write_text(
+        "use work.pkg_types.all;\nentity consumer is\nend entity;\n"
+    )
 
     ordered = topo_sort([consumer, pkg])
     assert ordered.index(pkg) < ordered.index(consumer)
@@ -30,6 +36,7 @@ def test_topo_sort_orders_package_dependency(tmp_path: Path) -> None:
 
 def test_topo_sort_ignores_package_body(tmp_path: Path) -> None:
     # "package body X" must not register a design unit named "body".
+    """Topo sort ignores package body."""
     pkg = tmp_path / "pkg.vhd"
     pkg.write_text(
         "package pkg_types is\nend package;\n\n"
@@ -40,7 +47,10 @@ def test_topo_sort_ignores_package_body(tmp_path: Path) -> None:
     assert ordered == [pkg]
 
 
-def test_topo_sort_is_deterministic_for_unrelated_files(tmp_path: Path) -> None:
+def test_topo_sort_is_deterministic_for_unrelated_files(
+    tmp_path: Path,
+) -> None:
+    """Topo sort is deterministic for unrelated files."""
     a = tmp_path / "a.vhd"
     a.write_text("entity a is\nend entity;\n")
     b = tmp_path / "b.vhd"
@@ -50,15 +60,18 @@ def test_topo_sort_is_deterministic_for_unrelated_files(tmp_path: Path) -> None:
 
 
 def test_topo_sort_breaks_cycles_without_raising(tmp_path: Path) -> None:
+    """Topo sort breaks cycles without raising."""
     a = tmp_path / "a.vhd"
     a.write_text(
         "entity a is\nend entity;\n"
-        "architecture x of a is begin u: entity work.b port map(); end architecture;\n"
+        "architecture x of a is begin u: entity work.b "
+        "port map(); end architecture;\n"
     )
     b = tmp_path / "b.vhd"
     b.write_text(
         "entity b is\nend entity;\n"
-        "architecture x of b is begin u: entity work.a port map(); end architecture;\n"
+        "architecture x of b is begin u: entity work.a "
+        "port map(); end architecture;\n"
     )
 
     ordered = topo_sort([a, b])
@@ -66,6 +79,7 @@ def test_topo_sort_breaks_cycles_without_raising(tmp_path: Path) -> None:
 
 
 def test_topo_sort_skips_unreadable_file(tmp_path: Path) -> None:
+    """Topo sort skips unreadable file."""
     missing = tmp_path / "missing.vhd"
     present = tmp_path / "present.vhd"
     present.write_text("entity present is\nend entity;\n")
@@ -74,9 +88,12 @@ def test_topo_sort_skips_unreadable_file(tmp_path: Path) -> None:
     assert set(ordered) == {missing, present}
 
 
-def test_topo_sort_ignores_dependency_outside_input_set(tmp_path: Path) -> None:
+def test_topo_sort_ignores_dependency_outside_input_set(
+    tmp_path: Path,
+) -> None:
     # A dependency on a unit declared in a file not passed to
     # topo_sort (e.g. a vendor IP core) shouldn't raise or pull it in.
+    """Topo sort ignores dependency outside input set."""
     only_file = tmp_path / "top.vhd"
     only_file.write_text(
         "entity top is\nend entity;\n"

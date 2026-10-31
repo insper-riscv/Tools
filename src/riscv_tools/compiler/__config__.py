@@ -14,12 +14,12 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         # (the toolchain's own, for a GCC built with it).
         "libc": "none",
         # A GCC specs file (path relative to the project root) that
-        # describes the platform: it includes picolibc.specs and adds the
-        # memory map and the crt0 to use (see insper-riscv/Testes'
+        # describes the platform: it includes picolibc.specs and adds
+        # the memory map and the crt0 to use (see insper-riscv/Testes'
         # rv32im-fpga.specs). When set, tests are compiled as hosted
-        # programs with `--specs=<file>` and link against the toolchain's
-        # own crt0 and linker script, so paths.crt0 and paths.linker_script
-        # are not needed, and `libc` is ignored.
+        # programs with `--specs=<file>` and link against the
+        # toolchain's own crt0 and linker script, so paths.crt0 and
+        # paths.linker_script are not needed, and `libc` is ignored.
         "specs": None,
     },
     "isa": {
@@ -33,10 +33,11 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     },
     "paths": {
         # All project-specific (paths inside the CONSUMING repo, not
-        # this package) — no sane generic default.
+        # this package), no sane generic default.
         "include_dir": None,
-        # Optional: a project's own startup file and linker script. Leave
-        # both unset with toolchain.specs, which selects the toolchain's.
+        # Optional: a project's own startup file and linker script.
+        # Leave both unset with toolchain.specs, which selects the
+        # toolchain's.
         "crt0": None,
         "linker_script": None,
         # Optional: source files (relative to the project root) compiled
@@ -47,7 +48,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         "build_dir": None,
         # Each holds one <name>/ folder per test (src.c under c_dir,
         # src.S under asm_dir), optionally with a golden.json for
-        # "memory"-kind tests (see cli._discover_tests) — no real/sim
+        # "memory"-kind tests (see cli.discover_tests), no real/sim
         # split: a test's kind decides where it builds/runs (real
         # always; sim only for "unit"-kind, see cli.cmd_compile).
         "c_dir": None,

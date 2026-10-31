@@ -5,16 +5,12 @@ import subprocess
 
 
 def detect_jtag_hardware() -> str:
-    """Detect the live JTAG hardware name for quartus_pgm/quartus_stp's -c flag.
+    """Detect the live JTAG hardware name for the -c flag of Quartus.
 
-    That suffix reflects USB topology, not the physical cable — it
-    drifts across reboots and hub renumbering, so a static config value
-    is unreliable; ask `jtagconfig` for the live value instead.
-
-    Matched specifically on "USB-Blaster" rather than just taking the
-    first hardware line: a second cable (e.g. another board's onboard
-    blaster) can show up in the same jtagconfig listing when another
-    board is plugged into the same workstation, and it isn't ours.
+    The name suffix reflects USB topology, not the physical cable, and
+    drifts across reboots, so it is read from `jtagconfig` instead of
+    the config. Only a "USB-Blaster" entry is taken, since another
+    board's cable can appear in the same listing.
 
     Returns
     -------
@@ -35,27 +31,24 @@ def detect_jtag_hardware() -> str:
         m = re.match(r"^\s*\d+\)\s+(USB-Blaster.*)$", line)
         if m:
             return m.group(1).strip()
-    raise RuntimeError(f"jtagconfig produced no USB-Blaster hardware line:\n{out}")
+    raise RuntimeError(
+        f"jtagconfig produced no USB-Blaster hardware line:\n{out}"
+    )
 
 
 def jtag_chain_healthy() -> bool:
-    """Check whether `jtagconfig` currently reports a working device chain.
+    """Check whether `jtagconfig` reports a working device chain.
 
-    Separate from detect_jtag_hardware: that one finds the cable's
-    live name and can succeed even while the chain underneath it is
-    broken — "chain broken" is a distinct line jtagconfig prints
-    alongside/after the hardware listing, not instead of it. Same
-    "chain broken" text/behavior documented in HARDWARE_PROGRAMMING.md
-    and checked the same way by real.yml's own pre-flight step —
-    meant for polling after a physical power-cycle, e.g.
-    orchestrator.run_suite's wait_for_hardware mode.
+    detect_jtag_hardware can find the cable while the chain beneath it
+    is broken, because "chain broken" is a separate line of the
+    `jtagconfig` output. Meant for polling after a physical power-cycle.
 
     Returns
     -------
     bool
         False if `jtagconfig` reports "chain broken" (case-insensitive)
         anywhere in its output, or if `jtagconfig` itself fails to run
-        at all (cable unplugged, driver issue, etc — treated as
+        at all (cable unplugged, driver issue, etc, treated as
         "still not healthy" rather than raising, since this is meant
         to be polled in a loop). True otherwise.
     """

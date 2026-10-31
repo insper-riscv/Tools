@@ -1,4 +1,4 @@
-"""Prepare and launch Spike runs, shared by the golden generator and spike-run.
+"""Prepare and launch Spike runs, shared by golden and spike-run.
 
 Spike and the GCC binutils come from the toolchain installed on the
 workstation; this module only builds the command line, adds the symbols
@@ -11,6 +11,7 @@ import subprocess
 import tempfile
 from collections.abc import Generator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 
 # `nm`'s default output has exactly 3 whitespace-separated fields per
@@ -22,6 +23,39 @@ _SETUP_HINT = (
     "install Spike as described in insper-riscv/Infra's SPIKE_SETUP.md "
     "(it builds Spike with the debug module moved out of address 0)"
 )
+
+
+@dataclass(frozen=True)
+class SpikeTarget:
+    """The settings of one Spike run, shared by every ELF it runs.
+
+    Attributes
+    ----------
+    spike_bin : str
+        `spike` binary name/path (see require_spike).
+    nm_bin : str
+        `nm` binary for the target toolchain, used to resolve the
+        entry and tohost symbols.
+    isa : str
+        `--isa=` value; should match the test's own march.
+    mem_regions : list of (int, int)
+        (base, size) byte pairs, one per region of real memory.
+    tohost_symbol : str
+        Symbol the program writes its verdict to.
+    entry_symbol : str
+        Symbol execution starts at.
+    objcopy_bin : str
+        `objcopy` binary for the target toolchain, used to add the
+        symbols Spike needs to a copy of the ELF.
+    """
+
+    spike_bin: str
+    nm_bin: str
+    isa: str
+    mem_regions: list[tuple[int, int]]
+    tohost_symbol: str
+    entry_symbol: str = "_start"
+    objcopy_bin: str = "riscv32-unknown-elf-objcopy"
 
 
 def symbol_address(nm_bin: str, elf_path: Path, symbol: str) -> int:
@@ -59,7 +93,7 @@ def symbol_address(nm_bin: str, elf_path: Path, symbol: str) -> int:
 
 @functools.cache
 def require_spike(spike_bin: str) -> str:
-    """Return the path of a usable Spike, or raise with how to install one.
+    """Return the path of a usable Spike, or raise with install help.
 
     "Usable" means the binary exists and places its debug module away
     from address 0: a stock build aborts at startup with `devices at
@@ -69,7 +103,8 @@ def require_spike(spike_bin: str) -> str:
     Parameters
     ----------
     spike_bin : str
-        The project's `emulator.spike_bin` (a name on `PATH`, or a path).
+        The project's `emulator.spike_bin` (a name on `PATH`, or a
+        path).
 
     Returns
     -------
@@ -109,30 +144,25 @@ def require_spike(spike_bin: str) -> str:
     return found
 
 
-def spike_command(  # noqa: PLR0913, PLR0917
-    spike_bin: str,
-    isa: str,
-    mem_regions: list[tuple[int, int]],
+def spike_command(
+    target: SpikeTarget,
     entry_pc: int,
     elf_path: Path,
     extra_args: tuple[str, ...] = (),
 ) -> list[str]:
-    """Build a Spike command line that runs elf_path on the target's memory map.
+    """Build a Spike command line that runs elf_path on the target.
 
-    Spike's own default memory sits at 0x80000000 and its reset vector
-    goes through a boot ROM at 0x1000, both of which collide with a
-    target whose real memory starts near address 0. Passing every real
-    region and starting at the ELF's entry point with no device tree
-    sidesteps both.
+    Spike's default memory (0x80000000) and boot ROM reset vector
+    (0x1000) collide with a target whose memory starts near address 0,
+    so the command passes every real region and starts at the ELF's
+    entry point with no device tree.
 
     Parameters
     ----------
-    spike_bin : str
-        Resolved `spike` binary (see require_spike).
-    isa : str
-        `--isa=` value; must list extensions in Spike's canonical order.
-    mem_regions : list of (int, int)
-        (base, size) byte pairs, one per region of real memory.
+    target : SpikeTarget
+        The run settings; its `spike_bin` must be the resolved binary
+        (see require_spike) and its `isa` must list extensions in
+        Spike's canonical order.
     entry_pc : int
         Byte address execution starts at.
     elf_path : Path
@@ -145,16 +175,49 @@ def spike_command(  # noqa: PLR0913, PLR0917
     list of str
         The argument list for `subprocess.run`.
     """
-    mem_flag = ",".join(f"{base:#x}:{size:#x}" for base, size in mem_regions)
+    mem_flag = ",".join(
+        f"{base:#x}:{size:#x}" for base, size in target.mem_regions
+    )
     return [
-        spike_bin,
-        f"--isa={isa}",
+        target.spike_bin,
+        f"--isa={target.isa}",
         f"-m{mem_flag}",
         "--disable-dtb",
         f"--pc={entry_pc:#x}",
         *extra_args,
         str(elf_path),
     ]
+
+
+def run_spike(
+    cmd: list[str], timeout_s: float
+) -> subprocess.CompletedProcess[str]:
+    """Run a Spike command line and capture its text output.
+
+    Parameters
+    ----------
+    cmd : list of str
+        The command line (see spike_command).
+    timeout_s : float
+        Seconds to wait before giving up.
+
+    Returns
+    -------
+    subprocess.CompletedProcess
+        The finished process; a non-zero exit code is not an error.
+
+    Raises
+    ------
+    subprocess.TimeoutExpired
+        Spike was still running after timeout_s.
+    """
+    return subprocess.run(
+        cmd,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=timeout_s,
+    )
 
 
 @contextmanager
@@ -165,13 +228,13 @@ def prepared_elf(
     tohost_symbol: str,
     extra_symbols: dict[str, int] | None = None,
 ) -> Generator[Path]:
-    """Yield a temporary copy of elf_path that has the symbols Spike needs.
+    """Yield a temporary copy of elf_path with the symbols Spike needs.
 
-    Spike's HTIF looks up `tohost` and `fromhost` by those exact names;
-    without both it prints a warning and never exits on completion. The
-    copy gets `tohost` as an alias when the project uses another name,
-    `fromhost` right after `tohost` when the link script doesn't define
-    it, and any extra symbols requested (e.g. `begin_signature`).
+    Spike's HTIF looks up `tohost` and `fromhost` by those names, and
+    without both it never exits on completion. The copy gets `tohost` as
+    an alias when the project uses another name, `fromhost` right after
+    `tohost` when the link script lacks it, and any extra symbols
+    requested (for example `begin_signature`).
 
     Parameters
     ----------

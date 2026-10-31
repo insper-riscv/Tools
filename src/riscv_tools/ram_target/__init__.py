@@ -1,6 +1,6 @@
 """Where a project's RAM lives and how the host reaches it over JTAG."""
 
-from .core import (
+from riscv_tools.ram_target.core import (
     RamTarget,
     SdramDebugRam,
     read_words,

@@ -1,36 +1,34 @@
-"""Per-test header conventions.
+"""Per-test header conventions, read from comments in a .c/.S source.
 
-Read from comments at the top of a .c/.S source file:
+    // RV32_EXT: M,A           extensions added to the rv32i base
+    // RV32_TEST_KIND: unit    (default) PASS/FAIL by tohost only
+    // RV32_TEST_KIND: memory  also compares RAM with a golden JSON
+    // RV32_TIMEOUT_S: 5       seconds to wait for tohost
 
-  // RV32_EXT: M          -> compiled with -march=rv32im (additions to
-  // RV32_EXT: M,A        -> the implicit rv32i base; order doesn't
-                              matter, normalized via isa.canonical_order)
-  // RV32_TEST_KIND: unit          -> default. Checked via the PASS/FAIL
-                                       mailbox only.
-  // RV32_TEST_KIND: memory        -> also dumps RAM and compares it
-                                       against a golden JSON.
-  // RV32_TIMEOUT_S: 5              -> how long the orchestrator waits
-                                       for this test's mailbox before
-                                       falling back to a full reprogram.
-                                       Defaults to orchestrator's
-                                       default_timeout_s.
+The extensions may come in any order; they are normalized with
+isa.canonical_order. Without a timeout header the project's default
+timeout applies.
 """
 
 import re
 from typing import Any
 
 EXT_RE = re.compile(r"^\s*//\s*RV32_EXT:\s*(.+?)\s*$", re.MULTILINE)
-KIND_RE = re.compile(r"^\s*//\s*RV32_TEST_KIND:\s*(unit|memory)\s*$", re.MULTILINE)
-TIMEOUT_RE = re.compile(r"^\s*//\s*RV32_TIMEOUT_S:\s*([0-9.]+)\s*$", re.MULTILINE)
+KIND_RE = re.compile(
+    r"^\s*//\s*RV32_TEST_KIND:\s*(unit|memory)\s*$", re.MULTILINE
+)
+TIMEOUT_RE = re.compile(
+    r"^\s*//\s*RV32_TIMEOUT_S:\s*([0-9.]+)\s*$", re.MULTILINE
+)
 
 
 def canonical_march(isa_cfg: dict[str, Any], ext_csv: str) -> str:
-    """Build a normalized `-march=` string from a test's `RV32_EXT` header.
+    """Build a normalized `-march=` string from a `RV32_EXT` header.
 
     Parameters
     ----------
     isa_cfg : dict of {str: Any}
-        The project's `isa:` config section — needs `base` (the
+        The project's `isa:` config section: needs `base` (the
         always-implied base ISA letter, e.g. "i") and
         `canonical_order` (the extension-letter order to sort by).
     ext_csv : str
@@ -41,9 +39,9 @@ def canonical_march(isa_cfg: dict[str, Any], ext_csv: str) -> str:
     Returns
     -------
     str
-        The full march string, e.g. "rv32ima" or "rv32im_zicsr". Extension
-        order in ext_csv doesn't affect the result — "M,A" and "A,M" both
-        produce the same string, per canonical_order.
+        The full march string, e.g. "rv32ima" or "rv32im_zicsr".
+        Extension order in ext_csv doesn't affect the result; "M,A" and
+        "A,M" both produce the same string, per canonical_order.
 
     Raises
     ------
@@ -56,8 +54,9 @@ def canonical_march(isa_cfg: dict[str, Any], ext_csv: str) -> str:
         return base
     order = isa_cfg["canonical_order"]
     names = {e.strip().upper() for e in ext_csv.split(",") if e.strip()}
-    # Multi-letter extensions (Zicsr, Zifencei, ...) start with Z and come after
-    # the single-letter ones, each preceded by "_" and sorted alphabetically.
+    # Multi-letter extensions (Zicsr, Zifencei, ...) start with Z and
+    # come after the single-letter ones, each preceded by "_" and sorted
+    # alphabetically.
     multi = {n for n in names if len(n) > 1 and n[0] == "Z"}
     letters = names - multi
     unknown = letters - set(order)
@@ -66,7 +65,9 @@ def canonical_march(isa_cfg: dict[str, Any], ext_csv: str) -> str:
             f"Unknown extension(s) {sorted(unknown)}; add them to "
             f"isa.canonical_order in config.yaml"
         )
-    sorted_ext = "".join(letter for letter in order if letter in letters).lower()
+    sorted_ext = "".join(
+        letter for letter in order if letter in letters
+    ).lower()
     sorted_multi = "".join(f"_{name.lower()}" for name in sorted(multi))
     return base + sorted_ext + sorted_multi
 
@@ -74,14 +75,14 @@ def canonical_march(isa_cfg: dict[str, Any], ext_csv: str) -> str:
 def parse_header(
     isa_cfg: dict[str, Any], default_timeout_s: float, text: str
 ) -> tuple[str, str, float]:
-    """Resolve a test source's header comments to concrete build/run values.
+    """Resolve a test source's header comments to build/run values.
 
     Reads `RV32_EXT`/`RV32_TEST_KIND`/`RV32_TIMEOUT_S` header comments.
 
     Parameters
     ----------
     isa_cfg : dict of {str: Any}
-        The project's `isa:` config section — passed straight through
+        The project's `isa:` config section: passed straight through
         to canonical_march.
     default_timeout_s : float
         Timeout to use when the source has no `// RV32_TIMEOUT_S:`
@@ -103,7 +104,9 @@ def parse_header(
     kind = kind_match.group(1) if kind_match else "unit"
     timeout_match = TIMEOUT_RE.search(text)
     timeout_s = (
-        float(timeout_match.group(1)) if timeout_match else float(default_timeout_s)
+        float(timeout_match.group(1))
+        if timeout_match
+        else float(default_timeout_s)
     )
     march = canonical_march(isa_cfg, ext_csv)
     return march, kind, timeout_s

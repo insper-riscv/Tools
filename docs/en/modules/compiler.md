@@ -9,9 +9,9 @@ A test's own source file declares its build/run requirements in comments at the 
 | Header | Meaning |
 | :--- | :--- |
 | `// RV32_EXT: M` | Compiled with `-march=rv32im` (extension letters add onto the implicit `rv32i` base; comma-separated, order doesn't matter, normalized via `isa.canonical_order`). Omitted entirely means plain `rv32i`. |
-| `// RV32_TEST_KIND: unit` | Default if omitted. Checked via the PASS/FAIL mailbox only (see [`mailbox`](mailbox.md)). |
+| `// RV32_TEST_KIND: unit` | Default if omitted. Checked through `tohost` only (see [`htif`](htif.md)). |
 | `// RV32_TEST_KIND: memory` | Also dumps RAM and compares it against a golden JSON (see [`mem_validator`](mem_validator.md), [`golden_generator`](golden_generator.md)). |
-| `// RV32_TIMEOUT_S: 5` | How long [`orchestrator`](orchestrator.md) waits for this test's mailbox before falling back to a full reprogram. Defaults to `orchestrator`'s `default_timeout_s`. |
+| `// RV32_TIMEOUT_S: 5` | How long [`orchestrator`](orchestrator.md) waits for this test's `tohost` before falling back to a full reprogram. Defaults to `orchestrator`'s `default_timeout_s`. |
 
 ## C library
 
@@ -53,7 +53,7 @@ The same specs file serves any `gcc` command, outside this package: `gcc --specs
 
 ### Image for Spike
 
-When a program's image ends in code that lives elsewhere on the hardware, Spike cannot run it as is. `emulator.sources` and `emulator.gcc_flags` build a second ELF for Spike from the same sources plus a stand-in: in the example above, the hardware's `rv32_wait_restart` is a boot ROM routine at address `0x100`, and the Spike ELF is built with `-DRV32_SPIKE`, which leaves that fixed address out of the link, and with a source that defines `rv32_wait_restart` as ordinary code (the mailbox translated to HTIF) and the `tohost` and `fromhost` symbols. Without `emulator.sources`, Spike runs the test's own image.
+When a program's image ends in code that lives elsewhere on the hardware, Spike cannot run it as is. `emulator.sources` and `emulator.gcc_flags` build a second ELF for Spike from the same sources plus a stand-in: in the example above, the hardware's `rv32_wait_restart` is a boot ROM routine at address `0x100`, and the Spike ELF is built with `-DRV32_SPIKE`, which leaves that fixed address out of the link, and with a source that defines `rv32_wait_restart` as ordinary code (it only waits, since the test has already written `tohost`) and the `tohost` and `fromhost` symbols. Without `emulator.sources`, Spike runs the test's own image.
 
 
 With `sim.hex_format: verilog`, the simulation `.hex` comes straight from the linked ELF through `objcopy -O verilog --verilog-data-width=4` instead of from the flat binary. The file keeps the image's real word addresses:

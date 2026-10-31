@@ -1,11 +1,16 @@
+"""Tests for freq_sweep."""
+
 import argparse
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from riscv_tools import cli
-from riscv_tools.freq_sweep import get_pll_freq, set_pll_freq
+from riscv_tools import cli, htif, mem_validator, orchestrator, ram_dump
+from riscv_tools.cli import tools_cmd
+from riscv_tools.freq_sweep import PllParams, set_pll_freq
+from riscv_tools.jtag import JtagLink
+from riscv_tools.orchestrator import sweep
 
 THREE_PHASE_PLL = """\
 altpll_component : altpll
@@ -21,17 +26,20 @@ altpll_component.phase_shift2("66667 ps");
 
 
 def test_set_pll_freq_rewrites_frequency_and_phases(tmp_path: Path) -> None:
+    """Set pll freq rewrites frequency and phases."""
     pll_file = tmp_path / "pll.v"
     pll_file.write_text(THREE_PHASE_PLL)
 
     set_pll_freq(
-        pll_file=pll_file,
-        mhz=20.0,
-        phase_count=3,
-        freq_param_template="output_clock_frequency{idx}",
-        phase_param_template="phase_shift{idx}",
-        freq_unit="MHz",
-        phase_unit="ps",
+        pll_file,
+        20.0,
+        PllParams(
+            phase_count=3,
+            freq_param_template="output_clock_frequency{idx}",
+            phase_param_template="phase_shift{idx}",
+            freq_unit="MHz",
+            phase_unit="ps",
+        ),
     )
 
     text = pll_file.read_text()
@@ -47,37 +55,45 @@ def test_set_pll_freq_rewrites_frequency_and_phases(tmp_path: Path) -> None:
 
 
 def test_set_pll_freq_single_phase_default(tmp_path: Path) -> None:
+    """Set pll freq single phase default."""
     pll_file = tmp_path / "pll.v"
     pll_file.write_text('.output_clock_frequency0("10.000000 MHz");\n')
 
     set_pll_freq(
-        pll_file=pll_file,
-        mhz=50.0,
-        phase_count=1,
-        freq_param_template="output_clock_frequency{idx}",
-        phase_param_template="phase_shift{idx}",
-        freq_unit="MHz",
-        phase_unit="ps",
+        pll_file,
+        50.0,
+        PllParams(
+            phase_count=1,
+            freq_param_template="output_clock_frequency{idx}",
+            phase_param_template="phase_shift{idx}",
+            freq_unit="MHz",
+            phase_unit="ps",
+        ),
     )
 
     assert '.output_clock_frequency0("50.000000 MHz")' in pll_file.read_text()
 
 
 def test_set_pll_freq_missing_param_left_unchanged(tmp_path: Path) -> None:
-    # phase_count set higher than what the file actually declares —
+    # phase_count set higher than what the file actually declares,
     # the nonexistent pair should be silently skipped, not raise.
+    """Set pll freq missing param left unchanged."""
     pll_file = tmp_path / "pll.v"
-    original = '.output_clock_frequency0("10.000000 MHz");\n.phase_shift0("0 ps");\n'
+    original = (
+        '.output_clock_frequency0("10.000000 MHz");\n.phase_shift0("0 ps");\n'
+    )
     pll_file.write_text(original)
 
     set_pll_freq(
-        pll_file=pll_file,
-        mhz=15.0,
-        phase_count=3,
-        freq_param_template="output_clock_frequency{idx}",
-        phase_param_template="phase_shift{idx}",
-        freq_unit="MHz",
-        phase_unit="ps",
+        pll_file,
+        15.0,
+        PllParams(
+            phase_count=3,
+            freq_param_template="output_clock_frequency{idx}",
+            phase_param_template="phase_shift{idx}",
+            freq_unit="MHz",
+            phase_unit="ps",
+        ),
     )
 
     text = pll_file.read_text()
@@ -87,60 +103,33 @@ def test_set_pll_freq_missing_param_left_unchanged(tmp_path: Path) -> None:
 
 
 def test_set_pll_freq_custom_param_template(tmp_path: Path) -> None:
+    """Set pll freq custom param template."""
     pll_file = tmp_path / "pll.vhd"
     pll_file.write_text('.clkout_freq0("100.000000 kHz");\n')
 
     set_pll_freq(
-        pll_file=pll_file,
-        mhz=200.0,
-        phase_count=1,
-        freq_param_template="clkout_freq{idx}",
-        phase_param_template="clkout_phase{idx}",
-        freq_unit="kHz",
-        phase_unit="fs",
+        pll_file,
+        200.0,
+        PllParams(
+            phase_count=1,
+            freq_param_template="clkout_freq{idx}",
+            phase_param_template="clkout_phase{idx}",
+            freq_unit="kHz",
+            phase_unit="fs",
+        ),
     )
 
     assert '.clkout_freq0("200.000000 kHz")' in pll_file.read_text()
 
 
-def test_get_pll_freq_reads_phase_zero(tmp_path: Path) -> None:
-    pll_file = tmp_path / "pll.v"
-    pll_file.write_text(THREE_PHASE_PLL)
-
-    assert get_pll_freq(pll_file, "output_clock_frequency{idx}", "MHz") == 10.0
-
-
-def test_get_pll_freq_returns_none_when_absent(tmp_path: Path) -> None:
-    pll_file = tmp_path / "pll.v"
-    pll_file.write_text("-- nothing relevant here\n")
-
-    assert get_pll_freq(pll_file, "output_clock_frequency{idx}", "MHz") is None
-
-
-def test_set_then_get_pll_freq_round_trips(tmp_path: Path) -> None:
-    pll_file = tmp_path / "pll.v"
-    pll_file.write_text(THREE_PHASE_PLL)
-
-    set_pll_freq(
-        pll_file=pll_file,
-        mhz=33.5,
-        phase_count=3,
-        freq_param_template="output_clock_frequency{idx}",
-        phase_param_template="phase_shift{idx}",
-        freq_unit="MHz",
-        phase_unit="ps",
-    )
-
-    assert get_pll_freq(pll_file, "output_clock_frequency{idx}", "MHz") == 33.5
-
-
 def test_cmd_freq_sweep_resolves_pll_file_against_the_project_root(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Cmd freq sweep resolves pll file against the project root."""
     seen: dict[str, Any] = {}
 
-    def fake_linear(cfg: dict[str, Any], *_: Any) -> list[dict[str, Any]]:
-        seen["pll_file"] = cfg["freq_sweep"]["pll_file"]
+    def fake_linear(job: Any, *_: Any) -> list[dict[str, Any]]:
+        seen["pll_file"] = job.cfg["freq_sweep"]["pll_file"]
         return [{"freq_mhz": 10.0, "status": "pass"}]
 
     cfg = {
@@ -155,9 +144,9 @@ def test_cmd_freq_sweep_resolves_pll_file_against_the_project_root(
     def fake_link(_cfg: dict[str, Any]) -> None:
         return None
 
-    monkeypatch.setattr(cli, "load_config", fake_load_config)
-    monkeypatch.setattr(cli, "_link", fake_link)
-    monkeypatch.setattr(cli.orchestrator, "run_freq_sweep_linear", fake_linear)
+    monkeypatch.setattr(tools_cmd, "load_config", fake_load_config)
+    monkeypatch.setattr(tools_cmd, "jtag_link", fake_link)
+    monkeypatch.setattr(orchestrator, "run_freq_sweep_linear", fake_linear)
 
     args = argparse.Namespace(
         config="unused",
@@ -173,3 +162,87 @@ def test_cmd_freq_sweep_resolves_pll_file_against_the_project_root(
     cli.cmd_freq_sweep(args)
 
     assert seen["pll_file"] == str(tmp_path / "../src/pll.v")
+
+
+SWEEP_CFG: dict[str, Any] = {
+    "quartus": {"program_wait_seconds": 0},
+    "freq_sweep": {
+        "pll_file": "pll.v",
+        "phase_count": 3,
+        "freq_param_template": "output_clock_frequency{idx}",
+        "phase_param_template": "phase_shift{idx}",
+        "freq_unit": "MHz",
+        "phase_unit": "ps",
+    },
+}
+
+
+def _status_at(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tohost: int,
+    golden_matches: bool,
+) -> str:
+    """Run one sweep step on a fake board and return its status."""
+    pll = tmp_path / "pll.v"
+    pll.write_text(THREE_PHASE_PLL)
+    cfg = {
+        **SWEEP_CFG,
+        "freq_sweep": {**SWEEP_CFG["freq_sweep"], "pll_file": str(pll)},
+    }
+
+    def fake_reconfigure(*_: Any) -> None:
+        return None
+
+    def fake_tohost(*_: Any) -> int:
+        return tohost
+
+    def fake_dump(*_: Any) -> None:
+        return None
+
+    def fake_target(_cfg: dict[str, Any]) -> None:
+        return None
+
+    def fake_offsets(_path: Path) -> list[int]:
+        return []
+
+    def fake_compare(*_: Any) -> bool:
+        return golden_matches
+
+    monkeypatch.setattr(sweep, "reconfigure_with_rom", fake_reconfigure)
+    monkeypatch.setattr(htif, "read_tohost_configured", fake_tohost)
+    monkeypatch.setattr(ram_dump, "dump_ram", fake_dump)
+    monkeypatch.setattr(sweep.ram_target, "target_from_config", fake_target)
+    monkeypatch.setattr(mem_validator, "golden_word_offsets", fake_offsets)
+    monkeypatch.setattr(mem_validator, "compare", fake_compare)
+    job = sweep.SweepJob(
+        cfg=cfg,
+        link=JtagLink(hardware_name="cable", device_name="chip"),
+        mif_path=tmp_path / "a.mif",
+        golden_path=tmp_path / "g.json",
+        project_dir=tmp_path,
+        build_dir=tmp_path,
+    )
+    return sweep.run_freq_sweep_at(job, 10.0)["status"]
+
+
+@pytest.mark.parametrize(
+    ("tohost", "golden_matches", "expected"),
+    [
+        (htif.PASS, True, "pass"),
+        (htif.PASS, False, "fail"),
+        ((3 << 1) | 1, True, "fail"),
+        (0, True, "hang"),
+    ],
+)
+def test_sweep_step_needs_tohost_pass_and_matching_ram(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tohost: int,
+    golden_matches: bool,
+    expected: str,
+) -> None:
+    """Pass needs tohost PASS and a RAM that matches the golden."""
+    assert (
+        _status_at(tmp_path, monkeypatch, tohost, golden_matches) == expected
+    )
