@@ -115,12 +115,8 @@ def compile_args(
     return args
 
 
-def build_elf(
-    segments: list[tuple[int, bytes]], symbols: dict[str, int] | None = None
-) -> bytes:
-    """Build a 32-bit ELF with PT_LOAD segments and a symbol table."""
-    symbols = symbols or {}
-    phoff, phentsize, shentsize = 52, 32, 40
+def _symbol_tables(symbols: dict[str, int]) -> tuple[bytes, bytes]:
+    """Build the ELF .symtab and .strtab contents for symbols."""
     names = b"\0" + b"".join(n.encode() + b"\0" for n in symbols)
     offsets: dict[str, int] = {}
     pos = 1
@@ -131,24 +127,14 @@ def build_elf(
         struct.pack("<IIIBBH", offsets[n], v, 4, 0, 0, 1)
         for n, v in symbols.items()
     )
-    body = bytearray()
-    seg_offsets: list[int] = []
-    base = phoff + phentsize * len(segments)
-    for _, data in segments:
-        seg_offsets.append(base + len(body))
-        body += data
-    symtab_off = base + len(body)
-    body += symtab
-    names_off = base + len(body)
-    body += names
-    shoff = base + len(body)
-    sections = bytes(shentsize)
-    sections += struct.pack(
-        "<IIIIIIIIII", 0, 2, 0, 0, symtab_off, len(symtab), 2, 0, 4, 16
-    )
-    sections += struct.pack(
-        "<IIIIIIIIII", 0, 3, 0, 0, names_off, len(names), 0, 0, 1, 0
-    )
+    return symtab, names
+
+
+_PHOFF, _PHENTSIZE, _SHENTSIZE = 52, 32, 40
+
+
+def _elf_header(shoff: int, phnum: int) -> bytes:
+    """Build the 52-byte header of a little-endian 32-bit RISC-V ELF."""
     header = bytearray(52)
     header[:4] = b"\x7fELF"
     header[4], header[5] = 1, 1
@@ -160,23 +146,59 @@ def build_elf(
         0xF3,
         1,
         0,
-        phoff,
+        _PHOFF,
         shoff,
         0,
         52,
-        phentsize,
-        len(segments),
-        shentsize,
+        _PHENTSIZE,
+        phnum,
+        _SHENTSIZE,
         3,
         0,
     )
-    phdrs = b"".join(
+    return bytes(header)
+
+
+def _program_headers(
+    segments: list[tuple[int, bytes]], seg_offsets: list[int]
+) -> bytes:
+    """Build one PT_LOAD program header per segment."""
+    return b"".join(
         struct.pack(
             "<IIIIIIII", 1, off, addr, addr, len(data), len(data), 7, 4
         )
         for (addr, data), off in zip(segments, seg_offsets, strict=True)
     )
-    return bytes(header) + phdrs + bytes(body) + sections
+
+
+def build_elf(
+    segments: list[tuple[int, bytes]], symbols: dict[str, int] | None = None
+) -> bytes:
+    """Build a 32-bit ELF with PT_LOAD segments and a symbol table."""
+    symtab, names = _symbol_tables(symbols or {})
+    body = bytearray()
+    seg_offsets: list[int] = []
+    base = _PHOFF + _PHENTSIZE * len(segments)
+    for _, data in segments:
+        seg_offsets.append(base + len(body))
+        body += data
+    symtab_off = base + len(body)
+    body += symtab
+    names_off = base + len(body)
+    body += names
+    sections = bytes(_SHENTSIZE)
+    sections += struct.pack(
+        "<IIIIIIIIII", 0, 2, 0, 0, symtab_off, len(symtab), 2, 0, 4, 16
+    )
+    sections += struct.pack(
+        "<IIIIIIIIII", 0, 3, 0, 0, names_off, len(names), 0, 0, 1, 0
+    )
+    return (
+        _elf_header(base + len(body), len(segments))
+        + _program_headers(segments, seg_offsets)
+        + bytes(body)
+        + sections
+    )
 
 
 def write_rv32_header(root: Path, mailbox_addr: int) -> None:

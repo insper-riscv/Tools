@@ -27,6 +27,7 @@ parked, as it is after `riscv-tools run` or right after the programming.
 
 import struct
 import time
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TypedDict, Unpack
@@ -91,24 +92,69 @@ def elf_symbol(elf: Path, name: str) -> int:
         The ELF has no symbol of that name.
     """
     data = elf.read_bytes()
+    for table in _symbol_tables(data):
+        for sym_name, value in _symbols(data, table):
+            if sym_name == name:
+                return value
+    raise KeyError(f"{elf} has no symbol {name!r}")
+
+
+def _symbol_tables(data: bytes) -> Iterator[tuple[int, int, int, int]]:
+    """Find the symbol tables of a 32-bit ELF.
+
+    Parameters
+    ----------
+    data : bytes
+        The contents of the ELF.
+
+    Yields
+    ------
+    tuple of int
+        For every `SHT_SYMTAB` section, the file offset and size of its
+        entries, the entry size and the file offset of its string
+        table.
+    """
     (shoff,) = _ELF32_HEADER_SHOFF.unpack_from(data, 32)
     shentsize, shnum = struct.unpack_from("<HH", data, 46)
     for index in range(shnum):
         header = _ELF32_SHDR.unpack_from(data, shoff + index * shentsize)
-        kind, offset, size = header[1], header[4], header[5]
-        link, entsize = header[6], header[9]
+        kind, offset, size, link, entsize = (
+            header[1],
+            header[4],
+            header[5],
+            header[6],
+            header[9],
+        )
         if kind != _SHT_SYMTAB or not entsize:
             continue
         str_header = _ELF32_SHDR.unpack_from(data, shoff + link * shentsize)
-        str_offset = str_header[4]
-        for sym in range(size // entsize):
-            sym_name, value, *_ = _ELF32_SYM.unpack_from(
-                data, offset + sym * entsize
-            )
-            end = data.index(b"\0", str_offset + sym_name)
-            if data[str_offset + sym_name : end].decode() == name:
-                return value
-    raise KeyError(f"{elf} has no symbol {name!r}")
+        yield offset, size, entsize, str_header[4]
+
+
+def _symbols(
+    data: bytes, table: tuple[int, int, int, int]
+) -> Iterator[tuple[str, int]]:
+    """List the symbols of one symbol table.
+
+    Parameters
+    ----------
+    data : bytes
+        The contents of the ELF.
+    table : tuple of int
+        One item of `_symbol_tables`.
+
+    Yields
+    ------
+    tuple of (str, int)
+        The name and the address of each symbol.
+    """
+    offset, size, entsize, str_offset = table
+    for sym in range(size // entsize):
+        sym_name, value, *_ = _ELF32_SYM.unpack_from(
+            data, offset + sym * entsize
+        )
+        end = data.index(b"\0", str_offset + sym_name)
+        yield data[str_offset + sym_name : end].decode(), value
 
 
 def image_words(elf: Path, sdram_base: int) -> list[int]:
@@ -314,20 +360,63 @@ def run_suite_on_board(
         The result of each ELF run: True PASS, False FAIL, None timeout.
     """
     act_cfg = cfg["act"]
-    sdram_base = int(str(act_cfg["sdram_base"]), 0)
-    region_words = (
-        int(str(act_cfg.get("sdram_region_bytes", 0x100000)), 0) // 4
-    )
-    region = SdramRegion(
-        base=sdram_base,
-        words=region_words,
-        timeout_s=float(act_cfg.get("board_timeout_s", 30)),
-    )
+    region = _sdram_region(act_cfg)
     elfs = _find_elfs(act_cfg, root, only, build=options.get("build", True))
     build_dir.mkdir(parents=True, exist_ok=True)
-    write_flash_stub(link, cfg, build_dir, sdram_base)
+    write_flash_stub(link, cfg, build_dir, region.base)
+    return _run_elfs(
+        link, cfg, elfs, region, bool(act_cfg.get("board_display", False))
+    )
 
-    show_display = bool(act_cfg.get("board_display", False))
+
+def _sdram_region(act_cfg: dict[str, Any]) -> SdramRegion:
+    """Read the SDRAM region and the timeout from the `act:` config.
+
+    Parameters
+    ----------
+    act_cfg : dict of {str: Any}
+        The `act:` section of the config.
+
+    Returns
+    -------
+    SdramRegion
+        The base, the size in words and the per-ELF timeout.
+    """
+    return SdramRegion(
+        base=int(str(act_cfg["sdram_base"]), 0),
+        words=int(str(act_cfg.get("sdram_region_bytes", 0x100000)), 0) // 4,
+        timeout_s=float(act_cfg.get("board_timeout_s", 30)),
+    )
+
+
+def _run_elfs(
+    link: JtagLink,
+    cfg: dict[str, Any],
+    elfs: list[Path],
+    region: SdramRegion,
+    show_display: bool,
+) -> dict[str, bool | None]:
+    """Run each ELF on the board, showing its number on the display.
+
+    Parameters
+    ----------
+    link : JtagLink
+        Which JTAG cable/chip to use.
+    cfg : dict of {str: Any}
+        The merged project config.
+    elfs : list of Path
+        The ELFs to run, in order.
+    region : SdramRegion
+        Where the ELFs are loaded and how long each may run.
+    show_display : bool
+        Whether to write the ELF number and the failure flag to the
+        board's display.
+
+    Returns
+    -------
+    dict of {str: bool or None}
+        The result of each ELF run: True PASS, False FAIL, None timeout.
+    """
     if show_display:
         # a new session starts without a failure
         display.write_fail(link, False)

@@ -230,21 +230,9 @@ def run_test(
         cocotb_tools.runner.get_results.
     """
     build_dir = options["build_dir"]
-    test_name = options["test_name"]
-    ram_base = options.get("ram_base", 0)
-    golden_path = options.get("golden_path")
-    parameters = options.get("parameters")
-    ghdl_flags = options.get("ghdl_flags")
-    libraries_dir = options.get("libraries_dir")
-    run_files = options.get("run_files")
-    extra_env = options.get("extra_env")
-    ghdl_run_flags = options.get("ghdl_run_flags")
-
-    # Same arguments at every GHDL step: analyze/elaborate and run each
-    # need the standard, the extra flags and the libraries' location.
-    ghdl_args = [f"--std={ghdl_std}", *(ghdl_flags or [])]
-    if libraries_dir is not None:
-        ghdl_args.append(f"-P{libraries_dir.resolve()}")
+    ghdl_args = _ghdl_args(
+        ghdl_std, options.get("ghdl_flags"), options.get("libraries_dir")
+    )
 
     runner = get_runner("ghdl")
     runner.build(
@@ -257,25 +245,18 @@ def run_test(
 
     # GHDL runs in build_dir (test_dir defaults to it), so a file the
     # design opens by a fixed name goes there.
-    for name, source in (run_files or {}).items():
+    for name, source in (options.get("run_files") or {}).items():
         shutil.copyfile(source, Path(build_dir) / name)
 
-    # GHDL's run step (`ghdl -r`) needs --std= too, not just analyze/
-    # elaborate (`-i`/`-m` via build_args above) — confirmed
-    # empirically: without it, `-r` can't find an entity that was
-    # analyzed under a non-default std, since GHDL keeps per-standard
-    # library state. Runner.test() feeds this into `-r` via test_args
-    # (see cocotb_tools.runner.Ghdl: `ghdl_run_args = self.test_args`).
-    #
     # A fixed results_xml name (rather than cocotb's own default,
     # which is derived from the pytest test name when run under
-    # pytest — not useful here) so we know exactly where to re-read
+    # pytest, not useful here) so we know exactly where to re-read
     # results from below.
     results_xml = Path(build_dir) / "results.xml"
 
     # Unlike the older cocotb.runner (1.x), cocotb_tools.runner's
     # Runner.test() (2.x) raises SystemExit itself when any testcase
-    # failed — confirmed empirically (a deliberately-failing cocotb
+    # failed, confirmed empirically (a deliberately-failing cocotb
     # test here raised SystemExit(1) even though the simulation ran to
     # completion and produced a normal results.xml with FAIL=1). A
     # failed TEST isn't a crash of the whole suite, so that expected
@@ -288,30 +269,73 @@ def run_test(
             hdl_toplevel_lang="vhdl",
             test_module=test_module,
             build_dir=build_dir,
+            # GHDL's run step (`ghdl -r`) needs --std= too, not just
+            # analyze/elaborate: without it, `-r` can't find an entity
+            # that was analyzed under a non-default std, since GHDL
+            # keeps per-standard library state.
             test_args=ghdl_args,
             # GHDL takes a simulation option only after the top-level
             # unit, where cocotb puts the plusargs
-            plusargs=ghdl_run_flags or [],
+            plusargs=options.get("ghdl_run_flags") or [],
             results_xml=str(results_xml),
-            extra_env={
-                **(extra_env or {}),
-                "ROM_HEX": str(Path(hex_path).resolve()),
-                "TEST_NAME": test_name,
-                "RAM_BASE": str(ram_base),
-                "GOLDEN_PATH": str(Path(golden_path).resolve())
-                if golden_path
-                else "",
-            },
-            parameters=parameters,
+            extra_env=_test_env(hex_path, options),
+            parameters=options.get("parameters"),
         )
     except SystemExit:
         if not results_xml.is_file():
             raise
-        _num_tests, num_failed = get_results(results_xml)
-        return num_failed == 0
-
     _num_tests, num_failed = get_results(results_xml)
     return num_failed == 0
+
+
+def _ghdl_args(
+    ghdl_std: str, ghdl_flags: list[str] | None, libraries_dir: Path | None
+) -> list[str]:
+    """Build the arguments that every GHDL step needs.
+
+    Parameters
+    ----------
+    ghdl_std : str
+        GHDL `--std=` value.
+    ghdl_flags : list of str or None
+        Extra GHDL arguments (sim.ghdl_flags).
+    libraries_dir : Path or None
+        Where the design's extra libraries were analyzed, if any.
+
+    Returns
+    -------
+    list of str
+        The standard, the extra flags and the libraries' location.
+    """
+    args = [f"--std={ghdl_std}", *(ghdl_flags or [])]
+    if libraries_dir is not None:
+        args.append(f"-P{libraries_dir.resolve()}")
+    return args
+
+
+def _test_env(hex_path: Path, options: RunOptions) -> dict[str, str]:
+    """Build the environment the cocotb test module reads.
+
+    Parameters
+    ----------
+    hex_path : Path
+        This test's compiled .hex.
+    options : RunOptions
+        The keyword settings of run_test.
+
+    Returns
+    -------
+    dict of {str: str}
+        sim.env plus ROM_HEX, TEST_NAME, RAM_BASE and GOLDEN_PATH.
+    """
+    golden_path = options.get("golden_path")
+    return {
+        **(options.get("extra_env") or {}),
+        "ROM_HEX": str(Path(hex_path).resolve()),
+        "TEST_NAME": options["test_name"],
+        "RAM_BASE": str(options.get("ram_base", 0)),
+        "GOLDEN_PATH": str(Path(golden_path).resolve()) if golden_path else "",
+    }
 
 
 def extend_python_path(root: Path, entries: list[str]) -> None:

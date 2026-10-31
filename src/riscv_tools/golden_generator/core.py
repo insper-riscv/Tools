@@ -146,13 +146,57 @@ def generate_golden(
     word_count = -(-(addr_end - addr_start) // _WORD_BYTES)
     signature_end = addr_start + word_count * _WORD_BYTES
 
-    spike = replace(target, spike_bin=require_spike(target.spike_bin))
-    entry_pc = symbol_address(spike.nm_bin, elf_path, spike.entry_symbol)
-    signature_symbols = {
-        "begin_signature": addr_start,
-        "end_signature": signature_end,
-    }
+    words = _signature_words(
+        replace(target, spike_bin=require_spike(target.spike_bin)),
+        elf_path,
+        {"begin_signature": addr_start, "end_signature": signature_end},
+        timeout_s,
+    )
+    if len(words) != word_count:
+        raise RuntimeError(
+            f"expected {word_count} signature word(s) for {elf_path}, "
+            f"got {len(words)}"
+        )
 
+    out: dict[int, int] = {}
+    for index, word in enumerate(words):
+        base = addr_start + index * _WORD_BYTES - ram_base
+        for i in range(_WORD_BYTES):
+            out[base + i] = (word >> (8 * i)) & 0xFF
+    return out
+
+
+def _signature_words(
+    spike: SpikeTarget,
+    elf_path: Path,
+    signature_symbols: dict[str, int],
+    timeout_s: float,
+) -> list[int]:
+    """Run elf_path under Spike and read the signature it writes.
+
+    Parameters
+    ----------
+    spike : SpikeTarget
+        The run settings, with `spike_bin` already resolved.
+    elf_path : Path
+        The compiled test ELF.
+    signature_symbols : dict of {str: int}
+        The `begin_signature` and `end_signature` addresses to add to
+        the ELF's symbols.
+    timeout_s : float
+        Seconds to wait for the program to signal completion.
+
+    Returns
+    -------
+    list of int
+        The 32-bit words of the signature.
+
+    Raises
+    ------
+    RuntimeError
+        Spike timed out or wrote no signature.
+    """
+    entry_pc = symbol_address(spike.nm_bin, elf_path, spike.entry_symbol)
     with (
         tempfile.TemporaryDirectory(prefix="riscv-tools-golden-") as tmp,
         prepared_elf(
@@ -185,20 +229,7 @@ def generate_golden(
                 f"spike wrote no signature for {elf_path} "
                 f"(exit {proc.returncode}):\n{proc.stdout}{proc.stderr}"
             )
-        words = [int(line, 16) for line in signature.read_text().split()]
-
-    if len(words) != word_count:
-        raise RuntimeError(
-            f"expected {word_count} signature word(s) for {elf_path}, "
-            f"got {len(words)}"
-        )
-
-    out: dict[int, int] = {}
-    for index, word in enumerate(words):
-        base = addr_start + index * _WORD_BYTES - ram_base
-        for i in range(_WORD_BYTES):
-            out[base + i] = (word >> (8 * i)) & 0xFF
-    return out
+        return [int(line, 16) for line in signature.read_text().split()]
 
 
 def write_golden_json(golden: dict[int, int], out_path: Path) -> None:

@@ -155,9 +155,8 @@ def load_segments(elf: Path) -> list[tuple[int, bytes]]:
     phoff, phentsize, phnum = fields[4], fields[8], fields[9]
     segments: list[tuple[int, bytes]] = []
     for index in range(phnum):
-        kind, offset, _vaddr, paddr, filesz, _memsz, _flags, _align = (
-            _ELF32_PHDR.unpack_from(data, phoff + index * phentsize)
-        )
+        phdr = _ELF32_PHDR.unpack_from(data, phoff + index * phentsize)
+        kind, offset, paddr, filesz = phdr[0], phdr[1], phdr[3], phdr[4]
         if kind == _PT_LOAD and filesz:
             segments.append((paddr, data[offset : offset + filesz]))
     return segments

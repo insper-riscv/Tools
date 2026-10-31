@@ -1254,6 +1254,52 @@ def _print_failure_output(result: spike_run.SpikeRunResult) -> None:
         print(result.output.rstrip())
 
 
+def _spike_run_all(
+    cfg: dict[str, Any],
+    root: Path,
+    build_dir: Path,
+    by_name: dict[str, dict[str, Any]],
+    wanted: list[str],
+) -> tuple[dict[str, bool], dict[str, float]]:
+    """Run the wanted tests under Spike and time each one.
+
+    Parameters
+    ----------
+    cfg : dict of {str: Any}
+        The loaded config.yaml.
+    root : Path
+        The consuming project's root.
+    build_dir : Path
+        The real build directory (holds the ELFs).
+    by_name : dict of {str: dict of {str: Any}}
+        The manifest entries by test name.
+    wanted : list of str
+        The names to run, in order.
+
+    Returns
+    -------
+    tuple of dict
+        Whether each test passed, and how long each took in seconds.
+    """
+    sources = {src.parent.name: src for src in discover_tests(root, cfg)}
+    emulator = cfg["emulator"]
+    results: dict[str, bool] = {}
+    durations: dict[str, float] = {}
+    for name in wanted:
+        entry = by_name[name]
+        print(f"Running {name} under Spike ...")
+        started = time.monotonic()
+        result = spike_run.run_elf(
+            _spike_target(cfg, entry["march"], emulator["entry_symbol"]),
+            _spike_elf(cfg, name, build_dir, root, sources[name]),
+            timeout_s=entry.get("timeout_s", emulator["timeout_s"]),
+        )
+        durations[name] = time.monotonic() - started
+        results[name] = result.passed
+        _print_failure_output(result)
+    return results, durations
+
+
 def cmd_spike_run(args: argparse.Namespace) -> None:
     """Implement `riscv-tools spike-run`.
 
@@ -1283,22 +1329,7 @@ def cmd_spike_run(args: argparse.Namespace) -> None:
     by_name = {entry["name"]: entry for entry in manifest}
     wanted = _wanted_names(args.only, by_name, manifest_path)
 
-    sources = {src.parent.name: src for src in discover_tests(root, cfg)}
-    emulator = cfg["emulator"]
-    results: dict[str, bool] = {}
-    durations: dict[str, float] = {}
-    for name in wanted:
-        entry = by_name[name]
-        print(f"Running {name} under Spike ...")
-        started = time.monotonic()
-        result = spike_run.run_elf(
-            _spike_target(cfg, entry["march"], emulator["entry_symbol"]),
-            _spike_elf(cfg, name, build_dir, root, sources[name]),
-            timeout_s=entry.get("timeout_s", emulator["timeout_s"]),
-        )
-        durations[name] = time.monotonic() - started
-        results[name] = result.passed
-        _print_failure_output(result)
+    results, durations = _spike_run_all(cfg, root, build_dir, by_name, wanted)
 
     _print_run_summary(results, by_name, durations, root, build_dir)
     if not all(results.values()):
