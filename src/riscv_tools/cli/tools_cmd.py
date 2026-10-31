@@ -14,7 +14,7 @@ from riscv_tools import (
 )
 from riscv_tools import timing_paths as timing_paths_mod
 from riscv_tools.cli.common import jtag_link, project_root
-from riscv_tools.orchestrator.runner import SweepJob
+from riscv_tools.orchestrator.sweep import SweepJob
 from riscv_tools.settings import load_config
 
 
