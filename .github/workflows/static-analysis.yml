@@ -17,6 +17,10 @@ jobs:
     name: ${{ matrix.name }}
     runs-on: ubuntu-26.04
     timeout-minutes: 15
+    # The tools that need no project environment come pinned in the image (ruff, pylint, pyright,
+    # deptry and uv audit still run with `uv run` in the environment `uv sync` builds from uv.lock).
+    container:
+      image: ghcr.io/insper-riscv/ci-vhdl:latest
 
     strategy:
       fail-fast: false
@@ -27,30 +31,28 @@ jobs:
           - name: ruff format
             run: uv run ruff format . --check
           - name: pycodestyle
-            run: uvx pycodestyle --max-line-length=79 --max-doc-length=72 --ignore=E203,W503 src tests
+            run: pycodestyle --max-line-length=79 --max-doc-length=72 --ignore=E203,W503 src tests
           - name: pydocstyle
-            run: uvx pydocstyle --convention=pep257 src tests
+            run: pydocstyle --convention=pep257 src tests
           - name: pylint
             run: uv run pylint .
           - name: pyright
             run: uv run pyright
           - name: pyrefly
-            run: uvx pyrefly check
+            run: pyrefly check
           - name: deptry
             run: uv run deptry .
           - name: complexipy
-            run: uvx complexipy .
+            run: complexipy .
           - name: codeclone
-            run: uvx codeclone . --fail-on-new
+            run: codeclone . --fail-on-new
           - name: semgrep
-            run: uvx semgrep scan --config p/python --error .
+            run: semgrep scan --config p/python --error .
           - name: uv audit
             run: uv audit
 
     steps:
       - uses: actions/checkout@v7.0.1
-
-      - uses: astral-sh/setup-uv@v7.1.0
 
       - name: Install the project
         run: uv sync --locked
