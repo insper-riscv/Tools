@@ -158,11 +158,9 @@ def run_test(
         GHDL `--std=` value (sim.ghdl_std, default "08", VHDL-2008 /
         IEEE Std 1076-2008).
     test_module : str
-        The project's own cocotb test module name (sim.test_module),
-        receives this test's ROM image via the ROM_HEX environment
-        variable, and this test's name via TEST_NAME, matching the
-        convention the project's testbench expects (see e.g. a
-        project's sim/test_c_program.py).
+        The project's cocotb test module name (sim.test_module). It
+        receives the ROM image in ROM_HEX and the test name in
+        TEST_NAME.
     hex_path : Path
         Path to this test's compiled .hex (from
         bin_to_image.bin_to_hex).
@@ -173,34 +171,19 @@ def run_test(
         This test's name (manifest entry "name"), passed through as
         TEST_NAME.
     build_dir : Path
-        Directory for GHDL's build+run artifacts (kept separate per
-        test so parallel/repeated runs don't clobber each other's
-        elaborated design).
+        Directory for GHDL's build and run artifacts, kept separate per
+        test.
     ram_base : int, optional
-        memory.ram_base, passed through as RAM_BASE so the testbench
-        can convert its own bus-snooped (absolute) RAM addresses into
-        the same RAM-relative convention golden_path's keys use,
-        without hardcoding it (see mailbox.word_offset). Default 0.
+        memory.ram_base, passed as RAM_BASE so the testbench can make
+        its bus-snooped RAM addresses RAM-relative. Default 0.
     golden_path : Path, optional
-        This test's golden.json (manifest entry "golden"), for a
-        "memory"-kind test, passed through as GOLDEN_PATH so the
-        testbench can do the same RAM-vs-golden compare
-        orchestrator.run_one does for real hardware, from its own
-        bus-snooped reconstruction of RAM's final content (cocotb's
-        VPI can't read a memory array directly; see a project's own
-        sim/test_c_program.py). None (the default) omits it, a
-        "unit"-kind test has no golden.json to check.
+        This test's golden.json for a "memory"-kind test, passed as
+        GOLDEN_PATH so the testbench can compare RAM against it. None
+        (the default) omits it.
     parameters : dict of {str: Any}, optional
-        VHDL generics to set on toplevel (sim.parameters, e.g. a
-        project's own `ROM_FILE`/memory-depth generics; see
-        sim_runner.__config__.DEFAULTS). Passed to
-        cocotb_tools.runner.Runner.test(), not .build(): GHDL only
-        applies generics at its `-r` (run) step, not `-i`/`-m`
-        (analyze/elaborate), confirmed by reading
-        cocotb_tools.runner.Ghdl's own `_test_command`/`_build_command`,
-        which only calls `_get_parameter_options` from the former.
-        Defaults to no overrides (whatever defaults toplevel's own
-        VHDL declares).
+        VHDL generics to set on toplevel (sim.parameters). They are
+        applied at the run step, the only one where GHDL accepts
+        generics. Default: no overrides.
     ghdl_flags : list of str, optional
         Extra GHDL arguments for the analyze/elaborate and run steps
         (sim.ghdl_flags).
@@ -464,32 +447,23 @@ def run_suite(
     Parameters
     ----------
     cfg : dict of {str: Any}
-        The merged project config: uses sim.toplevel/vhdl_sources/
-        test_module/ghdl_std/parameters, and the optional
-        ghdl_flags/libraries/run_files/env/image (see __config__.py).
+        The merged project config: uses the sim section (toplevel,
+        vhdl_sources, test_module, ghdl_std, parameters and the optional
+        ghdl_flags, libraries, run_files, env and image).
     manifest : list of dict of {str: Any}
-        The full test list (from `compile --emit hex`'s or
-        `--emit mif`'s manifest.json); each entry needs "name" and
+        The test list from manifest.json. Each entry needs "name" and
         its image ("hex", or "mif" when sim.image is "mif"), plus
-        "golden" for a "memory"-kind entry (see run_test's
-        golden_path).
+        "golden" for a "memory"-kind test.
     root : Path
-        The consuming project's root directory, entry["hex"] is
-        relative to this, and vhdl_sources are resolved relative to
-        this too.
+        The consuming project's root directory; entry images and
+        vhdl_sources resolve against it.
     build_dir : Path
-        Base directory for GHDL build+run artifacts. Each simulation
-        profile gets a stable, path-safe subdirectory, and each test
-        gets a directory below it. The readable prefix identifies the
-        top; the fingerprint covers the full sim configuration so stale
-        GHDL units cannot cross profiles that happen to share a top.
+        Base directory for GHDL artifacts. Each simulation profile gets
+        its own subdirectory, and each test one below it.
     boot_rom_hex_path : Path, optional
-        Path to the FIXED, shared bootloader's compiled .hex (see
-        boot_rom.S), built once by the caller, not per test, unlike
-        hex_path below. Made available to sim.parameters templates as
-        `{boot_rom_hex_path}`, the same way `{hex_path}` exposes each
-        test's own image. A project whose sim toplevel has no such
-        generic (no 3-memory BOOT_ROM/FLASH split) can simply omit it.
+        Compiled .hex of the shared boot ROM, built once by the caller.
+        Exposed to sim.parameters templates as `{boot_rom_hex_path}`;
+        omit it for a design without a boot ROM.
     boot_rom_mif_path : Path, optional
         The same bootloader as a .mif, for a design whose boot ROM is a
         memory IP initialized from a .mif (sim.image "mif"). Exposed to

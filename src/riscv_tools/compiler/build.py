@@ -86,13 +86,10 @@ class LinkSetup:
         use the toolchain's (picolibc.ld, which the GCC driver adds
         when it sees no `-T`).
     extra_sources : list of Path
-        Additional source files to compile in alongside crt0 and the
-        test, before the test on the command line (e.g. a fixed shared
-        bootloader, see riscv_tools.boot_rom, linked together with
-        crt0 and the test for a project that needs a single,
-        self-contained ELF an offline reference model can run from
-        cold; a project's normal, separately-linked BOOT_ROM never
-        needs this). Empty by default.
+        Additional source files compiled in alongside crt0 and the test,
+        before the test on the command line (for example a shared
+        bootloader linked into one self-contained ELF). Empty by
+        default.
     link_flags : list of str
         Extra gcc arguments placed before the sources (for that
         combined ELF: where the boot ROM's sections go, the entry

@@ -72,12 +72,10 @@ def run_freq_sweep_at(job: SweepJob, mhz: float) -> dict[str, Any]:
     Parameters
     ----------
     job : SweepJob
-        The sweep's shared state: the merged project config (uses
-        freq_sweep.*; see freq_sweep.__config__, and quartus.*/
-        memory.ram_base), the JTAG link, the .mif to bake in, the
-        golden JSON the RAM dump is compared against (see
-        mem_validator.compare), the Quartus project directory and the
-        directory of the RAM dump (build_dir/freq_<mhz>mhz_ram.mif).
+        The sweep's shared state: the merged project config, the JTAG
+        link, the .mif to bake in, the golden JSON the RAM dump is
+        compared with, the Quartus project directory and the RAM dump
+        directory.
     mhz : float
         Candidate clock frequency to test, in MHz.
 

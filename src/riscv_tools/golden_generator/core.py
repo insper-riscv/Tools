@@ -103,12 +103,9 @@ def generate_golden(
     Parameters
     ----------
     target : SpikeTarget
-        The Spike run settings: binaries, `--isa=` value (it should
-        match the test's own march), memory regions (every region of
-        real memory the target has, e.g. `[(0, memory.rom_words*4),
-        (memory.ram_base, memory.ram_words*4)]`, passed straight
-        through as Spike's `-m`), and the tohost and entry symbols
-        (the consuming project's crt0.S/link.ld must define tohost).
+        The Spike run settings: binaries, `--isa=` value, memory regions
+        (every region of real memory, passed as Spike's `-m`) and the
+        tohost and entry symbols.
     elf_path : Path
         Path to the compiled test ELF to run.
     addr_range : tuple of (int, int)
@@ -118,12 +115,8 @@ def generate_golden(
         range is rounded up to whole 32-bit words, so a 1-byte symbol
         yields the 4 bytes of its word.
     ram_base : int, optional
-        RAM's base byte address (memory.ram_base in the project's
-        config.yaml, 0 for a project where RAM starts at address 0).
-        Subtracted from every address before it's used as a golden
-        JSON key, so the output stays RAM-relative (word 0 = RAM's own
-        first byte) regardless of where RAM is actually mapped,
-        matching mem_validator.compare's dump_ram convention.
+        RAM's base byte address (memory.ram_base). It is subtracted from
+        every address, so the golden keys are RAM-relative. Default 0.
     timeout_s : float, optional
         Seconds to wait for the program to signal completion.
 

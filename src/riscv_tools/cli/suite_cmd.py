@@ -220,17 +220,10 @@ def cmd_run(args: argparse.Namespace) -> None:
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments: uses args.config, args.root,
-        args.manifest (defaults to <build_dir>/real/manifest.json if
-        not given), args.only (list of test names to run instead of
-        the whole manifest), args.exclude (list of test names to omit;
-        both accept repeatable comma-separated values), args.
-        skip_reconfigure (see orchestrator.run_suite's reconfigure
-        param), args.wait_for_hardware (see orchestrator.run_suite's
-        wait_for_hardware param, off by default, so this still exits
-        2 rather than blocking unless explicitly asked to wait),
-        args.skip_recompile (see orchestrator.run_suite's
-        skip_recompile param).
+        Parsed `run` options: config, root, manifest (default
+        <build_dir>/real/manifest.json), only and exclude (test names),
+        skip_reconfigure, skip_recompile and wait_for_hardware (wait for
+        the board instead of exiting with status 2).
 
     Returns
     -------

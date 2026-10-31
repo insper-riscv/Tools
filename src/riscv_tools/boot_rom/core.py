@@ -63,10 +63,6 @@ def build_boot_rom(
     run_gcc(
         toolchain_cfg,
         [
-            # boot_rom.S is plain RV32I (li/lw/sw/branches/jr) -- no
-            # M-extension instructions, unlike a project's own tests
-            # (isa.default_ext) -- fixed rather than threaded through
-            # from isa: config a project's tests use for themselves.
             "-march=rv32i",
             "-mabi=ilp32",
             "-O0",

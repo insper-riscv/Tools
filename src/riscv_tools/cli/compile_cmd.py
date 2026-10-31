@@ -43,15 +43,10 @@ def cmd_compile(args: argparse.Namespace) -> None:
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments. Uses args.config, args.root, args.emit
-        ("mif", "hex", or "asm"), args.manifest (full path override
-        for the combined manifest.json; default
-        <build_dir>/manifest.json), args.manifest_per_test (a full
-        path template containing "{name}", e.g. "some/dir/{name}.json";
-        if given, ALSO writes each test's own manifest entry to its
-        own file, substituting "{name}" with that test's name; the
-        combined manifest.json is still written either way, since
-        `run` reads it).
+        Parsed `compile` options: config, root, emit ("mif", "hex" or
+        "asm"), manifest (path of the combined manifest.json, default
+        <build_dir>/manifest.json) and manifest_per_test (path template
+        with "{name}"; also writes one manifest per test).
 
     Returns
     -------

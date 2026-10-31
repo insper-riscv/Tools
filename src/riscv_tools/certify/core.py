@@ -68,12 +68,8 @@ def build_elfs(
         The vendored, pinned vendor/riscv-arch-test checkout (ACT4
         framework root, has its own top-level Makefile).
     target_config : Path
-        This project's own ACT4 target test_config.yaml
-        (act.target_config in config.yaml), passed to `make` as an
-        absolute path, since ACT4's own CONFIG_FILES accepts any path,
-        not just ones under its own config/ tree (see
-        vendor/riscv-arch-test's README: "Configs can also be placed
-        outside the repo").
+        This project's ACT4 target test_config.yaml (act.target_config
+        in config.yaml), passed to `make` as an absolute path.
     extensions : str
         Comma-separated extension list (act.extensions in config.yaml,
         e.g. "I,M"), forwarded as `make`'s own EXTENSIONS=.
@@ -418,12 +414,10 @@ def run_suite(
     Parameters
     ----------
     cfg : dict of {str: Any}
-        The merged project config: uses act.vendor_dir/target_config/
-        extensions/jobs/sim_parameters (optional, merged on top of
-        sim.parameters, for a memory-depth generic ACT4's own bigger
-        images need but the regular suite doesn't) and sim.toplevel/
-        vhdl_sources/ghdl_std/parameters (NOT sim.test_module; see
-        module docstring).
+        The merged project config: uses the act section (vendor_dir,
+        target_config, extensions, jobs and the optional sim_parameters,
+        merged on top of sim.parameters) and the sim section (toplevel,
+        vhdl_sources, ghdl_std, parameters).
     root : Path
         The consuming project's root directory; act.vendor_dir/
         target_config and sim.vhdl_sources are all resolved relative
@@ -456,15 +450,6 @@ def run_suite(
         return {}
 
     vhdl_sources = [str(root / src) for src in cfg["sim"]["vhdl_sources"]]
-    # act.sim_parameters overrides/extends sim.parameters, an official
-    # architectural test can be far bigger than anything this project's
-    # own hand-picked suite needs (e.g. I-jal-00's combinatorial offset
-    # coverage overflows this project's real-hardware-sized ROM by
-    # tens of KB), and ACT4 never runs on real hardware at all (see
-    # this module's own docstring), its ROM_simulation/RAM_simulation
-    # arrays are plain VHDL arrays with no real M10K budget to respect,
-    # so sizing them generously here costs nothing. A project with no
-    # such override just gets sim.parameters unchanged.
     parameter_templates: dict[str, Any] = {
         **(cfg["sim"].get("parameters") or {}),
         **(act_cfg.get("sim_parameters") or {}),

@@ -147,12 +147,10 @@ def full_reconfigure(
     rom : MifInit
         The .mif to bake in as the ROM's initial content.
     boot_rom : MifInit, optional
-        The .mif to bake in as the FIXED, shared bootloader's initial
-        content (quartus.boot_rom_mif_target), for a project with a
-        3-memory BOOT_ROM/FLASH/RAM split (see riscv_tools.boot_rom)
-        only. Baked in here, alongside the ROM, since BOOT_ROM is ONLY
-        ever written as part of this full compile, never JTAG-rewritten
-        per test the way FLASH (the ROM) is.
+        The .mif to bake in as the shared bootloader's initial content
+        (quartus.boot_rom_mif_target), only for a project with a
+        BOOT_ROM/FLASH/RAM split. It is written only by this full
+        compile, never per test.
 
     Returns
     -------

@@ -490,35 +490,19 @@ def run_one(
     Parameters
     ----------
     ctx : RunContext
-        The shared state: the merged project config (see
-        run_test_via_jtag and full_reconfigure_entry for the fields
-        used, plus quartus.program_wait_seconds), the JTAG link, the
-        directory of this test's RAM dump (build_dir/<name>_ram.mif,
-        for "memory" tests), the project root (entry["mif"] and
-        entry["golden"] are relative to it) and the Quartus project
-        directory (used only if the JTAG-reload path times out).
+        The shared state: the merged project config, the JTAG link, the
+        directory of this test's RAM dump, the project root and the
+        Quartus project directory.
     entry : dict of {str: Any}
         One manifest entry: uses "name", "march", "kind",
         "timeout_s", "mif", and (for "memory" tests) "golden".
     position : tuple of (int, int), keyword-only, optional
-        (index, total); this test's 1-based position in the overall
-        suite and the suite's total size, shown in the printed header
-        as "[index/total]" (e.g. run_suite's own loop, via
-        enumerate(manifest, start=1)). None (the default, e.g. a
-        caller running just this one test outside of run_suite) omits
-        it from the header instead of printing something misleading
-        like "[1/1]".
+        (index, total) of this test in the suite, shown as
+        "[index/total]" in the printed header. None (the default) omits
+        it.
     duration : dict of {str: float}, keyword-only, optional
-        If given, this test's wall-clock time in seconds (JTAG
-        reload/poll plus, for "memory" tests, the RAM dump+compare) is
-        written into it under entry["name"] as a side effect; the
-        caller's own dict, mutated in place, so run_suite's loop can
-        report per-test timing back to cli.cmd_run's summary without
-        run_suite itself needing a richer return type (results stays a
-        plain {name: bool}, unchanged, still what gets persisted to
-        results_path/run_progress.json). None (the default) skips
-        this, e.g. a caller running just this one test outside of
-        run_suite and not interested in the summary version.
+        If given, receives this test's wall-clock time in seconds under
+        entry["name"]. None (the default) skips it.
 
     Returns
     -------

@@ -103,14 +103,9 @@ def topo_sort(files: list[Path]) -> list[Path]:
     Parameters
     ----------
     files : list of Path
-        VHDL source files to order. A dependency on a design unit
-        whose declaring file isn't in `files` is silently ignored
-        (assumed already available some other way, e.g. a vendor IP
-        core excluded from this analysis order on purpose). A file
-        that can't be read (missing, permission error, bad encoding)
-        is skipped rather than raising; it still appears in the
-        output, just with no dependency information contributing to
-        its position.
+        VHDL source files to order. A dependency whose declaring file
+        isn't in `files` is ignored, and an unreadable file is skipped
+        but still appears in the output.
 
     Returns
     -------

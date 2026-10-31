@@ -306,12 +306,11 @@ def generate_c_golden(
     cfg : dict of {str: Any}
         The merged project config.
     test : CTest
-        The test. Its march is passed to Spike as `--isa=`;
-        build_dir/{name}.elf must already exist (compiler.compile_test's
-        own output), UNLESS paths.golden_linker_script is configured
-        (see below), in which case a separate
-        build_dir/{name}.golden.elf is built instead from its source,
-        recompiled against paths.golden_linker_script.
+        The test. Its march is passed to Spike as `--isa=`.
+        build_dir/{name}.elf must exist, unless
+        paths.golden_linker_script is set; then
+        build_dir/{name}.golden.elf is built from the source against
+        that script.
     build_dir : Path
         Where {name}.elf lives and {name}.golden.json gets written.
     root : Path

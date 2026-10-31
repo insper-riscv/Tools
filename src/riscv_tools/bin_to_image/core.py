@@ -42,6 +42,10 @@ def mif_text(depth: int, content: list[str]) -> str:
 def read_words(bin_path: Path, pad_words: int = 0) -> list[int]:
     """Read a flat binary as little-endian 32-bit words.
 
+    `objcopy -O binary` starts the file at the ELF's lowest address,
+    so a FLASH image linked at 0x800 would land at word 0; pad_words
+    restores its real word index.
+
     Parameters
     ----------
     bin_path : Path
@@ -49,20 +53,9 @@ def read_words(bin_path: Path, pad_words: int = 0) -> list[int]:
         Zero-padded up to the next 4-byte boundary if its length isn't
         a multiple of 4.
     pad_words : int, optional
-        Zero words to prepend before the file's own content. Needed
-        whenever the target memory is addressed RAW (no base-address
-        subtraction in hardware; see rv32im_pipeline_core.vhd's
-        BOOT_ROM/FLASH split) and the ELF this .bin came from doesn't
-        start at address 0: `objcopy -O binary` always emits a flat
-        file starting at the ELF's own LOWEST vma as byte 0, silently
-        dropping the leading gap, e.g. a FLASH image linked at
-        FLASH_BASE=0x800 produces a .bin whose word 0 is really word
-        index 0x200, not 0, but the memory model/IP indexes by the
-        raw address either way. Confirmed by simulation: without this,
-        FLASH_simulation read back all zeros past the boot_rom->flash
-        jump (a test's own real content ends up living FLASH_BASE/4
-        words too early in the array). Default 0 for a memory that
-        already starts at address 0 (e.g. BOOT_ROM).
+        Zero words to prepend before the file's content, for a memory
+        addressed raw from a nonzero base (for example a FLASH linked at
+        0x800). Default 0.
 
     Returns
     -------
@@ -95,8 +88,9 @@ def bin_to_mif(
         program's own words are filled with zero via a MIF
         address-range entry.
     pad_words : int, optional
-        See read_words: zero words to prepend for a memory addressed
-        raw from a nonzero base (e.g. FLASH). Default 0.
+        Zero words to prepend before the file's content, for a memory
+        addressed raw from a nonzero base (for example a FLASH linked at
+        0x800). Default 0.
 
     Returns
     -------
@@ -135,8 +129,9 @@ def bin_to_hex(bin_path: Path, hex_path: Path, pad_words: int = 0) -> int:
     hex_path : Path
         Path to write the .hex to (overwritten if it already exists).
     pad_words : int, optional
-        See read_words: zero words to prepend for a memory addressed
-        raw from a nonzero base (e.g. FLASH). Default 0.
+        Zero words to prepend before the file's content, for a memory
+        addressed raw from a nonzero base (for example a FLASH linked at
+        0x800). Default 0.
 
     Returns
     -------
