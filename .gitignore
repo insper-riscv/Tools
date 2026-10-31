@@ -6,3 +6,4 @@ dist/
 .pytest_cache/
 .claude
 .ruff_cache/
+.cache/

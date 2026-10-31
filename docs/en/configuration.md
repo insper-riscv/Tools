@@ -99,7 +99,7 @@ No `tests_real_dir`/`tests_sim_dir`/`golden_dir` split: every test under `c_dir`
 | `sources` | `[]` | `golden_generator`, `spike_run`: source files (relative to the project root) linked into the ELF Spike runs and not into the test's own image. For an image that ends in code living elsewhere on the hardware (a boot ROM routine at a fixed address): a stand-in for it, plus the `tohost` and `fromhost` symbols Spike needs. With it empty, Spike runs the test's own image |
 | `gcc_flags` | `[]` | `golden_generator`, `spike_run`: extra gcc arguments for that ELF, for example a `-D` that makes the specs file leave the hardware's fixed address out |
 
-### `sim:` (requires the `sim` extra, `uv sync --extra sim`)
+### `sim:` (requires the `sim` extra, `uv sync`)
 
 | Key | Default | Used by |
 |---|---|---|

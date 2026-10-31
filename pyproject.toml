@@ -1,26 +1,15 @@
 [project]
 name = "riscv-tools"
 version = "1.0.0"
-description = "Config-driven build and test tooling for bare-metal RISC-V programs: compile, run against real hardware over JTAG or against cocotb/GHDL simulation, and verify results against Spike-generated or checked-in golden references."
+description = "CLI do Insper-RISC-V: Compila, simula (GHDL/cocotb), testa e certifica (ACT4) os módulos do core RISC-V RV32 a partir de manifestos YAML."
 license = "Apache-2.0"
-# Capped at <3.15: 3.14 is the newest CPython the suite has run on.
-# cocotb (the "sim" extra) added 3.14 support in 2.1.0
-# (https://docs.cocotb.org/en/v2.1.0/release_notes.html), which is why
-# the sim extra below needs at least that. Since one venv has to
-# satisfy the whole project, the ceiling applies project-wide, not just
-# to the sim extra.
+# Capped at <3.15: 3.14 is the newest Python version that cocotb run on.
+# (https://docs.cocotb.org/en/v2.1.0/release_notes.html)
 requires-python = ">=3.14,<3.15"
 dependencies = [
+    "cocotb>=2.1",
     "PyYAML>=6.0",
 ]
-
-[project.optional-dependencies]
-# Only needed for `sim_runner`/`riscv-tools sim` (cocotb/GHDL) — the
-# real-hardware side (jtag/orchestrator/etc.) doesn't need it, so it's
-# an extra rather than a hard dependency. GHDL itself isn't
-# pip-installable and must be installed separately (a system package
-# or the ghdl/ghdl Docker image — see docs/en/github-actions.md).
-sim = ["cocotb>=2.1", "cocotb-tools>=0.1"]
 
 [project.scripts]
 riscv-tools = "riscv_tools.cli:main"
@@ -39,26 +28,19 @@ package = true
 dev = ["pytest>=9.0", "ruff>=0.8", "pyright[nodejs]>=1.1", "deptry>=0.20"]
 
 [tool.deptry]
-# Without this, deptry can't map the "riscv_tools" import name back to
-# this project's own "riscv-tools" distribution (src-layout package),
-# and flags every intra-package import (e.g. cli.py importing
-# riscv_tools.mailbox) as DEP003 "transitive dependency" — a false
-# positive, since it's the package importing its own submodules.
 known_first_party = ["riscv_tools"]
 
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
 stubPath = "stubs"
-# The project's own Python (see requires-python above).
 pythonVersion = "3.14"
 typeCheckingMode = "strict"
 reportMissingModuleSource = "none"
 
 [tool.ruff]
-# Matches requires-python (see above).
 target-version = "py314"
-line-length = 88
+line-length = 79
 
 [tool.ruff.lint]
 select = [
@@ -95,16 +77,15 @@ select = [
     "ERA",  # flake8-eradicate
     "ARG",  # flake8-arg-names (unused-arguments)
 ]
+
 ignore = [
-    # This package's whole job is shelling out to external tools
-    # (gcc, quartus_stp, spike, git, ghdl, ...) with argument lists
-    # built from config values, never a shell string — S603/S607 would
-    # otherwise fire on nearly every subprocess.run() call in the repo
-    # for a risk (shell injection via string concatenation) that
-    # doesn't apply to the list-argument form used throughout.
     "S603",
     "S607",
 ]
+
+[tool.ruff.lint.pycodestyle]
+max-line-length = 79
+max-doc-length = 72
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
@@ -118,28 +99,22 @@ max-locals = 15
 max-public-methods = 10
 
 [tool.ruff.lint.per-file-ignores]
-# Tests: `assert` is the whole point (S101), and comparing against
-# small literal expected values (PLR2004) is normal test-assertion
-# style, not the "unexplained magic number in logic" smell the rule
-# is for. Module/function docstrings (D100/D103/D104) aren't required
-# on test files the way they are on the package itself.
 "tests/**" = ["S101", "D100", "D103", "D104", "PLR2004"]
-# The cocotb fixture programs' "always FAIL" test module (see
-# tests/fixtures/sim_min/test_fail.py, used by test_sim_runner.py)
-# deliberately does `assert False, "..."` — that IS the test. `dut` is
-# unused in that same file but required by cocotb's calling convention
-# (every @cocotb.test() coroutine receives it, whether it's used or not).
 "tests/fixtures/**" = ["B011", "ARG001"]
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+docstring-code-line-length = 72
 
 [tool.pytest.ini_options]
-# tests/fixtures/**/test_*.py are cocotb test modules loaded by a
-# cocotb subprocess (via PYTHONPATH, see test_sim_runner.py/
-# test_generate_golden.py), not pytest tests themselves — their names
-# only happen to match pytest's test_*.py discovery pattern. Without
-# this, pytest tries to import them directly and fails whenever cocotb
-# isn't installed in the outer environment (e.g. no "sim" extra).
 norecursedirs = ["tests/fixtures"]
+
+[tool.complexipy]
+paths = ["src", "tests"]
+max-complexity-allowed = 10
+
+[tool.pyrefly]
+preset = "strict"
+project-includes = ["src", "tests"]
+python-version = "3.14"

@@ -52,7 +52,7 @@ jobs:
         with:
           submodules: true
       - uses: astral-sh/setup-uv@v3
-      - run: uv sync --extra sim
+      - run: uv sync
         working-directory: Tools
 
       # o seu próprio passo de instalação da toolchain aqui (riscv32-unknown-elf-gcc no PATH)
