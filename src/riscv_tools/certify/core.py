@@ -404,24 +404,17 @@ def run_suite(
     Parameters
     ----------
     cfg : dict of {str: Any}
-        The merged project config: uses the act section (vendor_dir,
-        target_config, extensions, jobs and the optional sim_parameters,
-        merged on top of sim.parameters) and the sim section (toplevel,
-        vhdl_sources, ghdl_std, parameters).
+        The merged project config; uses its act and sim sections.
     root : Path
-        The consuming project's root directory; act.vendor_dir/
-        target_config and sim.vhdl_sources are all resolved relative
-        to this.
+        The project root; act.vendor_dir, act.target_config and
+        sim.vhdl_sources resolve there.
     build_dir : Path
-        Where converted `.bin`/`.hex` images and per-test GHDL build
-        artifacts go (a subdirectory per ELF, mirroring sim_runner's
-        own convention).
+        Where the converted images and the per-ELF GHDL artifacts go.
 
     Returns
     -------
     dict of {str: bool}
-        A {elf stem: passed} dict, one entry per ELF `build_elfs`
-        produced, in sorted order.
+        {elf stem: passed}, in sorted order.
     """
     _raise_stack_limit()
     sim_runner.extend_python_path(

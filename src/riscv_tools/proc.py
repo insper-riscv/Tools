@@ -17,40 +17,29 @@ _FORCED_KWARGS = ("stdout", "stderr", "text", "bufsize", "capture_output")
 def run_streaming(
     cmd: list[str], **kw: Any
 ) -> subprocess.CompletedProcess[str]:
-    """Run cmd, echoing it and streaming stdout/stderr as they arrive.
+    """Run cmd, echoing and capturing its output as it arrives.
 
-    Used instead of a plain subprocess.run(capture_output=True) for the
-    slow Quartus tools, for two reasons:
-
-    - Visibility: each line is echoed as it arrives, so a compile that
-      runs for minutes does not look like a hang. Both pipes are read
-      with selectors (POSIX only).
-    - Classification: a CalledProcessError raised here always carries
-      the real .stdout and .stderr text (for example "Can't scan JTAG
-      chain"), which a caller can classify.
-
-    The number of processes launched for cmd does not change; callers
-    that need two commands in one shell process build that into cmd.
+    Each line is echoed as it arrives, so a long compile does not look
+    like a hang. A CalledProcessError raised here carries the real
+    .stdout and .stderr text, which a caller can classify.
 
     Parameters
     ----------
     cmd : list of str
-        Argument list to execute (same shape as subprocess.run's
-        first argument).
+        The command and its arguments.
     **kw : Any
-        Extra keyword arguments forwarded to subprocess.Popen (e.g.
-        cwd). stdout/stderr/text/bufsize are always forced regardless
-        of what's passed here.
+        Extra Popen options (for example cwd). stdout, stderr, text and
+        bufsize are always set by this function.
 
     Returns
     -------
     subprocess.CompletedProcess
-        .stdout/.stderr are always text (never None).
+        With text .stdout and .stderr.
 
     Raises
     ------
     subprocess.CalledProcessError
-        cmd exited non-zero; .stdout/.stderr populated same as above.
+        cmd exited non-zero.
     """
     print("+", " ".join(str(c) for c in cmd))
     for forced in _FORCED_KWARGS:
@@ -75,17 +64,17 @@ def run_streaming(
 
 
 def _pump(proc: subprocess.Popen[str]) -> tuple[str, str]:
-    """Echo the output of proc as it arrives and collect it.
+    """Echo the output of proc as it arrives and return it.
 
     Parameters
     ----------
     proc : subprocess.Popen
-        A process started with stdout=PIPE, stderr=PIPE and text=True.
+        A process started with stdout and stderr piped, in text mode.
 
     Returns
     -------
     tuple of str
-        Everything proc wrote to stdout and to stderr.
+        The stdout and the stderr text.
     """
     # Statically Popen.stdout/.stderr are `IO[Any] | None`; both are
     # always real files here since the caller passed PIPE for each.

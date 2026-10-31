@@ -13,6 +13,7 @@ from pathlib import Path
 from riscv_tools.jtag import JtagLink, run_tcl
 
 _WORD_MASK = 0xFFFFFFFF
+_SDRAM_TCL = "sdram_dbg.tcl"
 
 
 def write_word(
@@ -37,7 +38,7 @@ def write_word(
     -------
     None
     """
-    run_tcl(link, "sdram_dbg.tcl", "write", word_address, value, byte_enable)
+    run_tcl(link, _SDRAM_TCL, "write", word_address, value, byte_enable)
 
 
 def read_words(
@@ -66,12 +67,12 @@ def read_words(
         The script's output did not contain the expected "WORDS=" reply
         line.
     """
-    result = run_tcl(link, "sdram_dbg.tcl", "read", word_address, word_count)
+    result = run_tcl(link, _SDRAM_TCL, "read", word_address, word_count)
     for line in result.stdout.splitlines():
         if line.startswith("WORDS="):
             return [int(w) for w in line.split("=", 1)[1].split()]
     raise RuntimeError(
-        f"sdram_dbg.tcl produced no WORDS= line:\n{result.stdout}"
+        f"{_SDRAM_TCL} produced no WORDS= line:\n{result.stdout}"
     )
 
 
@@ -97,7 +98,7 @@ def fill(
     -------
     None
     """
-    run_tcl(link, "sdram_dbg.tcl", "fill", word_address, word_count, value)
+    run_tcl(link, _SDRAM_TCL, "fill", word_address, word_count, value)
 
 
 def load_words(
@@ -125,4 +126,4 @@ def load_words(
     with tempfile.TemporaryDirectory() as tmp:
         image = Path(tmp) / "image.txt"
         image.write_text("".join(f"{w & _WORD_MASK:08x}\n" for w in words))
-        run_tcl(link, "sdram_dbg.tcl", "load", word_address, image)
+        run_tcl(link, _SDRAM_TCL, "load", word_address, image)

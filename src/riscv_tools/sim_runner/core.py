@@ -145,67 +145,50 @@ def run_test(
     Parameters
     ----------
     toplevel : str
-        Top-level VHDL entity name (sim.toplevel).
+        Top-level VHDL entity (sim.toplevel).
     vhdl_sources : list of str
-        VHDL source file paths, in dependency order
-        (sim.vhdl_sources).
+        VHDL files in dependency order (sim.vhdl_sources).
     ghdl_std : str
-        GHDL `--std=` value (sim.ghdl_std, default "08", VHDL-2008 /
-        IEEE Std 1076-2008).
+        GHDL `--std=` value (sim.ghdl_std, for example "08").
     test_module : str
-        The project's cocotb test module name (sim.test_module). It
-        receives the ROM image in ROM_HEX and the test name in
-        TEST_NAME.
+        The project's cocotb test module (sim.test_module). It reads
+        the ROM image from ROM_HEX and the test name from TEST_NAME.
     hex_path : Path
-        Path to this test's compiled .hex (from
-        bin_to_image.bin_to_hex).
+        This test's compiled .hex.
     **options : Unpack[RunOptions]
-        Keyword settings, described below: `test_name` and `build_dir`
-        are required, the others optional.
+        Keyword settings. `test_name` and `build_dir` are required.
     test_name : str
-        This test's name (manifest entry "name"), passed through as
-        TEST_NAME.
+        This test's name, passed as TEST_NAME.
     build_dir : Path
-        Directory for GHDL's build and run artifacts, kept separate per
-        test.
+        GHDL build and run directory, one per test.
     ram_base : int, optional
-        memory.ram_base, passed as RAM_BASE so the testbench can make
-        its bus-snooped RAM addresses RAM-relative. Default 0.
+        memory.ram_base, passed as RAM_BASE. Default 0.
     golden_path : Path, optional
-        This test's golden.json for a "memory"-kind test, passed as
-        GOLDEN_PATH so the testbench can compare RAM against it. None
-        (the default) omits it.
+        golden.json of a "memory"-kind test, passed as GOLDEN_PATH.
+        None omits it.
     parameters : dict of {str: Any}, optional
-        VHDL generics to set on toplevel (sim.parameters). They are
-        applied at the run step, the only one where GHDL accepts
-        generics. Default: no overrides.
+        VHDL generics for toplevel (sim.parameters), applied at the
+        run step. Default: none.
     ghdl_flags : list of str, optional
-        Extra GHDL arguments for the analyze/elaborate and run steps
-        (sim.ghdl_flags).
+        Extra GHDL arguments (sim.ghdl_flags).
     libraries_dir : Path, optional
-        Where `build_libraries` analyzed the design's extra libraries;
-        GHDL is pointed at it with `-P`.
+        Where the extra libraries were analyzed; GHDL gets `-P`.
     run_files : dict of {str: Path}, optional
-        {file name: source} copied into build_dir, the directory GHDL
-        runs in, before the simulation starts (sim.run_files).
+        {name: source} copied into build_dir before the run.
     extra_env : dict of {str: str}, optional
-        Environment variables added for the test module (sim.env).
+        Environment variables for the test module (sim.env).
     ghdl_run_flags : list of str, optional
-        GHDL simulation options, which the analyze and elaborate steps
-        reject (for example `--max-stack-alloc=0`).
+        GHDL simulation options (for example `--max-stack-alloc=0`).
 
     Returns
     -------
     bool
-        True if every cocotb testcase passed, False if any failed.
+        True if every cocotb testcase passed.
 
     Raises
     ------
     SystemExit
-        cocotb's results.xml wasn't produced at all (e.g. the
-        simulation crashed before finishing, rather than running to
-        completion and failing normally); see
-        cocotb_tools.runner.get_results.
+        cocotb did not produce results.xml (the simulation crashed).
     """
     build_dir = options["build_dir"]
     ghdl_args = _ghdl_args(
@@ -436,33 +419,27 @@ def run_suite(
     Parameters
     ----------
     cfg : dict of {str: Any}
-        The merged project config: uses the sim section (toplevel,
-        vhdl_sources, test_module, ghdl_std, parameters and the optional
-        ghdl_flags, libraries, run_files, env and image).
+        The merged project config; uses its sim section.
     manifest : list of dict of {str: Any}
-        The test list from manifest.json. Each entry needs "name" and
-        its image ("hex", or "mif" when sim.image is "mif"), plus
-        "golden" for a "memory"-kind test.
+        The tests from manifest.json. Each needs "name" and its image
+        ("hex", or "mif" when sim.image is "mif"), plus "golden" for a
+        "memory"-kind test.
     root : Path
-        The consuming project's root directory; entry images and
-        vhdl_sources resolve against it.
+        The project root; entry images and vhdl_sources resolve there.
     build_dir : Path
-        Base directory for GHDL artifacts. Each simulation profile gets
-        its own subdirectory, and each test one below it.
+        Base directory for GHDL artifacts, with one subdirectory per
+        simulation profile and one below it per test.
     boot_rom_hex_path : Path, optional
-        Compiled .hex of the shared boot ROM, built once by the caller.
-        Exposed to sim.parameters templates as `{boot_rom_hex_path}`;
-        omit it for a design without a boot ROM.
+        Compiled .hex of the shared boot ROM, exposed to sim.parameters
+        templates as `{boot_rom_hex_path}`.
     boot_rom_mif_path : Path, optional
-        The same bootloader as a .mif, for a design whose boot ROM is a
-        memory IP initialized from a .mif (sim.image "mif"). Exposed to
-        the templates as `{boot_rom_mif_path}`.
+        The same boot ROM as a .mif (sim.image "mif"), exposed as
+        `{boot_rom_mif_path}`.
 
     Returns
     -------
     dict of {str: bool}
-        A {test_name: passed} dict, one entry per manifest test, in
-        manifest order.
+        {test_name: passed}, in manifest order.
     """
     # sim.test_module is a root-relative dotted path (e.g.
     # "tools.riscv_build.sim.test_c_program"): the cocotb subprocess

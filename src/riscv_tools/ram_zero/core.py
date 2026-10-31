@@ -40,23 +40,18 @@ def zero_ram(
 ) -> None:
     """Clear every word of RAM over JTAG, without reprogramming.
 
-    Useful between test runs when a program's own crt0 restart path
-    (mailbox/go_flag self-clear) isn't enough, e.g. re-running a
-    memory test that dumps and compares the whole RAM, where leftover
-    words from a previous test would corrupt the comparison.
+    Useful between runs when the program's own restart path does not
+    clear the RAM, such as a memory test that compares all of it.
 
     Parameters
     ----------
     link : JtagLink
         Which JTAG cable/chip to write to.
     ram_mem_instance : int or SdramDebugRam
-        How the RAM is reached: the In-System Memory Content Editor
-        instance index of the RAM (quartus.ram_mem_instance in the
-        project's config.yaml), or SdramDebugRam for a RAM in the SDRAM,
-        which is filled by the board itself (no shift per word).
+        How the RAM is reached: an instance index, or SdramDebugRam for
+        the SDRAM.
     ram_words : int
-        Word depth of the RAM instance; every word in [0, ram_words)
-        is cleared.
+        Word depth of the RAM; every word in [0, ram_words) is cleared.
 
     Returns
     -------

@@ -558,37 +558,25 @@ def run_suite(
     """Run every test in manifest against real hardware.
 
     Compiles and programs the board once, then runs each entry with
-    run_one, in order. It stops (without raising) as soon as a test
-    raises NeedsHumanInterventionError. If options.results_path is
-    given, each result is written there as soon as it is known, so a
-    caller can detect an incomplete run (fewer results than manifest
-    entries) and resume with a manifest of the untested entries plus
-    options.results_so_far; the returned dict then covers the whole
-    original manifest.
+    run_one, in order. It stops (without raising) when a test raises
+    NeedsHumanInterventionError. With options.results_path, each result
+    is saved as soon as it is known, so an interrupted run can resume.
 
     Parameters
     ----------
     ctx : RunContext
-        The shared state, forwarded to full_reconfigure_entry/run_one.
+        The shared state.
     manifest : list of dict of {str: Any}
-        The test list to run (typically compile --emit mif's full
-        manifest.json, but may be a caller-filtered subset; see
-        cli.cmd_run's --only), must be non-empty; when
-        options.reconfigure is True, manifest[0]'s ROM is what gets
-        baked into the initial compile.
+        The tests to run; must be non-empty. With options.reconfigure,
+        the ROM of manifest[0] is baked into the initial compile.
     options : SuiteOptions, optional
-        The optional behaviors (reconfigure, persistence, resume,
-        waiting for the hardware, durations, skip_recompile). None
-        (the default) means SuiteOptions().
+        The optional behaviors. None means SuiteOptions().
 
     Returns
     -------
     dict of {str: bool}
-        A {test_name: passed} dict, results_so_far, plus one entry
-        per manifest test actually run before either finishing or
-        hitting a NeedsHumanInterventionError stop. Compare len(this)
-        against len(results_so_far or {}) + len(manifest) to tell a
-        full run from a stopped one.
+        {test_name: passed}, including options.results_so_far. Fewer
+        entries than results_so_far plus manifest means the run stopped.
 
     Raises
     ------
@@ -605,17 +593,7 @@ def run_suite(
 
 
 class _SuiteRun:
-    """The state and steps of one run_suite call.
-
-    Parameters
-    ----------
-    ctx : RunContext
-        The shared state.
-    manifest : list of dict of {str: Any}
-        The non-empty test list.
-    options : SuiteOptions
-        The optional behaviors.
-    """
+    """The state and steps of one run_suite call."""
 
     def __init__(
         self,
