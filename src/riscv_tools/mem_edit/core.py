@@ -1,6 +1,6 @@
 """Generic In-System Memory Content Editor primitives.
 
-Shared by rom_writer/ram_zero/ram_dump/mailbox. Pure mechanism, no
+Shared by rom_writer/ram_zero/ram_dump/htif. Pure mechanism, no
 policy: each of those modules decides WHICH instance/address/content
 to use.
 """

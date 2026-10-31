@@ -36,7 +36,7 @@ PLATFORM: dict[str, Any] = {
     ],
     "reserved": {
         "stdout": {"base": "0x2FBE0", "size": "1K+8"},
-        "mailbox": {"base": "0x2FFFC", "size": 4},
+        "last_word": {"base": "0x2FFFC", "size": 4},
     },
     "boot": {"entry": "0x800", "wait_restart": "0x100"},
     "peripherals": [{"name": "GPIO", "base": "0xA0000000", "id": 2}],
@@ -297,13 +297,13 @@ def test_a_negative_offset_is_reported_with_its_sign(tmp_path: Path) -> None:
                 "name": "offset",
                 "file": "off.S",
                 "pattern": r"(-\d+)\(t0\)",
-                "expect": "mailbox.base - RAM.end",
+                "expect": "last_word.base - RAM.end",
             }
         ]
     )
     path = _project(tmp_path, platform)
     (tmp_path / "off.S").write_text("sw x0, -12(t0)\n")
     _, problems = check_memory_map(path, tmp_path)
-    assert "found -12 (-0xC), expected mailbox.base - RAM.end (-0x4)" in str(
+    assert "found -12 (-0xC), expected last_word.base - RAM.end (-0x4)" in str(
         problems[0]
     )

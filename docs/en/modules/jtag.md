@@ -1,6 +1,6 @@
 # `jtag`
 
-Identifies the live JTAG connection and runs this package's bundled `.tcl` scripts against it. The shared plumbing every other JTAG-touching module ([`mem_edit`](mem_edit.md), [`rom_writer`](rom_writer.md), [`ram_zero`](ram_zero.md), [`ram_dump`](ram_dump.md), [`mailbox`](mailbox.md), [`quartus_program`](quartus_program.md)) builds on.
+Identifies the live JTAG connection and runs this package's bundled `.tcl` scripts against it. The shared plumbing every other JTAG-touching module ([`mem_edit`](mem_edit.md), [`rom_writer`](rom_writer.md), [`ram_zero`](ram_zero.md), [`ram_dump`](ram_dump.md), [`htif`](htif.md), [`quartus_program`](quartus_program.md)) builds on.
 
 ## Identifying a connection: `JtagLink`
 

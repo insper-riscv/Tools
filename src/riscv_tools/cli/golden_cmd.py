@@ -6,7 +6,7 @@ from pathlib import Path
 
 from riscv_tools import (
     golden_generator,
-    mailbox,
+    htif,
 )
 from riscv_tools.cli.common import project_root
 from riscv_tools.cli.toolchain import spike_target
@@ -17,7 +17,7 @@ def cmd_generate_header(args: argparse.Namespace) -> None:
     """Implement `riscv-tools generate-header`.
 
     Writes rv32_test.h from the project's own config.yaml (see
-    mailbox.write_header).
+    htif.write_header).
 
     Parameters
     ----------
@@ -38,7 +38,7 @@ def cmd_generate_header(args: argparse.Namespace) -> None:
     )
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    mailbox.write_header(cfg["memory"]["mailbox_addr"], out_path)
+    htif.write_header(cfg["memory"]["tohost_addr"], out_path)
     print(f"Wrote {out_path}")
 
 

@@ -24,9 +24,9 @@ Three optional `//` comments at the top of `src.c` configure how
 | Header | Meaning |
 | :--- | :--- |
 | `RV32_EXT: M` | Extensions ADDED to the implicit `rv32i` base. Comma-separated; order doesn't matter (`M,A` and `A,M` both become `rv32ima`). |
-| `RV32_TEST_KIND: unit` | Default if omitted. Checked via the PASS/FAIL mailbox only. Builds for both real hardware and sim. See [`unit` vs `memory` tests](#unit-vs-memory-tests) below. |
-| `RV32_TEST_KIND: memory` | A `unit` test, expanded: also gets a `results` global checked against golden.json after the mailbox reads PASS. See [`unit` vs `memory` tests](#unit-vs-memory-tests) below. |
-| `RV32_TIMEOUT_S: 5` | Real tests only: how long the orchestrator waits for this test's mailbox before falling back to a full reprogram+retry. Defaults to `quartus.default_timeout_s`. Keep simple unit tests low; give slower/memory tests more. |
+| `RV32_TEST_KIND: unit` | Default if omitted. Checked via `tohost` (PASS or FAIL) only. Builds for both real hardware and sim. See [`unit` vs `memory` tests](#unit-vs-memory-tests) below. |
+| `RV32_TEST_KIND: memory` | A `unit` test, expanded: also gets a `results` global checked against golden.json after `tohost` reads PASS. See [`unit` vs `memory` tests](#unit-vs-memory-tests) below. |
+| `RV32_TIMEOUT_S: 5` | Real tests only: how long the orchestrator waits for this test's `tohost` before falling back to a full reprogram+retry. Defaults to `quartus.default_timeout_s`. Keep simple unit tests low; give slower/memory tests more. |
 
 ```c
 // RV32_EXT: M
@@ -53,7 +53,7 @@ int main(void) {
 ```
 
 `rv32_test.h` is generated from your `config.yaml`'s
-`memory.mailbox_addr`: don't hand-write it, generate (or regenerate,
+`memory.tohost_addr`: don't hand-write it, generate (or regenerate,
 after changing that address) with:
 
 ```bash
@@ -62,7 +62,7 @@ uv run riscv-tools --config <project>/config.yaml generate-header
 
 Writes to `<paths.include_dir>/rv32_test.h` by default (`--out` to
 override). `rv32_wait_restart` itself still comes from your project's
-own `crt0.S`: this package only owns the mailbox side.
+own `crt0.S`: this package only owns the `tohost` side.
 
 Avoid `(volatile unsigned int *)0x0`: GCC treats a literal null
 pointer as undefined behavior and may optimize the whole access away
@@ -76,10 +76,10 @@ working `unit` test, add a `results` global it writes its answer
 into, change the header comment to `memory`, and it's now a `memory`
 test. Nothing about its `RV32_PASS()`/`RV32_FAIL()` logic changes.
 
-- `unit` (the default): passing means the mailbox reads PASS. Good
+- `unit` (the default): passing means `tohost` reads PASS. Good
   enough when the test can fully judge itself with an `if`. Builds
   for both `compile --emit mif` (real) and `--emit hex` (sim).
-- `memory`: mailbox PASS, **and then** a `results` global is checked
+- `memory`: `tohost` PASS, **and then** a `results` global is checked
   against golden.json, on both real hardware (a JTAG RAM dump) and
   sim (the same check, done live off the RAM write bus instead, since
   sim has no way to dump a memory array directly; see a project's own
@@ -87,7 +87,7 @@ test. Nothing about its `RV32_PASS()`/`RV32_FAIL()` logic changes.
   never reaches that second check at all, the same as a `unit` test
   failing the same way. This is what catches a test that reached
   `RV32_PASS()` with a wrong computed value (e.g. a sum that came out
-  off by one): the mailbox alone can't tell "ran to completion" apart
+  off by one): `tohost` alone can't tell "ran to completion" apart
   from "ran to completion and got the wrong answer."
 
   Unlike an asm memory test (see

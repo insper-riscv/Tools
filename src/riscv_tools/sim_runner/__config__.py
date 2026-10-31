@@ -16,8 +16,8 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         # The project's own cocotb test module (e.g.
         # "sim.test_c_program"); it knows the DUT's actual signal
         # hierarchy (ROM/RAM memory array handles, clk/rst names), which
-        # this package can't, and polls the PASS/FAIL mailbox the same
-        # way mailbox.py does for real hardware. No sane default.
+        # this package can't, and polls tohost the same way the
+        # htif module does for real hardware. No sane default.
         "test_module": None,
         # VHDL-2008 (IEEE Std 1076-2008), the newest dialect Quartus
         # accepts (VHDL93 and VHDL_2008 only), so simulation and

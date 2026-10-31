@@ -6,7 +6,7 @@ from riscv_tools.cli.board_cmd import (
     cmd_console,
     cmd_display,
     cmd_dump_ram,
-    cmd_mailbox,
+    cmd_htif,
     cmd_program,
     cmd_write_rom,
     cmd_zero_ram,
@@ -123,8 +123,8 @@ def add_board_commands(sub: Any) -> None:
 
     p = add_command(
         sub,
-        cmd_mailbox,
-        "mailbox",
-        description="Read the PASS/FAIL mailbox, or pulse the restart go-flag",
+        cmd_htif,
+        "htif",
+        description="Read the HTIF tohost word, or write fromhost to restart",
     )
-    p.add_argument("action", choices=["read", "pulse"])
+    p.add_argument("action", choices=["read", "restart"])

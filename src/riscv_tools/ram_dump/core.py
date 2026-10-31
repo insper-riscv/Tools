@@ -15,7 +15,7 @@ def dump_ram(
 ) -> None:
     """Save the RAM content to a .mif over JTAG.
 
-    Used for memory tests, where the PASS/FAIL mailbox alone isn't
+    Used for memory tests, where the PASS/FAIL result alone isn't
     enough. A RAM inside the FPGA is saved whole (words is not needed).
     A RAM in the SDRAM is too big to read whole over JTAG, so only the
     given words are saved.

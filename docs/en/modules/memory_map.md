@@ -13,7 +13,7 @@ regions:                      # the map itself
   - {name: RAM,      base: 0x8000, size: 160K, kind: ram}
 reserved:                     # words at the top of RAM (inside a ram region)
   stdout:  {base: 0x2FBE0, size: 1K+8}
-  mailbox: {base: 0x2FFFC, size: 4}
+  tohost:  {base: 0x2FFF0, size: 16}
 boot: {entry: 0x800, wait_restart: 0x100}
 peripherals:                  # base = 0x80000000 | id << 28
   - {name: GPIO, base: 0xA0000000, id: 2}

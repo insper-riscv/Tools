@@ -1,6 +1,6 @@
 # `mem_edit`
 
-Primitivas genéricas do In-System Memory Content Editor, compartilhadas por [`rom_writer`](rom_writer.md), [`ram_zero`](ram_zero.md), [`ram_dump`](ram_dump.md) e [`mailbox`](mailbox.md). Só mecanismo, sem política: cada um desses módulos decide qual instância, endereço ou conteúdo usar; este módulo só sabe ler e escrever uma instância de memória por JTAG.
+Primitivas genéricas do In-System Memory Content Editor, compartilhadas por [`rom_writer`](rom_writer.md), [`ram_zero`](ram_zero.md), [`ram_dump`](ram_dump.md) e [`htif`](htif.md). Só mecanismo, sem política: cada um desses módulos decide qual instância, endereço ou conteúdo usar; este módulo só sabe ler e escrever uma instância de memória por JTAG.
 
 ## Funções
 
@@ -26,7 +26,7 @@ Não há teste automatizado neste repositório. Um runner self-hosted preparado 
 
 ## Uso
 
-Não é um subcomando próprio da CLI: é o mecanismo que [`rom_writer`](rom_writer.md), [`ram_zero`](ram_zero.md), [`ram_dump`](ram_dump.md) e [`mailbox`](mailbox.md) chamam para de fato conversar com uma instância de memória por JTAG.
+Não é um subcomando próprio da CLI: é o mecanismo que [`rom_writer`](rom_writer.md), [`ram_zero`](ram_zero.md), [`ram_dump`](ram_dump.md) e [`htif`](htif.md) chamam para de fato conversar com uma instância de memória por JTAG.
 
 ---
 

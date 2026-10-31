@@ -1,7 +1,7 @@
 """Compare a RAM dump against a golden JSON of expected byte values.
 
 The RAM dump is a .mif, one 32-bit word per line. Used for
-RV32_TEST_KIND: memory tests, where the PASS/FAIL mailbox alone isn't
+RV32_TEST_KIND: memory tests, where the PASS/FAIL result alone isn't
 enough to prove the test did the right thing, e.g. it wrote the
 right values to memory, not just that it reached RV32_PASS().
 """
@@ -144,7 +144,7 @@ def compare_bytes(
     ----------
     actual : dict of {int: int}
         {byte_address: byte_value}, RAM-relative (see
-        mailbox.word_offset's convention), same as golden.
+        htif.word_offset's convention), same as golden.
     golden : dict of {int: int}
         {byte_address: expected_byte_value}; only these addresses are
         checked; extra bytes in actual that aren't in golden are

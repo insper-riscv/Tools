@@ -1,6 +1,10 @@
-# `mailbox`
+# `htif`
 
-Lê uma palavra fixa da RAM (o "mailbox") em que um teste escreve `PASS`/`FAIL` ao terminar, e dá um pulso numa palavra de "go flag" que diz ao núcleo em execução para reiniciar a partir do ponto de entrada. Também gera o `rv32_test.h`, o header C que um teste inclui para sinalizar PASS/FAIL, a partir do `config.yaml` do próprio projeto (assim o projeto consumidor nunca escreve à mão nem mantém uma cópia que poderia sair de sincronia com o seu `memory.mailbox_addr` real).
+Lê o `tohost` do HTIF, a palavra de 64 bits em que um teste escreve o resultado ao terminar, e escreve no `fromhost` para dizer ao núcleo parado que reinicie a partir do ponto de entrada. Também gera o `rv32_test.h`, o header C que um teste inclui para terminar, a partir do `config.yaml` do próprio projeto (assim o projeto consumidor nunca escreve à mão nem mantém uma cópia que poderia sair de sincronia com o seu `memory.tohost_addr` real).
+
+## Convenção do `tohost`
+
+A palavra baixa de `tohost` vale `0` enquanto o teste roda. Um teste que passou escreve `1`. Um teste que falhou escreve `(código << 1) | 1`, com `código` diferente de zero, e o número da chamada `RV32_FAIL(código)` que falhou fica na palavra. O host reconhece o fim pelo bit 0 em `1`. O `fromhost` fica 8 bytes acima de `tohost`, e o reinício é um valor diferente de zero escrito nele.
 
 ## Offsets de palavra: relativo versus absoluto
 
@@ -16,10 +20,10 @@ Um endereço de byte pode ser convertido em offset de palavra de duas formas dif
 | Chave | Significado |
 | :--- | :--- |
 | `quartus.ram_mem_instance` | Índice da instância do tap de debug da RAM (padrão `1`). |
-| `quartus.poll_interval_seconds` | De quanto em quanto tempo reler o mailbox enquanto espera um resultado (padrão `0.5`). |
+| `quartus.poll_interval_seconds` | De quanto em quanto tempo reler o `tohost` enquanto espera um resultado (padrão `0.5`). |
 | `memory.ram_base` | Endereço de byte base da RAM. Sem padrão; específico do projeto. |
-| `memory.mailbox_addr` | Endereço de byte da palavra PASS/FAIL. Sem padrão; específico do projeto. |
-| `memory.go_flag_addr` | Endereço de byte da palavra da flag de reinício. Sem padrão; específico do projeto. |
+| `memory.tohost_addr` | Endereço de byte do `tohost` (8 bytes). Sem padrão; específico do projeto. |
+| `memory.fromhost_addr` | Endereço de byte do `fromhost` (8 bytes). Sem padrão; específico do projeto. |
 
 ## Pré-requisitos
 
@@ -32,12 +36,12 @@ Não há teste automatizado neste repositório. Um runner self-hosted preparado 
 ## Uso
 
 ```bash
-uv run riscv-tools --config /path/to/project/config.yaml mailbox read
-uv run riscv-tools --config /path/to/project/config.yaml mailbox pulse
+uv run riscv-tools --config /path/to/project/config.yaml htif read
+uv run riscv-tools --config /path/to/project/config.yaml htif restart
 uv run riscv-tools --config /path/to/project/config.yaml generate-header
 ```
 
-`read`/`pulse` servem mais para depuração manual; o [`orchestrator`](orchestrator.md) chama as mesmas funções direto no próprio laço por teste.
+`read` imprime `TOHOST=<valor>` e `restart` escreve no `fromhost`; servem mais para depuração manual; o [`orchestrator`](orchestrator.md) chama as mesmas funções direto no próprio laço por teste.
 
 ---
 

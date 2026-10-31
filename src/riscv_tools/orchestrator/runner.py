@@ -1,7 +1,7 @@
 """Run the real-hardware test suite.
 
 Compiles once, then for each test writes the ROM over JTAG, pulses the
-restart and polls the PASS/FAIL mailbox. If a test's mailbox never
+restart and polls tohost. If a test's tohost never
 responds within its timeout, it falls back to a full recompile and
 reprogram. The clock frequency sweep is in sweep.py.
 """
@@ -11,7 +11,7 @@ import time
 from typing import Any
 
 from riscv_tools import (
-    mailbox,
+    htif,
     mem_validator,
     ram_dump,
     ram_target,
@@ -30,7 +30,7 @@ def run_one(
 ) -> bool:
     """Run a single test end to end.
 
-    Reloads the ROM over JTAG and polls the mailbox, escalating through
+    Reloads the ROM over JTAG and polls tohost, escalating through
     the recovery tiers of run_with_recovery on timeout, then compares
     RAM with the golden for a "memory" test. Raises
     NeedsHumanInterventionError (RAM dump included) as soon as a JTAG
@@ -58,7 +58,7 @@ def run_one(
     Returns
     -------
     bool
-        True if the test passed (mailbox PASS, and the RAM-vs-golden
+        True if the test passed (tohost PASS, and the RAM-vs-golden
         compare if applicable), False otherwise.
     """
     name = entry["name"]
@@ -86,14 +86,14 @@ def run_one(
 
 def _report_verdict(name: str, value: int | None) -> bool:
     """Print the verdict of a test and return whether it passed."""
-    if value == mailbox.PASS:
+    if value == htif.PASS:
         print(f"{name}: PASS")
         return True
-    if value == mailbox.FAIL:
-        print(f"{name}: FAIL")
+    if value is not None and htif.is_done(value):
+        print(f"{name}: FAIL (code {htif.fail_code(value)})")
         return False
     print(
-        f"{name}: TIMEOUT/UNKNOWN (mailbox={value}); program may not have "
+        f"{name}: TIMEOUT/UNKNOWN (tohost={value}); program may not have "
         "finished"
     )
     return False

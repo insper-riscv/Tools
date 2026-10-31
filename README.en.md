@@ -25,7 +25,7 @@ It is designed to run on a workstation with all the tools installed, or inside t
 | `ram_target`         | Where the RAM lives (FPGA instance or SDRAM debug port)      | [docs/modules/ram_target.md](docs/en/modules/ram_target.md) |
 | `sdram_debug`        | Read, write and fill the SDRAM through its JTAG debug port   | [docs/modules/sdram_debug.md](docs/en/modules/sdram_debug.md) |
 | `ram_dump`           | JTAG-dump the whole RAM to a `.mif`                          | [docs/modules/ram_dump.md](docs/en/modules/ram_dump.md) |
-| `mailbox`            | PASS/FAIL mailbox read + restart "go flag" pulse             | [docs/modules/mailbox.md](docs/en/modules/mailbox.md) |
+| `htif`               | `tohost` read + `fromhost` restart write                     | [docs/modules/htif.md](docs/en/modules/htif.md) |
 | `quartus_program`    | Full recompile + `quartus_pgm` (the slow "base" path)        | [docs/modules/quartus_program.md](docs/en/modules/quartus_program.md) |
 | `mem_validator`      | Compare a RAM dump against a golden JSON                     | [docs/modules/mem_validator.md](docs/en/modules/mem_validator.md) |
 | `golden_generator`   | Generate a golden JSON dynamically by running an ELF under Spike | [docs/modules/golden_generator.md](docs/en/modules/golden_generator.md) |
@@ -70,7 +70,7 @@ uv run riscv-tools --config /path/to/project/config.yaml sim --only test-a,test-
 ```
 
 See `riscv-tools --help` for the full subcommand list (`write-rom`,
-`zero-ram`, `dump-ram`, `program`, `mailbox read|pulse`, `generate-header`,
+`zero-ram`, `dump-ram`, `program`, `htif read|restart`, `generate-header`,
 `generate-golden`, `spike-run`, `run`, `sim`, `vhdl-sort`, `freq-sweep`).
 
 ```bash

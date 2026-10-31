@@ -32,7 +32,7 @@ RISC-V, o GHDL e o extra `sim` (cocotb + cocotb-tools; veja
 [configuration.md](configuration.md#sim-exige-o-extra-sim-uv-sync---extra-sim)
 para as chaves de config `sim:` de que o `sim_runner` precisa). O
 `sim_runner`/`riscv-tools sim` dirige o cocotb/GHDL contra o `.hex` de cada
-teste, consultando a mesma convenção de mailbox PASS/FAIL do hardware real: o
+teste, consultando a mesma convenção de `tohost` do hardware real: o
 seu projeto ainda fornece o próprio `sim.test_module` (o teste cocotb que
 conhece os nomes reais dos sinais VHDL do DUT), e o `sim_runner` só o roda por
 teste e coleta os resultados.

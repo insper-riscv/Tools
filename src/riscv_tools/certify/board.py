@@ -7,8 +7,8 @@ the boot ROM, then lets the core go:
 1. Once, the FLASH gets a three-instruction stub (`fence.i`,
    `lui t0, base`, `jr t0`) that sends the core to the ELF.
 2. For each ELF, the host zeroes the SDRAM region, writes the image,
-   restarts the core with the go flag and reads the HTIF `tohost` word
-   until it is odd (1 is a PASS) or the time runs out.
+   restarts the core by writing fromhost and reads the HTIF `tohost`
+   word until it is odd (1 is a PASS) or the time runs out.
 3. With `act.board_display` set, the display shows `AC` and the ELF
    number (`AC0001`), and the first red LED stays lit after a failure.
 
@@ -23,7 +23,7 @@ from typing import Any, TypedDict, Unpack
 
 from riscv_tools import (
     display,
-    mailbox,
+    htif,
     sdram_debug,
 )
 from riscv_tools.certify import core as certify_core
@@ -64,7 +64,7 @@ def run_elf(
     link : JtagLink
         Which JTAG cable/chip to use.
     cfg : dict of {str: Any}
-        The merged project config: memory.ram_base/go_flag_addr and the
+        The merged project config: memory.ram_base/fromhost_addr and the
         RAM backend.
     elf : Path
         The ACT4 ELF.
@@ -77,14 +77,14 @@ def run_elf(
     -------
     tuple of (bool or None, int, float)
         True for a PASS, False for a FAIL, None for a timeout; the
-        number of words loaded; the seconds from the go flag to the end.
+        number of words loaded; the seconds from the restart to the end.
     """
     tohost_word = (elf_symbol(elf, "tohost") - region.base) // 4
     words = image_words(elf, region.base)
     sdram_debug.fill(link, 0, region.words, 0)
     sdram_debug.load_words(link, 0, words)
 
-    mailbox.pulse_configured(link, cfg)
+    htif.pulse_fromhost_configured(link, cfg)
     started = time.monotonic()
     while time.monotonic() - started < region.timeout_s:
         (tohost,) = sdram_debug.read_words(link, tohost_word, 1)

@@ -9,7 +9,7 @@ para usar isto).
 ## Como é montada
 
 Cada módulo tem um pequeno conjunto de padrões no próprio `__config__.py`
-(por exemplo `riscv_tools/mailbox/__config__.py`). O `riscv-tools` mescla todos
+(por exemplo `riscv_tools/htif/__config__.py`). O `riscv-tools` mescla todos
 eles e depois aplica o `config.yaml` do seu projeto por cima: o seu
 config.yaml sempre vence. Uma chave sem um padrão razoável entre projetos
 (um endereço de memória, um caminho dentro do seu repositório) é `None` nos
@@ -60,7 +60,7 @@ Todas são **obrigatórias**, exceto `crt0`, `linker_script` e `sources`.
 | `c_dir` | Diretório com uma pasta `<name>/src.c` por teste em C (veja [creating-a-c-test.md](creating-a-c-test.md)) |
 | `asm_dir` | Diretório com uma pasta `<name>/src.S` por teste em assembly (veja [creating-an-asm-test.md](creating-an-asm-test.md)) |
 
-Não há divisão `tests_real_dir`/`tests_sim_dir`/`golden_dir`: todo teste em `c_dir`/`asm_dir` é compilado tanto para `compile --emit mif` (real) quanto para `--emit hex` (sim), qualquer que seja o tipo: os `results` de um teste `RV32_TEST_KIND: memory` são comparados com o golden.json da mesma forma nos dois (veja [creating-a-c-test.md](creating-a-c-test.md#testes-unit-versus-memory): `memory` é `unit`, expandido: PASS no mailbox primeiro, depois a comparação com o golden). O mapa `{endereço de byte: valor de byte}` esperado de um teste `memory` fica em `<name>/golden.json`, ao lado do `src.c`/`src.S`, e não num diretório de goldens separado.
+Não há divisão `tests_real_dir`/`tests_sim_dir`/`golden_dir`: todo teste em `c_dir`/`asm_dir` é compilado tanto para `compile --emit mif` (real) quanto para `--emit hex` (sim), qualquer que seja o tipo: os `results` de um teste `RV32_TEST_KIND: memory` são comparados com o golden.json da mesma forma nos dois (veja [creating-a-c-test.md](creating-a-c-test.md#testes-unit-versus-memory): `memory` é `unit`, expandido: PASS no `tohost` primeiro, depois a comparação com o golden). O mapa `{endereço de byte: valor de byte}` esperado de um teste `memory` fica em `<name>/golden.json`, ao lado do `src.c`/`src.S`, e não num diretório de goldens separado.
 
 ### `quartus:`
 
@@ -73,9 +73,9 @@ Não há divisão `tests_real_dir`/`tests_sim_dir`/`golden_dir`: todo teste em `
 | `rom_mif_target` | **obrigatória** | `quartus_program`: caminho (relativo a `project_dir`) de onde a megafunção da ROM lê o `init_file` na compilação |
 | `stale_cache_dirs` | `[db, incremental_db, output_files, simulation]` | `quartus_program`: diretórios (relativos a `project_dir`) apagados antes de toda compilação, já que o `init_file` de uma ROM não é um fonte rastreado do projeto |
 | `rom_mem_instances` | `[0]` | `rom_writer`: índice(s) da instância do In-System Memory Content Editor da ROM (uma lista; um projeto com mais de uma cópia física da ROM, por exemplo uma por porta de leitura quando uma memória dual-port verdadeira não está disponível, lista todas, mantidas em sincronia a cada escrita) |
-| `ram_mem_instance` | `1` | `ram_zero`, `ram_dump`, `mailbox`: o mesmo, para a RAM |
-| `poll_interval_seconds` | `0.5` | `mailbox` / `orchestrator`: de quanto em quanto tempo consultar o mailbox enquanto espera um teste |
-| `program_wait_seconds` | `15` | `orchestrator`: quanto esperar após uma reconfiguração completa (só no caminho de fallback) antes de ler o mailbox |
+| `ram_mem_instance` | `1` | `ram_zero`, `ram_dump`, `htif`: o mesmo, para a RAM |
+| `poll_interval_seconds` | `0.5` | `htif` / `orchestrator`: de quanto em quanto tempo consultar o `tohost` enquanto espera um teste |
+| `program_wait_seconds` | `15` | `orchestrator`: quanto esperar após uma reconfiguração completa (só no caminho de fallback) antes de ler o `tohost` |
 | `default_timeout_s` | `15` | `compiler` / `orchestrator`: timeout padrão por teste se o teste não tem o cabeçalho `RV32_TIMEOUT_S` |
 
 ### `memory:` (todas **obrigatórias**, sem padrão genérico; dependem da profundidade da sua RAM/ROM)
@@ -83,8 +83,8 @@ Não há divisão `tests_real_dir`/`tests_sim_dir`/`golden_dir`: todo teste em `
 | Chave | Significado |
 |---|---|
 | `ram_base` | Endereço de byte base da RAM |
-| `mailbox_addr` | Endereço de byte da palavra do mailbox PASS/FAIL |
-| `go_flag_addr` | Endereço de byte da palavra da flag "go" de reinício |
+| `tohost_addr` | Endereço de byte do `tohost` do HTIF (8 bytes) |
+| `fromhost_addr` | Endereço de byte do `fromhost` (8 bytes), em que o host escreve para reiniciar o núcleo |
 | `ram_words` | Profundidade da RAM em palavras: usada para zerar a RAM inteira e validar o `.mif` de um programa |
 | `rom_base` | Endereço de byte em que a imagem do programa é linkada (0 para uma ROM que começa no endereço 0). O `.mif`/`.hex` de um teste linkado acima de 0 recebe `rom_base / 4` palavras zero à esquerda, porque a memória é endereçada de forma crua, sem subtrair uma base |
 | `rom_words` | Profundidade da ROM em palavras: usada para validar/formatar o `.mif` de um programa |
@@ -105,7 +105,7 @@ Não há divisão `tests_real_dir`/`tests_sim_dir`/`golden_dir`: todo teste em `
 |---|---|---|
 | `toplevel` | **obrigatória** | `sim_runner`: nome da entidade VHDL de topo que o GHDL elabora e à qual o cocotb se conecta |
 | `vhdl_sources` | **obrigatória** | `sim_runner`: lista de caminhos de fontes VHDL (relativos à raiz do seu projeto), em ordem de dependência |
-| `test_module` | **obrigatória** | `sim_runner`: o módulo de teste cocotb do seu projeto (por exemplo `sim.test_c_program`), que conhece a hierarquia real de sinais do DUT e consulta o mailbox PASS/FAIL, a mesma convenção que o `mailbox` usa no hardware real, só que lendo direto os sinais simulados em vez de JTAG |
+| `test_module` | **obrigatória** | `sim_runner`: o módulo de teste cocotb do seu projeto (por exemplo `sim.test_c_program`), que conhece a hierarquia real de sinais do DUT e consulta o `tohost`, a mesma convenção que o `htif` usa no hardware real, só que lendo direto os sinais simulados em vez de JTAG |
 | `ghdl_std` | `08` | `sim_runner`: valor do `--std=` do GHDL. VHDL-2008 (IEEE Std 1076-2008) por padrão, acompanhando o teto do próprio Quartus: o Quartus (mesmo o mais recente, 25.1std) só aceita `VHDL93`/`VHDL_2008` em `VHDL_INPUT_VERSION`, e `VHDL_2019` é rejeitado de cara, então isso mantém simulação e síntese no mesmo dialeto |
 | `parameters` | `{}` | `sim_runner`: generics VHDL a definir no `toplevel` na etapa de execução do GHDL, por exemplo `{"ROM_FILE": "{hex_path}"}` para um projeto cujo modelo de ROM só de simulação carrega a imagem do programa por um generic VHDL, em vez de ler a variável de ambiente `ROM_HEX` do próprio `sim_runner`. `"{hex_path}"` é substituído pelo caminho do `.hex` compilado de cada teste; qualquer outro valor é repassado como está (por exemplo um generic de profundidade de memória fixa). Vazio por padrão: a maioria dos toplevels não precisa sobrescrever generics |
 | `hex_format` | `words` | `compile --emit hex`, `sim`, `certify`: layout do `.hex` que uma simulação carrega. `words` é uma palavra de 32 bits por linha, com palavras zero à esquerda para um programa linkado acima do endereço 0. `verilog` é o que o `objcopy -O verilog` escreve (veja [compiler.md](modules/compiler.md#formato-do-arquivo-hex)), então o modelo de memória que o carrega precisa tratar linhas `@<endereço de palavra>` e quatro palavras por linha |
@@ -171,8 +171,8 @@ memory:
   ram_base: 0x00000000
   ram_words: 4096
   rom_words: 8192
-  mailbox_addr: 0x00003FFC
-  go_flag_addr: 0x00003FF8
+  tohost_addr: 0x00003FE8
+  fromhost_addr: 0x00003FF0
 
 quartus:
   jtag_device: "@1: 5CE(BA4|FA4) (0x02B050DD)"

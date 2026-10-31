@@ -26,8 +26,7 @@ dele.
 
 O `crt0.S`/`link.ld` do seu projeto definem `tohost`/`fromhost` (HTIF:
 Host-Target InterFace, a convenção padrão que o Spike/`riscv-tests` usam) e
-traduzem o valor PASS/FAIL do mailbox em uma escrita em `tohost` quando o teste
-termina (veja a seção de HTIF na doc do seu projeto, ou
+terminam o teste com uma escrita em `tohost` (veja a seção de HTIF na doc do seu projeto, ou
 [creating-an-asm-test.md](creating-an-asm-test.md) se você escreve o teste em
 assembly).
 

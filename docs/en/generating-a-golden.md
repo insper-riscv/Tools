@@ -26,8 +26,8 @@ reads them back from its memory dump.
 
 Your project's `crt0.S`/`link.ld` define `tohost`/`fromhost` (HTIF:
 Host-Target InterFace, the standard convention Spike/`riscv-tests`
-use) and translate the mailbox's PASS/FAIL value into a write to
-`tohost` once a test finishes (see the HTIF section of your project's
+use) and end a test with a write to
+`tohost` (see the HTIF section of your project's
 own docs, or [creating-an-asm-test.md](creating-an-asm-test.md) if
 you're writing the test in assembly).
 

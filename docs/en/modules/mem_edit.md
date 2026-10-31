@@ -1,6 +1,6 @@
 # `mem_edit`
 
-Generic In-System Memory Content Editor primitives, shared by [`rom_writer`](rom_writer.md), [`ram_zero`](ram_zero.md), [`ram_dump`](ram_dump.md), and [`mailbox`](mailbox.md). Pure mechanism, no policy: each of those modules decides which instance, address, or content to use; this module only knows how to read/write a memory instance over JTAG.
+Generic In-System Memory Content Editor primitives, shared by [`rom_writer`](rom_writer.md), [`ram_zero`](ram_zero.md), [`ram_dump`](ram_dump.md), and [`htif`](htif.md). Pure mechanism, no policy: each of those modules decides which instance, address, or content to use; this module only knows how to read/write a memory instance over JTAG.
 
 ## Functions
 
@@ -26,7 +26,7 @@ No automated test in this repository. A self-hosted runner set up as in Infra's 
 
 ## Usage
 
-Not its own CLI subcommand: it's the mechanism [`rom_writer`](rom_writer.md), [`ram_zero`](ram_zero.md), [`ram_dump`](ram_dump.md), and [`mailbox`](mailbox.md) each call to actually talk to a memory instance over JTAG.
+Not its own CLI subcommand: it's the mechanism [`rom_writer`](rom_writer.md), [`ram_zero`](ram_zero.md), [`ram_dump`](ram_dump.md), and [`htif`](htif.md) each call to actually talk to a memory instance over JTAG.
 
 ---
 

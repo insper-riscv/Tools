@@ -7,7 +7,7 @@ from pathlib import Path
 from riscv_tools import (
     bin_to_image,
     boot_rom,
-    mailbox,
+    htif,
     quartus_program,
     ram_dump,
     ram_target,
@@ -212,29 +212,29 @@ def cmd_program(args: argparse.Namespace) -> None:
     )
 
 
-def cmd_mailbox(args: argparse.Namespace) -> None:
-    """Implement `riscv-tools mailbox`.
+def cmd_htif(args: argparse.Namespace) -> None:
+    """Implement `riscv-tools htif`.
 
-    Reads the PASS/FAIL mailbox, or pulses the restart go-flag, on the
+    Reads the tohost word, or writes the fromhost restart word, on the
     already-programmed board.
 
     Parameters
     ----------
     args : argparse.Namespace
         Parsed CLI arguments: uses args.config, args.action ("read"
-        or "pulse").
+        or "restart").
 
     Returns
     -------
     None
-        For args.action == "read", prints "MAILBOX=<value>" to
+        For args.action == "read", prints "TOHOST=<value>" to
         stdout.
     """
     cfg = load_config(args.config)
     link = jtag_link(cfg)
 
     if args.action == "read":
-        print(f"MAILBOX={mailbox.read_configured(link, cfg)}")
+        print(f"TOHOST={htif.read_tohost_configured(link, cfg)}")
 
     else:
-        mailbox.pulse_configured(link, cfg)
+        htif.pulse_fromhost_configured(link, cfg)

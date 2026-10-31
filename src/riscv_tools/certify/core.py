@@ -8,7 +8,7 @@ Two stages:
    simulation loads (code into the instruction memory and the boot ROM,
    data into the RAM) and runs it on the same cocotb/GHDL toplevel as
    the regular suite. ACT4 tests signal completion through HTIF tohost,
-   not through the PASS/FAIL mailbox.
+   not through the PASS/FAIL result of the regular suite.
 
 No hardware is involved, and there is no golden: each test checks
 itself.

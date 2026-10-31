@@ -37,7 +37,7 @@ def _make_project(root: Path) -> None:
         ".section .text\n.globl main\nmain:\n    jal x0, main\n"
     )
 
-    write_rv32_header(root, 0x00003FFC)
+    write_rv32_header(root, 0x00003FF0)
     (root / "crt0.S").write_text(
         ".section .text\n"
         ".globl _start\n"

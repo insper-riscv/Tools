@@ -12,7 +12,7 @@ def write_rom(
 ) -> None:
     """Load a new ROM image into an already-programmed board over JTAG.
 
-    Pairs with mailbox.pulse_go_flag to make the core jump back to
+    Pairs with htif.pulse_fromhost to make the core jump back to
     _start and run it (see crt0.S in the consuming project).
 
     Parameters

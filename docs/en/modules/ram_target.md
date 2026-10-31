@@ -1,6 +1,6 @@
 # `ram_target`
 
-Where a project's RAM lives, and how the host reaches it over JTAG. `mailbox`, `ram_dump` and `ram_zero` take a RAM target and call this module, so they work with either kind of RAM.
+Where a project's RAM lives, and how the host reaches it over JTAG. `htif`, `ram_dump` and `ram_zero` take a RAM target and call this module, so they work with either kind of RAM.
 
 | Target | The RAM is | Reached through |
 | :--- | :--- | :--- |

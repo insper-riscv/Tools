@@ -1,6 +1,6 @@
-"""Define defaults for the PASS/FAIL mailbox and restart protocol.
+"""Define defaults for the HTIF tohost/fromhost protocol.
 
-See the consuming project's crt0.S/rv32_test.h. Overridden under
+See the consuming project's crt0.S and rv32_test.h. Overridden under
 `memory:` / `quartus:` in a project's config.yaml.
 """
 
@@ -15,7 +15,8 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         # Memory addresses are project-specific (depend on RAM depth),
         # so there is no sane default and every project must set these.
         "ram_base": None,
-        "mailbox_addr": None,
-        "go_flag_addr": None,
+        # HTIF: tohost (64 bits) and fromhost (the 8 bytes above it).
+        "tohost_addr": None,
+        "fromhost_addr": None,
     },
 }

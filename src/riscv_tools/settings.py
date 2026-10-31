@@ -18,8 +18,8 @@ from riscv_tools.freq_sweep.__config__ import DEFAULTS as _FREQ_SWEEP_DEFAULTS
 from riscv_tools.golden_generator.__config__ import (
     DEFAULTS as _GOLDEN_GENERATOR_DEFAULTS,
 )
+from riscv_tools.htif.__config__ import DEFAULTS as _HTIF_DEFAULTS
 from riscv_tools.jtag.__config__ import DEFAULTS as _JTAG_DEFAULTS
-from riscv_tools.mailbox.__config__ import DEFAULTS as _MAILBOX_DEFAULTS
 from riscv_tools.orchestrator.__config__ import (
     DEFAULTS as _ORCHESTRATOR_DEFAULTS,
 )
@@ -39,7 +39,7 @@ _MODULE_DEFAULTS = [
     _ROM_WRITER_DEFAULTS,
     _RAM_ZERO_DEFAULTS,
     _RAM_DUMP_DEFAULTS,
-    _MAILBOX_DEFAULTS,
+    _HTIF_DEFAULTS,
     _GOLDEN_GENERATOR_DEFAULTS,
     _QUARTUS_PROGRAM_DEFAULTS,
     _ORCHESTRATOR_DEFAULTS,

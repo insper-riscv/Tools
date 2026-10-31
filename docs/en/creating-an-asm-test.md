@@ -45,18 +45,22 @@ main:
 
 `rv32_test.h`'s `RV32_PASS()`/`RV32_FAIL()` are `static inline` C
 functions, so a separate `.S` file can't `call` them: there's no
-linkable symbol. Write the same two steps by hand instead, using the
-consuming project's own `memory.mailbox_addr` / `memory.go_flag_addr`
-(see its `config.yaml`). Example using the actual values
-[insper-riscv/Testes](https://github.com/insper-riscv/Testes) configures
-(`mailbox_addr=0x3FFC`, `go_flag_addr=0x3FF8`, right past the end of its
-usable RAM); substitute your own project's addresses:
+linkable symbol. Use the `RVMODEL_HALT_PASS` and `RVMODEL_HALT_FAIL(code)`
+macros of the project's `rv32_platform.h` (the names of the riscv-arch-test
+model), which write `tohost` (`1` for PASS, `(code << 1) | 1` for FAIL) and
+jump to `rv32_wait_restart`. They use `t0` and `t1`.
 
 ```asm
-    // mailbox_addr = 1 (PASS) or 2 (FAIL)
-    lui  x15, 0x4
-    addi x14, x0, 1            // or 2 for FAIL
-    sw   x14, -4(x15)          // mailbox_addr
+    RVMODEL_HALT_PASS          // or RVMODEL_HALT_FAIL(3)
+```
+
+Without the macros, the same steps by hand are:
+
+```asm
+    li   t0, RV32_TOHOST       // the project's memory.tohost_addr
+    li   t1, 1                 // (code << 1) | 1 for FAIL
+    sw   t1, 0(t0)
+    sw   x0, 4(t0)
 
     // Jump back into crt0.S's restart loop: NOT an infinite spin.
     // This is what lets the orchestrator JTAG-reload the next test

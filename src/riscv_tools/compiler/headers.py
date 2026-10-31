@@ -1,9 +1,9 @@
 """Per-test header conventions, read from comments in a .c/.S source.
 
     // RV32_EXT: M,A           extensions added to the rv32i base
-    // RV32_TEST_KIND: unit    (default) PASS/FAIL mailbox only
+    // RV32_TEST_KIND: unit    (default) PASS/FAIL by tohost only
     // RV32_TEST_KIND: memory  also compares RAM with a golden JSON
-    // RV32_TIMEOUT_S: 5       seconds to wait for the mailbox
+    // RV32_TIMEOUT_S: 5       seconds to wait for tohost
 
 The extensions may come in any order; they are normalized with
 isa.canonical_order. Without a timeout header the project's default

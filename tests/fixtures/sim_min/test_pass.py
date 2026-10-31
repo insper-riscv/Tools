@@ -26,7 +26,7 @@ async def test_program(dut: Any) -> None:
 
     for _ in range(20):
         await RisingEdge(dut.clk)
-        if int(dut.mailbox.value) == 1:
+        if int(dut.tohost.value) == 1:
             return
 
-    assert False, "mailbox never reached 1"
+    assert False, "tohost never reached 1"

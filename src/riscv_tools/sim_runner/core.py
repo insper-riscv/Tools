@@ -1,7 +1,7 @@
 """Drive the cocotb/GHDL simulation of a project's tests.
 
 The project's own cocotb test module knows the VHDL signal hierarchy
-and polls the PASS/FAIL mailbox from simulated signals. This module
+and polls tohost from simulated signals. This module
 targets `cocotb_tools.runner` (cocotb 2.0 or later).
 """
 

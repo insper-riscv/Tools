@@ -43,7 +43,7 @@ def add_build_commands(sub: Any) -> None:
         cmd_generate_header,
         "generate-header",
         description=(
-            "Generate rv32_test.h from config.yaml's memory.mailbox_addr"
+            "Generate rv32_test.h from config.yaml's memory.tohost_addr"
         ),
     )
     p.add_argument(

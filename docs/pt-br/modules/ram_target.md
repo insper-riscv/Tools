@@ -1,6 +1,6 @@
 # `ram_target`
 
-Onde fica a RAM de um projeto e como o host a alcança por JTAG. `mailbox`, `ram_dump` e `ram_zero` recebem um alvo de RAM e chamam este módulo, então funcionam com os dois tipos de RAM.
+Onde fica a RAM de um projeto e como o host a alcança por JTAG. `htif`, `ram_dump` e `ram_zero` recebem um alvo de RAM e chamam este módulo, então funcionam com os dois tipos de RAM.
 
 | Alvo | A RAM é | Alcançada por |
 | :--- | :--- | :--- |

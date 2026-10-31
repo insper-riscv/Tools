@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from riscv_tools import (
-    mailbox,
+    htif,
     quartus_program,
 )
 from riscv_tools.jtag import JtagLink
@@ -26,9 +26,9 @@ def run_with_recovery(
 ) -> int | None:
     """Run entry via JTAG, escalating through recovery tiers on timeout.
 
-    Each tier is tried only if the previous one got no mailbox result:
+    Each tier is tried only if the previous one got no tohost result:
 
-    1. A soft restart: reload the ROM and pulse the go flag again.
+    1. A soft restart: reload the ROM and write fromhost again.
     2. A plain reprogram from the existing .sof, about 10 s instead of
        the minutes a full compile takes; the design never changes
        between tests, so recompiling would give the same bitstream.
@@ -63,9 +63,9 @@ def run_with_recovery(
     Returns
     -------
     int or None
-        The mailbox value (mailbox.PASS or mailbox.FAIL), or None if
-        every tier failed to get one without ever hitting a
-        recognized hardware-failure signature.
+        The tohost low word (1 for a pass, (code << 1) | 1 for a
+        failure), or None if every tier failed to get one without
+        ever hitting a recognized hardware-failure signature.
 
     Raises
     ------
@@ -87,8 +87,8 @@ def run_with_recovery(
     # minutes, which can make things worse before the expensive path
     # is even tried.
     print(
-        f"{name}: no mailbox result after {entry['timeout_s']}s; "
-        "retrying a soft restart (rewrite ROM + pulse go-flag) once "
+        f"{name}: no tohost result after {entry['timeout_s']}s; "
+        "retrying a soft restart (rewrite ROM + write fromhost) once "
         "before trying a plain reprogram"
     )
     value = _try_jtag(cfg, link, entry, root)
@@ -97,7 +97,7 @@ def run_with_recovery(
 
     # Tier 2: plain reprogram, no recompile.
     print(
-        f"{name}: still no mailbox result after a soft restart; "
+        f"{name}: still no tohost result after a soft restart; "
         "trying a plain reprogram (existing .sof, no recompile)"
     )
     value, sof_missing = _try_reprogram(cfg, link, entry, root, project_dir)
@@ -106,7 +106,7 @@ def run_with_recovery(
 
     if not sof_missing:
         print(
-            f"{name}: still no mailbox result after a plain reprogram, "
+            f"{name}: still no tohost result after a plain reprogram, "
             "with no recognized hardware-failure signature in any "
             "output so far, reporting this as a timeout rather than "
             "assuming the board is wedged (a full recompile would just "
@@ -116,7 +116,7 @@ def run_with_recovery(
 
     # Tier 3: full recompile + reprogram, only when there is no .sof.
     print(
-        f"{name}: still no mailbox result, and no .sof exists to "
+        f"{name}: still no tohost result, and no .sof exists to "
         "reprogram from, falling back to a full recompile+reprogram, "
         "which this specific case actually needs"
     )
@@ -131,7 +131,7 @@ def _try_jtag(
     Returns
     -------
     int or None
-        The mailbox value, or None if the test never answered.
+        The tohost low word, or None if the test never answered.
 
     Raises
     ------
@@ -160,7 +160,7 @@ def _try_reprogram(
     Returns
     -------
     tuple of (int or None, bool)
-        The mailbox value, and whether the .sof was missing.
+        The tohost low word, and whether the .sof was missing.
 
     Raises
     ------
@@ -193,7 +193,7 @@ def _try_recompile(
     Returns
     -------
     int or None
-        The mailbox value, or None if the recompile failed.
+        The tohost low word, or None if the recompile failed.
 
     Raises
     ------
@@ -205,7 +205,7 @@ def _try_recompile(
         wait_s = cfg["quartus"]["program_wait_seconds"]
         print(f"Waiting {wait_s}s for the program to run ...")
         time.sleep(wait_s)
-        return mailbox.read_configured(link, cfg)
+        return htif.read_tohost_configured(link, cfg)
     except subprocess.CalledProcessError as exc:
         raise_if_hardware_failure(exc)
         print(f"{entry['name']}: full recompile+reprogram failed too ({exc})")

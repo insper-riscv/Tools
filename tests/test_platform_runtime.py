@@ -110,11 +110,12 @@ def _make_project(root: Path) -> None:
         "main:\n"
         "    lui  x15, 0x30\n"
         "    addi x14, x0, 1\n"
-        "    sw   x14, -4(x15)\n"
+        "    sw   x14, -16(x15)\n"
+        "    sw   x0, -12(x15)\n"
         "    j    rv32_wait_restart\n"
     )
 
-    write_rv32_header(root, 0x0002FFFC)
+    write_rv32_header(root, 0x0002FFF0)
 
     write_config(
         root,

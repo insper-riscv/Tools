@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 
 from riscv_tools import (
-    mailbox,
+    htif,
     mem_validator,
     ram_dump,
     ram_target,
@@ -89,24 +89,24 @@ def test_a_missing_reply_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
         sdram_debug.read_words(LINK, 0)
 
 
-def test_the_mailbox_and_the_go_flag_use_the_target(fake: FakeTcl) -> None:
+def test_tohost_and_fromhost_use_the_target(fake: FakeTcl) -> None:
     # byte address 0x40 above a RAM base of 0: word offset 0x10
-    """The mailbox and the go flag use the target."""
-    assert (
-        mailbox.read_mailbox(LINK, SdramDebugRam(), 0x40000000, 0x40000040)
-        == 7
-    )
-    mailbox.pulse_go_flag(LINK, SdramDebugRam(), 0x40000000, 0x40000080)
+    """Tohost and fromhost use the target."""
+    assert htif.read_tohost(LINK, SdramDebugRam(), 0x40000000, 0x40000040) == 7
+    htif.pulse_fromhost(LINK, SdramDebugRam(), 0x40000000, 0x40000080)
     assert fake.calls == [
         ("sdram_dbg.tcl", "read", 0x10, 1),
         ("sdram_dbg.tcl", "write", 0x20, 1, 0xF),
     ]
 
 
-def test_the_mailbox_is_cleared_before_a_test(fake: FakeTcl) -> None:
-    """The mailbox is cleared before a test."""
-    mailbox.clear_mailbox(LINK, SdramDebugRam(), 0x40000000, 0x40000040)
-    assert fake.calls == [("sdram_dbg.tcl", "write", 0x10, 0, 0xF)]
+def test_tohost_is_cleared_before_a_test(fake: FakeTcl) -> None:
+    """Both words of tohost are cleared before a test."""
+    htif.clear_tohost(LINK, SdramDebugRam(), 0x40000000, 0x40000040)
+    assert fake.calls == [
+        ("sdram_dbg.tcl", "write", 0x10, 0, 0xF),
+        ("sdram_dbg.tcl", "write", 0x11, 0, 0xF),
+    ]
 
 
 def test_zero_ram_fills_the_sdram(fake: FakeTcl) -> None:
