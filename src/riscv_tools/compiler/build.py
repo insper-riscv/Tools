@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .headers import parse_header
+from riscv_tools.compiler.headers import parse_header
 
 _LIBC_FLAGS = {
     # No libc: a project needing malloc() and friends supplies its own

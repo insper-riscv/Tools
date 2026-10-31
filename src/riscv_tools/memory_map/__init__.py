@@ -1,6 +1,6 @@
 """Check that every copy of a platform's memory map agrees."""
 
-from .core import (
+from riscv_tools.memory_map.core import (
     Mismatch,
     check_memory_map,
     evaluate,

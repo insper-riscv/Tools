@@ -1,6 +1,6 @@
 """PASS/FAIL mailbox read, restart pulse and rv32_test.h output."""
 
-from .core import (
+from riscv_tools.mailbox.core import (
     FAIL,
     PASS,
     clear_mailbox,
@@ -8,7 +8,7 @@ from .core import (
     read_mailbox,
     word_offset,
 )
-from .header import generate_header, write_header
+from riscv_tools.mailbox.header import generate_header, write_header
 
 __all__ = [
     "FAIL",

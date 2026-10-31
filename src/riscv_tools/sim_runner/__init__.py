@@ -1,6 +1,6 @@
 """Drives cocotb/GHDL simulation, the sim side of `orchestrator`."""
 
-from .core import (
+from riscv_tools.sim_runner.core import (
     build_libraries,
     expand_env,
     extend_python_path,

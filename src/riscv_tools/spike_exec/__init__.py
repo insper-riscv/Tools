@@ -1,6 +1,6 @@
 """Builds and launches Spike runs: preflight, ELF, command line."""
 
-from .core import (
+from riscv_tools.spike_exec.core import (
     SpikeTarget,
     prepared_elf,
     require_spike,

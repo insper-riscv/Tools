@@ -1,6 +1,6 @@
 """Compose the other modules into a real-hardware test-suite run."""
 
-from .runner import (
+from riscv_tools.orchestrator.runner import (
     NeedsHumanInterventionError,
     full_reconfigure_entry,
     run_freq_sweep_at,
