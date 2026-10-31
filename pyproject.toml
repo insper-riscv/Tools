@@ -36,7 +36,7 @@ packages = ["src/riscv_tools"]
 package = true
 
 [dependency-groups]
-dev = ["pytest>=9.0", "ruff>=0.8", "pyright>=1.1", "deptry>=0.20"]
+dev = ["pytest>=9.0", "ruff>=0.8", "pyright[nodejs]>=1.1", "deptry>=0.20"]
 
 [tool.deptry]
 # Without this, deptry can't map the "riscv_tools" import name back to
