@@ -6,9 +6,11 @@ from typing import Any
 
 import pytest
 
-from riscv_tools import cli, orchestrator
+from riscv_tools import cli, htif, mem_validator, orchestrator, ram_dump
 from riscv_tools.cli import tools_cmd
 from riscv_tools.freq_sweep import PllParams, set_pll_freq
+from riscv_tools.jtag import JtagLink
+from riscv_tools.orchestrator import sweep
 
 THREE_PHASE_PLL = """\
 altpll_component : altpll
@@ -160,3 +162,87 @@ def test_cmd_freq_sweep_resolves_pll_file_against_the_project_root(
     cli.cmd_freq_sweep(args)
 
     assert seen["pll_file"] == str(tmp_path / "../src/pll.v")
+
+
+SWEEP_CFG: dict[str, Any] = {
+    "quartus": {"program_wait_seconds": 0},
+    "freq_sweep": {
+        "pll_file": "pll.v",
+        "phase_count": 3,
+        "freq_param_template": "output_clock_frequency{idx}",
+        "phase_param_template": "phase_shift{idx}",
+        "freq_unit": "MHz",
+        "phase_unit": "ps",
+    },
+}
+
+
+def _status_at(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tohost: int,
+    golden_matches: bool,
+) -> str:
+    """Run one sweep step on a fake board and return its status."""
+    pll = tmp_path / "pll.v"
+    pll.write_text(THREE_PHASE_PLL)
+    cfg = {
+        **SWEEP_CFG,
+        "freq_sweep": {**SWEEP_CFG["freq_sweep"], "pll_file": str(pll)},
+    }
+
+    def fake_reconfigure(*_: Any) -> None:
+        return None
+
+    def fake_tohost(*_: Any) -> int:
+        return tohost
+
+    def fake_dump(*_: Any) -> None:
+        return None
+
+    def fake_target(_cfg: dict[str, Any]) -> None:
+        return None
+
+    def fake_offsets(_path: Path) -> list[int]:
+        return []
+
+    def fake_compare(*_: Any) -> bool:
+        return golden_matches
+
+    monkeypatch.setattr(sweep, "reconfigure_with_rom", fake_reconfigure)
+    monkeypatch.setattr(htif, "read_tohost_configured", fake_tohost)
+    monkeypatch.setattr(ram_dump, "dump_ram", fake_dump)
+    monkeypatch.setattr(sweep.ram_target, "target_from_config", fake_target)
+    monkeypatch.setattr(mem_validator, "golden_word_offsets", fake_offsets)
+    monkeypatch.setattr(mem_validator, "compare", fake_compare)
+    job = sweep.SweepJob(
+        cfg=cfg,
+        link=JtagLink(hardware_name="cable", device_name="chip"),
+        mif_path=tmp_path / "a.mif",
+        golden_path=tmp_path / "g.json",
+        project_dir=tmp_path,
+        build_dir=tmp_path,
+    )
+    return sweep.run_freq_sweep_at(job, 10.0)["status"]
+
+
+@pytest.mark.parametrize(
+    ("tohost", "golden_matches", "expected"),
+    [
+        (htif.PASS, True, "pass"),
+        (htif.PASS, False, "fail"),
+        ((3 << 1) | 1, True, "fail"),
+        (0, True, "hang"),
+    ],
+)
+def test_sweep_step_needs_tohost_pass_and_matching_ram(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tohost: int,
+    golden_matches: bool,
+    expected: str,
+) -> None:
+    """Pass needs tohost PASS and a RAM that matches the golden."""
+    assert (
+        _status_at(tmp_path, monkeypatch, tohost, golden_matches) == expected
+    )

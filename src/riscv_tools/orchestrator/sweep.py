@@ -14,6 +14,7 @@ from typing import Any
 
 from riscv_tools import (
     freq_sweep,
+    htif,
     mem_validator,
     ram_dump,
     ram_target,
@@ -63,8 +64,9 @@ def run_freq_sweep_at(job: SweepJob, mhz: float) -> dict[str, Any]:
 
     Edits the project's PLL to mhz, then always does a full recompile
     and reprogram, since the frequency is baked in at synthesis time. It
-    waits quartus.program_wait_seconds, dumps RAM and compares it with
-    job.golden_path.
+    waits quartus.program_wait_seconds, reads tohost, dumps RAM and
+    compares it with job.golden_path. The frequency passes only if the
+    program signaled a pass in tohost and the RAM matches.
 
     Parameters
     ----------
@@ -80,11 +82,13 @@ def run_freq_sweep_at(job: SweepJob, mhz: float) -> dict[str, Any]:
     -------
     dict of {str: Any}
         {"freq_mhz": mhz, "status": status}, status one of "pass",
-        "fail" (RAM dump didn't match golden_path),
+        "hang" (tohost never signaled completion),
+        "fail" (tohost signaled a failure, or the RAM dump didn't match
+        golden_path),
         "program_fail" (compile or JTAG programming itself failed,
         caught rather than propagated, so one bad candidate frequency
-        doesn't abort a whole sweep), or "dump_fail" (the RAM dump
-        itself failed after programming succeeded).
+        doesn't abort a whole sweep), or "dump_fail" (the tohost read
+        or the RAM dump failed after programming succeeded).
     """
     cfg = job.cfg
     link = job.link
@@ -113,6 +117,7 @@ def run_freq_sweep_at(job: SweepJob, mhz: float) -> dict[str, Any]:
 
     dump_path = job.build_dir / f"freq_{mhz}mhz_ram.mif"
     try:
+        tohost = htif.read_tohost_configured(link, cfg)
         ram_dump.dump_ram(
             link,
             ram_target.target_from_config(cfg),
@@ -120,11 +125,17 @@ def run_freq_sweep_at(job: SweepJob, mhz: float) -> dict[str, Any]:
             mem_validator.golden_word_offsets(job.golden_path),
         )
     except subprocess.CalledProcessError:
-        print(f"{mhz} MHz: RAM dump failed")
+        print(f"{mhz} MHz: tohost read or RAM dump failed")
         return {"freq_mhz": mhz, "status": "dump_fail"}
 
-    passed = mem_validator.compare(dump_path, job.golden_path)
-    status = "pass" if passed else "fail"
+    if not htif.is_done(tohost):
+        status = "hang"
+    elif tohost == htif.PASS and mem_validator.compare(
+        dump_path, job.golden_path
+    ):
+        status = "pass"
+    else:
+        status = "fail"
     print(f"{mhz} MHz: {status.upper()}")
     return {"freq_mhz": mhz, "status": status}
 
