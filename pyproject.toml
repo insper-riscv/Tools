@@ -25,7 +25,13 @@ packages = ["src/riscv_tools"]
 package = true
 
 [dependency-groups]
-dev = ["pytest>=9.0", "ruff>=0.8", "pyright[nodejs]>=1.1", "deptry>=0.20"]
+dev = [
+    "pytest>=9.0",
+    "ruff>=0.8",
+    "pyright[nodejs]>=1.1",
+    "deptry>=0.20",
+    "pylint>=4.1.3",
+]
 
 [tool.deptry]
 known_first_party = ["riscv_tools"]
@@ -127,4 +133,17 @@ max-complexity-allowed = 10
 [tool.pyrefly]
 preset = "strict"
 project-includes = ["src", "tests"]
+search-path = ["tests"]
 python-version = "3.14"
+
+[tool.pylint.main]
+ignore = [".venv"]
+source-roots = ["src"]
+# The test modules import their helpers (support.py) as top-level modules.
+init-hook = "import sys; sys.path.append('tests')"
+
+[tool.pylint.messages_control]
+disable = [
+    "redefined-outer-name",   # pytest fixtures are injected by parameter name
+    "too-few-public-methods", # stubs and small data holders in tests
+]
