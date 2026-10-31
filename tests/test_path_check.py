@@ -1,3 +1,5 @@
+"""Tests for path_check."""
+
 import argparse
 import json
 from pathlib import Path
@@ -70,6 +72,7 @@ QSF_REF = {"name": "qsf", "file": "q/p.qsf", "pattern": r"_FILE (\S+)"}
 def test_collect_reads_a_yaml_list_relative_to_base_and_skips_env_vars(
     tmp_path: Path,
 ) -> None:
+    """Collect reads a yaml list relative to base and skips env vars."""
     _tree(tmp_path)
     paths = collect(YAML_REF, tmp_path)
     assert paths == [
@@ -79,11 +82,13 @@ def test_collect_reads_a_yaml_list_relative_to_base_and_skips_env_vars(
 
 
 def test_collect_walks_a_wildcard_over_a_mapping(tmp_path: Path) -> None:
+    """Collect walks a wildcard over a mapping."""
     _tree(tmp_path)
     assert len(collect(JSON_REF, tmp_path)) == 2
 
 
 def test_collect_defaults_base_to_the_files_directory(tmp_path: Path) -> None:
+    """Collect defaults base to the files directory."""
     _tree(tmp_path)
     paths = collect(QSF_REF, tmp_path)
     assert paths == [
@@ -93,6 +98,7 @@ def test_collect_defaults_base_to_the_files_directory(tmp_path: Path) -> None:
 
 
 def test_check_passes_when_every_path_exists(tmp_path: Path) -> None:
+    """Check passes when every path exists."""
     _tree(tmp_path)
     manifest = _manifest(
         tmp_path,
@@ -102,6 +108,7 @@ def test_check_passes_when_every_path_exists(tmp_path: Path) -> None:
 
 
 def test_check_reports_a_path_that_was_moved(tmp_path: Path) -> None:
+    """Check reports a path that was moved."""
     _tree(tmp_path)
     (tmp_path / "src" / "b.vhd").rename(tmp_path / "src" / "moved.vhd")
     manifest = _manifest(tmp_path, [YAML_REF, JSON_REF])
@@ -113,6 +120,7 @@ def test_check_reports_a_path_that_was_moved(tmp_path: Path) -> None:
 
 
 def test_check_fails_when_a_reference_yields_nothing(tmp_path: Path) -> None:
+    """Check fails when a reference yields nothing."""
     _tree(tmp_path)
     renamed = {**YAML_REF, "yaml": "sim.sources"}
     _, problems = check_paths(_manifest(tmp_path, [renamed]), tmp_path)
@@ -122,6 +130,7 @@ def test_check_fails_when_a_reference_yields_nothing(tmp_path: Path) -> None:
 def test_check_allows_an_optional_reference_to_yield_nothing(
     tmp_path: Path,
 ) -> None:
+    """Check allows an optional reference to yield nothing."""
     _tree(tmp_path)
     optional = {**YAML_REF, "yaml": "sim.sources", "optional": True}
     assert check_paths(_manifest(tmp_path, [optional]), tmp_path) == (0, [])
@@ -130,6 +139,7 @@ def test_check_allows_an_optional_reference_to_yield_nothing(
 def test_check_reports_an_unreadable_file_and_a_bad_entry(
     tmp_path: Path,
 ) -> None:
+    """Check reports an unreadable file and a bad entry."""
     _tree(tmp_path)
     missing = {"name": "gone", "file": "nope.yaml", "yaml": "x"}
     bad = {"name": "bad", "file": "Tests/tests.json"}
@@ -141,6 +151,7 @@ def test_check_reports_an_unreadable_file_and_a_bad_entry(
 def test_cmd_check_paths_exit_status(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Cmd check paths exit status."""
     _tree(tmp_path)
     _manifest(tmp_path, [YAML_REF])
     args = argparse.Namespace(root=str(tmp_path), manifest="paths.yaml")

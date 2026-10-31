@@ -15,6 +15,7 @@ from cocotb.triggers import Timer
 
 @cocotb.test()
 async def test_program(dut: Any) -> None:
+    """Check the DUT mailbox against the EXPECTED variable."""
     await Timer(1, unit="ns")
     expected = int(os.environ["EXPECTED"])
     assert int(dut.mailbox.value) == expected, (

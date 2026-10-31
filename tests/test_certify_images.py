@@ -53,6 +53,7 @@ def _elf(segments: list[tuple[int, bytes]]) -> bytes:
 
 
 def test_sdram_boot_words_jump_to_the_base():
+    """Sdram boot words jump to the base."""
     nop, lui_x1, jalr_x0 = core.sdram_boot_words(SDRAM_BASE)
     assert nop == 0x00000013
     assert lui_x1 == 0x400000B7  # lui x1, 0x40000
@@ -60,6 +61,7 @@ def test_sdram_boot_words_jump_to_the_base():
 
 
 def test_sdram_boot_words_reject_an_unaligned_base():
+    """Sdram boot words reject an unaligned base."""
     with pytest.raises(ValueError):
         core.sdram_boot_words(SDRAM_BASE + 4)
 
@@ -67,6 +69,7 @@ def test_sdram_boot_words_reject_an_unaligned_base():
 def test_write_sdram_images_joins_the_segments_from_the_base(
     tmp_path: Path,
 ) -> None:
+    """Write sdram images joins the segments from the base."""
     code = bytes(range(16))
     data = b"\xaa\xbb\xcc\xdd"
     elf = tmp_path / "t.elf"

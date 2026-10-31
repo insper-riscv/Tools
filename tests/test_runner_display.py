@@ -22,6 +22,7 @@ def test_display_shows_the_number_of_each_program(
     enabled: bool,
     expected: list[int],
 ) -> None:
+    """Display shows the number of each program."""
     writes: list[int] = []
 
     def write_display(_link: object, value: int) -> None:

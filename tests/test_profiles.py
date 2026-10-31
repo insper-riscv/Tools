@@ -1,3 +1,5 @@
+"""Tests for profiles."""
+
 from pathlib import Path
 
 import pytest
@@ -74,23 +76,27 @@ def test_core_spec_has_thirty_six_profiles(tmp_path: Path) -> None:
 
 
 def test_the_names_are_exactly_the_table_of_the_plan(tmp_path: Path) -> None:
+    """The names are exactly the table of the plan."""
     names = {p.name for p in expand(load_spec(_write(tmp_path, CORE_SPEC)))}
     assert names == set(PROFILE_NAMES)
 
 
 def test_no_profile_breaks_a_rule(tmp_path: Path) -> None:
+    """No profile breaks a rule."""
     for p in expand(load_spec(_write(tmp_path, CORE_SPEC))):
         assert not ({"M", "Zmmul"} <= set(p.extensions))
         assert not ({"Zicsr", "Zicntr"} <= set(p.extensions))
 
 
 def test_a_name_never_cites_zicsr_next_to_zicntr(tmp_path: Path) -> None:
+    """A name never cites zicsr next to zicntr."""
     for p in expand(load_spec(_write(tmp_path, CORE_SPEC))):
         if "Zicntr" in p.extensions:
             assert "zicsr" not in p.name
 
 
 def test_zicntr_turns_zicsr_on(tmp_path: Path) -> None:
+    """Zicntr turns zicsr on."""
     by_name = {
         p.name: p for p in expand(load_spec(_write(tmp_path, CORE_SPEC)))
     }
@@ -108,6 +114,7 @@ def test_zicntr_turns_zicsr_on(tmp_path: Path) -> None:
 def test_the_core_without_csrs_and_without_zicclsm_is_valid(
     tmp_path: Path,
 ) -> None:
+    """The core without csrs and without zicclsm is valid."""
     by_name = {
         p.name: p for p in expand(load_spec(_write(tmp_path, CORE_SPEC)))
     }
@@ -119,6 +126,7 @@ def test_the_core_without_csrs_and_without_zicclsm_is_valid(
 def test_the_order_of_the_specification_orders_the_profiles(
     tmp_path: Path,
 ) -> None:
+    """The order of the specification orders the profiles."""
     profiles = expand(load_spec(_write(tmp_path, CORE_SPEC)))
     assert [len(p.extensions) for p in profiles] == sorted(
         len(p.extensions) for p in profiles
@@ -128,6 +136,7 @@ def test_the_order_of_the_specification_orders_the_profiles(
 def test_an_absent_token_still_marks_a_missing_extension(
     tmp_path: Path,
 ) -> None:
+    """An absent token still marks a missing extension."""
     text = CORE_SPEC.replace(
         "{name: Zicclsm,  generic: has_zicclsm}",
         "{name: Zicclsm,  generic: has_zicclsm, absent_token: nozicclsm}",
@@ -138,12 +147,14 @@ def test_an_absent_token_still_marks_a_missing_extension(
 
 
 def test_a_rule_naming_an_unknown_extension_fails(tmp_path: Path) -> None:
+    """A rule naming an unknown extension fails."""
     text = CORE_SPEC.replace("[M, Zmmul]", "[M, Zbb]")
     with pytest.raises(ValueError, match="Zbb"):
         load_spec(_write(tmp_path, text))
 
 
 def test_a_repeated_extension_fails(tmp_path: Path) -> None:
+    """A repeated extension fails."""
     text = CORE_SPEC.replace(
         "  - {name: Zifencei, generic: has_zifencei}\n",
         "  - {name: Zicsr, generic: has_zicsr}\n",
@@ -153,6 +164,7 @@ def test_a_repeated_extension_fails(tmp_path: Path) -> None:
 
 
 def test_a_spec_without_extensions_fails(tmp_path: Path) -> None:
+    """A spec without extensions fails."""
     with pytest.raises(ValueError, match="extensions"):
         load_spec(_write(tmp_path, "base: rv32i\n"))
 
@@ -160,6 +172,7 @@ def test_a_spec_without_extensions_fails(tmp_path: Path) -> None:
 def test_cli_prints_ghdl_generics(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Cli prints ghdl generics."""
     spec = _write(tmp_path, CORE_SPEC)
     args = cli.argparse.Namespace(spec=str(spec), format="generics")
     cli.cmd_profiles(args)
@@ -178,6 +191,7 @@ def test_the_command_needs_no_config(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """The command needs no config."""
     spec = _write(tmp_path, CORE_SPEC)
     monkeypatch.setattr(
         "sys.argv", ["riscv-tools", "profiles", "--spec", str(spec)]

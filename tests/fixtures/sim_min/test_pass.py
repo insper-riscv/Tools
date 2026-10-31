@@ -15,6 +15,7 @@ from cocotb.triggers import RisingEdge
 
 @cocotb.test()
 async def test_program(dut: Any) -> None:
+    """Check the environment, then run the clocked program."""
     assert os.environ.get("ROM_HEX"), "ROM_HEX not set"
     assert os.environ.get("TEST_NAME"), "TEST_NAME not set"
 

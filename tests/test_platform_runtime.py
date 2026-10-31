@@ -215,6 +215,7 @@ def _symbols(elf: Path) -> dict[str, int]:
 
 
 def test_compile_needs_no_crt0_or_linker_script(tmp_path: Path) -> None:
+    """Compile needs no crt0 or linker script."""
     src = tmp_path / "src.c"
     src.write_text(
         "#include <string.h>\n"
@@ -249,6 +250,7 @@ def test_compile_needs_no_crt0_or_linker_script(tmp_path: Path) -> None:
 
 
 def test_cmd_compile_builds_every_kind_and_the_goldens(tmp_path: Path) -> None:
+    """Cmd compile builds every kind and the goldens."""
     _make_project(tmp_path)
 
     cmd_compile(_args(tmp_path, "mif"))
@@ -305,6 +307,7 @@ def test_cmd_spike_run_passes_programs_that_return_from_main(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Cmd spike run passes programs that return from main."""
     monkeypatch.setattr(run_log, "start", _no_log)
     _make_project(tmp_path)
     cmd_compile(_args(tmp_path, "mif"))
@@ -322,6 +325,7 @@ def test_cmd_spike_run_passes_programs_that_return_from_main(
 def test_cmd_compile_hex_places_the_image_at_the_flash_base(
     tmp_path: Path,
 ) -> None:
+    """Cmd compile hex places the image at the flash base."""
     _make_project(tmp_path)
     cfg = yaml.safe_load((tmp_path / "config.yaml").read_text())
     cfg["sim"] = {"hex_format": "verilog"}

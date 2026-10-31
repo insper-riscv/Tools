@@ -1,3 +1,5 @@
+"""Tests for spike_run."""
+
 import shutil
 import subprocess
 from pathlib import Path
@@ -53,6 +55,7 @@ def _run(elf: Path, timeout_s: float = 20.0) -> SpikeRunResult:
 
 
 def test_run_elf_reports_pass_when_tohost_is_1(tmp_path: Path) -> None:
+    """Run elf reports pass when tohost is 1."""
     result = _run(_build(tmp_path, FIXTURES / "crt0.S", "pass"))
 
     assert result.passed
@@ -60,6 +63,7 @@ def test_run_elf_reports_pass_when_tohost_is_1(tmp_path: Path) -> None:
 
 
 def test_run_elf_reports_fail_when_tohost_is_3(tmp_path: Path) -> None:
+    """Run elf reports fail when tohost is 3."""
     crt0 = tmp_path / "crt0_fail.S"
     crt0.write_text(
         (FIXTURES / "crt0.S").read_text().replace("li   t0, 1", "li   t0, 3")
@@ -75,6 +79,7 @@ def test_run_elf_reports_fail_when_tohost_is_3(tmp_path: Path) -> None:
 def test_run_elf_times_out_when_tohost_is_never_written(
     tmp_path: Path,
 ) -> None:
+    """Run elf times out when tohost is never written."""
     crt0 = tmp_path / "crt0_hang.S"
     crt0.write_text(
         (FIXTURES / "crt0.S").read_text().replace("sw   t0, 0(t1)", "nop")

@@ -19,6 +19,7 @@ class FakeProcess:
     def __init__(
         self, lines: list[str], returncode: int = 0, stderr: str = ""
     ) -> None:
+        """Feed the given lines to stdout and stderr, then exit."""
         self.stdout = io.StringIO("".join(line + "\n" for line in lines))
         self.stderr = io.StringIO(stderr)
         self.returncode = returncode
@@ -43,6 +44,7 @@ def _popen(fake: FakeProcess, monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_decode_line_reads_data_lines_only() -> None:
+    """Decode line reads data lines only."""
     assert uart_console.decode_line("BYTES=68656c6c6f") == b"hello"
     assert uart_console.decode_line("  BYTES=0a\n") == b"\n"
     assert uart_console.decode_line("info: Quartus Prime") is None
@@ -52,6 +54,7 @@ def test_decode_line_reads_data_lines_only() -> None:
 def test_read_console_delivers_the_chunks_in_order(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Read console delivers the chunks in order."""
     fake = FakeProcess(["info: opening", "BYTES=6865", "BYTES=6c6c6f0a"])
     _popen(fake, monkeypatch)
     chunks: list[bytes] = []
@@ -64,6 +67,7 @@ def test_read_console_delivers_the_chunks_in_order(
 def test_read_console_passes_the_bytes_to_send(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Read console passes the bytes to send."""
     fake = FakeProcess([])
     _popen(fake, monkeypatch)
     uart_console.read_console(LINK, lambda _c: None, send=b"hi")
@@ -73,6 +77,7 @@ def test_read_console_passes_the_bytes_to_send(
 def test_read_console_reports_a_failed_script(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Read console reports a failed script."""
     _popen(
         FakeProcess([], returncode=2, stderr="cannot open the UART"),
         monkeypatch,
@@ -84,6 +89,7 @@ def test_read_console_reports_a_failed_script(
 def test_interactive_console_gives_the_typed_lines_to_the_script(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Interactive console gives the typed lines to the script."""
     fake = FakeProcess(["BYTES=6f6b0a"])
     fake.stdin = _KeepOpen()
     _popen(fake, monkeypatch)

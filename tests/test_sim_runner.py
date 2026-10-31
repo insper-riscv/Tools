@@ -45,12 +45,14 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.fixture
 def dummy_hex(tmp_path: Path) -> Path:
+    """Return the path of a placeholder hex file."""
     hex_path = tmp_path / "dummy.hex"
     hex_path.write_text("00000000\n")
     return hex_path
 
 
 def test_sim_runner_reports_pass(tmp_path: Path, dummy_hex: Path) -> None:
+    """Sim runner reports pass."""
     passed = sim_runner.run_test(
         toplevel="dut",
         vhdl_sources=[str(FIXTURES / "dut.vhd")],
@@ -64,6 +66,7 @@ def test_sim_runner_reports_pass(tmp_path: Path, dummy_hex: Path) -> None:
 
 
 def test_sim_runner_reports_fail(tmp_path: Path, dummy_hex: Path) -> None:
+    """Sim runner reports fail."""
     passed = sim_runner.run_test(
         toplevel="dut",
         vhdl_sources=[str(FIXTURES / "dut.vhd")],
@@ -85,6 +88,7 @@ def test_sim_runner_parameters_reach_ghdl(
     # if `parameters` weren't actually reaching GHDL's `-g` (e.g. sat
     # in .build() instead of .test(), which GHDL silently ignores),
     # CYCLES would stay at its default and this would wrongly pass.
+    """Sim runner parameters reach ghdl."""
     passed = sim_runner.run_test(
         toplevel="dut",
         vhdl_sources=[str(FIXTURES / "dut.vhd")],
@@ -137,12 +141,14 @@ def test_sim_runner_libraries_flags_run_files_and_env(
     # helper.bump, in a library analyzed separately and found by -P;
     # the library only analyzes with -fsynopsys; EXPECTED reaches the
     # cocotb module as an environment variable.
+    """Sim runner libraries flags run files and env."""
     assert _run_lib_test(tmp_path, dummy_hex, flags=["-fsynopsys"]) is True
 
 
 def test_sim_runner_env_reaches_the_test_module(
     tmp_path: Path, dummy_hex: Path
 ) -> None:
+    """Sim runner env reaches the test module."""
     assert (
         _run_lib_test(tmp_path, dummy_hex, flags=["-fsynopsys"], expected=99)
         is False
@@ -152,6 +158,7 @@ def test_sim_runner_env_reaches_the_test_module(
 def test_build_libraries_needs_the_flags_the_library_needs(
     tmp_path: Path,
 ) -> None:
+    """Build libraries needs the flags the library needs."""
     with pytest.raises(subprocess.CalledProcessError):
         sim_runner.build_libraries(
             {"helper": [str(FIXTURES_LIB / "helper.vhd")]},
@@ -164,6 +171,7 @@ def test_build_libraries_needs_the_flags_the_library_needs(
 def test_expand_env_replaces_variables(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Expand env replaces variables."""
     monkeypatch.setenv("SIM_TEST_DIR", "/opt/quartus")
 
     assert sim_runner.expand_env("$SIM_TEST_DIR/eda") == "/opt/quartus/eda"
@@ -173,6 +181,7 @@ def test_expand_env_replaces_variables(
 def test_expand_env_rejects_an_unset_variable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Expand env rejects an unset variable."""
     monkeypatch.delenv("SIM_TEST_UNSET", raising=False)
 
     with pytest.raises(SystemExit, match="SIM_TEST_UNSET"):
@@ -183,6 +192,7 @@ def test_run_suite_isolates_work_directories_by_simulation_profile(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
+    """Run suite isolates work directories by simulation profile."""
     work_dirs: list[Path] = []
 
     def fake_run_test(**kwargs: Any) -> bool:

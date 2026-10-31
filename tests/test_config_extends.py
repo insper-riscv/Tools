@@ -8,6 +8,7 @@ from riscv_tools.settings import load_config
 
 
 def test_extends_merges_over_the_base(tmp_path: Path) -> None:
+    """Extends merges over the base."""
     (tmp_path / "base.yaml").write_text(
         "sim:\n  toplevel: core_sim\n  vhdl_sources: [a.vhd, b.vhd]\n"
     )
@@ -24,6 +25,7 @@ def test_extends_merges_over_the_base(tmp_path: Path) -> None:
 
 
 def test_extends_replaces_a_list_instead_of_appending(tmp_path: Path) -> None:
+    """Extends replaces a list instead of appending."""
     (tmp_path / "base.yaml").write_text(
         "sim:\n  vhdl_sources: [a.vhd, b.vhd]\n"
     )
@@ -37,6 +39,7 @@ def test_extends_replaces_a_list_instead_of_appending(tmp_path: Path) -> None:
 
 
 def test_extends_is_relative_to_the_file_that_names_it(tmp_path: Path) -> None:
+    """Extends is relative to the file that names it."""
     (tmp_path / "shared").mkdir()
     (tmp_path / "shared" / "base.yaml").write_text("sim:\n  toplevel: top\n")
     (tmp_path / "shared" / "mid.yaml").write_text(
@@ -51,6 +54,7 @@ def test_extends_is_relative_to_the_file_that_names_it(tmp_path: Path) -> None:
 
 
 def test_extends_loop_is_rejected(tmp_path: Path) -> None:
+    """Extends loop is rejected."""
     (tmp_path / "a.yaml").write_text("extends: b.yaml\n")
     (tmp_path / "b.yaml").write_text("extends: a.yaml\n")
 
@@ -59,6 +63,7 @@ def test_extends_loop_is_rejected(tmp_path: Path) -> None:
 
 
 def test_config_without_extends_is_unchanged(tmp_path: Path) -> None:
+    """Config without extends is unchanged."""
     (tmp_path / "only.yaml").write_text("sim:\n  toplevel: top\n")
 
     cfg = load_config(tmp_path / "only.yaml")

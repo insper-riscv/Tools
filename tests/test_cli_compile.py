@@ -1,3 +1,5 @@
+"""Tests for cli_compile."""
+
 import argparse
 import json
 import shutil
@@ -144,6 +146,7 @@ def _args(
 
 
 def test_discover_tests_finds_c_and_asm_sorted_by_name(tmp_path: Path) -> None:
+    """Discover tests finds c and asm sorted by name."""
     _make_project(tmp_path)
 
     sources = discover_tests(tmp_path, _cfg_dict(tmp_path))
@@ -154,6 +157,7 @@ def test_discover_tests_finds_c_and_asm_sorted_by_name(tmp_path: Path) -> None:
 
 
 def test_discover_tests_empty_when_no_folders(tmp_path: Path) -> None:
+    """Discover tests empty when no folders."""
     (tmp_path / "c").mkdir()
     (tmp_path / "asm").mkdir()
     (tmp_path / "config.yaml").write_text(
@@ -168,6 +172,7 @@ def test_discover_tests_empty_when_no_folders(tmp_path: Path) -> None:
     reason=f"needs {GCC} and {SPIKE} on PATH",
 )
 def test_cmd_compile_mif_builds_every_kind(tmp_path: Path) -> None:
+    """Cmd compile mif builds every kind."""
     _make_project(tmp_path)
 
     cmd_compile(_args(tmp_path, "mif"))
@@ -192,6 +197,7 @@ def test_cmd_compile_mif_builds_every_kind(tmp_path: Path) -> None:
     reason=f"needs {GCC} and {SPIKE} on PATH",
 )
 def test_cmd_compile_hex_builds_every_kind(tmp_path: Path) -> None:
+    """Cmd compile hex builds every kind."""
     _make_project(tmp_path)
 
     cmd_compile(_args(tmp_path, "hex"))
@@ -217,6 +223,7 @@ def test_cmd_spike_run_passes_compiled_tests(
 ) -> None:
     # run_log.start redirects the process's stdout into a log tee, which
     # pytest's own capture can't coexist with.
+    """Cmd spike run passes compiled tests."""
     monkeypatch.setattr(run_log, "start", _no_log)
     _make_project(tmp_path)
     cmd_compile(_args(tmp_path, "mif"))
@@ -236,6 +243,7 @@ def test_cmd_spike_run_passes_compiled_tests(
 def test_cmd_spike_run_rejects_a_test_missing_from_the_manifest(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Cmd spike run rejects a test missing from the manifest."""
     monkeypatch.setattr(run_log, "start", _no_log)
     _make_project(tmp_path)
     cmd_compile(_args(tmp_path, "mif"))
@@ -252,6 +260,7 @@ def test_cmd_spike_run_rejects_a_test_missing_from_the_manifest(
 def test_cmd_compile_hex_uses_the_verilog_format_when_configured(
     tmp_path: Path,
 ) -> None:
+    """Cmd compile hex uses the verilog format when configured."""
     _make_project(tmp_path)
     cfg = _cfg_dict(tmp_path)
     cfg["sim"] = {"hex_format": "verilog"}

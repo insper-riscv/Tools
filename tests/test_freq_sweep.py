@@ -1,3 +1,5 @@
+"""Tests for freq_sweep."""
+
 import argparse
 from pathlib import Path
 from typing import Any
@@ -21,6 +23,7 @@ altpll_component.phase_shift2("66667 ps");
 
 
 def test_set_pll_freq_rewrites_frequency_and_phases(tmp_path: Path) -> None:
+    """Set pll freq rewrites frequency and phases."""
     pll_file = tmp_path / "pll.v"
     pll_file.write_text(THREE_PHASE_PLL)
 
@@ -49,6 +52,7 @@ def test_set_pll_freq_rewrites_frequency_and_phases(tmp_path: Path) -> None:
 
 
 def test_set_pll_freq_single_phase_default(tmp_path: Path) -> None:
+    """Set pll freq single phase default."""
     pll_file = tmp_path / "pll.v"
     pll_file.write_text('.output_clock_frequency0("10.000000 MHz");\n')
 
@@ -70,6 +74,7 @@ def test_set_pll_freq_single_phase_default(tmp_path: Path) -> None:
 def test_set_pll_freq_missing_param_left_unchanged(tmp_path: Path) -> None:
     # phase_count set higher than what the file actually declares —
     # the nonexistent pair should be silently skipped, not raise.
+    """Set pll freq missing param left unchanged."""
     pll_file = tmp_path / "pll.v"
     original = (
         '.output_clock_frequency0("10.000000 MHz");\n.phase_shift0("0 ps");\n'
@@ -95,6 +100,7 @@ def test_set_pll_freq_missing_param_left_unchanged(tmp_path: Path) -> None:
 
 
 def test_set_pll_freq_custom_param_template(tmp_path: Path) -> None:
+    """Set pll freq custom param template."""
     pll_file = tmp_path / "pll.vhd"
     pll_file.write_text('.clkout_freq0("100.000000 kHz");\n')
 
@@ -114,6 +120,7 @@ def test_set_pll_freq_custom_param_template(tmp_path: Path) -> None:
 
 
 def test_get_pll_freq_reads_phase_zero(tmp_path: Path) -> None:
+    """Get pll freq reads phase zero."""
     pll_file = tmp_path / "pll.v"
     pll_file.write_text(THREE_PHASE_PLL)
 
@@ -121,6 +128,7 @@ def test_get_pll_freq_reads_phase_zero(tmp_path: Path) -> None:
 
 
 def test_get_pll_freq_returns_none_when_absent(tmp_path: Path) -> None:
+    """Get pll freq returns none when absent."""
     pll_file = tmp_path / "pll.v"
     pll_file.write_text("-- nothing relevant here\n")
 
@@ -128,6 +136,7 @@ def test_get_pll_freq_returns_none_when_absent(tmp_path: Path) -> None:
 
 
 def test_set_then_get_pll_freq_round_trips(tmp_path: Path) -> None:
+    """Set then get pll freq round trips."""
     pll_file = tmp_path / "pll.v"
     pll_file.write_text(THREE_PHASE_PLL)
 
@@ -149,6 +158,7 @@ def test_set_then_get_pll_freq_round_trips(tmp_path: Path) -> None:
 def test_cmd_freq_sweep_resolves_pll_file_against_the_project_root(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Cmd freq sweep resolves pll file against the project root."""
     seen: dict[str, Any] = {}
 
     def fake_linear(job: Any, *_: Any) -> list[dict[str, Any]]:

@@ -1,3 +1,5 @@
+"""Tests for compiler_libc."""
+
 import shutil
 import subprocess
 from pathlib import Path
@@ -37,12 +39,14 @@ needs_picolibc = pytest.mark.skipif(
 
 
 def test_libc_flags_defaults_to_no_libc() -> None:
+    """Libc flags defaults to no libc."""
     assert libc_flags({}) == ["-nostdlib"]
 
 
 def test_libc_flags_picolibc_keeps_sections_the_script_does_not_reach() -> (
     None
 ):
+    """Libc flags picolibc keeps sections the script does not reach."""
     assert libc_flags({"libc": "picolibc"}) == [
         "--specs=picolibc.specs",
         "-Wl,--no-gc-sections",
@@ -50,6 +54,7 @@ def test_libc_flags_picolibc_keeps_sections_the_script_does_not_reach() -> (
 
 
 def test_libc_flags_rejects_an_unknown_library() -> None:
+    """Libc flags rejects an unknown library."""
     with pytest.raises(ValueError, match=r"toolchain\.libc"):
         libc_flags({"libc": "glibc"})
 
@@ -85,10 +90,12 @@ def _compile(tmp_path: Path, libc: str) -> Path:
 
 @needs_picolibc
 def test_picolibc_provides_libc_functions(tmp_path: Path) -> None:
+    """Picolibc provides libc functions."""
     assert _compile(tmp_path, "picolibc").is_file()
 
 
 @needs_picolibc
 def test_no_libc_leaves_libc_functions_undefined(tmp_path: Path) -> None:
+    """No libc leaves libc functions undefined."""
     with pytest.raises(subprocess.CalledProcessError):
         _compile(tmp_path, "none")

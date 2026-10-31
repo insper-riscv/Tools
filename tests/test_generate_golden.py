@@ -83,6 +83,7 @@ def _target() -> SpikeTarget:
 def test_generate_golden_reads_back_expected_bytes(
     source_name: str, tmp_path: Path
 ) -> None:
+    """Generate golden reads back expected bytes."""
     assert SPIKE_BIN is not None  # guaranteed by pytestmark's skipif above
     elf = _compile(FIXTURES / source_name, tmp_path)
 
@@ -171,6 +172,7 @@ def test_generate_golden_by_symbol_matches_explicit_start_end(
 def test_generate_golden_rounds_a_partial_word_range_up(
     tmp_path: Path,
 ) -> None:
+    """Generate golden rounds a partial word range up."""
     assert SPIKE_BIN is not None  # guaranteed by pytestmark's skipif above
     elf = _compile(FIXTURES / "pass_asm.S", tmp_path)
 

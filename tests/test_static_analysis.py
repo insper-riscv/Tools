@@ -35,16 +35,20 @@ def _run(cmd: list[str]) -> None:
 
 
 def test_ruff_check() -> None:
+    """Ruff check."""
     _run([_tool("ruff"), "check", "src", "tests"])
 
 
 def test_ruff_format() -> None:
+    """Ruff format."""
     _run([_tool("ruff"), "format", "--check", "src", "tests"])
 
 
 def test_pyright() -> None:
+    """Pyright."""
     _run([_tool("pyright")])
 
 
 def test_deptry() -> None:
+    """Deptry."""
     _run([_tool("deptry"), "."])

@@ -18,12 +18,14 @@ OUTPUT = "\n".join(
 
 
 def test_paths_are_read_from_the_marked_lines() -> None:
+    """Paths are read from the marked lines."""
     paths = timing_paths.parse_paths(OUTPUT)
     assert [p.slack for p in paths] == [-2.016, -1.885, -0.205]
     assert paths[0].source == SRC and paths[0].clock == "clkA"
 
 
 def test_a_malformed_line_is_an_error() -> None:
+    """A malformed line is an error."""
     with pytest.raises(ValueError, match="malformed"):
         timing_paths.parse_paths("PATH\tclkA\t1.0")
 
@@ -40,10 +42,12 @@ def test_a_malformed_line_is_an_error() -> None:
 def test_register_names_drop_the_bit_and_name_the_stage(
     node: str, expected: str
 ) -> None:
+    """Register names drop the bit and name the stage."""
     assert timing_paths.register_of(node) == expected
 
 
 def test_bits_of_a_register_pair_fold_into_one_group_worst_first() -> None:
+    """Bits of a register pair fold into one group worst first."""
     groups = timing_paths.group_paths(timing_paths.parse_paths(OUTPUT))
     assert [(g.source, g.destination, g.paths) for g in groups] == [
         ("MEM/WB r_ext_ram_op", "EX/MEM r_alu_out", 2),
@@ -53,6 +57,7 @@ def test_bits_of_a_register_pair_fold_into_one_group_worst_first() -> None:
 
 
 def test_table_has_one_row_per_group() -> None:
+    """Table has one row per group."""
     table = timing_paths.format_table(
         timing_paths.group_paths(timing_paths.parse_paths(OUTPUT))
     )

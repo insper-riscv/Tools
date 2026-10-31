@@ -1,3 +1,5 @@
+"""Tests for memory_map."""
+
 import argparse
 from pathlib import Path
 from typing import Any
@@ -93,6 +95,7 @@ def _project(root: Path, platform: dict[str, Any] | None = None) -> Path:
 
 
 def test_evaluate_number_notations() -> None:
+    """Evaluate number notations."""
     assert evaluate("0x800") == 0x800
     assert evaluate("16#0800#") == 0x800
     assert evaluate("30K") == 30 * 1024
@@ -101,6 +104,7 @@ def test_evaluate_number_notations() -> None:
 
 
 def test_evaluate_symbols_and_log2() -> None:
+    """Evaluate symbols and log2."""
     names = {"RAM.words": 40960, "FLASH.words": 7680, "BOOT_ROM.words": 512}
     assert evaluate("RAM.words / 4", names) == 10240
     assert evaluate("log2(BOOT_ROM.words)", names) == 9
@@ -111,6 +115,7 @@ def test_evaluate_symbols_and_log2() -> None:
 
 
 def test_evaluate_rejects_unknown_symbol_inexact_division_and_code() -> None:
+    """Evaluate rejects unknown symbol inexact division and code."""
     with pytest.raises(ValueError, match=r"unknown symbol 'NOPE\.base'"):
         evaluate("NOPE.base")
     with pytest.raises(ValueError, match="inexact division"):
@@ -120,6 +125,7 @@ def test_evaluate_rejects_unknown_symbol_inexact_division_and_code() -> None:
 
 
 def test_symbols_flattens_regions_reserved_boot_and_peripherals() -> None:
+    """Symbols flattens regions reserved boot and peripherals."""
     table = symbols(PLATFORM)
     assert table["RAM.end"] == 0x8000 + 160 * 1024
     assert table["FLASH.words"] == 7680
@@ -129,6 +135,7 @@ def test_symbols_flattens_regions_reserved_boot_and_peripherals() -> None:
 
 
 def test_the_reference_platform_is_consistent() -> None:
+    """The reference platform is consistent."""
     assert validate_platform(PLATFORM) == []
 
 
@@ -179,11 +186,13 @@ def _with(**changes: Any) -> dict[str, Any]:
 def test_validate_platform_reports_an_inconsistent_map(
     platform: dict[str, Any], message: str
 ) -> None:
+    """Validate platform reports an inconsistent map."""
     problems = validate_platform(platform)
     assert any(message in str(p) for p in problems), problems
 
 
 def test_check_passes_when_every_copy_agrees(tmp_path: Path) -> None:
+    """Check passes when every copy agrees."""
     count, problems = check_memory_map(_project(tmp_path), tmp_path)
     assert (count, problems) == (5, [])
 
@@ -206,6 +215,7 @@ def test_check_passes_when_every_copy_agrees(tmp_path: Path) -> None:
 def test_check_fails_when_one_copy_diverges(
     tmp_path: Path, file: str, old: str, new: str, check: str
 ) -> None:
+    """Check fails when one copy diverges."""
     path = _project(tmp_path)
     (tmp_path / file).write_text(COPIES[file].replace(old, new))
     _, problems = check_memory_map(path, tmp_path)
@@ -215,6 +225,7 @@ def test_check_fails_when_one_copy_diverges(
 def test_check_reports_every_divergent_match_of_one_pattern(
     tmp_path: Path,
 ) -> None:
+    """Check reports every divergent match of one pattern."""
     path = _project(tmp_path)
     (tmp_path / "boot.S").write_text(
         "    li   t0, 0x00038000\n    li   t0, 0x00038000\n"
@@ -226,6 +237,7 @@ def test_check_reports_every_divergent_match_of_one_pattern(
 def test_check_fails_when_a_copy_no_longer_matches_the_pattern(
     tmp_path: Path,
 ) -> None:
+    """Check fails when a copy no longer matches the pattern."""
     path = _project(tmp_path)
     (tmp_path / "ip.vhd").write_text("numwords_a=>40960\n")
     _, problems = check_memory_map(path, tmp_path)
@@ -233,6 +245,7 @@ def test_check_fails_when_a_copy_no_longer_matches_the_pattern(
 
 
 def test_check_fails_on_a_missing_file_unless_optional(tmp_path: Path) -> None:
+    """Check fails on a missing file unless optional."""
     path = _project(tmp_path)
     (tmp_path / "ip.vhd").unlink()
     _, problems = check_memory_map(path, tmp_path)
@@ -245,6 +258,7 @@ def test_check_fails_on_a_missing_file_unless_optional(tmp_path: Path) -> None:
 
 
 def test_check_stops_at_an_inconsistent_map(tmp_path: Path) -> None:
+    """Check stops at an inconsistent map."""
     platform = _with(boot={"entry": "0x8000"})
     count, problems = check_memory_map(_project(tmp_path, platform), tmp_path)
     assert count == 0
@@ -252,6 +266,7 @@ def test_check_stops_at_an_inconsistent_map(tmp_path: Path) -> None:
 
 
 def test_load_platform_rejects_a_non_mapping(tmp_path: Path) -> None:
+    """Load platform rejects a non mapping."""
     path = tmp_path / "p.yaml"
     path.write_text("- 1\n")
     with pytest.raises(ValueError, match="not a YAML mapping"):
@@ -261,6 +276,7 @@ def test_load_platform_rejects_a_non_mapping(tmp_path: Path) -> None:
 def test_cmd_check_memory_map_exit_status(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Cmd check memory map exit status."""
     _project(tmp_path)
     args = argparse.Namespace(root=str(tmp_path), platform="platform.yaml")
     cli.cmd_check_memory_map(args)
@@ -274,6 +290,7 @@ def test_cmd_check_memory_map_exit_status(
 
 
 def test_a_negative_offset_is_reported_with_its_sign(tmp_path: Path) -> None:
+    """A negative offset is reported with its sign."""
     platform = _with(
         checks=[
             {

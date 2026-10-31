@@ -1,3 +1,5 @@
+"""Tests for compiler_hex."""
+
 import shutil
 import subprocess
 from pathlib import Path
@@ -13,6 +15,7 @@ GCC = "riscv32-unknown-elf-gcc"
 def test_elf_to_verilog_hex_keeps_the_real_word_address(
     tmp_path: Path,
 ) -> None:
+    """Elf to verilog hex keeps the real word address."""
     src = tmp_path / "f.S"
     src.write_text(
         ".section .text\n.globl _start\n_start:\n"

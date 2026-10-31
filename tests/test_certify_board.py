@@ -75,6 +75,7 @@ def _elf(segments: list[tuple[int, bytes]], symbols: dict[str, int]) -> bytes:
 
 
 def test_flash_stub_words() -> None:
+    """Flash stub words."""
     fence_i, lui_t0, jr_t0 = board.flash_stub_words(SDRAM_BASE)
     assert fence_i == 0x0000100F
     assert lui_t0 == 0x400002B7  # lui t0, 0x40000
@@ -82,11 +83,13 @@ def test_flash_stub_words() -> None:
 
 
 def test_flash_stub_rejects_an_unaligned_base() -> None:
+    """Flash stub rejects an unaligned base."""
     with pytest.raises(ValueError):
         board.flash_stub_words(SDRAM_BASE + 8)
 
 
 def test_elf_symbol(tmp_path: Path) -> None:
+    """Elf symbol."""
     elf = tmp_path / "t.elf"
     symbols = {"tohost": 0x400FFFE0, "main": 0x40000010}
     elf.write_bytes(_elf([(SDRAM_BASE, bytes(8))], symbols))
@@ -97,6 +100,7 @@ def test_elf_symbol(tmp_path: Path) -> None:
 
 
 def test_image_words_stop_before_tohost(tmp_path: Path) -> None:
+    """Image words stop before tohost."""
     code = bytes(range(8))
     htif = b"\xff" * 8
     elf = tmp_path / "t.elf"
@@ -167,6 +171,7 @@ def test_display_follows_each_elf(
 def test_flash_stub_sits_at_rom_base(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Flash stub sits at rom base."""
     written: list[Path] = []
 
     def write_rom(_link: object, _instances: object, mif: Path) -> None:
