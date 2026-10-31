@@ -10,18 +10,20 @@ O código segue o [PEP 8](https://peps.python.org/pep-0008) (estilo) e o [PEP 25
 
 ### 1.1. Estilo de Código (PEP 8)
 
+> **Desvio do PEP 8.** O PEP 8 manda escrever comentários em inglês, e este projeto os escreve em **português**. Todas as demais recomendações do PEP 8 sobre comentários se mantêm, ou seja, frases completas, sempre atualizadas e sem repetir o que o código já diz. Identificadores continuam em inglês.
+
 | Regra | Especificação |
 | :--- | :--- |
 | Indentação | 4 espaços por nível; tabulações proibidas |
 | Codificação | UTF-8, sem declaração de encoding no arquivo |
 | Largura de linha | Máximo de 79 caracteres para código; 72 para docstrings e comentários; limites definidos em `pyproject.toml` |
 | Nomenclatura | `snake_case` para funções, métodos, variáveis e módulos; `PascalCase` para classes; `UPPER_SNAKE_CASE` para constantes; prefixo `_` para nomes internos |
-| Imports | No topo do arquivo, um por linha, em três grupos separados por linha em branco (biblioteca padrão, terceiros, projeto), cada grupo em ordem alfabética; `import *` proibido |
+| Imports | No topo do arquivo, um por linha, em três grupos separados por linha em branco (biblioteca padrão, terceiros, projeto), cada grupo em ordem alfabética; imports absolutos (relativos proibidos); `import *` proibido |
 | Linhas em branco | Duas entre definições de nível de módulo; uma entre métodos |
 | Espaços | Um espaço ao redor de operadores e após vírgulas; nenhum espaço antes de `(` de chamada, dentro de colchetes ou ao final da linha |
 | Comparações | `is` e `is not` para `None`; `if seq:` em vez de `if len(seq):`; nunca `== True` ou `== False` |
 | Exceções | `except` sempre com a exceção específica; `except:` sem tipo proibido |
-| Comentários | Frases completas em linha própria ou após dois espaços no fim do código, iniciados por `# `; explicam o porquê, não repetem o que o código faz |
+| Comentários | **Em português** (desvio do PEP 8); frases completas, com inicial maiúscula, em linha própria ou após dois espaços no fim do código, iniciados por `# `; explicam o porquê, não repetem o que o código faz |
 | Idioma | Identificadores em **inglês**; comentários em **português** |
 
 ### 1.2. Docstrings (PEP 257)

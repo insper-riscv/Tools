@@ -10,18 +10,20 @@ The code follows [PEP 8](https://peps.python.org/pep-0008) (style) and [PEP 257]
 
 ### 1.1. Code Style (PEP 8)
 
+> **Deviation from PEP 8.** PEP 8 asks for comments in English, and this project writes them in **Portuguese**. Every other PEP 8 recommendation on comments still applies, namely complete sentences, kept up to date, and never restating what the code already says. Identifiers stay in English.
+
 | Rule | Specification |
 | :--- | :--- |
 | Indentation | 4 spaces per level; tabs prohibited |
 | Encoding | UTF-8, with no encoding declaration in the file |
 | Line length | At most 79 characters for code; 72 for docstrings and comments; limits set in `pyproject.toml` |
 | Naming | `snake_case` for functions, methods, variables, and modules; `PascalCase` for classes; `UPPER_SNAKE_CASE` for constants; `_` prefix for internal names |
-| Imports | At the top of the file, one per line, in three groups separated by a blank line (standard library, third party, project), each group sorted alphabetically; `import *` prohibited |
+| Imports | At the top of the file, one per line, in three groups separated by a blank line (standard library, third party, project), each group sorted alphabetically; absolute imports only (relative imports prohibited); `import *` prohibited |
 | Blank lines | Two between module-level definitions; one between methods |
 | Whitespace | One space around operators and after commas; none before a call's `(`, inside brackets, or at the end of a line |
 | Comparisons | `is` and `is not` for `None`; `if seq:` instead of `if len(seq):`; never `== True` or `== False` |
 | Exceptions | `except` always names the specific exception; bare `except:` prohibited |
-| Comments | Complete sentences, on their own line or after two spaces at the end of code, starting with `# `; they explain why, not what the code does |
+| Comments | **In Portuguese** (deviation from PEP 8); complete sentences, capitalized, on their own line or after two spaces at the end of code, starting with `# `; they explain why, not what the code does |
 | Language | Identifiers in **English**; comments in **Portuguese** |
 
 ### 1.2. Docstrings (PEP 257)
