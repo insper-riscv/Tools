@@ -10,8 +10,10 @@ OUTPUT = "\n".join(
     [
         "Info: Running Quartus Prime Timing Analyzer",
         f"PATH\tclkA\t-2.016\t21.772\t{SRC}\t{OUT}",
-        f"PATH\tclkA\t-1.885\t21.634\t{SRC}\tcore:CORE|reg_ex_mem:u_reg_ex_mem|r_alu_out[11]",
-        "PATH\tclkB\t-0.205\t5.100\tsdram_ctrl:S|st.ST_ACT\tsdram_ctrl:S|ack_i",
+        f"PATH\tclkA\t-1.885\t21.634\t{SRC}\t"
+        "core:CORE|reg_ex_mem:u_reg_ex_mem|r_alu_out[11]",
+        "PATH\tclkB\t-0.205\t5.100\t"
+        "sdram_ctrl:S|st.ST_ACT\tsdram_ctrl:S|ack_i",
         "Info: done",
     ]
 )
