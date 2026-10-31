@@ -119,6 +119,39 @@ def discover_elfs(elfs_dir: Path) -> list[Path]:
     )
 
 
+def _target_elfs(
+    vendor_dir: Path,
+    target_config: Path,
+    extensions: str,
+    how: tuple[int, bool],
+) -> list[Path]:
+    """List the ELFs of one ACT4 target, building them first when asked.
+
+    Parameters
+    ----------
+    vendor_dir : Path
+        The vendored ACT4 checkout.
+    target_config : Path
+        The target's test_config.yaml.
+    extensions : str
+        Comma-separated extension list forwarded to `make`.
+    how : tuple of (int, bool)
+        The `make` parallelism and whether to build; with False the ELFs
+        of an earlier build are used.
+
+    Returns
+    -------
+    list of Path
+        The ELFs of the target, sorted.
+    """
+    jobs, build = how
+    if build:
+        elfs_dir = build_elfs(vendor_dir, target_config, extensions, jobs)
+    else:
+        elfs_dir = vendor_dir / "work" / target_name(target_config) / "elfs"
+    return discover_elfs(elfs_dir)
+
+
 def suite_elfs(
     cfg: dict[str, Any], root: Path, *, build: bool = True
 ) -> list[Path]:
@@ -155,34 +188,29 @@ def suite_elfs(
     """
     act_cfg = cfg["act"]
     vendor_dir = root / act_cfg["vendor_dir"]
-    target_config = root / act_cfg["target_config"]
-    if build:
-        elfs_dir = build_elfs(
-            vendor_dir, target_config, act_cfg["extensions"], act_cfg["jobs"]
-        )
-    else:
-        elfs_dir = vendor_dir / "work" / target_name(target_config) / "elfs"
-    elfs = discover_elfs(elfs_dir)
-
+    jobs = act_cfg["jobs"]
+    elfs = _target_elfs(
+        vendor_dir,
+        root / act_cfg["target_config"],
+        act_cfg["extensions"],
+        (jobs, build),
+    )
     ram_tests = set(act_cfg.get("ram_tests") or [])
     if not ram_tests:
         return elfs
-    ram_config = root / act_cfg["ram_target_config"]
-    if build:
-        ram_dir = build_elfs(
+    ram_elfs = [
+        e
+        for e in _target_elfs(
             vendor_dir,
-            ram_config,
+            root / act_cfg["ram_target_config"],
             act_cfg.get("ram_extensions") or act_cfg["extensions"],
-            act_cfg["jobs"],
+            (jobs, build),
         )
-    else:
-        ram_dir = vendor_dir / "work" / target_name(ram_config) / "elfs"
-    ram_elfs = [e for e in discover_elfs(ram_dir) if e.stem in ram_tests]
+        if e.stem in ram_tests
+    ]
     missing = ram_tests - {e.stem for e in ram_elfs}
     if missing:
-        raise FileNotFoundError(
-            f"no RAM variant ELF under {ram_dir} for {sorted(missing)}"
-        )
+        raise FileNotFoundError(f"no RAM variant ELF for {sorted(missing)}")
     kept = [e for e in elfs if e.stem not in ram_tests]
     return sorted(kept + ram_elfs, key=lambda e: e.name)
 
