@@ -15,23 +15,23 @@ def cmd_certify(args: argparse.Namespace) -> None:
     Builds this project's own ACT4 target's self-checking ELFs (see
     act.target_config in config.yaml, and
     tools/riscv_build/act/rv32im-min/) via ACT4's own `make`
-    (act.vendor_dir — a pinned vendor/riscv-arch-test submodule), then
+    (act.vendor_dir, a pinned vendor/riscv-arch-test submodule), then
     runs each one under cocotb/GHDL (see certify.run_suite). Requires
     the "sim" extra (cocotb), a RISC-V GCC toolchain (compile_exe in
     the ACT4 target's own test_config.yaml), and ACT4's own Ruby/
     Bundler/UDB toolchain (see vendor/riscv-arch-test/README.md
-    "Prerequisites") — none of the real-hardware/JTAG toolchain this
+    "Prerequisites"), none of the real-hardware/JTAG toolchain this
     project's other subcommands need.
 
     Everything this invocation prints is also written to
-    <run_log.logs_dir>/certification/latest.log (see run_log.start) —
+    <run_log.logs_dir>/certification/latest.log (see run_log.start),
     a prior latest.log, if any, is archived under its own start
     timestamp first.
 
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments — uses args.config, args.root,
+        Parsed CLI arguments: uses args.config, args.root,
         args.extensions (overrides config.yaml's act.extensions when
         given).
 
@@ -40,7 +40,7 @@ def cmd_certify(args: argparse.Namespace) -> None:
     None
         Prints a PASS/FAIL summary to stdout. Exits the process with
         status 1 if any test failed (or if no ELFs were produced at
-        all — see certify.run_suite).
+        all; see certify.run_suite).
     """
     cfg, root = start_certification(args, "certification")
     build_dir = root / cfg["paths"]["build_dir"] / "act"

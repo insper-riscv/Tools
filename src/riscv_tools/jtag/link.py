@@ -19,10 +19,10 @@ class JtagLink:
     hardware_name : str
         The "USB-Blaster [<bus>-<port>]" cable name, live-detected
         (see hardware.detect_jtag_hardware) rather than read from
-        config — it drifts across reboots/hub renumbering.
+        config; it drifts across reboots/hub renumbering.
     device_name : str
         The target chip's JTAG identity string, from a project's
-        config (`quartus.jtag_device`) — stable across reboots, unlike
+        config (`quartus.jtag_device`), stable across reboots, unlike
         hardware_name.
     """
 
@@ -33,7 +33,7 @@ class JtagLink:
 def run(cmd: list[str], **kw: Any) -> subprocess.CompletedProcess[Any]:
     """Run a subprocess, echoing the command line first.
 
-    Thin wrapper around riscv_tools.proc.run_streaming — see there for
+    Thin wrapper around riscv_tools.proc.run_streaming; see there for
     the streaming/classification rationale. Kept as its own function
     (rather than every call site importing run_streaming directly) so
     this module's own callers/docs keep referring to "jtag.link.run".
@@ -50,14 +50,14 @@ def run(cmd: list[str], **kw: Any) -> subprocess.CompletedProcess[Any]:
     Returns
     -------
     subprocess.CompletedProcess
-        The completed subprocess — .stdout/.stderr are always text
+        The completed subprocess: .stdout/.stderr are always text
         (never None), even for a caller that historically requested
         capture=False.
 
     Raises
     ------
     subprocess.CalledProcessError
-        cmd exited non-zero — .stdout/.stderr are populated same as
+        cmd exited non-zero; .stdout/.stderr are populated same as
         above.
     """
     return cast("subprocess.CompletedProcess[Any]", run_streaming(cmd, **kw))
@@ -79,12 +79,12 @@ def run_tcl(
         directory (e.g. "write_full.tcl").
     *args : Any
         Extra positional arguments appended after (hardware_name,
-        device_name) on the command line — each converted to str.
+        device_name) on the command line, each converted to str.
 
     Returns
     -------
     subprocess.CompletedProcess
-        The completed subprocess (see run) — .stdout/.stderr are
+        The completed subprocess (see run): .stdout/.stderr are
         always text, whether or not the caller needs to parse them
         (e.g. mem_edit.read_words does; most callers just let run()
         print them through instead).

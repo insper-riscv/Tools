@@ -29,7 +29,7 @@ def cmd_write_rom(args: argparse.Namespace) -> None:
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments — uses args.config, args.mif.
+        Parsed CLI arguments: uses args.config, args.mif.
 
     Returns
     -------
@@ -51,7 +51,7 @@ def cmd_zero_ram(args: argparse.Namespace) -> None:
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments — uses args.config.
+        Parsed CLI arguments: uses args.config.
 
     Returns
     -------
@@ -74,7 +74,7 @@ def cmd_console(args: argparse.Namespace) -> None:
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments — uses args.config, args.seconds,
+        Parsed CLI arguments: uses args.config, args.seconds,
         args.send, args.interactive.
 
     Returns
@@ -106,7 +106,7 @@ def cmd_display(args: argparse.Namespace) -> None:
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments — uses args.config, args.value, args.check.
+        Parsed CLI arguments: uses args.config, args.value, args.check.
 
     Returns
     -------
@@ -137,7 +137,7 @@ def cmd_dump_ram(args: argparse.Namespace) -> None:
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments — uses args.config, args.out,
+        Parsed CLI arguments: uses args.config, args.out,
         args.start_word, args.words.
 
     Returns
@@ -164,7 +164,7 @@ def cmd_program(args: argparse.Namespace) -> None:
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments — uses args.config, args.root, args.mif.
+        Parsed CLI arguments: uses args.config, args.root, args.mif.
 
     Returns
     -------
@@ -175,7 +175,7 @@ def cmd_program(args: argparse.Namespace) -> None:
     root = project_root(args)
 
     # BOOT_ROM (see riscv_tools.boot_rom) is only ever written here,
-    # as part of this full compile — never JTAG-rewritten per test the
+    # as part of this full compile, never JTAG-rewritten per test the
     # way FLASH (args.mif) is. Only meaningful for a project with a
     # 3-memory BOOT_ROM/FLASH/RAM split (paths.boot_rom set).
     boot_init: quartus_program.MifInit | None = None
@@ -221,7 +221,7 @@ def cmd_mailbox(args: argparse.Namespace) -> None:
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments — uses args.config, args.action ("read"
+        Parsed CLI arguments: uses args.config, args.action ("read"
         or "pulse").
 
     Returns

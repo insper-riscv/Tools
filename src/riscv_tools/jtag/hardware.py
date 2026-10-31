@@ -7,7 +7,7 @@ import subprocess
 def detect_jtag_hardware() -> str:
     """Detect the live JTAG hardware name for the -c flag of Quartus.
 
-    That suffix reflects USB topology, not the physical cable — it
+    That suffix reflects USB topology, not the physical cable; it
     drifts across reboots and hub renumbering, so a static config value
     is unreliable; ask `jtagconfig` for the live value instead.
 
@@ -45,10 +45,10 @@ def jtag_chain_healthy() -> bool:
 
     Separate from detect_jtag_hardware: that one finds the cable's
     live name and can succeed even while the chain underneath it is
-    broken — "chain broken" is a distinct line jtagconfig prints
+    broken; "chain broken" is a distinct line jtagconfig prints
     alongside/after the hardware listing, not instead of it. Same
     "chain broken" text/behavior documented in HARDWARE_PROGRAMMING.md
-    and checked the same way by real.yml's own pre-flight step —
+    and checked the same way by real.yml's own pre-flight step,
     meant for polling after a physical power-cycle, e.g.
     orchestrator.run_suite's wait_for_hardware mode.
 
@@ -57,7 +57,7 @@ def jtag_chain_healthy() -> bool:
     bool
         False if `jtagconfig` reports "chain broken" (case-insensitive)
         anywhere in its output, or if `jtagconfig` itself fails to run
-        at all (cable unplugged, driver issue, etc — treated as
+        at all (cable unplugged, driver issue, etc, treated as
         "still not healthy" rather than raising, since this is meant
         to be polled in a loop). True otherwise.
     """

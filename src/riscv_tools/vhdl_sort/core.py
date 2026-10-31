@@ -2,7 +2,7 @@
 
 GHDL's `-a` (analyze) phase needs a design unit's dependencies
 (entities it instantiates, packages it `use`s) analyzed before the
-unit itself — feeding files in the wrong order fails with "primary
+unit itself; feeding files in the wrong order fails with "primary
 unit ... not found". Hand-ordering a project's VHDL file list is
 tedious and breaks silently the moment a new dependency is added, so
 this derives the order from the files' own content instead, via
@@ -108,7 +108,7 @@ def topo_sort(files: list[Path]) -> list[Path]:
         (assumed already available some other way, e.g. a vendor IP
         core excluded from this analysis order on purpose). A file
         that can't be read (missing, permission error, bad encoding)
-        is skipped rather than raising — it still appears in the
+        is skipped rather than raising; it still appears in the
         output, just with no dependency information contributing to
         its position.
 
@@ -120,7 +120,7 @@ def topo_sort(files: list[Path]) -> list[Path]:
         and references) appear before it. Traversal starts from
         `files` sorted alphabetically, so the result is deterministic
         across runs for the same input set. A dependency cycle is
-        broken arbitrarily rather than raising — GHDL itself will
+        broken arbitrarily rather than raising; GHDL itself will
         reject a genuine circular dependency at analyze time with a
         clearer error than this module could produce.
     """

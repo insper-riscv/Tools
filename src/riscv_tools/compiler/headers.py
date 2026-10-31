@@ -35,7 +35,7 @@ def canonical_march(isa_cfg: dict[str, Any], ext_csv: str) -> str:
     Parameters
     ----------
     isa_cfg : dict of {str: Any}
-        The project's `isa:` config section — needs `base` (the
+        The project's `isa:` config section: needs `base` (the
         always-implied base ISA letter, e.g. "i") and
         `canonical_order` (the extension-letter order to sort by).
     ext_csv : str
@@ -47,7 +47,7 @@ def canonical_march(isa_cfg: dict[str, Any], ext_csv: str) -> str:
     -------
     str
         The full march string, e.g. "rv32ima" or "rv32im_zicsr".
-        Extension order in ext_csv doesn't affect the result — "M,A" and
+        Extension order in ext_csv doesn't affect the result; "M,A" and
         "A,M" both produce the same string, per canonical_order.
 
     Raises
@@ -89,7 +89,7 @@ def parse_header(
     Parameters
     ----------
     isa_cfg : dict of {str: Any}
-        The project's `isa:` config section — passed straight through
+        The project's `isa:` config section: passed straight through
         to canonical_march.
     default_timeout_s : float
         Timeout to use when the source has no `// RV32_TIMEOUT_S:`

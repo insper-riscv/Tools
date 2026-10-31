@@ -37,7 +37,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 # Address/value the fixtures write, and the value each is expected to
-# leave there — see pass_c.c / pass_asm.S.
+# leave there; see pass_c.c / pass_asm.S.
 ADDR = 0x80000100
 EXPECTED = {
     "pass_c.c": 0xAABBCCDD,
@@ -120,8 +120,8 @@ def test_generate_golden_json_round_trips_through_compare(
 def test_symbol_range_resolves_address_and_size(tmp_path: Path) -> None:
     """symbol_range should resolve a global's address and byte size.
 
-    pass_c_symbol.c declares `volatile unsigned int results[2]` — an
-    8-byte object — with no explicit address, unlike the other
+    pass_c_symbol.c declares `volatile unsigned int results[2]`, an
+    8-byte object, with no explicit address, unlike the other
     fixtures' hardcoded 0x80000100 pointer. Proves --symbol needs no
     address arithmetic from the caller at all, just a name.
     """

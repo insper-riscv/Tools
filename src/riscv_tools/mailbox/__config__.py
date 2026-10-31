@@ -12,8 +12,8 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         "poll_interval_seconds": 0.5,
     },
     "memory": {
-        # Memory addresses are project-specific (depend on RAM depth)
-        # — no sane default, every project must set these explicitly.
+        # Memory addresses are project-specific (depend on RAM depth),
+        # so there is no sane default and every project must set these.
         "ram_base": None,
         "mailbox_addr": None,
         "go_flag_addr": None,

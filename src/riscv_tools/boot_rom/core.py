@@ -1,7 +1,7 @@
 """Build the fixed, shared bootloader (see a project's own boot_rom.S).
 
 A distinct concern from `compiler` (per-test .c/.S -> .elf/.bin):
-BOOT_ROM is built ONCE per invocation, not per test — it has no test
+BOOT_ROM is built ONCE per invocation, not per test; it has no test
 source, no crt0 pairing, and isn't part of any test's own manifest.
 Every consumer that needs its image (sim_runner for GHDL, rom_writer/
 orchestrator for real hardware) calls `build_boot_rom` once and reuses
@@ -32,13 +32,13 @@ def build_boot_rom(
     Parameters
     ----------
     toolchain_cfg : dict of {str: Any}
-        The project's `toolchain:` config section — needs `gcc` and
+        The project's `toolchain:` config section: needs `gcc` and
         `objcopy`.
     paths_cfg : dict of {str: Any}
-        The project's `paths:` config section — needs `boot_rom` and
+        The project's `paths:` config section: needs `boot_rom` and
         `boot_rom_linker_script`.
     root : Path
-        The consuming project's root directory — paths_cfg entries are
+        The consuming project's root directory; paths_cfg entries are
         resolved relative to this.
     build_dir : Path
         Directory to write boot_rom.elf/.bin/.hex into (created if

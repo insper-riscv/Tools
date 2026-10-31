@@ -35,8 +35,8 @@ def target_from_config(cfg: dict[str, Any]) -> RamTarget:
     Parameters
     ----------
     cfg : dict of {str: Any}
-        The merged project config: quartus.ram_backend is "ismce" (the
-        default: a memory instance of the FPGA,
+        The merged project config; quartus.ram_backend is "ismce" (the
+        default, a memory instance of the FPGA given by
         quartus.ram_mem_instance) or "sdram_debug".
 
     Returns

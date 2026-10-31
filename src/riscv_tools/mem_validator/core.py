@@ -2,7 +2,7 @@
 
 The RAM dump is a .mif, one 32-bit word per line. Used for
 RV32_TEST_KIND: memory tests, where the PASS/FAIL mailbox alone isn't
-enough to prove the test did the right thing — e.g. it wrote the
+enough to prove the test did the right thing, e.g. it wrote the
 right values to memory, not just that it reached RV32_PASS().
 """
 
@@ -20,7 +20,7 @@ RANGE_RE = re.compile(
 DATA_RADIX_RE = re.compile(r"DATA_RADIX\s*=\s*(\w+)\s*;", re.IGNORECASE)
 # Quartus' own .mif radix names, mapped to Python's int() base.
 _RADIX_TO_BASE = {"BIN": 2, "HEX": 16, "DEC": 10, "OCT": 8}
-# How many individual byte diffs compare() prints before truncating —
+# How many individual byte diffs compare() prints before truncating,
 # more than this and the output stops being useful anyway.
 _MAX_DIFFS_SHOWN = 50
 
@@ -85,7 +85,7 @@ def parse_mif_words(mif_path: Path) -> dict[int, int]:
     if not m:
         raise ValueError(f"{mif_path}: no CONTENT ... END; block found")
     # Address column is always ADDRESS_RADIX=HEX in the files this
-    # package writes/reads, but DATA_RADIX varies — Quartus'
+    # package writes/reads, but DATA_RADIX varies; Quartus'
     # save_content_from_memory_to_file (see dump_mem.tcl) emits BIN,
     # not HEX, so the value column must be parsed with the base the
     # header actually declares rather than assumed.
@@ -113,7 +113,7 @@ def words_to_bytes(words: dict[int, int]) -> dict[int, int]:
     Returns
     -------
     dict of {int: int}
-        A {byte_address: byte_value} dict — each word_address maps to
+        A {byte_address: byte_value} dict; each word_address maps to
         4 consecutive byte_address entries (word_address*4 ..
         word_address*4+3), least-significant byte first.
     """
@@ -137,17 +137,17 @@ def compare_bytes(
     The shared core of compare() (a real-hardware JTAG dump, parsed
     from a .mif) and a GHDL sim testbench's own bus-snooped
     reconstruction of RAM's final content (see a project's own
-    sim/test_c_program.py) — both end up with the same {byte_address:
+    sim/test_c_program.py); both end up with the same {byte_address:
     byte_value} shape, so both go through the exact same diff/print
     logic here instead of duplicating it.
 
     Parameters
     ----------
     actual : dict of {int: int}
-        {byte_address: byte_value} — RAM-relative (see
+        {byte_address: byte_value}, RAM-relative (see
         mailbox.word_offset's convention), same as golden.
     golden : dict of {int: int}
-        {byte_address: expected_byte_value} — only these addresses are
+        {byte_address: expected_byte_value}; only these addresses are
         checked; extra bytes in actual that aren't in golden are
         ignored.
     actual_label : str
@@ -189,7 +189,7 @@ def load_golden(golden_json: Path) -> dict[int, int]:
     Parameters
     ----------
     golden_json : Path
-        Path to the golden JSON — a {hex byte address string: expected
+        Path to the golden JSON, a {hex byte address string: expected
         int byte value} map.
 
     Returns
@@ -234,7 +234,7 @@ def compare(dump_mif: Path, golden_json: Path) -> bool:
     dump_mif : Path
         Path to a RAM dump .mif (e.g. from ram_dump.dump_ram).
     golden_json : Path
-        Path to the golden JSON — a {hex byte address string: expected
+        Path to the golden JSON, a {hex byte address string: expected
         int byte value} map. Only the addresses listed here are
         checked; extra bytes in dump_mif that aren't in golden_json
         are ignored.

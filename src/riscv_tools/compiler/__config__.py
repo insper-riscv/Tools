@@ -33,7 +33,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     },
     "paths": {
         # All project-specific (paths inside the CONSUMING repo, not
-        # this package) — no sane generic default.
+        # this package), no sane generic default.
         "include_dir": None,
         # Optional: a project's own startup file and linker script.
         # Leave both unset with toolchain.specs, which selects the
@@ -48,7 +48,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         "build_dir": None,
         # Each holds one <name>/ folder per test (src.c under c_dir,
         # src.S under asm_dir), optionally with a golden.json for
-        # "memory"-kind tests (see cli.discover_tests) — no real/sim
+        # "memory"-kind tests (see cli.discover_tests), no real/sim
         # split: a test's kind decides where it builds/runs (real
         # always; sim only for "unit"-kind, see cli.cmd_compile).
         "c_dir": None,

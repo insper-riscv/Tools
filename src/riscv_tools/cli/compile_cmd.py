@@ -28,16 +28,16 @@ def cmd_compile(args: argparse.Namespace) -> None:
     Builds every test under paths.c_dir/paths.asm_dir into .mif/.hex
     (+ the combined manifest.json), or into human-readable .s (no
     manifest) for --emit asm. Each test is its own
-    <c_dir|asm_dir>/<name>/ folder (see discover_tests) — both "real"
+    <c_dir|asm_dir>/<name>/ folder (see discover_tests), both "real"
     (--emit mif) and "sim" (--emit hex) build every test regardless of
     kind, and both attach a "memory"-kind test's golden.json to its
     manifest entry the same way, so sim_runner's cocotb testbench can
     do the same RAM-vs-golden check orchestrator.run_one does for real
-    hardware (bus-snooped writes standing in for a JTAG dump — see a
+    hardware (bus-snooped writes standing in for a JTAG dump; see a
     project's own sim/test_c_program.py). Before this, sim only
     watched the PASS/FAIL mailbox, so a "memory" test whose computed
     value was simply wrong (not just "didn't reach RV32_PASS()") still
-    reported PASS in simulation — only caught once run on real
+    reported PASS in simulation, only caught once run on real
     hardware, sometimes much later.
 
     Parameters
@@ -47,8 +47,8 @@ def cmd_compile(args: argparse.Namespace) -> None:
         ("mif", "hex", or "asm"), args.manifest (full path override
         for the combined manifest.json; default
         <build_dir>/manifest.json), args.manifest_per_test (a full
-        path template containing "{name}", e.g. "some/dir/{name}.json"
-        — if given, ALSO writes each test's own manifest entry to its
+        path template containing "{name}", e.g. "some/dir/{name}.json";
+        if given, ALSO writes each test's own manifest entry to its
         own file, substituting "{name}" with that test's name; the
         combined manifest.json is still written either way, since
         `run` reads it).
@@ -167,8 +167,8 @@ def _compile_one(
     # Attached the same way for "real" and "sim": sim_runner's own
     # cocotb testbench does a bus-snooped RAM-vs-golden compare
     # exactly like orchestrator.run_one's JTAG-dump-vs-golden
-    # compare does for real hardware (a wrong computed value used
-    # to only surface once run for real, sometimes much later).
+    # compare does for real hardware, so a wrong computed value
+    # surfaces in simulation.
     if kind == "memory":
         golden_path = _golden_for(cfg, root, build_dir, src, march)
         entry["golden"] = str(golden_path.relative_to(root))

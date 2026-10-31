@@ -9,8 +9,7 @@ from riscv_tools.proc import run_streaming
 
 # Thin alias: this module's own callers/docs refer to "_run_captured";
 # see riscv_tools.proc.run_streaming for the streaming/classification
-# rationale (shared with jtag.link.run — both used to have their own
-# near-identical capture_output=True block, which is how they drifted).
+# rationale, shared with jtag.link.run.
 _run_captured = run_streaming
 
 
@@ -18,18 +17,18 @@ def program_only(hardware_name: str, project_dir: Path, sof_file: str) -> None:
     """Reprogram the board from the EXISTING .sof, no recompile.
 
     Much cheaper than full_reconfigure (~10s vs the several minutes a
-    full `quartus_sh --flow compile` takes) — worth trying first when
+    full `quartus_sh --flow compile` takes), worth trying first when
     a test's mailbox times out, in the same-frequency test suite
     specifically: the design itself never changes between tests there
     (only the ROM content, which gets reloaded over JTAG separately by
-    rom_writer, not baked in at compile time) — so a wedged board most
+    rom_writer, not baked in at compile time), so a wedged board most
     likely just needs a fresh `quartus_pgm`, not a fresh compile of a
     bitstream that would come out identical anyway. Only recompile
     (full_reconfigure) if this doesn't get the board responding again.
 
     Whatever ROM content happens to be baked into this .sof (from
     whichever test's compile last ran) is what the board boots with
-    after this — the caller still needs to JTAG-write the CURRENT
+    after this; the caller still needs to JTAG-write the CURRENT
     test's ROM and pulse the restart flag afterward (see
     orchestrator.run_test_via_jtag), same as after any other reprogram.
 
@@ -37,7 +36,7 @@ def program_only(hardware_name: str, project_dir: Path, sof_file: str) -> None:
     ----------
     hardware_name : str
         The JTAG cable name to program with (see
-        jtag.detect_jtag_hardware) — pinned explicitly via
+        jtag.detect_jtag_hardware), pinned explicitly via
         quartus_pgm's -c so a second board's cable can't be picked by
         mistake.
     project_dir : Path
@@ -56,13 +55,13 @@ def program_only(hardware_name: str, project_dir: Path, sof_file: str) -> None:
     FileNotFoundError
         sof_file doesn't exist (e.g. a previous full_reconfigure got
         interrupted after its stale_cache_dirs cleanup but before the
-        Assembler produced a new one) — nothing to reprogram from,
+        Assembler produced a new one); nothing to reprogram from,
         caller should fall back to full_reconfigure instead.
     """
     sof_path = project_dir / sof_file
     if not sof_path.is_file():
         raise FileNotFoundError(
-            f"{sof_path} does not exist — need a full compile first"
+            f"{sof_path} does not exist; need a full compile first"
         )
     pgm_cmd = [
         "quartus_pgm",
@@ -136,7 +135,7 @@ def full_reconfigure(
     """Compile the whole Quartus project and program the board.
 
     Bakes rom.path in as the ROM's init_file, then programs the
-    board — the slow path. Meant to run once up front to establish a
+    board, the slow path. Meant to run once up front to establish a
     baseline bitstream, and again as a fallback if a JTAG-reloaded
     test (rom_writer + mailbox) times out, in case the board itself
     wedged rather than the test hanging.
@@ -172,9 +171,9 @@ def full_reconfigure(
     # compile and program are shelled out as ONE bash -c chain, not two
     # separate subprocess.run() calls, because invoking quartus_pgm as
     # its own Python-launched subprocess right after quartus_sh
-    # reliably reports "Can't scan JTAG chain" (error 87) — reproduced
+    # reliably reports "Can't scan JTAG chain" (error 87), reproduced
     # 4/4 times through this module's own subprocess.run() sequence
-    # (with delays from 0s to 10s between the two calls — delay length
+    # (with delays from 0s to 10s between the two calls, delay length
     # made no difference), while chaining the exact same two commands
     # in a single shell process (this project's own manual
     # `quartus_sh ...; quartus_pgm ...` in one `bash -c`, even with a

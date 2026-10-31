@@ -22,7 +22,7 @@ from riscv_tools.jtag import JtagLink
 from riscv_tools.orchestrator.runner import reconfigure_with_rom
 
 # run_freq_sweep_linear stops once this many consecutive candidates
-# fail — past that point the board is assumed to already be beyond
+# fail; past that point the board is assumed to already be beyond
 # Fmax, so continuing just burns more full-reconfigure cycles for no
 # new information.
 _CONSECUTIVE_FAILS_TO_STOP = 3
@@ -63,9 +63,9 @@ def run_freq_sweep_at(job: SweepJob, mhz: float) -> dict[str, Any]:
 
     Edits the project's PLL to mhz (see freq_sweep.set_pll_freq), then
     always does a full recompile+reprogram (quartus_program.
-    full_reconfigure) — a clock frequency is baked in at synthesis
+    full_reconfigure); a clock frequency is baked in at synthesis
     time, so unlike run_one's per-test loop there's no faster
-    JTAG-reload path available here — waits
+    JTAG-reload path available here, waits
     quartus.program_wait_seconds, dumps RAM, and compares it against
     job.golden_path.
 
@@ -73,7 +73,7 @@ def run_freq_sweep_at(job: SweepJob, mhz: float) -> dict[str, Any]:
     ----------
     job : SweepJob
         The sweep's shared state: the merged project config (uses
-        freq_sweep.* — see freq_sweep.__config__ — and quartus.*/
+        freq_sweep.*; see freq_sweep.__config__, and quartus.*/
         memory.ram_base), the JTAG link, the .mif to bake in, the
         golden JSON the RAM dump is compared against (see
         mem_validator.compare), the Quartus project directory and the
@@ -86,7 +86,7 @@ def run_freq_sweep_at(job: SweepJob, mhz: float) -> dict[str, Any]:
     dict of {str: Any}
         {"freq_mhz": mhz, "status": status}, status one of "pass",
         "fail" (RAM dump didn't match golden_path),
-        "program_fail" (compile or JTAG programming itself failed —
+        "program_fail" (compile or JTAG programming itself failed,
         caught rather than propagated, so one bad candidate frequency
         doesn't abort a whole sweep), or "dump_fail" (the RAM dump
         itself failed after programming succeeded).
@@ -175,7 +175,7 @@ def run_freq_sweep_linear(
             r["status"] != "pass" for r in recent
         ):
             print(
-                f"{_CONSECUTIVE_FAILS_TO_STOP} consecutive fails — "
+                f"{_CONSECUTIVE_FAILS_TO_STOP} consecutive fails; "
                 "stopping sweep early (Fmax likely already found)"
             )
             break
@@ -200,10 +200,10 @@ def run_freq_sweep_binary(
     job : SweepJob
         Forwarded to run_freq_sweep_at.
     low : float
-        Lower bound, in MHz — must PASS, or the search aborts (no
+        Lower bound, in MHz: must PASS, or the search aborts (no
         known-good frequency to search from).
     high : float
-        Upper bound, in MHz — if this also PASSes, Fmax is above
+        Upper bound, in MHz: if this also PASSes, Fmax is above
         `high` and the search can't converge; it returns after
         reporting that rather than guessing further.
     tolerance : float, optional
@@ -221,14 +221,14 @@ def run_freq_sweep_binary(
     r = run_freq_sweep_at(job, low)
     results.append(r)
     if r["status"] != "pass":
-        print(f"FAIL at lower bound {low} MHz — aborting binary search")
+        print(f"FAIL at lower bound {low} MHz; aborting binary search")
         return results
 
     r = run_freq_sweep_at(job, high)
     results.append(r)
     if r["status"] == "pass":
         print(
-            f"PASS at upper bound {high} MHz — Fmax is above {high}, raise "
+            f"PASS at upper bound {high} MHz; Fmax is above {high}, raise "
             "--high"
         )
         return results

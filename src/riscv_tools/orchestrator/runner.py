@@ -7,7 +7,7 @@ mailbox never responds within its timeout (see run_suite/run_one).
 The clock frequency sweep, which builds on reconfigure_with_rom, lives
 in sweep.py.
 
-Owns no hardware mechanism itself — only sequencing.
+Owns no hardware mechanism itself, only sequencing.
 """
 
 import json
@@ -103,11 +103,11 @@ class NeedsHumanInterventionError(Exception):
     text matches a known "the board/cable itself is unreachable"
     signature (see _is_hardware_failure), as opposed to an ordinary
     test timeout (mailbox never went PASS/FAIL, but every JTAG
-    operation involved reported success) — that second case might be a
+    operation involved reported success); that second case might be a
     real CPU/test bug, not a wedged board, and doesn't raise this.
 
     run_suite catches this, saves progress, and stops the suite rather
-    than ever calling run_one on the next manifest entry — no automated
+    than ever calling run_one on the next manifest entry, no automated
     retry has ever recovered from one of these this session (0/7 full
     recompiles), so there is nothing left to try except a human
     physically power-cycling the board.
@@ -117,9 +117,9 @@ class NeedsHumanInterventionError(Exception):
 # Substrings pulled directly from real Quartus/jtagd error text seen
 # this session (see docs/PLL_LOCK_LOSS_BUG.md and
 # HARDWARE_PROGRAMMING.md) that mean "the JTAG chain/cable itself is
-# unreachable" — never "the design misbehaved" or "the test failed".
+# unreachable", never "the design misbehaved" or "the test failed".
 # Matched case-insensitively against a CalledProcessError's stdout+
-# stderr (see jtag.link.run / quartus_program._run_captured — both
+# stderr (see jtag.link.run / quartus_program._run_captured, both
 # always populate these now, specifically so this classifier has
 # something to look at).
 _HARDWARE_FAILURE_SIGNATURES = (
@@ -142,18 +142,18 @@ def _is_hardware_failure(exc: subprocess.CalledProcessError) -> bool:
     ----------
     exc : subprocess.CalledProcessError
         A failure from jtag.link.run/run_tcl or
-        quartus_program._run_captured — both always populate
+        quartus_program._run_captured, both always populate
         .stdout/.stderr with real text now (see their own docstrings).
 
     Returns
     -------
     bool
         True if exc's stdout+stderr contain one of
-        _HARDWARE_FAILURE_SIGNATURES — this specific test's own retry
+        _HARDWARE_FAILURE_SIGNATURES; this specific test's own retry
         tiers are exhausted, and neither would a trying-again-later
         retry help without a human power-cycling the board first.
         False for any other failure (e.g. a nonzero exit with
-        different or no output) — treated as an ordinary test failure,
+        different or no output), treated as an ordinary test failure,
         not grounds to stop the whole suite.
     """
     text = f"{exc.stdout or ''}\n{exc.stderr or ''}".lower()
@@ -166,7 +166,7 @@ def _raise_if_hardware_failure(exc: subprocess.CalledProcessError) -> None:
     No-op otherwise.
 
     Pulled out of _run_with_recovery's own tiers (repeated once per
-    tier) purely to keep that function's branch count down — the
+    tier) purely to keep that function's branch count down; the
     actual classification logic lives in _is_hardware_failure.
     """
     if _is_hardware_failure(exc):
@@ -187,14 +187,14 @@ def run_test_via_jtag(
     Parameters
     ----------
     cfg : dict of {str: Any}
-        The merged project config (see settings.load_config) — uses
+        The merged project config (see settings.load_config): uses
         quartus.rom_mem_instances/ram_mem_instance/
         poll_interval_seconds and memory.ram_base/go_flag_addr/
         mailbox_addr.
     link : JtagLink
         Which JTAG cable/chip to use.
     entry : dict of {str: Any}
-        One manifest entry (from compile --emit mif) — uses "mif"
+        One manifest entry (from compile --emit mif): uses "mif"
         (path, relative to root) and "timeout_s".
     root : Path
         The consuming project's root directory, entry["mif"] is
@@ -278,13 +278,13 @@ def full_reconfigure_entry(
     Parameters
     ----------
     cfg : dict of {str: Any}
-        The merged project config — uses
+        The merged project config: uses
         quartus.project_name/sof_file/rom_mif_target/
         stale_cache_dirs.
     link : JtagLink
         Which JTAG cable/chip to program.
     entry : dict of {str: Any}
-        One manifest entry — uses "mif" (path, relative to root) as
+        One manifest entry: uses "mif" (path, relative to root) as
         the ROM content to bake in.
     root : Path
         The consuming project's root directory, entry["mif"] is
@@ -312,32 +312,32 @@ def _run_with_recovery(
     mailbox result either:
 
     1. A cheap soft restart (re-reload ROM + re-pulse go_flag, no JTAG
-       programming) — crt0.S's _start unconditionally clears
+       programming); crt0.S's _start unconditionally clears
        mailbox_addr/go_flag_addr itself before running anything, so
        this gives the core a real chance to leave whatever state it
        was stuck in (its own poll loop, most likely).
-    2. A plain reprogram (existing .sof, no recompile) — ~10s instead
+    2. A plain reprogram (existing .sof, no recompile), ~10s instead
        of the several minutes a full compile takes. The design never
        changes between tests in this same-frequency suite (only the
        ROM content, reloaded over JTAG separately), so recompiling
        would produce the identical bitstream.
-    3. A full recompile + reprogram — but ONLY if tier 2 failed because
+    3. A full recompile + reprogram, but ONLY if tier 2 failed because
        the .sof itself doesn't exist (FileNotFoundError), not because
        quartus_pgm couldn't reach the board. Recompiling can't fix a
        JTAG chain that's down (that needs a physical power-cycle
        either way) and produces the identical bitstream tier 2 already
-       tried — empirically 0/7 of those recompiles recovered a single
+       tried; empirically 0/7 of those recompiles recovered a single
        test this session, at ~4-5 minutes each. Skipping this tier
        when it can't help is the whole point of separating it from
        tier 2's failure handling.
 
     Raises NeedsHumanInterventionError as soon as any tier's own failure
     text matches a known hardware/cable signature (see
-    _is_hardware_failure) — no automated tier below has ever recovered
+    _is_hardware_failure); no automated tier below has ever recovered
     from one of those this session, so there's no point paying for
     tier 2/3 just to confirm it again more expensively. A tier that
     fails with unrecognized output (or a plain timeout with no
-    subprocess error at all) is NOT escalated this way — that might be
+    subprocess error at all) is NOT escalated this way; that might be
     a real CPU/test bug rather than a wedged board, and still gets to
     try the next, cheaper tier before this function gives up and
     returns None.
@@ -345,14 +345,14 @@ def _run_with_recovery(
     Parameters
     ----------
     cfg : dict of {str: Any}
-        The merged project config — see run_test_via_jtag and
+        The merged project config; see run_test_via_jtag and
         full_reconfigure_entry for the fields used, plus
         quartus.program_wait_seconds (wait after the tier-3
         reconfigure).
     link : JtagLink
         Which JTAG cable/chip to use.
     entry : dict of {str: Any}
-        One manifest entry — uses "name", "march", "kind", "timeout_s",
+        One manifest entry: uses "name", "march", "kind", "timeout_s",
         "mif" (see run_test_via_jtag/full_reconfigure_entry).
     root : Path
         The consuming project's root directory, entry["mif"] is
@@ -371,7 +371,7 @@ def _run_with_recovery(
     ------
     NeedsHumanInterventionError
         A tier's own subprocess failure matched a known JTAG/cable
-        signature — see _is_hardware_failure.
+        signature; see _is_hardware_failure.
     """
     name = entry["name"]
 
@@ -391,7 +391,7 @@ def _run_with_recovery(
     # Tier 1: cheap soft restart. Matters because a tier-3 recompile
     # leaves the core running UNSUPERVISED for however long `quartus_sh
     # --flow compile` takes (minutes) before quartus_pgm ever touches
-    # the cable again — that's a long window for a spinning core to
+    # the cable again; that's a long window for a spinning core to
     # make things worse, not better, before we even attempt the
     # expensive/fragile path.
     print(
@@ -410,7 +410,7 @@ def _run_with_recovery(
 
     # Tier 2: plain reprogram, no recompile. FileNotFoundError means
     # "no .sof to reprogram from at all" (tier 3 can actually help,
-    # unrelated to the board's JTAG reachability) — distinct from a
+    # unrelated to the board's JTAG reachability), distinct from a
     # CalledProcessError, which means quartus_pgm itself ran and either
     # hit a recognized hardware failure (raise, stop the suite) or
     # something else entirely (fall through, still worth a timeout
@@ -441,17 +441,17 @@ def _run_with_recovery(
         print(
             f"{name}: still no mailbox result after a plain reprogram, "
             "with no recognized hardware-failure signature in any "
-            "output so far — reporting this as a timeout rather than "
+            "output so far, reporting this as a timeout rather than "
             "assuming the board is wedged (a full recompile would just "
             "reprogram the identical bitstream anyway)."
         )
         return None
 
-    # Tier 3: full recompile + reprogram — only reached when there's no
+    # Tier 3: full recompile + reprogram, only reached when there's no
     # .sof to fall back on.
     print(
         f"{name}: still no mailbox result, and no .sof exists to "
-        "reprogram from — falling back to a full recompile+reprogram, "
+        "reprogram from, falling back to a full recompile+reprogram, "
         "which this specific case actually needs"
     )
     try:
@@ -480,7 +480,7 @@ def run_one(
     RAM-vs-golden compare if entry is a "memory" test. Raises
     NeedsHumanInterventionError (RAM dump included) the moment any JTAG
     operation's own failure text matches a known hardware/cable
-    signature — see _is_hardware_failure — since no automated retry
+    signature; see _is_hardware_failure, since no automated retry
     has ever recovered from one of those; run_suite catches it, saves
     progress, and stops rather than grinding through the rest of the
     manifest against a board that needs a human to power-cycle it.
@@ -498,10 +498,10 @@ def run_one(
         entry["golden"] are relative to it) and the Quartus project
         directory (used only if the JTAG-reload path times out).
     entry : dict of {str: Any}
-        One manifest entry — uses "name", "march", "kind",
+        One manifest entry: uses "name", "march", "kind",
         "timeout_s", "mif", and (for "memory" tests) "golden".
     position : tuple of (int, int), keyword-only, optional
-        (index, total) — this test's 1-based position in the overall
+        (index, total); this test's 1-based position in the overall
         suite and the suite's total size, shown in the printed header
         as "[index/total]" (e.g. run_suite's own loop, via
         enumerate(manifest, start=1)). None (the default, e.g. a
@@ -511,7 +511,7 @@ def run_one(
     duration : dict of {str: float}, keyword-only, optional
         If given, this test's wall-clock time in seconds (JTAG
         reload/poll plus, for "memory" tests, the RAM dump+compare) is
-        written into it under entry["name"] as a side effect — the
+        written into it under entry["name"] as a side effect; the
         caller's own dict, mutated in place, so run_suite's loop can
         report per-test timing back to cli.cmd_run's summary without
         run_suite itself needing a richer return type (results stays a
@@ -554,7 +554,7 @@ def run_one(
     if entry["kind"] == "memory":
         # Same classification as _run_with_recovery's own tiers: a
         # recognized hardware-failure signature here raises
-        # NeedsHumanInterventionError too, same as everywhere else —
+        # NeedsHumanInterventionError too, same as everywhere else;
         # this was the one JTAG call in run_one that wasn't covered by
         # that logic.
         golden = ctx.root / entry["golden"]
@@ -596,7 +596,7 @@ def _wait_for_hardware_healthy(
     Meant to be called right after printing a
     NeedsHumanInterventionError's message, only when the caller
     (run_suite's wait_for_hardware=True)
-    wants to stay running instead of exiting — the person fixing the
+    wants to stay running instead of exiting; the person fixing the
     board (typically a physical power-cycle) is assumed to be watching
     this process's own output, not some separate re-invocation.
 
@@ -613,7 +613,7 @@ def _wait_for_hardware_healthy(
     """
     while not jtag_chain_healthy():
         time.sleep(poll_interval_s)
-    print("jtagconfig reports the chain is healthy again — resuming.")
+    print("jtagconfig reports the chain is healthy again; resuming.")
 
 
 def run_suite(
@@ -624,11 +624,11 @@ def run_suite(
     """Run every test in manifest against real hardware.
 
     Compiles and programs the board once, then runs each entry via
-    run_one, in order — stopping immediately (not raising) the moment
+    run_one, in order, stopping immediately (not raising) the moment
     any test raises NeedsHumanInterventionError, since no automated
     retry recovers from that (see run_one/_run_with_recovery). If
     options.results_path is given, every test's result is written
-    there as soon as it's known — including the stop point itself — so
+    there as soon as it's known, including the stop point itself, so
     a caller can detect an incomplete run (len(returned dict) <
     len(manifest)) and resume later: re-invoke with a caller-filtered
     manifest of just the untested entries (see cli.cmd_run's --resume)
@@ -642,8 +642,8 @@ def run_suite(
         The shared state, forwarded to full_reconfigure_entry/run_one.
     manifest : list of dict of {str: Any}
         The test list to run (typically compile --emit mif's full
-        manifest.json, but may be a caller-filtered subset — see
-        cli.cmd_run's --only) — must be non-empty; when
+        manifest.json, but may be a caller-filtered subset; see
+        cli.cmd_run's --only), must be non-empty; when
         options.reconfigure is True, manifest[0]'s ROM is what gets
         baked into the initial compile.
     options : SuiteOptions, optional
@@ -654,7 +654,7 @@ def run_suite(
     Returns
     -------
     dict of {str: bool}
-        A {test_name: passed} dict — results_so_far, plus one entry
+        A {test_name: passed} dict, results_so_far, plus one entry
         per manifest test actually run before either finishing or
         hitting a NeedsHumanInterventionError stop. Compare len(this)
         against len(results_so_far or {}) + len(manifest) to tell a
@@ -738,7 +738,7 @@ class _SuiteRun:
             else "stopping the suite"
         )
         print(
-            f"\n{name}: {action} — {exc}\n"
+            f"\n{name}: {action} ({exc})\n"
             f"This needs a physical power-cycle of the board, not "
             f"another retry. {len(self.results)} test(s) done, "
             f"{remaining} remaining (including this one)."
@@ -747,7 +747,7 @@ class _SuiteRun:
             print(
                 "Once the board is back (`jtagconfig` shows it healthy "
                 "again), re-run the exact same command to resume from "
-                "here — completed tests won't be re-run."
+                "here; completed tests won't be re-run."
             )
             return False
         _wait_for_hardware_healthy()
@@ -836,7 +836,7 @@ class _SuiteRun:
     def run_entries(self) -> None:
         """Run every manifest entry, stopping on a hardware failure."""
         # 1-based position across the ORIGINAL manifest, not just this
-        # invocation's (possibly resumed/already-filtered) one — a
+        # invocation's (possibly resumed/already-filtered) one, a
         # resume restarting the header count at "[1/N]" would
         # understate both how far along the suite actually is and what
         # N even means.

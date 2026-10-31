@@ -22,7 +22,7 @@ def cmd_generate_header(args: argparse.Namespace) -> None:
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments — uses args.config, args.root, args.out.
+        Parsed CLI arguments: uses args.config, args.root, args.out.
 
     Returns
     -------
@@ -51,13 +51,13 @@ def cmd_generate_golden(args: argparse.Namespace) -> None:
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments — uses args.config, args.elf, args.march,
+        Parsed CLI arguments: uses args.config, args.elf, args.march,
         args.out, and either args.symbol (resolved via
         golden_generator.symbol_range) or both args.start/args.end
-        (parsed with base 0, so "0x10010" or "65552" both work) — the
+        (parsed with base 0, so "0x10010" or "65552" both work); the
         argument parser enforces exactly one of these two is given.
         Both forms are ABSOLUTE ELF addresses (whatever `nm`/`objdump`
-        would print for the symbol) — memory.ram_base is subtracted
+        would print for the symbol); memory.ram_base is subtracted
         automatically so the golden JSON's own keys come out
         RAM-relative either way (see golden_generator.generate_golden).
 

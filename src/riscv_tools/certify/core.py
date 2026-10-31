@@ -4,7 +4,7 @@ Two stages, kept separate since they're owned by different tools:
 
 1. `build_elfs` shells out to ACT4's own `make` (vendor/riscv-arch-test)
    to compile self-checking ELFs for this project's own ACT4 target
-   (act.target_config in config.yaml — see
+   (act.target_config in config.yaml; see
    tools/riscv_build/act/rv32im-min/). ACT4 owns test generation/
    compilation entirely; this project only supplies the DUT-specific
    config (test_config.yaml, UDB YAML, rvmodel_macros.h, link.ld).
@@ -18,7 +18,7 @@ simulation
    via HTIF tohost, not this project's own PASS/FAIL mailbox convention
    (see rv32im-min/rvmodel_macros.h).
 
-Doesn't touch real hardware at all — ACT4 tests have no golden.json/
+Doesn't touch real hardware at all; ACT4 tests have no golden.json/
 Spike-comparison step of their own (self-checking: the expected value
 is baked into each test's own assembly at generation time, upstream,
 long before this project ever sees it), so there's nothing here
@@ -49,7 +49,7 @@ def target_name(target_config: Path) -> str:
     Returns
     -------
     str
-        The `name:` value — ACT4 builds this config's ELFs into
+        The `name:` value; ACT4 builds this config's ELFs into
         `<vendor_dir>/work/<name>/elfs/` (see vendor/riscv-arch-test's
         own Makefile: `WORKDIR/$(config-name)`).
     """
@@ -66,17 +66,17 @@ def build_elfs(
     ----------
     vendor_dir : Path
         The vendored, pinned vendor/riscv-arch-test checkout (ACT4
-        framework root — has its own top-level Makefile).
+        framework root, has its own top-level Makefile).
     target_config : Path
         This project's own ACT4 target test_config.yaml
-        (act.target_config in config.yaml) — passed to `make` as an
+        (act.target_config in config.yaml), passed to `make` as an
         absolute path, since ACT4's own CONFIG_FILES accepts any path,
         not just ones under its own config/ tree (see
         vendor/riscv-arch-test's README: "Configs can also be placed
         outside the repo").
     extensions : str
         Comma-separated extension list (act.extensions in config.yaml,
-        e.g. "I,M") — forwarded as `make`'s own EXTENSIONS=.
+        e.g. "I,M"), forwarded as `make`'s own EXTENSIONS=.
     jobs : int
         Forwarded as `make`'s own JOBS= (0 = auto-detect, ACT4's own
         default).
@@ -84,7 +84,7 @@ def build_elfs(
     Returns
     -------
     Path
-        `<vendor_dir>/work/<target-name>/elfs` — where the just-built
+        `<vendor_dir>/work/<target-name>/elfs`, where the just-built
         ELFs landed.
 
     Raises
@@ -92,7 +92,7 @@ def build_elfs(
     subprocess.CalledProcessError
         `make` exited non-zero (e.g. a compile error, or the Ruby/
         Bundler/UDB toolchain ACT4's own Makefile requires isn't
-        installed — see certification.yml).
+        installed; see certification.yml).
     """
     proc.run_streaming(
         [
@@ -119,7 +119,7 @@ def discover_elfs(elfs_dir: Path) -> list[Path]:
     list of Path
         Every `*.elf` under elfs_dir, sorted, EXCLUDING `*.sig.elf`
         (a separate signature-mode build ACT4 produces for
-        `make coverage`'s Sail-comparison flow — irrelevant here,
+        `make coverage`'s Sail-comparison flow, irrelevant here,
         this project only runs the self-checking `.elf` build; see
         certify/core.py's own module docstring).
     """
@@ -418,14 +418,14 @@ def run_suite(
     Parameters
     ----------
     cfg : dict of {str: Any}
-        The merged project config — uses act.vendor_dir/target_config/
-        extensions/jobs/sim_parameters (optional — merged on top of
+        The merged project config: uses act.vendor_dir/target_config/
+        extensions/jobs/sim_parameters (optional, merged on top of
         sim.parameters, for a memory-depth generic ACT4's own bigger
         images need but the regular suite doesn't) and sim.toplevel/
-        vhdl_sources/ghdl_std/parameters (NOT sim.test_module — see
+        vhdl_sources/ghdl_std/parameters (NOT sim.test_module; see
         module docstring).
     root : Path
-        The consuming project's root directory — act.vendor_dir/
+        The consuming project's root directory; act.vendor_dir/
         target_config and sim.vhdl_sources are all resolved relative
         to this.
     build_dir : Path
@@ -452,16 +452,16 @@ def run_suite(
     )
     elfs = discover_elfs(elfs_dir)
     if not elfs:
-        print(f"No ELFs found under {elfs_dir} — nothing to run")
+        print(f"No ELFs found under {elfs_dir}; nothing to run")
         return {}
 
     vhdl_sources = [str(root / src) for src in cfg["sim"]["vhdl_sources"]]
-    # act.sim_parameters overrides/extends sim.parameters — an official
+    # act.sim_parameters overrides/extends sim.parameters, an official
     # architectural test can be far bigger than anything this project's
     # own hand-picked suite needs (e.g. I-jal-00's combinatorial offset
     # coverage overflows this project's real-hardware-sized ROM by
     # tens of KB), and ACT4 never runs on real hardware at all (see
-    # this module's own docstring) — its ROM_simulation/RAM_simulation
+    # this module's own docstring), its ROM_simulation/RAM_simulation
     # arrays are plain VHDL arrays with no real M10K budget to respect,
     # so sizing them generously here costs nothing. A project with no
     # such override just gets sim.parameters unchanged.

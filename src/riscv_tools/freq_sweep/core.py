@@ -4,13 +4,13 @@ Generalizes RV32IM's original ad hoc `set_pll_freq()` (a fixed regex
 against one specific `pll_0002.v` layout): the parameter-name
 patterns, unit strings, and how many phase-shifted clock outputs to
 rewrite all come from a project's own `freq_sweep:` config section
-(see __config__.py) instead of being hardcoded here — a project with
+(see __config__.py) instead of being hardcoded here; a project with
 a single-phase PLL, a differently named megafunction instance, or a
 VHDL rather than Verilog PLL wrapper (as long as it uses the same
 `.param("value")` instantiation syntax) configures this without
 touching this module's code.
 
-No hardware/JTAG interaction here — purely a text rewrite of the PLL
+No hardware/JTAG interaction here, purely a text rewrite of the PLL
 source file. Recompiling/reprogramming after the edit is the caller's
 job (see orchestrator.run_freq_sweep_at).
 """
@@ -19,7 +19,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-# 1 MHz's period, in picoseconds — the constant this module's period
+# 1 MHz's period, in picoseconds, the constant this module's period
 # math is built on (see set_pll_freq's Notes: freq_unit/phase_unit
 # only control the string suffix written, not this arithmetic, which
 # always assumes MHz-in/ps-out, matching Quartus' altpll convention).
@@ -83,7 +83,7 @@ def set_pll_freq(pll_file: Path, mhz: float, params: PllParams) -> None:
     For each of `phase_count` clock outputs, replaces
     `.<freq_param>("...")`  with the new frequency and
     `.<phase_param>("...")` with that output's recomputed phase
-    offset — so multi-phase outputs stay proportionally spaced at the
+    offset, so multi-phase outputs stay proportionally spaced at the
     new frequency (see _phase_offset_ps). A parameter pair that
     doesn't appear in the file (e.g. phase_count set too high for
     what the PLL source actually declares) is silently left

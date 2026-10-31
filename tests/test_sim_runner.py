@@ -1,6 +1,6 @@
 """End-to-end test of sim_runner.run_test against a real GHDL install.
 
-Uses the "sim" extra (cocotb + cocotb-tools) — proves the whole chain
+Uses the "sim" extra (cocotb + cocotb-tools), proves the whole chain
 (GHDL build via cocotb_tools.runner -> simulate -> parse results.xml)
 actually works, for both a passing and a failing cocotb test (see
 fixtures/sim_min/).
@@ -24,7 +24,7 @@ FIXTURES_LIB = Path(__file__).resolve().parent / "fixtures" / "sim_lib"
 # cocotb_tools.runner's subprocess inherits PYTHONPATH from *this*
 # process' sys.path (see cocotb_tools.runner.Simulator._set_env), so
 # test_module below can use bare names ("test_pass") once this is on
-# sys.path — no __init__.py/dotted-package plumbing needed.
+# sys.path, no __init__.py/dotted-package plumbing needed.
 sys.path.insert(0, str(FIXTURES))
 sys.path.insert(0, str(FIXTURES_LIB))
 
@@ -84,7 +84,7 @@ def test_sim_runner_parameters_reach_ghdl(
 ) -> None:
     # dut.vhd's CYCLES generic defaults to 5 (test_pass passes well
     # within its own 20-cycle poll loop). Overriding it to 50 via
-    # `parameters` must make the same otherwise-passing test fail —
+    # `parameters` must make the same otherwise-passing test fail,
     # if `parameters` weren't actually reaching GHDL's `-g` (e.g. sat
     # in .build() instead of .test(), which GHDL silently ignores),
     # CYCLES would stay at its default and this would wrongly pass.

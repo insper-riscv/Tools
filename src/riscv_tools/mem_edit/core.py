@@ -40,7 +40,7 @@ def write_full_multi(
 
     Does every instance inside one JTAG session (one
     write_full_multi.tcl invocation) instead of one write_full() call
-    per instance — each JTAG session has real open/close overhead, worth
+    per instance; each JTAG session has real open/close overhead, worth
     avoiding when a project physically duplicates a memory across
     instances that must always hold identical content (see
     rom_writer.write_rom).
@@ -50,7 +50,7 @@ def write_full_multi(
     link : JtagLink
         Which JTAG cable/chip to write to.
     instances : sequence of int
-        In-System Memory Content Editor instance indices to write —
+        In-System Memory Content Editor instance indices to write,
         every one gets the exact same content, in order.
     mif_path : Path
         Path to the .mif whose content replaces each instance's entire

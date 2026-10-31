@@ -22,7 +22,7 @@ def cmd_vhdl_sort(args: argparse.Namespace) -> None:
     """Implement `riscv-tools vhdl-sort`.
 
     Prints args.files reordered so each file's VHDL entity/package
-    dependencies precede it (see vhdl_sort.topo_sort) — for feeding
+    dependencies precede it (see vhdl_sort.topo_sort), for feeding
     GHDL's `-a` (analyze) phase, or a Makefile's `$(shell ...)`.
     Doesn't touch args.config; this subcommand needs no project
     config.
@@ -30,7 +30,7 @@ def cmd_vhdl_sort(args: argparse.Namespace) -> None:
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments — uses args.files.
+        Parsed CLI arguments: uses args.files.
 
     Returns
     -------
@@ -52,7 +52,7 @@ def cmd_check_paths(args: argparse.Namespace) -> None:
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments — uses args.manifest and args.root.
+        Parsed CLI arguments: uses args.manifest and args.root.
 
     Returns
     -------
@@ -84,7 +84,7 @@ def cmd_profiles(args: argparse.Namespace) -> None:
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments — uses args.spec and args.format.
+        Parsed CLI arguments: uses args.spec and args.format.
 
     Returns
     -------
@@ -172,7 +172,7 @@ def cmd_check_memory_map(args: argparse.Namespace) -> None:
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments — uses args.platform and args.root.
+        Parsed CLI arguments: uses args.platform and args.root.
 
     Returns
     -------
@@ -238,7 +238,7 @@ def cmd_freq_sweep(args: argparse.Namespace) -> None:
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments — uses args.config, args.root, args.mif,
+        Parsed CLI arguments: uses args.config, args.root, args.mif,
         args.golden, args.binary, args.start/args.stop/args.step
         (linear mode), args.low/args.high (binary mode), args.out
         (results JSON path; default

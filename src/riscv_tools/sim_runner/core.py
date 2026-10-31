@@ -1,7 +1,7 @@
 """Drive cocotb/GHDL simulation, the sim side of `orchestrator`.
 
 `orchestrator` drives real hardware over JTAG instead. Owns no
-DUT-specific knowledge itself — the project's own cocotb test_module
+DUT-specific knowledge itself; the project's own cocotb test_module
 (see __config__.py) knows the actual VHDL signal hierarchy and polls
 the PASS/FAIL mailbox, the same convention `mailbox` uses for real
 hardware, just read directly from simulated signals instead of JTAG.
@@ -155,10 +155,10 @@ def run_test(
         VHDL source file paths, in dependency order
         (sim.vhdl_sources).
     ghdl_std : str
-        GHDL `--std=` value (sim.ghdl_std, default "08" — VHDL-2008 /
+        GHDL `--std=` value (sim.ghdl_std, default "08", VHDL-2008 /
         IEEE Std 1076-2008).
     test_module : str
-        The project's own cocotb test module name (sim.test_module) —
+        The project's own cocotb test module name (sim.test_module),
         receives this test's ROM image via the ROM_HEX environment
         variable, and this test's name via TEST_NAME, matching the
         convention the project's testbench expects (see e.g. a
@@ -170,33 +170,33 @@ def run_test(
         Keyword settings, described below: `test_name` and `build_dir`
         are required, the others optional.
     test_name : str
-        This test's name (manifest entry "name") — passed through as
+        This test's name (manifest entry "name"), passed through as
         TEST_NAME.
     build_dir : Path
         Directory for GHDL's build+run artifacts (kept separate per
         test so parallel/repeated runs don't clobber each other's
         elaborated design).
     ram_base : int, optional
-        memory.ram_base — passed through as RAM_BASE so the testbench
+        memory.ram_base, passed through as RAM_BASE so the testbench
         can convert its own bus-snooped (absolute) RAM addresses into
         the same RAM-relative convention golden_path's keys use,
         without hardcoding it (see mailbox.word_offset). Default 0.
     golden_path : Path, optional
         This test's golden.json (manifest entry "golden"), for a
-        "memory"-kind test — passed through as GOLDEN_PATH so the
+        "memory"-kind test, passed through as GOLDEN_PATH so the
         testbench can do the same RAM-vs-golden compare
         orchestrator.run_one does for real hardware, from its own
         bus-snooped reconstruction of RAM's final content (cocotb's
-        VPI can't read a memory array directly — see a project's own
-        sim/test_c_program.py). None (the default) omits it — a
+        VPI can't read a memory array directly; see a project's own
+        sim/test_c_program.py). None (the default) omits it, a
         "unit"-kind test has no golden.json to check.
     parameters : dict of {str: Any}, optional
         VHDL generics to set on toplevel (sim.parameters, e.g. a
-        project's own `ROM_FILE`/memory-depth generics — see
+        project's own `ROM_FILE`/memory-depth generics; see
         sim_runner.__config__.DEFAULTS). Passed to
         cocotb_tools.runner.Runner.test(), not .build(): GHDL only
         applies generics at its `-r` (run) step, not `-i`/`-m`
-        (analyze/elaborate) — confirmed by reading
+        (analyze/elaborate), confirmed by reading
         cocotb_tools.runner.Ghdl's own `_test_command`/`_build_command`,
         which only calls `_get_parameter_options` from the former.
         Defaults to no overrides (whatever defaults toplevel's own
@@ -226,7 +226,7 @@ def run_test(
     SystemExit
         cocotb's results.xml wasn't produced at all (e.g. the
         simulation crashed before finishing, rather than running to
-        completion and failing normally) — see
+        completion and failing normally); see
         cocotb_tools.runner.get_results.
     """
     build_dir = options["build_dir"]
@@ -464,12 +464,12 @@ def run_suite(
     Parameters
     ----------
     cfg : dict of {str: Any}
-        The merged project config — uses sim.toplevel/vhdl_sources/
+        The merged project config: uses sim.toplevel/vhdl_sources/
         test_module/ghdl_std/parameters, and the optional
         ghdl_flags/libraries/run_files/env/image (see __config__.py).
     manifest : list of dict of {str: Any}
         The full test list (from `compile --emit hex`'s or
-        `--emit mif`'s manifest.json) — each entry needs "name" and
+        `--emit mif`'s manifest.json); each entry needs "name" and
         its image ("hex", or "mif" when sim.image is "mif"), plus
         "golden" for a "memory"-kind entry (see run_test's
         golden_path).
@@ -485,7 +485,7 @@ def run_suite(
         GHDL units cannot cross profiles that happen to share a top.
     boot_rom_hex_path : Path, optional
         Path to the FIXED, shared bootloader's compiled .hex (see
-        boot_rom.S) — built once by the caller, not per test, unlike
+        boot_rom.S), built once by the caller, not per test, unlike
         hex_path below. Made available to sim.parameters templates as
         `{boot_rom_hex_path}`, the same way `{hex_path}` exposes each
         test's own image. A project whose sim toplevel has no such
@@ -504,8 +504,8 @@ def run_suite(
     # sim.test_module is a root-relative dotted path (e.g.
     # "tools.riscv_build.sim.test_c_program"): the cocotb subprocess
     # finds it only through the sys.path of this process, also when
-    # riscv-tools runs as an installed console script (without it: "No
-    # module named 'tools'").
+    # riscv-tools runs as an installed console script; without it the
+    # import fails with "No module named 'tools'".
     sim_cfg = cfg["sim"]
     profile_build_dir = _profile_build_dir(build_dir, sim_cfg)
     extend_python_path(root, [".", *sim_cfg["python_path"]])

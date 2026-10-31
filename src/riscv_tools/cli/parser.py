@@ -27,7 +27,7 @@ from riscv_tools.cli.tools_cmd import (
 )
 
 # Statement count grows with each subcommand's own add_argument calls
-# (repetitive parser wiring, not real branching complexity) — splitting
+# (repetitive parser wiring, not real branching complexity), splitting
 # it up would just move the same lines behind indirection.
 _DESCRIPTION = """Command-line entry point of ``riscv-tools``.
 
@@ -63,7 +63,7 @@ def _add_subcommands_1(sub: Any) -> None:
         "--manifest-per-test",
         default=None,
         help='Full path template containing "{name}" (e.g. '
-        '"some/dir/{name}.json") — '
+        '"some/dir/{name}.json"), '
         "if given, also writes each test's own manifest entry to its own file",
     )
     p.set_defaults(func=cmd_compile)
@@ -207,7 +207,7 @@ def _add_subcommands_2(sub: Any) -> None:
     p.add_argument(
         "--symbol",
         default=None,
-        help="Data symbol to snapshot (e.g. a C global) — its address and "
+        help="Data symbol to snapshot (e.g. a C global), its address and "
         "size "
         "are resolved automatically via `nm -S`, instead of --start/--end. "
         "Mutually exclusive with --start/--end.",
@@ -237,7 +237,7 @@ def _add_subcommands_2(sub: Any) -> None:
         default=[],
         metavar="NAME[,NAME...]",
         help="Only run these test(s) (by manifest name), instead of the whole "
-        "suite — repeatable, and/or comma-separated in one use. Implies you "
+        "suite, repeatable, and/or comma-separated in one use. Implies you "
         "probably also want --skip-reconfigure if the board is already "
         "running a compatible bitstream.",
     )
@@ -246,14 +246,14 @@ def _add_subcommands_2(sub: Any) -> None:
         action="append",
         default=[],
         metavar="NAME[,NAME...]",
-        help="Omit these test(s) by manifest name — repeatable, and/or "
+        help="Omit these test(s) by manifest name, repeatable, and/or "
         "comma-separated in one use. Unknown names are errors.",
     )
     p.add_argument(
         "--skip-reconfigure",
         action="store_true",
         help="Skip the initial compile+program step and go straight to "
-        "JTAG-loading each test's ROM — only safe if the board is ALREADY "
+        "JTAG-loading each test's ROM, only safe if the board is ALREADY "
         "programmed with a compatible bitstream (e.g. re-running a few "
         "tests that failed earlier in the same session). Getting this wrong "
         "looks like every test timing out, not a clean error.",
@@ -266,7 +266,7 @@ def _add_subcommands_2(sub: Any) -> None:
         "exiting: print the same message, poll `jtagconfig` every few "
         "seconds until the chain reports healthy again (e.g. after you "
         "physically power-cycle the board), then automatically resume "
-        "from the exact step that failed — no need to re-invoke this "
+        "from the exact step that failed, no need to re-invoke this "
         "command by hand. Meant for an interactive local session someone "
         "is actively watching; CI should keep the default "
         "stop-and-exit-2 behavior instead, since nothing there could "
@@ -277,14 +277,14 @@ def _add_subcommands_2(sub: Any) -> None:
         action="store_true",
         help="On the initial reconfigure step, reprogram from the "
         "already-built .sof (quartus_pgm only, ~10s) instead of doing a "
-        "full quartus_sh --flow compile first — only safe if the VHDL "
+        "full quartus_sh --flow compile first, only safe if the VHDL "
         "source hasn't changed since that .sof was built (e.g. the "
         "board just lost its configuration to a power-cycle, not a "
         "source edit). Repeated full recompiles in one session have "
         "been observed to destabilize the JTAG chain, so prefer this "
         "over a full reconfigure when you know the .sof is still "
         "current. Unlike --skip-reconfigure, this still reprograms the "
-        "board — only the compile step is skipped.",
+        "board, only the compile step is skipped.",
     )
     p.set_defaults(func=cmd_run)
 
@@ -309,7 +309,7 @@ def _add_subcommands_2(sub: Any) -> None:
         action="append",
         default=[],
         metavar="NAME[,NAME...]",
-        help="Only run these test(s) by manifest name — repeatable, and/or "
+        help="Only run these test(s) by manifest name, repeatable, and/or "
         "comma-separated in one use.",
     )
     p.add_argument(
@@ -317,7 +317,7 @@ def _add_subcommands_2(sub: Any) -> None:
         action="append",
         default=[],
         metavar="NAME[,NAME...]",
-        help="Omit these test(s) by manifest name — repeatable, and/or "
+        help="Omit these test(s) by manifest name, repeatable, and/or "
         "comma-separated in one use. Unknown names are errors.",
     )
     p.set_defaults(func=cmd_sim)

@@ -1,4 +1,4 @@
-"""Full recompile + quartus_pgm — the slow "base" bitstream path."""
+"""Full recompile + quartus_pgm, the slow "base" bitstream path."""
 
 from riscv_tools.quartus_program.core import (
     MifInit,

@@ -34,7 +34,7 @@ def print_run_summary(
         if kind == "memory" and "golden" in entry:
             # Same test/repo distinction as generate_c_golden's own
             # ephemeral build/real/<name>.golden.json vs an asm test's
-            # checked-in <test_dir>/golden.json — whichever one this
+            # checked-in <test_dir>/golden.json, whichever one this
             # test's golden path actually resolves under.
             golden_path = root / entry["golden"]
             origin = (

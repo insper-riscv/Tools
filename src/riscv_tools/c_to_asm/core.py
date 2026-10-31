@@ -1,6 +1,6 @@
 """Compile a single RISC-V C source to human-readable assembly (gcc -S).
 
-For inspecting/debugging codegen — a distinct concern from `compiler`
+For inspecting/debugging codegen, a distinct concern from `compiler`
 (which links a full test binary for the mif/hex/JTAG pipeline, not
 just one translation unit). A .S source is already assembly and is
 copied through unchanged.
@@ -27,7 +27,7 @@ def c_to_asm(
     Parameters
     ----------
     toolchain_cfg : dict of {str: Any}
-        The project's `toolchain:` config section — needs `gcc`
+        The project's `toolchain:` config section: needs `gcc`
         (binary name or full path). Unused if c_file is already
         assembly.
     isa_cfg : dict of {str: Any}
@@ -40,7 +40,7 @@ def c_to_asm(
         Where to write the assembly file; its directory is created if
         missing.
     include_dir : Path
-        Passed as `-I` — where `rv32_test.h` lives. Unused if c_file
+        Passed as `-I`, where `rv32_test.h` lives. Unused if c_file
         is already assembly.
 
     Returns

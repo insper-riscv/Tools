@@ -191,7 +191,7 @@ def _load_progress(
     }
     if done:
         print(
-            f"Resuming from {results_path} — {len(done)} "
+            f"Resuming from {results_path}; {len(done)} "
             f"already-completed test(s) will be skipped"
         )
     return done
@@ -201,11 +201,11 @@ def cmd_run(args: argparse.Namespace) -> None:
     """Implement `riscv-tools run`.
 
     Runs the real-hardware test suite from a manifest.json (see
-    orchestrator.run_suite) — the full manifest by default, or a
+    orchestrator.run_suite), the full manifest by default, or a
     caller-picked subset via --only/--exclude. Stops early (doesn't
     raise) the moment a test hits a JTAG/hardware failure no automated
     retry can
-    fix (orchestrator.NeedsHumanInterventionError) — progress is saved
+    fix (orchestrator.NeedsHumanInterventionError); progress is saved
     to <build_dir>/real/run_progress.json as it goes, and simply
     re-running the exact same command later (after fixing the board)
     picks up from where it stopped instead of re-running completed
@@ -214,20 +214,20 @@ def cmd_run(args: argparse.Namespace) -> None:
 
     Everything this invocation prints, including from any subprocess
     it spawns, is also written to <run_log.logs_dir>/real/latest.log
-    (see run_log.start) — a prior latest.log, if any, is archived
+    (see run_log.start), a prior latest.log, if any, is archived
     under its own start timestamp first.
 
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments — uses args.config, args.root,
+        Parsed CLI arguments: uses args.config, args.root,
         args.manifest (defaults to <build_dir>/real/manifest.json if
         not given), args.only (list of test names to run instead of
         the whole manifest), args.exclude (list of test names to omit;
         both accept repeatable comma-separated values), args.
         skip_reconfigure (see orchestrator.run_suite's reconfigure
         param), args.wait_for_hardware (see orchestrator.run_suite's
-        wait_for_hardware param — off by default, so this still exits
+        wait_for_hardware param, off by default, so this still exits
         2 rather than blocking unless explicitly asked to wait),
         args.skip_recompile (see orchestrator.run_suite's
         skip_recompile param).
@@ -235,11 +235,11 @@ def cmd_run(args: argparse.Namespace) -> None:
     Returns
     -------
     None
-        Prints a PASS/FAIL summary to stdout when the suite finishes —
+        Prints a PASS/FAIL summary to stdout when the suite finishes,
         each line also shows the test's source language ("C"/"ASM"),
         kind ("unit"/"memory") and, for memory-kind tests, whether
         their golden.json came from Spike at this same compile (a .c
-        test — see cli.generate_c_golden) or is checked into the
+        test; see cli.generate_c_golden) or is checked into the
         repo (a .S test). Deletes run_progress.json, since there's
         nothing left to resume. Exits the process with status 1 if the
         manifest file
@@ -256,7 +256,7 @@ def cmd_run(args: argparse.Namespace) -> None:
     )
     # Kept separate from `manifest` itself, which gets filtered down
     # below (by --only, then again by whatever's already in
-    # results_so_far) — the summary at the end still needs every
+    # results_so_far); the summary at the end still needs every
     # requested test's own kind/golden info, including ones this
     # particular invocation never touched.
     manifest_by_name = {entry["name"]: entry for entry in manifest}
@@ -319,13 +319,13 @@ def cmd_sim(args: argparse.Namespace) -> None:
 
     Everything this invocation prints, including GHDL/cocotb's own
     output, is also written to <run_log.logs_dir>/sim/latest.log (see
-    run_log.start) — a prior latest.log, if any, is archived under its
+    run_log.start), a prior latest.log, if any, is archived under its
     own start timestamp first.
 
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments — uses args.config, args.root,
+        Parsed CLI arguments: uses args.config, args.root,
         args.manifest (defaults to <build_dir>/sim/manifest.json if
         not given), args.only and args.exclude (repeatable,
         comma-separated test-name filters).

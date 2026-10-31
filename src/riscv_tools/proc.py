@@ -1,10 +1,7 @@
 """Run a subprocess, streaming its output live and capturing it.
 
-Shared by jtag.link.run and quartus_program.core._run_captured — both
-used to have their own near-identical `subprocess.run(...,
-capture_output=True)` blocks, which is how they drifted: one got
-fixed to stream live, the other didn't, and it wasn't obvious from
-either call site alone. One implementation here instead.
+Shared by jtag.link.run and quartus_program.core._run_captured, so
+that every Quartus call streams and captures its output the same way.
 """
 
 import selectors
@@ -24,20 +21,20 @@ def run_streaming(
     subprocess.run(capture_output=True), for two reasons at once:
 
     - Visibility: capture_output blocks until the whole process exits
-      before printing anything — fine for something that returns in
+      before printing anything, fine for something that returns in
       under a second, indistinguishable from hanging for something
       that can run for minutes (a full compile) or that happens dozens
       of times in a test suite (each JTAG quartus_stp call). This
-      reads both pipes via selectors (POSIX-only, fine — this project
+      reads both pipes via selectors (POSIX-only, fine; this project
       doesn't run on Windows) and echoes each line as it arrives.
     - Classification: a subprocess.CalledProcessError raised from here
       always carries real .stdout/.stderr text (e.g. "Can't scan JTAG
-      chain") a caller can classify — see
-      orchestrator.runner._is_hardware_failure — instead of the
-      None/None a plain `subprocess.run(cmd, check=True)` leaves on
-      its exception.
+      chain") that a caller can classify (see
+      orchestrator.runner._is_hardware_failure), unlike the None/None
+      that a plain `subprocess.run(cmd, check=True)` leaves on its
+      exception.
 
-    Does NOT change how many processes get launched for a given cmd —
+    Does NOT change how many processes get launched for a given cmd;
     callers that need to keep two commands in one shell process (see
     HARDWARE_PROGRAMMING.md: quartus_sh --flow compile and quartus_pgm
     must stay chained in a single `bash -c "cmd1 && cmd2"`, never two
@@ -62,7 +59,7 @@ def run_streaming(
     Raises
     ------
     subprocess.CalledProcessError
-        cmd exited non-zero — .stdout/.stderr populated same as above.
+        cmd exited non-zero; .stdout/.stderr populated same as above.
     """
     print("+", " ".join(str(c) for c in cmd))
     for forced in ("stdout", "stderr", "text", "bufsize", "capture_output"):

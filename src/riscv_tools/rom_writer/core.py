@@ -21,13 +21,13 @@ def write_rom(
         Which JTAG cable/chip to write to.
     rom_mem_instances : sequence of int
         In-System Memory Content Editor instance index/indices of the
-        ROM (quartus.rom_mem_instances in the project's config.yaml) —
+        ROM (quartus.rom_mem_instances in the project's config.yaml),
         a list rather than a single int because a Harvard-modificado
         project (see RV32IM) physically duplicates ROM into a second
         BRAM for its MEM-stage read port instead of using one true
         dual-port memory (Quartus's ENABLE_RUNTIME_MOD/In-System Memory
         Content Editor doesn't support DUAL_PORT operation_mode in the
-        Lite edition — confirmed via a real quartus_map run). Every
+        Lite edition, confirmed via a real quartus_map run). Every
         instance listed gets the exact same content, in order, so they
         never drift out of sync with each other.
     mif_path : Path

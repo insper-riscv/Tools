@@ -212,7 +212,7 @@ def compile_test(
     c_file : Path
         Path to the test source (.c or .S) to compile.
     name : str
-        This test's name, used for the output .elf/.bin basename —
+        This test's name, used for the output .elf/.bin basename,
         not necessarily c_file.stem, since every test source is
         conventionally named `src.c`/`src.S` inside its own
         <c_dir|asm_dir>/<name>/ folder (see cli.py's test discovery).

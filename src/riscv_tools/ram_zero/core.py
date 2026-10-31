@@ -18,7 +18,7 @@ def _blank_mif(depth: int) -> Path:
     Parameters
     ----------
     depth : int
-        Word depth of the target memory instance — the .mif covers
+        Word depth of the target memory instance; the .mif covers
         addresses [0, depth), all zero.
 
     Returns
@@ -41,7 +41,7 @@ def zero_ram(
     """Clear every word of RAM over JTAG, without reprogramming.
 
     Useful between test runs when a program's own crt0 restart path
-    (mailbox/go_flag self-clear) isn't enough — e.g. re-running a
+    (mailbox/go_flag self-clear) isn't enough, e.g. re-running a
     memory test that dumps and compares the whole RAM, where leftover
     words from a previous test would corrupt the comparison.
 
@@ -55,7 +55,7 @@ def zero_ram(
         project's config.yaml), or SdramDebugRam for a RAM in the SDRAM,
         which is filled by the board itself (no shift per word).
     ram_words : int
-        Word depth of the RAM instance — every word in [0, ram_words)
+        Word depth of the RAM instance; every word in [0, ram_words)
         is cleared.
 
     Returns

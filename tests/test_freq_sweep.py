@@ -73,7 +73,7 @@ def test_set_pll_freq_single_phase_default(tmp_path: Path) -> None:
 
 
 def test_set_pll_freq_missing_param_left_unchanged(tmp_path: Path) -> None:
-    # phase_count set higher than what the file actually declares —
+    # phase_count set higher than what the file actually declares,
     # the nonexistent pair should be silently skipped, not raise.
     """Set pll freq missing param left unchanged."""
     pll_file = tmp_path / "pll.v"

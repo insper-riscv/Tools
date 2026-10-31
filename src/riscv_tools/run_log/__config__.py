@@ -7,7 +7,7 @@ from typing import Any
 
 DEFAULTS: dict[str, dict[str, Any]] = {
     "run_log": {
-        # Relative to the project root — a project needing something
+        # Relative to the project root, a project needing something
         # else (e.g. a build_dir sibling) can override this, but the
         # default is deliberately NOT under paths.build_dir: build/ is
         # something `compile` can wipe/regenerate freely, while a run's
