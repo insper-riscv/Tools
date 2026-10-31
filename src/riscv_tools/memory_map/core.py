@@ -17,25 +17,18 @@ Expressions accept `+ - * /` (exact division only), `log2()` (exact),
 (`16#800#`) and suffixed (`30K`, `0x800u`) numbers.
 """
 
-import ast
-import operator
-import re
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
 import yaml
 
-_BINARY: dict[type, Callable[[int, int], int]] = {
-    ast.Add: operator.add,
-    ast.Sub: operator.sub,
-    ast.Mult: operator.mul,
-}
-_UNITS = {"k": 1024, "m": 1024 * 1024}
+from riscv_tools.memory_map.expressions import evaluate
+
 _PERIPHERAL_ID_SHIFT = 28
+
+
 _PERIPHERAL_WINDOW_BASE = 0x80000000
-_LOG_FUNCTIONS = frozenset({"log2", "clog2"})
 
 
 @dataclass(frozen=True)
@@ -69,209 +62,6 @@ class Mismatch:
         return f"{self.check}{where}: {self.detail}"
 
 
-def evaluate(expr: str | int, names: dict[str, int] | None = None) -> int:
-    """Evaluate a number or an arithmetic expression.
-
-    The expression ranges over the symbols of the map.
-
-    Parameters
-    ----------
-    expr : str or int
-        A number in any of the accepted notations, or an expression.
-    names : dict of {str: int}, optional
-        Symbols, dotted as in `RAM.base`.
-
-    Returns
-    -------
-    int
-        The value.
-
-    Raises
-    ------
-    ValueError
-        If the expression is malformed, names an unknown symbol, uses an
-        unsupported operation, or divides inexactly.
-    """
-    if isinstance(expr, int):
-        return expr
-    table = {k.replace(".", "__"): v for k, v in (names or {}).items()}
-    text = re.sub(
-        r"(\d+)#([0-9A-Fa-f_]+)#",
-        lambda m: str(int(m.group(2).replace("_", ""), int(m.group(1)))),
-        expr.strip(),
-    )
-    text = re.sub(r"\b(0[xX][0-9a-fA-F]+|\d+)[uUlL]+\b", r"\1", text)
-    text = re.sub(
-        r"\b(0[xX][0-9a-fA-F]+|\d+)([kKmM])\b",
-        lambda m: f"({m.group(1)}*{_UNITS[m.group(2).lower()]})",
-        text,
-    )
-    text = re.sub(r"([A-Za-z_]\w*)\.(\w+)", r"\1__\2", text)
-    try:
-        tree = ast.parse(text, mode="eval")
-    except SyntaxError as exc:
-        raise ValueError(f"cannot parse {expr!r}") from exc
-    return _eval_node(tree.body, table, expr)
-
-
-def _log2(func: str, value: int, source: str) -> int:
-    """Compute `log2` (exact) or `clog2` (rounded up).
-
-    Parameters
-    ----------
-    func : str
-        `log2` or `clog2`.
-    value : int
-        The argument.
-    source : str
-        The original text, for error messages.
-
-    Returns
-    -------
-    int
-        The logarithm.
-
-    Raises
-    ------
-    ValueError
-        If `value` is not positive, or `log2` gets a non power of two.
-    """
-    if value <= 0:
-        raise ValueError(f"{func} of a non positive value in {source!r}")
-    if func == "clog2":
-        return (value - 1).bit_length()
-    if value & (value - 1):
-        raise ValueError(f"log2 of a non power of two in {source!r}")
-    return value.bit_length() - 1
-
-
-def _eval_node(node: ast.expr, table: dict[str, int], source: str) -> int:
-    """Evaluate one node of a parsed expression.
-
-    Parameters
-    ----------
-    node : ast.expr
-        The node.
-    table : dict of {str: int}
-        Symbols, with dots replaced by double underscores.
-    source : str
-        The original text, for error messages.
-
-    Returns
-    -------
-    int
-        The node's value.
-
-    Raises
-    ------
-    ValueError
-        On an unknown symbol, an unsupported operation or an inexact
-        division.
-    """
-    if isinstance(node, ast.Constant) and isinstance(node.value, int):
-        return node.value
-    if isinstance(node, ast.Name):
-        return _eval_name(node, table)
-    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
-        return -_eval_node(node.operand, table, source)
-    if isinstance(node, ast.BinOp):
-        return _eval_binop(node, table, source)
-    if isinstance(node, ast.Call):
-        return _eval_call(node, table, source)
-    raise ValueError(f"unsupported expression {source!r}")
-
-
-def _eval_name(node: ast.Name, table: dict[str, int]) -> int:
-    """Look a symbol up.
-
-    Parameters
-    ----------
-    node : ast.Name
-        The symbol node.
-    table : dict of {str: int}
-        Symbols, with dots replaced by double underscores.
-
-    Returns
-    -------
-    int
-        The symbol's value.
-
-    Raises
-    ------
-    ValueError
-        If the symbol is unknown.
-    """
-    if node.id not in table:
-        raise ValueError(f"unknown symbol {node.id.replace('__', '.')!r}")
-    return table[node.id]
-
-
-def _eval_binop(node: ast.BinOp, table: dict[str, int], source: str) -> int:
-    """Evaluate a binary operation.
-
-    Parameters
-    ----------
-    node : ast.BinOp
-        The operation node.
-    table : dict of {str: int}
-        Symbols, with dots replaced by double underscores.
-    source : str
-        The original text, for error messages.
-
-    Returns
-    -------
-    int
-        The operation's value.
-
-    Raises
-    ------
-    ValueError
-        On an unsupported operator or an inexact division.
-    """
-    left = _eval_node(node.left, table, source)
-    right = _eval_node(node.right, table, source)
-    if type(node.op) in _BINARY:
-        return _BINARY[type(node.op)](left, right)
-    if isinstance(node.op, ast.Div):
-        if right == 0 or left % right:
-            raise ValueError(f"inexact division in {source!r}")
-        return left // right
-    raise ValueError(f"unsupported expression {source!r}")
-
-
-def _eval_call(node: ast.Call, table: dict[str, int], source: str) -> int:
-    """Evaluate a `log2` or `clog2` call.
-
-    Parameters
-    ----------
-    node : ast.Call
-        The call node.
-    table : dict of {str: int}
-        Symbols, with dots replaced by double underscores.
-    source : str
-        The original text, for error messages.
-
-    Returns
-    -------
-    int
-        The call's value.
-
-    Raises
-    ------
-    ValueError
-        If the call is not `log2`/`clog2` of one argument.
-    """
-    if (
-        isinstance(node.func, ast.Name)
-        and node.func.id in _LOG_FUNCTIONS
-        and len(node.args) == 1
-    ):
-        return _log2(
-            node.func.id, _eval_node(node.args[0], table, source), source
-        )
-    raise ValueError(f"unsupported expression {source!r}")
-
-
 def load_platform(path: Path) -> dict[str, Any]:
     """Read a platform's YAML file.
 
@@ -293,10 +83,10 @@ def load_platform(path: Path) -> dict[str, Any]:
     data = yaml.safe_load(path.read_text())
     if not isinstance(data, dict):
         raise ValueError(f"{path}: not a YAML mapping")
-    return cast("dict[str, Any]", data)
+    return cast(dict[str, Any], data)
 
 
-def _list(platform: dict[str, Any], key: str) -> list[dict[str, Any]]:
+def platform_list(platform: dict[str, Any], key: str) -> list[dict[str, Any]]:
     """Read a section of the platform that is a list of mappings.
 
     Parameters
@@ -311,10 +101,10 @@ def _list(platform: dict[str, Any], key: str) -> list[dict[str, Any]]:
     list of dict of {str: Any}
         The section; empty when absent.
     """
-    return cast("list[dict[str, Any]]", platform.get(key) or [])
+    return cast(list[dict[str, Any]], platform.get(key) or [])
 
 
-def _dict(platform: dict[str, Any], key: str) -> dict[str, Any]:
+def platform_dict(platform: dict[str, Any], key: str) -> dict[str, Any]:
     """Read a section of the platform that is a mapping.
 
     Parameters
@@ -329,7 +119,7 @@ def _dict(platform: dict[str, Any], key: str) -> dict[str, Any]:
     dict of {str: Any}
         The section; empty when absent.
     """
-    return cast("dict[str, Any]", platform.get(key) or {})
+    return cast(dict[str, Any], platform.get(key) or {})
 
 
 def symbols(platform: dict[str, Any]) -> dict[str, int]:
@@ -347,7 +137,7 @@ def symbols(platform: dict[str, Any]) -> dict[str, int]:
         `boot.entry|wait_restart`, `PERIPHERAL.base|id`.
     """
     out: dict[str, int] = {}
-    for region in _list(platform, "regions"):
+    for region in platform_list(platform, "regions"):
         base = evaluate(region["base"])
         size = evaluate(region["size"])
         name = region["name"]
@@ -357,7 +147,7 @@ def symbols(platform: dict[str, Any]) -> dict[str, int]:
             f"{name}.end": base + size,
             f"{name}.words": size // 4,
         }
-    for name, item in _dict(platform, "reserved").items():
+    for name, item in platform_dict(platform, "reserved").items():
         base = evaluate(item["base"])
         size = evaluate(item["size"])
         out |= {
@@ -365,15 +155,15 @@ def symbols(platform: dict[str, Any]) -> dict[str, int]:
             f"{name}.size": size,
             f"{name}.end": base + size,
         }
-    for key, value in (_dict(platform, "boot")).items():
+    for key, value in (platform_dict(platform, "boot")).items():
         out[f"boot.{key}"] = evaluate(value)
-    for periph in _list(platform, "peripherals"):
+    for periph in platform_list(platform, "peripherals"):
         out[f"{periph['name']}.base"] = evaluate(periph["base"])
         out[f"{periph['name']}.id"] = int(periph["id"])
     return out
 
 
-def _hex(value: int) -> str:
+def hex_text(value: int) -> str:
     """Format an integer as hexadecimal, keeping the sign in front.
 
     Parameters
@@ -491,7 +281,7 @@ def validate_platform(platform: dict[str, Any]) -> list[Mismatch]:
     list of Mismatch
         The problems; empty when the map is consistent.
     """
-    regions = _list(platform, "regions")
+    regions = platform_list(platform, "regions")
     spans = [
         (r["name"], evaluate(r["base"]), evaluate(r["size"])) for r in regions
     ]
@@ -502,7 +292,7 @@ def validate_platform(platform: dict[str, Any]) -> list[Mismatch]:
     ]
     reserved = [
         (n, evaluate(v["base"]), evaluate(v["size"]))
-        for n, v in _dict(platform, "reserved").items()
+        for n, v in platform_dict(platform, "reserved").items()
     ]
     execs = [s for s, r in zip(spans, regions, strict=True) if r.get("exec")]
     problems = _overlaps("regions", spans) + _overlaps("reserved", reserved)
@@ -516,8 +306,10 @@ def validate_platform(platform: dict[str, Any]) -> list[Mismatch]:
         for name, base, size in reserved
         if not any(b <= base and base + size <= b + s for _, b, s in rams)
     ]
-    problems += _boot_problems(_dict(platform, "boot"), spans, execs)
-    return problems + _peripheral_problems(_list(platform, "peripherals"))
+    problems += _boot_problems(platform_dict(platform, "boot"), spans, execs)
+    return problems + _peripheral_problems(
+        platform_list(platform, "peripherals")
+    )
 
 
 def _peripheral_problems(
@@ -550,144 +342,3 @@ def _peripheral_problems(
                 )
             )
     return problems
-
-
-def _read_values(check: dict[str, Any], path: Path) -> list[str]:
-    """Read the raw value text(s) a check points at.
-
-    Parameters
-    ----------
-    check : dict of {str: Any}
-        The check: `pattern` (one capture group) or `yaml` (dotted
-        path).
-    path : Path
-        The file to read.
-
-    Returns
-    -------
-    list of str
-        One entry per match; empty when nothing matched.
-
-    Raises
-    ------
-    ValueError
-        If the check has neither `pattern` nor `yaml`.
-    """
-    if "pattern" in check:
-        pattern = re.compile(check["pattern"], re.MULTILINE)
-        return [m.group(1) for m in pattern.finditer(path.read_text())]
-    if "yaml" in check:
-        node: Any = yaml.safe_load(path.read_text())
-        for key in str(check["yaml"]).split("."):
-            if not isinstance(node, dict) or key not in node:
-                return []
-            node = cast("dict[str, Any]", node)[key]
-        return [str(node)]
-    raise ValueError("check needs `pattern` or `yaml`")
-
-
-def _run_check(
-    check: dict[str, Any], root: Path, table: dict[str, int]
-) -> list[Mismatch]:
-    """Run one check.
-
-    Parameters
-    ----------
-    check : dict of {str: Any}
-        The check: `file`, `pattern` or `yaml`, `expect`, and optionally
-        `name`, `optional` (skip when the file is absent).
-    root : Path
-        The project root the file is relative to.
-    table : dict of {str: int}
-        The map's symbols.
-
-    Returns
-    -------
-    list of Mismatch
-        Empty when every match equals the expected value.
-    """
-    name = str(check.get("name") or f"{check['file']}: {check['expect']}")
-    path = root / check["file"]
-    if not path.is_file():
-        if check.get("optional"):
-            return []
-        return [Mismatch(name, check["file"], "file not found")]
-    try:
-        expected = evaluate(check["expect"], table)
-        raw = _read_values(check, path)
-    except (ValueError, OSError, re.error, yaml.YAMLError) as exc:
-        return [Mismatch(name, check["file"], str(exc))]
-    if not raw:
-        return [
-            Mismatch(name, check["file"], "nothing matched: the copy moved")
-        ]
-    problems: list[Mismatch] = []
-    for text in raw:
-        problem = _compare(check, name, text, expected)
-        if problem is not None:
-            problems.append(problem)
-    return problems
-
-
-def _compare(
-    check: dict[str, Any], name: str, text: str, expected: int
-) -> Mismatch | None:
-    """Compare one value read from a file with the expected one.
-
-    Parameters
-    ----------
-    check : dict of {str: Any}
-        The check, for its `file` and `expect`.
-    name : str
-        The check's name.
-    text : str
-        The raw value text.
-    expected : int
-        The expected value.
-
-    Returns
-    -------
-    Mismatch or None
-        The disagreement, or None when the values are equal.
-    """
-    try:
-        actual = evaluate(text)
-    except ValueError as exc:
-        return Mismatch(name, check["file"], str(exc))
-    if actual == expected:
-        return None
-    return Mismatch(
-        name,
-        check["file"],
-        f"found {text.strip()} ({_hex(actual)}), "
-        f"expected {check['expect']} ({_hex(expected)})",
-    )
-
-
-def check_memory_map(
-    platform_path: Path, root: Path
-) -> tuple[int, list[Mismatch]]:
-    """Validate a platform's map and check every copy against it.
-
-    Parameters
-    ----------
-    platform_path : Path
-        The platform YAML.
-    root : Path
-        The project root the checks' files are relative to.
-
-    Returns
-    -------
-    tuple of (int, list of Mismatch)
-        How many checks ran, and the disagreements (empty when all
-        agree).
-    """
-    platform = load_platform(platform_path)
-    problems = validate_platform(platform)
-    if problems:
-        return 0, problems
-    table = symbols(platform)
-    checks = _list(platform, "checks")
-    for check in checks:
-        problems += _run_check(check, root, table)
-    return len(checks), problems

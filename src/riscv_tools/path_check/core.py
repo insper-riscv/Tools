@@ -43,7 +43,7 @@ def _children(node: Any) -> list[Any]:
         A mapping's values, a list itself, or nothing for a scalar.
     """
     if isinstance(node, dict):
-        return list(cast("dict[str, Any]", node).values())
+        return list(cast(dict[str, Any], node).values())
     if isinstance(node, list):
         return cast("list[Any]", node)
     return []
@@ -70,7 +70,7 @@ def _walk(node: Any, keys: list[str]) -> list[Any]:
     if key == "*":
         return [leaf for c in _children(node) for leaf in _walk(c, rest)]
     if isinstance(node, dict) and key in node:
-        return _walk(cast("dict[str, Any]", node)[key], rest)
+        return _walk(cast(dict[str, Any], node)[key], rest)
     return []
 
 
@@ -198,8 +198,8 @@ def check_paths(manifest: Path, root: Path) -> tuple[int, list[str]]:
         missing path, an unreadable file, a reference that yields
         nothing).
     """
-    data = cast("dict[str, Any]", yaml.safe_load(manifest.read_text()) or {})
-    references = cast("list[dict[str, Any]]", data.get("references") or [])
+    data = cast(dict[str, Any], yaml.safe_load(manifest.read_text()) or {})
+    references = cast(list[dict[str, Any]], data.get("references") or [])
     checked = 0
     problems: list[str] = []
     for reference in references:

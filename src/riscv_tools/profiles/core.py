@@ -108,7 +108,7 @@ def load_spec(path: Path) -> Spec:
     loaded: Any = yaml.safe_load(path.read_text())
     raw: dict[str, Any] = {}
     if isinstance(loaded, dict):
-        raw = cast("dict[str, Any]", loaded)
+        raw = cast(dict[str, Any], loaded)
     if "base" not in raw or not raw.get("extensions"):
         raise ValueError(
             f"{path}: needs `base` and a non-empty `extensions` list"
@@ -123,7 +123,7 @@ def load_spec(path: Path) -> Spec:
                 str(g) for g in cast("list[object]", e.get("implies") or [])
             ),
         )
-        for e in cast("list[dict[str, Any]]", raw["extensions"])
+        for e in cast(list[dict[str, Any]], raw["extensions"])
     )
     names = [e.name for e in extensions]
     if len(set(names)) != len(names):
