@@ -34,6 +34,8 @@ _BINARY: dict[type, Callable[[int, int], int]] = {
 }
 _UNITS = {"k": 1024, "m": 1024 * 1024}
 _PERIPHERAL_ID_SHIFT = 28
+_PERIPHERAL_WINDOW_BASE = 0x80000000
+_LOG_FUNCTIONS = frozenset({"log2", "clog2"})
 
 
 @dataclass(frozen=True)
@@ -261,7 +263,7 @@ def _eval_call(node: ast.Call, table: dict[str, int], source: str) -> int:
     """
     if (
         isinstance(node.func, ast.Name)
-        and node.func.id in {"log2", "clog2"}
+        and node.func.id in _LOG_FUNCTIONS
         and len(node.args) == 1
     ):
         return _log2(
@@ -535,7 +537,9 @@ def _peripheral_problems(
     """
     problems: list[Mismatch] = []
     for periph in peripherals:
-        want = 0x80000000 | (int(periph["id"]) << _PERIPHERAL_ID_SHIFT)
+        want = _PERIPHERAL_WINDOW_BASE | (
+            int(periph["id"]) << _PERIPHERAL_ID_SHIFT
+        )
         if evaluate(periph["base"]) != want:
             problems.append(
                 Mismatch(

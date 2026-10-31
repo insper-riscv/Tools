@@ -9,6 +9,8 @@ job.
 import struct
 from pathlib import Path
 
+_WORD = struct.Struct("<I")
+
 
 def mif_text(depth: int, content: list[str]) -> str:
     """Build the text of a .mif with 32-bit words and hex radix.
@@ -66,7 +68,7 @@ def read_words(bin_path: Path, pad_words: int = 0) -> list[int]:
     data = Path(bin_path).read_bytes()
     if len(data) % 4:
         data += b"\x00" * (4 - len(data) % 4)
-    return [0] * pad_words + [w for (w,) in struct.iter_unpack("<I", data)]
+    return [0] * pad_words + [w for (w,) in _WORD.iter_unpack(data)]
 
 
 def bin_to_mif(

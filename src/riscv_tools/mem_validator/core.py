@@ -23,6 +23,7 @@ _RADIX_TO_BASE = {"BIN": 2, "HEX": 16, "DEC": 10, "OCT": 8}
 # How many individual byte diffs compare() prints before truncating,
 # more than this and the output stops being useful anyway.
 _MAX_DIFFS_SHOWN = 50
+_BYTE_MASK = 0xFF
 
 
 def _parse_mif_line(line: str, base: int) -> dict[int, int]:
@@ -121,7 +122,7 @@ def words_to_bytes(words: dict[int, int]) -> dict[int, int]:
     for waddr, wval in words.items():
         base = waddr * 4
         for i in range(4):
-            out[base + i] = (wval >> (8 * i)) & 0xFF
+            out[base + i] = (wval >> (8 * i)) & _BYTE_MASK
     return out
 
 

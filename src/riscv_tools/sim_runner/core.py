@@ -19,12 +19,14 @@ from typing import Any, NotRequired, Required, TypedDict, Unpack
 from cocotb_tools.check_results import get_results
 from cocotb_tools.runner import VHDL, get_runner
 
+_READABLE_NAME_LIMIT = 48
+
 
 def _profile_build_dir(build_dir: Path, sim_cfg: dict[str, Any]) -> Path:
     """Return a stable, path-safe work directory for one profile."""
     toplevel = str(sim_cfg["toplevel"])
     readable = re.sub(r"[^A-Za-z0-9_.-]+", "-", toplevel).strip("._-")
-    readable = (readable or "toplevel")[:48]
+    readable = (readable or "toplevel")[:_READABLE_NAME_LIMIT]
     identity = json.dumps(
         sim_cfg, sort_keys=True, separators=(",", ":"), default=str
     )

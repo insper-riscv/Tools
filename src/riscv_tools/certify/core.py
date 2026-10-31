@@ -25,6 +25,16 @@ from riscv_tools import bin_to_image, proc, sim_runner
 
 _ACT_TEST_MODULE = "tools.riscv_build.act.sim.test_act"
 _ACT_SDRAM_TEST_MODULE = "tools.riscv_build.act.sim.test_act_sdram"
+_ELF_MAGIC = b"\x7fELF"
+_PT_LOAD = 1
+_ELF32_HEADER = struct.Struct("<16xHHIIIIIHHHHHH")
+_ELF32_PHDR = struct.Struct("<IIIIIIII")
+_ADDRESS_SPACE = 1 << 32
+_NOP = 0x00000013
+_LUI_OPCODE = 0x37
+_JALR_OPCODE = 0x67
+_LOW_12_BITS = 0xFFF
+_HIGH_20_BITS = 0xFFFFF000
 
 
 def target_name(target_config: Path) -> str:
@@ -113,11 +123,6 @@ def discover_elfs(elfs_dir: Path) -> list[Path]:
     )
 
 
-_PT_LOAD = 1
-_ELF32_HEADER = struct.Struct("<16xHHIIIIIHHHHHH")
-_ELF32_PHDR = struct.Struct("<IIIIIIII")
-
-
 def load_segments(elf: Path) -> list[tuple[int, bytes]]:
     """Read the loadable segments of a little-endian 32-bit ELF.
 
@@ -134,7 +139,7 @@ def load_segments(elf: Path) -> list[tuple[int, bytes]]:
         space (`.bss`, the HTIF words) have none.
     """
     data = elf.read_bytes()
-    if data[:4] != b"\x7fELF" or data[4] != 1 or data[5] != 1:
+    if data[:4] != _ELF_MAGIC or data[4] != 1 or data[5] != 1:
         raise ValueError(f"{elf} is not a little-endian 32-bit ELF")
     fields = _ELF32_HEADER.unpack_from(data)
     phoff, phentsize, phnum = fields[4], fields[8], fields[9]
@@ -211,7 +216,7 @@ def write_images(
     """
     segments = load_segments(elf)
     code = region_image(segments, 0, ram_base)
-    data = region_image(segments, ram_base, 1 << 32)
+    data = region_image(segments, ram_base, _ADDRESS_SPACE)
     images = {
         "boot_hex_path": code[:boot_bytes],
         "hex_path": code,
@@ -229,9 +234,6 @@ def write_images(
     return paths
 
 
-_NOP = 0x00000013
-
-
 def sdram_boot_words(sdram_base: int) -> list[int]:
     """Return the boot ROM that jumps to the SDRAM.
 
@@ -239,12 +241,12 @@ def sdram_boot_words(sdram_base: int) -> list[int]:
     does not execute the first word after the reset, and the base has
     the low 12 bits clear (the SDRAM is 64 MB aligned).
     """
-    if sdram_base & 0xFFF:
+    if sdram_base & _LOW_12_BITS:
         raise ValueError(
             f"the SDRAM base {sdram_base:#x} is not 4 KiB aligned"
         )
-    lui_x1 = (sdram_base & 0xFFFFF000) | (1 << 7) | 0x37
-    jalr_x0 = (1 << 15) | 0x67
+    lui_x1 = (sdram_base & _HIGH_20_BITS) | (1 << 7) | _LUI_OPCODE
+    jalr_x0 = (1 << 15) | _JALR_OPCODE
     return [_NOP, lui_x1, jalr_x0]
 
 
@@ -276,7 +278,7 @@ def write_sdram_images(
         flash that the platform still has and nobody reads.
     """
     segments = load_segments(elf)
-    sdram = region_image(segments, sdram_base, 1 << 32)
+    sdram = region_image(segments, sdram_base, _ADDRESS_SPACE)
     boot = b"".join(
         word.to_bytes(4, "little") for word in sdram_boot_words(sdram_base)
     )

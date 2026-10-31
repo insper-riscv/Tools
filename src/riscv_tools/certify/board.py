@@ -39,6 +39,17 @@ _SHT_SYMTAB = 2
 _ELF32_SHDR = struct.Struct("<IIIIIIIIII")
 _ELF32_SYM = struct.Struct("<IIIBBH")
 _ELF32_HEADER_SHOFF = struct.Struct("<I")
+_ELF32_SHENT = struct.Struct("<HH")
+_E_SHOFF_OFFSET = 32
+_E_SHENTSIZE_OFFSET = 46
+_LUI_OPCODE = 0x37
+_LOW_12_BITS = 0xFFF
+_HIGH_20_BITS = 0xFFFFF000
+_DEFAULT_REGION_BYTES = 0x100000
+_DEFAULT_TIMEOUT_S = 30
+# What run_elf's result means: True is a PASS, False a FAIL and None a
+# timeout.
+VERDICTS = {True: "PASS", False: "FAIL", None: "TIMEOUT"}
 
 
 def flash_stub_words(sdram_base: int) -> list[int]:
@@ -54,11 +65,11 @@ def flash_stub_words(sdram_base: int) -> list[int]:
     list of int
         `fence.i`, `lui t0, base` and `jr t0`.
     """
-    if sdram_base & 0xFFF:
+    if sdram_base & _LOW_12_BITS:
         raise ValueError(
             f"the SDRAM base {sdram_base:#x} is not 4 KiB aligned"
         )
-    lui_t0 = (sdram_base & 0xFFFFF000) | (5 << 7) | 0x37
+    lui_t0 = (sdram_base & _HIGH_20_BITS) | (5 << 7) | _LUI_OPCODE
     return [_FENCE_I, lui_t0, _JR_T0]
 
 
@@ -105,8 +116,8 @@ def _symbol_tables(data: bytes) -> Iterator[tuple[int, int, int, int]]:
         entries, the entry size and the file offset of its string
         table.
     """
-    (shoff,) = _ELF32_HEADER_SHOFF.unpack_from(data, 32)
-    shentsize, shnum = struct.unpack_from("<HH", data, 46)
+    (shoff,) = _ELF32_HEADER_SHOFF.unpack_from(data, _E_SHOFF_OFFSET)
+    shentsize, shnum = _ELF32_SHENT.unpack_from(data, _E_SHENTSIZE_OFFSET)
     for index in range(shnum):
         header = _ELF32_SHDR.unpack_from(data, shoff + index * shentsize)
         kind, offset, size, link, entsize = (
@@ -375,8 +386,11 @@ def _sdram_region(act_cfg: dict[str, Any]) -> SdramRegion:
     """
     return SdramRegion(
         base=int(str(act_cfg["sdram_base"]), 0),
-        words=int(str(act_cfg.get("sdram_region_bytes", 0x100000)), 0) // 4,
-        timeout_s=float(act_cfg.get("board_timeout_s", 30)),
+        words=int(
+            str(act_cfg.get("sdram_region_bytes", _DEFAULT_REGION_BYTES)), 0
+        )
+        // 4,
+        timeout_s=float(act_cfg.get("board_timeout_s", _DEFAULT_TIMEOUT_S)),
     )
 
 
@@ -421,6 +435,6 @@ def _run_elfs(
             # the first red LED stays lit once any ELF has failed or
             # timed out
             display.write_fail(link, True)
-        verdict = {True: "PASS", False: "FAIL", None: "TIMEOUT"}[passed]
+        verdict = VERDICTS[passed]
         print(f"{elf.stem}: {verdict} ({words * 4} bytes, {seconds:.1f}s)")
     return results

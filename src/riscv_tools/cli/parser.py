@@ -26,9 +26,10 @@ from riscv_tools.cli.tools_cmd import (
     cmd_vhdl_sort,
 )
 
-# Statement count grows with each subcommand's own add_argument calls
-# (repetitive parser wiring, not real branching complexity), splitting
-# it up would just move the same lines behind indirection.
+_COMMANDS_WITHOUT_CONFIG = frozenset(
+    {"vhdl-sort", "check-memory-map", "check-paths", "profiles"}
+)
+_DEFAULT_NPATHS = 30
 _DESCRIPTION = """Command-line entry point of ``riscv-tools``.
 
 Usage: ``riscv-tools --config <config.yaml> <subcommand> ...``.
@@ -405,8 +406,11 @@ def _add_subcommands_3(sub: Any) -> None:
     p.add_argument(
         "--npaths",
         type=int,
-        default=30,
-        help="Setup paths to ask for in each clock domain (default: 30)",
+        default=_DEFAULT_NPATHS,
+        help=(
+            "Setup paths to ask for in each clock domain "
+            f"(default: {_DEFAULT_NPATHS})"
+        ),
     )
     p.add_argument(
         "--model",
@@ -498,10 +502,6 @@ def main() -> None:
     _add_subcommands_3(sub)
 
     args = parser.parse_args()
-    if (
-        args.command
-        not in {"vhdl-sort", "check-memory-map", "check-paths", "profiles"}
-        and args.config is None
-    ):
+    if args.command not in _COMMANDS_WITHOUT_CONFIG and args.config is None:
         parser.error("--config is required for this subcommand")
     args.func(args)

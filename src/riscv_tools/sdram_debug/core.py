@@ -12,6 +12,8 @@ from pathlib import Path
 
 from riscv_tools.jtag import JtagLink, run_tcl
 
+_WORD_MASK = 0xFFFFFFFF
+
 
 def write_word(
     link: JtagLink, word_address: int, value: int, byte_enable: int = 0xF
@@ -122,5 +124,5 @@ def load_words(
     """
     with tempfile.TemporaryDirectory() as tmp:
         image = Path(tmp) / "image.txt"
-        image.write_text("".join(f"{w & 0xFFFFFFFF:08x}\n" for w in words))
+        image.write_text("".join(f"{w & _WORD_MASK:08x}\n" for w in words))
         run_tcl(link, "sdram_dbg.tcl", "load", word_address, image)

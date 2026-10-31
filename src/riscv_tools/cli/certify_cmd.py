@@ -6,6 +6,7 @@ import sys
 from riscv_tools import (
     certify,
 )
+from riscv_tools.certify.board import VERDICTS
 from riscv_tools.cli.common import jtag_link, start_certification
 
 
@@ -91,7 +92,7 @@ def cmd_certify_board(args: argparse.Namespace) -> None:
 
     print("\n=== Summary ===")
     for name, passed in results.items():
-        verdict = {True: "PASS", False: "FAIL", None: "TIMEOUT"}[passed]
+        verdict = VERDICTS[passed]
         print(f"  {verdict}  {name}")
     if not results or not all(v is True for v in results.values()):
         sys.exit(1)

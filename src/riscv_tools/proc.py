@@ -9,6 +9,10 @@ import subprocess
 import sys
 from typing import IO, Any, cast
 
+# Popen options that run_streaming sets itself; a caller cannot override
+# them.
+_FORCED_KWARGS = ("stdout", "stderr", "text", "bufsize", "capture_output")
+
 
 def run_streaming(
     cmd: list[str], **kw: Any
@@ -62,7 +66,7 @@ def run_streaming(
         cmd exited non-zero; .stdout/.stderr populated same as above.
     """
     print("+", " ".join(str(c) for c in cmd))
-    for forced in ("stdout", "stderr", "text", "bufsize", "capture_output"):
+    for forced in _FORCED_KWARGS:
         kw.pop(forced, None)
     with subprocess.Popen(
         cmd,

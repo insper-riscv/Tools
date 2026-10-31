@@ -11,6 +11,20 @@ import yaml
 from riscv_tools import cli
 from riscv_tools.path_check import check_paths, collect
 
+YAML_REF = {
+    "name": "sim",
+    "file": "Tests/tools/config.yaml",
+    "yaml": "sim.vhdl_sources",
+    "base": "Tests",
+}
+JSON_REF = {
+    "name": "json",
+    "file": "Tests/tests.json",
+    "yaml": "*.sources",
+    "base": "Tests",
+}
+QSF_REF = {"name": "qsf", "file": "q/p.qsf", "pattern": r"_FILE (\S+)"}
+
 
 def _tree(root: Path) -> None:
     """Lay out a parent with a nested Tests project and shared src/."""
@@ -52,21 +66,6 @@ def _manifest(root: Path, references: list[dict[str, Any]]) -> Path:
     path = root / "paths.yaml"
     path.write_text(yaml.safe_dump({"references": references}))
     return path
-
-
-YAML_REF = {
-    "name": "sim",
-    "file": "Tests/tools/config.yaml",
-    "yaml": "sim.vhdl_sources",
-    "base": "Tests",
-}
-JSON_REF = {
-    "name": "json",
-    "file": "Tests/tests.json",
-    "yaml": "*.sources",
-    "base": "Tests",
-}
-QSF_REF = {"name": "qsf", "file": "q/p.qsf", "pattern": r"_FILE (\S+)"}
 
 
 def test_collect_reads_a_yaml_list_relative_to_base_and_skips_env_vars(

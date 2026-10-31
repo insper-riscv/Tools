@@ -12,6 +12,9 @@ import yaml
 
 GCC = "riscv32-unknown-elf-gcc"
 OBJCOPY = "riscv32-unknown-elf-objcopy"
+_ELFCLASS32 = 1
+_ELFDATA2LSB = 1
+_PHOFF, _PHENTSIZE, _SHENTSIZE = 52, 32, 40
 ISA = {"base": "i", "default_ext": "", "canonical_order": "MAFDQLCBJTPVNH"}
 
 C_ADD_SOURCE = (
@@ -130,14 +133,11 @@ def _symbol_tables(symbols: dict[str, int]) -> tuple[bytes, bytes]:
     return symtab, names
 
 
-_PHOFF, _PHENTSIZE, _SHENTSIZE = 52, 32, 40
-
-
 def _elf_header(shoff: int, phnum: int) -> bytes:
     """Build the 52-byte header of a little-endian 32-bit RISC-V ELF."""
     header = bytearray(52)
     header[:4] = b"\x7fELF"
-    header[4], header[5] = 1, 1
+    header[4], header[5] = _ELFCLASS32, _ELFDATA2LSB
     struct.pack_into(
         "<HHIIIIIHHHHHH",
         header,

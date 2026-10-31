@@ -24,6 +24,23 @@ from riscv_tools import (
 )
 from riscv_tools.jtag import JtagLink, jtag_chain_healthy
 
+# Substrings of real Quartus/jtagd error text that mean the JTAG chain
+# or cable itself is unreachable, never that the design misbehaved or
+# the test failed. Matched case-insensitively against the stdout and
+# stderr of a CalledProcessError.
+_HARDWARE_FAILURE_SIGNATURES = (
+    "can't scan jtag chain",
+    "jtag chain broken",
+    "unable to read device chain",
+    "programming hardware cable not detected",
+    "hardware is not found",
+    "no editable memory instance",
+    "error when scanning hardware",
+)
+# How often run_suite's wait_for_hardware mode polls `jtagconfig` while
+# blocked waiting for a human to physically fix the board.
+_HARDWARE_WAIT_POLL_S = 5.0
+
 
 @dataclass(frozen=True)
 class RunContext:
@@ -108,25 +125,6 @@ class NeedsHumanInterventionError(Exception):
     recompiles), so there is nothing left to try except a human
     physically power-cycling the board.
     """
-
-
-# Substrings pulled directly from real Quartus/jtagd error text seen
-# this session (see docs/PLL_LOCK_LOSS_BUG.md and
-# HARDWARE_PROGRAMMING.md) that mean "the JTAG chain/cable itself is
-# unreachable", never "the design misbehaved" or "the test failed".
-# Matched case-insensitively against a CalledProcessError's stdout+
-# stderr (see jtag.link.run / quartus_program._run_captured, both
-# always populate these now, specifically so this classifier has
-# something to look at).
-_HARDWARE_FAILURE_SIGNATURES = (
-    "can't scan jtag chain",
-    "jtag chain broken",
-    "unable to read device chain",
-    "programming hardware cable not detected",
-    "hardware is not found",
-    "no editable memory instance",
-    "error when scanning hardware",
-)
 
 
 def _is_hardware_failure(exc: subprocess.CalledProcessError) -> bool:
@@ -559,11 +557,6 @@ def run_one(
     if duration is not None:
         duration[name] = duration_s
     return passed
-
-
-# How often run_suite's wait_for_hardware mode polls `jtagconfig` while
-# blocked waiting for a human to physically fix the board.
-_HARDWARE_WAIT_POLL_S = 5.0
 
 
 def _wait_for_hardware_healthy(

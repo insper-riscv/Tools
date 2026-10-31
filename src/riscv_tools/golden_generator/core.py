@@ -27,6 +27,7 @@ from riscv_tools.spike_exec import (
 # address, size, type, name.
 _NM_SIZED_LINE_FIELDS = 4
 _WORD_BYTES = 4
+_BYTE_MASK = 0xFF
 
 
 def symbol_range(nm_bin: str, elf_path: Path, symbol: str) -> tuple[int, int]:
@@ -151,7 +152,7 @@ def generate_golden(
     for index, word in enumerate(words):
         base = addr_start + index * _WORD_BYTES - ram_base
         for i in range(_WORD_BYTES):
-            out[base + i] = (word >> (8 * i)) & 0xFF
+            out[base + i] = (word >> (8 * i)) & _BYTE_MASK
     return out
 
 
