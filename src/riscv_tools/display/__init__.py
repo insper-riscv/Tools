@@ -6,7 +6,6 @@ from riscv_tools.display.core import (
     encode_act,
     encode_test,
     read_display,
-    read_fail,
     write_display,
     write_fail,
 )
@@ -17,7 +16,6 @@ __all__ = [
     "encode_act",
     "encode_test",
     "read_display",
-    "read_fail",
     "write_display",
     "write_fail",
 ]

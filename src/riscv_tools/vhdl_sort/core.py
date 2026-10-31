@@ -1,12 +1,9 @@
 """Sort VHDL sources into GHDL-analyzable dependency order.
 
-GHDL's `-a` (analyze) phase needs a design unit's dependencies
-(entities it instantiates, packages it `use`s) analyzed before the
-unit itself — feeding files in the wrong order fails with "primary
-unit ... not found". Hand-ordering a project's VHDL file list is
-tedious and breaks silently the moment a new dependency is added, so
-this derives the order from the files' own content instead, via
-lightweight regex parsing (no GHDL invocation, no real VHDL parser).
+GHDL analyzes a design unit only after the entities it instantiates and
+the packages it uses, so the order matters. The order is derived from
+the files' own content with lightweight regex parsing, without invoking
+GHDL.
 """
 
 import re
@@ -18,54 +15,62 @@ ENTITY_DEP_RE = re.compile(r"\bentity\s+work\.(\w+)", re.IGNORECASE)
 USE_DEP_RE = re.compile(r"\buse\s+work\.(\w+)", re.IGNORECASE)
 
 
-def topo_sort(files: list[Path]) -> list[Path]:
-    """Sort VHDL files so each one's `work.*` dependencies precede it.
+def _scan_file(
+    f: Path,
+    text: str,
+    unit_file: dict[str, Path],
+    file_deps: dict[Path, set[str]],
+) -> None:
+    """Record the design units a file declares and the ones it uses.
+
+    Parameters
+    ----------
+    f : Path
+        The file the text was read from.
+    text : str
+        The file's content.
+    unit_file : dict of {str: Path}
+        Maps a design unit name to its declaring file; updated in
+        place.
+    file_deps : dict of {Path: set of str}
+        Maps a file to the names of the units it depends on; updated
+        in place.
+    """
+    for m in ENTITY_DECL_RE.finditer(text):
+        unit_file[m.group(1).lower()] = f
+
+    for m in PACKAGE_DECL_RE.finditer(text):
+        name = m.group(1).lower()
+        if name != "body":
+            unit_file[name] = f
+
+    deps = file_deps.setdefault(f, set())
+    deps.update(m.group(1).lower() for m in ENTITY_DEP_RE.finditer(text))
+    deps.update(m.group(1).lower() for m in USE_DEP_RE.finditer(text))
+
+
+def _dependency_order(
+    files: list[Path],
+    unit_file: dict[str, Path],
+    file_deps: dict[Path, set[str]],
+) -> list[Path]:
+    """Depth-first order of files, dependencies first.
 
     Parameters
     ----------
     files : list of Path
-        VHDL source files to order. A dependency on a design unit
-        whose declaring file isn't in `files` is silently ignored
-        (assumed already available some other way, e.g. a vendor IP
-        core excluded from this analysis order on purpose). A file
-        that can't be read (missing, permission error, bad encoding)
-        is skipped rather than raising — it still appears in the
-        output, just with no dependency information contributing to
-        its position.
+        The files to order; traversal starts from them sorted.
+    unit_file : dict of {str: Path}
+        Maps a design unit name to its declaring file.
+    file_deps : dict of {Path: set of str}
+        Maps a file to the names of the units it depends on.
 
     Returns
     -------
     list of Path
-        `files`, reordered so each file's `work.*` dependencies (per
-        this module's regex parsing of entity/package declarations
-        and references) appear before it. Traversal starts from
-        `files` sorted alphabetically, so the result is deterministic
-        across runs for the same input set. A dependency cycle is
-        broken arbitrarily rather than raising — GHDL itself will
-        reject a genuine circular dependency at analyze time with a
-        clearer error than this module could produce.
+        `files`, each one after the files it depends on; a cycle is
+        broken arbitrarily.
     """
-    unit_file: dict[str, Path] = {}
-    file_deps: dict[Path, set[str]] = {}
-
-    for f in files:
-        try:
-            text = f.read_text()
-        except OSError, UnicodeDecodeError:
-            continue
-
-        for m in ENTITY_DECL_RE.finditer(text):
-            unit_file[m.group(1).lower()] = f
-
-        for m in PACKAGE_DECL_RE.finditer(text):
-            name = m.group(1).lower()
-            if name != "body":
-                unit_file[name] = f
-
-        deps = file_deps.setdefault(f, set())
-        deps.update(m.group(1).lower() for m in ENTITY_DEP_RE.finditer(text))
-        deps.update(m.group(1).lower() for m in USE_DEP_RE.finditer(text))
-
     file_set = set(files)
     visited: set[Path] = set()
     visiting: set[Path] = set()
@@ -87,3 +92,38 @@ def topo_sort(files: list[Path]) -> list[Path]:
         visit(f)
 
     return result
+
+
+def topo_sort(files: list[Path]) -> list[Path]:
+    """Sort VHDL files so each one's `work.*` dependencies precede it.
+
+    Parameters
+    ----------
+    files : list of Path
+        VHDL source files to order. A dependency whose declaring file
+        isn't in `files` is ignored, and an unreadable file is skipped
+        but still appears in the output.
+
+    Returns
+    -------
+    list of Path
+        `files`, reordered so each file's `work.*` dependencies (per
+        this module's regex parsing of entity/package declarations
+        and references) appear before it. Traversal starts from
+        `files` sorted alphabetically, so the result is deterministic
+        across runs for the same input set. A dependency cycle is
+        broken arbitrarily rather than raising; GHDL itself will
+        reject a genuine circular dependency at analyze time with a
+        clearer error than this module could produce.
+    """
+    unit_file: dict[str, Path] = {}
+    file_deps: dict[Path, set[str]] = {}
+
+    for f in files:
+        try:
+            text = f.read_text()
+        except OSError, UnicodeDecodeError:
+            continue
+        _scan_file(f, text, unit_file, file_deps)
+
+    return _dependency_order(files, unit_file, file_deps)

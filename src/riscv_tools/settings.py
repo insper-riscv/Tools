@@ -1,4 +1,4 @@
-"""Assemble the merged config dict every other module's functions take as `cfg`.
+"""Assemble the merged config dict that functions take as `cfg`.
 
 Each module owns its own defaults (its `__config__.py` DEFAULTS
 dict), this just deep-merges all of them together and then layers the
@@ -18,10 +18,14 @@ from riscv_tools.freq_sweep.__config__ import DEFAULTS as _FREQ_SWEEP_DEFAULTS
 from riscv_tools.golden_generator.__config__ import (
     DEFAULTS as _GOLDEN_GENERATOR_DEFAULTS,
 )
+from riscv_tools.htif.__config__ import DEFAULTS as _HTIF_DEFAULTS
 from riscv_tools.jtag.__config__ import DEFAULTS as _JTAG_DEFAULTS
-from riscv_tools.mailbox.__config__ import DEFAULTS as _MAILBOX_DEFAULTS
-from riscv_tools.orchestrator.__config__ import DEFAULTS as _ORCHESTRATOR_DEFAULTS
-from riscv_tools.quartus_program.__config__ import DEFAULTS as _QUARTUS_PROGRAM_DEFAULTS
+from riscv_tools.orchestrator.__config__ import (
+    DEFAULTS as _ORCHESTRATOR_DEFAULTS,
+)
+from riscv_tools.quartus_program.__config__ import (
+    DEFAULTS as _QUARTUS_PROGRAM_DEFAULTS,
+)
 from riscv_tools.ram_dump.__config__ import DEFAULTS as _RAM_DUMP_DEFAULTS
 from riscv_tools.ram_zero.__config__ import DEFAULTS as _RAM_ZERO_DEFAULTS
 from riscv_tools.rom_writer.__config__ import DEFAULTS as _ROM_WRITER_DEFAULTS
@@ -35,7 +39,7 @@ _MODULE_DEFAULTS = [
     _ROM_WRITER_DEFAULTS,
     _RAM_ZERO_DEFAULTS,
     _RAM_DUMP_DEFAULTS,
-    _MAILBOX_DEFAULTS,
+    _HTIF_DEFAULTS,
     _GOLDEN_GENERATOR_DEFAULTS,
     _QUARTUS_PROGRAM_DEFAULTS,
     _ORCHESTRATOR_DEFAULTS,
@@ -46,7 +50,9 @@ _MODULE_DEFAULTS = [
 ]
 
 
-def deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
+def deep_merge(
+    base: dict[str, Any], overlay: dict[str, Any]
+) -> dict[str, Any]:
     """Recursively merge overlay into base (overlay wins on conflicts).
 
     Returns a new dict, doesn't mutate either argument.
@@ -83,7 +89,7 @@ def deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
 
 
 def load_config(project_config_path: Path) -> dict[str, Any]:
-    """Merge every module's DEFAULTS (in order), then the project's own config.yaml.
+    """Merge every module's DEFAULTS, then the project's config.yaml.
 
     Parameters
     ----------
@@ -106,7 +112,9 @@ def load_config(project_config_path: Path) -> dict[str, Any]:
     return deep_merge(cfg, _read_project_config(Path(project_config_path), ()))
 
 
-def _read_project_config(path: Path, chain: tuple[Path, ...]) -> dict[str, Any]:
+def _read_project_config(
+    path: Path, chain: tuple[Path, ...]
+) -> dict[str, Any]:
     """Read one project config file, resolving its `extends:` chain.
 
     `extends: <path>` (relative to the file that names it) makes that
@@ -141,5 +149,7 @@ def _read_project_config(path: Path, chain: tuple[Path, ...]) -> dict[str, Any]:
     if base_ref is None:
         return data
 
-    base = _read_project_config(path.parent / str(base_ref), (*chain, resolved))
+    base = _read_project_config(
+        path.parent / str(base_ref), (*chain, resolved)
+    )
     return deep_merge(base, data)

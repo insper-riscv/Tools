@@ -9,9 +9,9 @@ O fonte de cada teste declara os requisitos de build/execução em comentários 
 | Cabeçalho | Significado |
 | :--- | :--- |
 | `// RV32_EXT: M` | Compilado com `-march=rv32im` (as letras de extensão se somam à base `rv32i` implícita; separadas por vírgula, a ordem não importa, normalizadas por `isa.canonical_order`). Omitido por completo significa `rv32i` puro. |
-| `// RV32_TEST_KIND: unit` | Padrão se omitido. Verificado só pelo mailbox PASS/FAIL (veja [`mailbox`](mailbox.md)). |
+| `// RV32_TEST_KIND: unit` | Padrão se omitido. Verificado só pelo `tohost` (veja [`htif`](htif.md)). |
 | `// RV32_TEST_KIND: memory` | Também faz o dump da RAM e a compara com um golden JSON (veja [`mem_validator`](mem_validator.md), [`golden_generator`](golden_generator.md)). |
-| `// RV32_TIMEOUT_S: 5` | Quanto o [`orchestrator`](orchestrator.md) espera o mailbox deste teste antes de recorrer a uma reprogramação completa. O padrão é o `default_timeout_s` do `orchestrator`. |
+| `// RV32_TIMEOUT_S: 5` | Quanto o [`orchestrator`](orchestrator.md) espera o `tohost` deste teste antes de recorrer a uma reprogramação completa. O padrão é o `default_timeout_s` do `orchestrator`. |
 
 ## Biblioteca C
 
@@ -53,7 +53,7 @@ O mesmo arquivo serve a qualquer comando `gcc`, fora deste pacote: `gcc --specs=
 
 ### Imagem para o Spike
 
-Quando a imagem de um programa termina em código que, no hardware, fica em outro lugar, o Spike não consegue executá-la como está. `emulator.sources` e `emulator.gcc_flags` montam um segundo ELF para o Spike, a partir das mesmas fontes mais um substituto: no exemplo acima, o `rv32_wait_restart` do hardware é uma rotina da boot ROM no endereço `0x100`, e o ELF do Spike é compilado com `-DRV32_SPIKE`, que tira esse endereço fixo do link, e com um arquivo que define o `rv32_wait_restart` como código comum (o mailbox traduzido para HTIF) e os símbolos `tohost` e `fromhost`. Sem `emulator.sources`, o Spike executa a imagem do próprio teste.
+Quando a imagem de um programa termina em código que, no hardware, fica em outro lugar, o Spike não consegue executá-la como está. `emulator.sources` e `emulator.gcc_flags` montam um segundo ELF para o Spike, a partir das mesmas fontes mais um substituto: no exemplo acima, o `rv32_wait_restart` do hardware é uma rotina da boot ROM no endereço `0x100`, e o ELF do Spike é compilado com `-DRV32_SPIKE`, que tira esse endereço fixo do link, e com um arquivo que define o `rv32_wait_restart` como código comum (ela só espera, pois o teste já escreveu o `tohost`) e os símbolos `tohost` e `fromhost`. Sem `emulator.sources`, o Spike executa a imagem do próprio teste.
 
 ## Formato do arquivo hex
 

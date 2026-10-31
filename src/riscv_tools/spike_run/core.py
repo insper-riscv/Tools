@@ -8,12 +8,14 @@ software check to run before a real-hardware or simulation suite.
 """
 
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from riscv_tools.spike_exec import (
+    SpikeTarget,
     prepared_elf,
     require_spike,
+    run_spike,
     spike_command,
     symbol_address,
 )
@@ -39,39 +41,20 @@ class SpikeRunResult:
     output: str
 
 
-# Each arg is an independent Spike run setting; not bundleable
-# without a config object this module doesn't otherwise need.
-def run_elf(  # noqa: PLR0913, PLR0917
-    spike_bin: str,
-    nm_bin: str,
-    objcopy_bin: str,
+def run_elf(
+    target: SpikeTarget,
     elf_path: Path,
-    isa: str,
-    mem_regions: list[tuple[int, int]],
-    tohost_symbol: str,
-    entry_symbol: str = "_start",
     timeout_s: float = 60.0,
 ) -> SpikeRunResult:
-    """Run elf_path under Spike until it writes tohost, or timeout_s passes.
+    """Run elf_path under Spike until it writes tohost or times out.
 
     Parameters
     ----------
-    spike_bin : str
-        `spike` binary name/path (see spike_exec.require_spike).
-    nm_bin : str
-        `nm` binary for the target toolchain.
-    objcopy_bin : str
-        `objcopy` binary for the target toolchain.
+    target : SpikeTarget
+        The Spike run settings: binaries, ISA, memory regions and the
+        tohost and entry symbols.
     elf_path : Path
         Compiled test ELF to run.
-    isa : str
-        `--isa=` value; should match the test's own march.
-    mem_regions : list of (int, int)
-        (base, size) byte pairs, one per region of real memory.
-    tohost_symbol : str
-        Symbol the program writes its verdict to.
-    entry_symbol : str, optional
-        Symbol execution starts at.
     timeout_s : float, optional
         Seconds to wait before declaring the test hung.
 
@@ -85,14 +68,14 @@ def run_elf(  # noqa: PLR0913, PLR0917
     RuntimeError
         The entry or tohost symbol isn't in the ELF.
     """
-    spike = require_spike(spike_bin)
-    entry_pc = symbol_address(nm_bin, elf_path, entry_symbol)
-    with prepared_elf(objcopy_bin, nm_bin, elf_path, tohost_symbol) as elf:
-        cmd = spike_command(spike, isa, mem_regions, entry_pc, elf)
+    spike = replace(target, spike_bin=require_spike(target.spike_bin))
+    entry_pc = symbol_address(spike.nm_bin, elf_path, spike.entry_symbol)
+    with prepared_elf(
+        spike.objcopy_bin, spike.nm_bin, elf_path, spike.tohost_symbol
+    ) as elf:
+        cmd = spike_command(spike, entry_pc, elf)
         try:
-            proc = subprocess.run(
-                cmd, check=False, capture_output=True, text=True, timeout=timeout_s
-            )
+            proc = run_spike(cmd, timeout_s)
         except subprocess.TimeoutExpired:
             return SpikeRunResult(False, None, f"timed out after {timeout_s}s")
     return SpikeRunResult(

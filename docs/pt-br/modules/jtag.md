@@ -1,6 +1,6 @@
 # `jtag`
 
-Identifica a conexão JTAG ativa e roda contra ela os scripts `.tcl` que acompanham este pacote. É a base compartilhada em que todo outro módulo que toca JTAG se apoia ([`mem_edit`](mem_edit.md), [`rom_writer`](rom_writer.md), [`ram_zero`](ram_zero.md), [`ram_dump`](ram_dump.md), [`mailbox`](mailbox.md), [`quartus_program`](quartus_program.md)).
+Identifica a conexão JTAG ativa e roda contra ela os scripts `.tcl` que acompanham este pacote. É a base compartilhada em que todo outro módulo que toca JTAG se apoia ([`mem_edit`](mem_edit.md), [`rom_writer`](rom_writer.md), [`ram_zero`](ram_zero.md), [`ram_dump`](ram_dump.md), [`htif`](htif.md), [`quartus_program`](quartus_program.md)).
 
 ## Identificando uma conexão: `JtagLink`
 

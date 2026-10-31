@@ -7,7 +7,7 @@ _start:
     la sp, _stack_top
     call main
 
-    /* HTIF: 1 = pass. No mailbox/go_flag protocol here (that's the
+    /* HTIF: 1 = pass. No restart protocol here (that's the
      * real project's concern) — this fixture only needs to prove
      * generate_golden can find tohost, wait for it, and read memory
      * back correctly. */

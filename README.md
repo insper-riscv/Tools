@@ -26,7 +26,7 @@ Ele foi projetado para rodar em uma workstation com todas as ferramentas instala
 | `sdram_debug`        | Lê, escreve e preenche a SDRAM pela porta de debug JTAG      | [docs/modules/sdram_debug.md](docs/pt-br/modules/sdram_debug.md) |
 | `uart_console`       | Mostra a saída do programa pela UART JTAG enquanto ele roda  | [docs/modules/uart_console.md](docs/pt-br/modules/uart_console.md) |
 | `ram_dump`           | Faz o dump da RAM inteira via JTAG para um `.mif`           | [docs/modules/ram_dump.md](docs/pt-br/modules/ram_dump.md) |
-| `mailbox`            | Leitura do mailbox PASS/FAIL e pulso da "go flag" de reinício | [docs/modules/mailbox.md](docs/pt-br/modules/mailbox.md) |
+| `htif`               | Leitura do `tohost` e escrita do `fromhost` de reinício       | [docs/modules/htif.md](docs/pt-br/modules/htif.md) |
 | `quartus_program`    | Recompilação completa + `quartus_pgm` (o caminho lento, "base") | [docs/modules/quartus_program.md](docs/pt-br/modules/quartus_program.md) |
 | `mem_validator`      | Compara um dump de RAM com um golden JSON                   | [docs/modules/mem_validator.md](docs/pt-br/modules/mem_validator.md) |
 | `golden_generator`   | Gera um golden JSON dinamicamente rodando um ELF no Spike   | [docs/modules/golden_generator.md](docs/pt-br/modules/golden_generator.md) |
@@ -66,14 +66,14 @@ uv run riscv-tools --config /path/to/project/config.yaml generate-golden \
     build/real/some_test.elf --march rv32im --start 0x10 --end 0x20 --out golden/some_test.json
 
 # Simulação (precisa do extra "sim": cocotb + cocotb-tools, e do GHDL no PATH)
-uv sync --extra sim
+uv sync
 uv run riscv-tools --config /path/to/project/config.yaml compile --emit hex
 uv run riscv-tools --config /path/to/project/config.yaml sim
 uv run riscv-tools --config /path/to/project/config.yaml sim --only test-a,test-b
 ```
 
 Veja `riscv-tools --help` para a lista completa de subcomandos (`write-rom`,
-`zero-ram`, `dump-ram`, `program`, `mailbox read|pulse`, `generate-header`,
+`zero-ram`, `dump-ram`, `program`, `htif read|restart`, `generate-header`,
 `generate-golden`, `spike-run`, `run`, `sim`, `vhdl-sort`, `check-memory-map`, `check-paths`, `freq-sweep`).
 
 ```bash
@@ -93,7 +93,7 @@ uv run riscv-tools --config /path/to/project/config.yaml freq-sweep \
 ## Desenvolvimento
 
 ```bash
-uv sync --group dev --extra sim
+uv sync --group dev
 uv run pytest
 ```
 

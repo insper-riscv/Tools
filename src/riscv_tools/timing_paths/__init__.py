@@ -1,4 +1,4 @@
-"""Worst timing paths of a compiled Quartus project, grouped by register."""
+"""Worst timing paths of a compiled Quartus project, by register."""
 
 from riscv_tools.timing_paths.core import (
     PathGroup,

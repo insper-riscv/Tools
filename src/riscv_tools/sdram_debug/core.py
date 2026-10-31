@@ -1,9 +1,9 @@
-"""Primitives of the SDRAM debug port, the mem_edit of a RAM outside the FPGA.
+"""Primitives of the SDRAM debug port, a mem_edit for outside RAM.
 
-The debug port is a second master of the SDRAM controller reached through a
-Virtual JTAG instance (see Memory's docs/SDRAM_DEBUG.md). Addresses here are word
-addresses counted from the base of the SDRAM. Pure mechanism, no policy: the
-callers decide which words to use.
+The debug port is a second master of the SDRAM controller reached
+through a Virtual JTAG instance (see Memory's docs/SDRAM_DEBUG.md).
+Addresses here are word addresses counted from the base of the SDRAM.
+Pure mechanism, no policy: the callers decide which words to use.
 """
 
 import tempfile
@@ -11,6 +11,9 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from riscv_tools.jtag import JtagLink, run_tcl
+
+_WORD_MASK = 0xFFFFFFFF
+_SDRAM_TCL = "sdram_dbg.tcl"
 
 
 def write_word(
@@ -23,20 +26,24 @@ def write_word(
     link : JtagLink
         Which JTAG cable/chip to write to.
     word_address : int
-        Word address (not byte address) counted from the base of the SDRAM.
+        Word address (not byte address) counted from the base of the
+        SDRAM.
     value : int
         32-bit unsigned value to write.
     byte_enable : int, optional
-        Which bytes to write: bit i enables byte i of the word. Defaults to 0xF.
+        Which bytes to write: bit i enables byte i of the word. Defaults
+        to 0xF.
 
     Returns
     -------
     None
     """
-    run_tcl(link, "sdram_dbg.tcl", "write", word_address, value, byte_enable)
+    run_tcl(link, _SDRAM_TCL, "write", word_address, value, byte_enable)
 
 
-def read_words(link: JtagLink, word_address: int, word_count: int = 1) -> list[int]:
+def read_words(
+    link: JtagLink, word_address: int, word_count: int = 1
+) -> list[int]:
     """Read contiguous 32-bit words of the SDRAM.
 
     Parameters
@@ -44,8 +51,8 @@ def read_words(link: JtagLink, word_address: int, word_count: int = 1) -> list[i
     link : JtagLink
         Which JTAG cable/chip to read from.
     word_address : int
-        Word address (not byte address) of the first word, counted from the
-        base of the SDRAM.
+        Word address (not byte address) of the first word, counted from
+        the base of the SDRAM.
     word_count : int, optional
         How many contiguous words to read. Defaults to 1.
 
@@ -57,48 +64,58 @@ def read_words(link: JtagLink, word_address: int, word_count: int = 1) -> list[i
     Raises
     ------
     RuntimeError
-        The script's output did not contain the expected "WORDS=" reply line.
+        The script's output did not contain the expected "WORDS=" reply
+        line.
     """
-    result = run_tcl(link, "sdram_dbg.tcl", "read", word_address, word_count)
+    result = run_tcl(link, _SDRAM_TCL, "read", word_address, word_count)
     for line in result.stdout.splitlines():
         if line.startswith("WORDS="):
             return [int(w) for w in line.split("=", 1)[1].split()]
-    raise RuntimeError(f"sdram_dbg.tcl produced no WORDS= line:\n{result.stdout}")
+    raise RuntimeError(
+        f"{_SDRAM_TCL} produced no WORDS= line:\n{result.stdout}"
+    )
 
 
-def fill(link: JtagLink, word_address: int, word_count: int, value: int = 0) -> None:
-    """Fill contiguous words of the SDRAM with one value (done by the board).
+def fill(
+    link: JtagLink, word_address: int, word_count: int, value: int = 0
+) -> None:
+    """Fill contiguous SDRAM words with one value (done by the board).
 
     Parameters
     ----------
     link : JtagLink
         Which JTAG cable/chip to write to.
     word_address : int
-        Word address of the first word, counted from the base of the SDRAM.
+        Word address of the first word, counted from the base of the
+        SDRAM.
     word_count : int
         How many words to write.
     value : int, optional
-        The 32-bit value written to every byte of every word. Defaults to 0.
+        The 32-bit value written to every byte of every word. Defaults
+        to 0.
 
     Returns
     -------
     None
     """
-    run_tcl(link, "sdram_dbg.tcl", "fill", word_address, word_count, value)
+    run_tcl(link, _SDRAM_TCL, "fill", word_address, word_count, value)
 
 
-def load_words(link: JtagLink, word_address: int, words: Sequence[int]) -> None:
+def load_words(
+    link: JtagLink, word_address: int, words: Sequence[int]
+) -> None:
     """Write contiguous 32-bit words of the SDRAM in one JTAG session.
 
-    One session for the whole image: starting the script once per word would
-    spend most of the time starting processes.
+    One session for the whole image: starting the script once per word
+    would spend most of the time starting processes.
 
     Parameters
     ----------
     link : JtagLink
         Which JTAG cable/chip to write to.
     word_address : int
-        Word address of the first word, counted from the base of the SDRAM.
+        Word address of the first word, counted from the base of the
+        SDRAM.
     words : sequence of int
         The 32-bit values, in address order.
 
@@ -108,5 +125,5 @@ def load_words(link: JtagLink, word_address: int, words: Sequence[int]) -> None:
     """
     with tempfile.TemporaryDirectory() as tmp:
         image = Path(tmp) / "image.txt"
-        image.write_text("".join(f"{w & 0xFFFFFFFF:08x}\n" for w in words))
-        run_tcl(link, "sdram_dbg.tcl", "load", word_address, image)
+        image.write_text("".join(f"{w & _WORD_MASK:08x}\n" for w in words))
+        run_tcl(link, _SDRAM_TCL, "load", word_address, image)

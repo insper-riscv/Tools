@@ -1,6 +1,6 @@
 # `rom_writer`
 
-Loads a new ROM image into an already-programmed board over JTAG, without a full recompile/reprogram. Pairs with [`mailbox`](mailbox.md)'s restart "go flag" pulse to make the core jump back to its entry point and run the newly written image (see a consuming project's own `crt0.S`).
+Loads a new ROM image into an already-programmed board over JTAG, without a full recompile/reprogram. Pairs with the `fromhost` write of [`htif`](htif.md) to make the core jump back to its entry point and run the newly written image (see a consuming project's own `crt0.S`).
 
 A project with more than one physical copy of the same ROM content (see [`quartus_program`](quartus_program.md)'s `rom_mif_target`/`rom_mem_instances`) writes to every listed instance in one call, keeping all copies in sync.
 

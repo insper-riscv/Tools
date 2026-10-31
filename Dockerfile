@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-#
 # Test image for riscv-tools: the ci-elf image of insper-riscv/Infra (GHDL, the
 # RISC-V GCC with picolibc, a patched Spike and uv, at the paths of the
 # workstation install) plus this project's dependencies.
@@ -26,8 +24,8 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
 WORKDIR /workspace
 COPY .python-version pyproject.toml uv.lock ./
 RUN uv python install \
- && uv sync --frozen --group dev --extra sim --no-install-project \
+ && uv sync --frozen --group dev --no-install-project \
  && /opt/venv/bin/pyright --version
 
-ENTRYPOINT ["uv", "run", "--frozen", "--group", "dev", "--extra", "sim", "pytest", "-p", "no:cacheprovider"]
+ENTRYPOINT ["uv", "run", "--frozen", "--group", "dev", "pytest", "-p", "no:cacheprovider"]
 CMD ["-q"]

@@ -1,9 +1,12 @@
+"""Tests for spike_run."""
+
 import shutil
-import subprocess
 from pathlib import Path
 
 import pytest
+from support import link_bare
 
+from riscv_tools.spike_exec import SpikeTarget
 from riscv_tools.spike_run import SpikeRunResult, run_elf
 
 GCC = "riscv32-unknown-elf-gcc"
@@ -20,39 +23,24 @@ pytestmark = pytest.mark.skipif(
 
 def _build(tmp_path: Path, crt0: Path, name: str) -> Path:
     elf = tmp_path / f"{name}.elf"
-    subprocess.run(
-        [
-            GCC,
-            "-march=rv32im",
-            "-mabi=ilp32",
-            "-nostdlib",
-            "-nostartfiles",
-            "-T",
-            str(FIXTURES / "link.ld"),
-            str(crt0),
-            str(FIXTURES / "pass_asm.S"),
-            "-o",
-            str(elf),
-        ],
-        check=True,
-    )
+    link_bare([crt0, FIXTURES / "pass_asm.S"], FIXTURES / "link.ld", elf)
     return elf
 
 
 def _run(elf: Path, timeout_s: float = 20.0) -> SpikeRunResult:
-    return run_elf(
+    target = SpikeTarget(
         spike_bin="spike",
         nm_bin=NM,
         objcopy_bin=OBJCOPY,
-        elf_path=elf,
         isa="rv32im",
         mem_regions=REGIONS,
         tohost_symbol="tohost",
-        timeout_s=timeout_s,
     )
+    return run_elf(target, elf, timeout_s=timeout_s)
 
 
 def test_run_elf_reports_pass_when_tohost_is_1(tmp_path: Path) -> None:
+    """Run elf reports pass when tohost is 1."""
     result = _run(_build(tmp_path, FIXTURES / "crt0.S", "pass"))
 
     assert result.passed
@@ -60,6 +48,7 @@ def test_run_elf_reports_pass_when_tohost_is_1(tmp_path: Path) -> None:
 
 
 def test_run_elf_reports_fail_when_tohost_is_3(tmp_path: Path) -> None:
+    """Run elf reports fail when tohost is 3."""
     crt0 = tmp_path / "crt0_fail.S"
     crt0.write_text(
         (FIXTURES / "crt0.S").read_text().replace("li   t0, 1", "li   t0, 3")
@@ -72,9 +61,14 @@ def test_run_elf_reports_fail_when_tohost_is_3(tmp_path: Path) -> None:
     assert "FAILED" in result.output
 
 
-def test_run_elf_times_out_when_tohost_is_never_written(tmp_path: Path) -> None:
+def test_run_elf_times_out_when_tohost_is_never_written(
+    tmp_path: Path,
+) -> None:
+    """Run elf times out when tohost is never written."""
     crt0 = tmp_path / "crt0_hang.S"
-    crt0.write_text((FIXTURES / "crt0.S").read_text().replace("sw   t0, 0(t1)", "nop"))
+    crt0.write_text(
+        (FIXTURES / "crt0.S").read_text().replace("sw   t0, 0(t1)", "nop")
+    )
 
     result = _run(_build(tmp_path, crt0, "hang"), timeout_s=1.0)
 

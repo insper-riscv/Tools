@@ -1,3 +1,5 @@
+"""Tests for cli_filters."""
+
 import argparse
 import json
 from pathlib import Path
@@ -6,8 +8,12 @@ from unittest import mock
 
 import pytest
 
-from riscv_tools import cli
-from riscv_tools.cli import _filter_manifest  # pyright: ignore[reportPrivateUsage]
+from riscv_tools import boot_rom, cli, run_log, sim_runner
+from riscv_tools.cli import (
+    common,
+    filter_manifest,
+    suite_cmd,
+)
 
 MANIFEST_PATH = Path("build/manifest.json")
 MANIFEST: list[dict[str, Any]] = [
@@ -23,13 +29,17 @@ def _names(entries: list[dict[str, Any]]) -> list[str]:
 
 
 def test_manifest_filter_without_options_preserves_order() -> None:
-    selected = _filter_manifest(MANIFEST, MANIFEST_PATH, [], [])
+    """Manifest filter without options preserves order."""
+    selected = filter_manifest(MANIFEST, MANIFEST_PATH, [], [])
 
     assert _names(selected) == ["alpha", "uart-echo", "beta", "uart-tx"]
 
 
-def test_manifest_filter_only_accepts_repeated_comma_separated_groups() -> None:
-    selected = _filter_manifest(
+def test_manifest_filter_only_accepts_repeated_comma_separated_groups() -> (
+    None
+):
+    """Manifest filter only accepts repeated comma separated groups."""
+    selected = filter_manifest(
         MANIFEST,
         MANIFEST_PATH,
         [" beta,alpha ", "beta"],
@@ -40,7 +50,8 @@ def test_manifest_filter_only_accepts_repeated_comma_separated_groups() -> None:
 
 
 def test_manifest_filter_exclude_preserves_remaining_manifest_order() -> None:
-    selected = _filter_manifest(
+    """Manifest filter exclude preserves remaining manifest order."""
+    selected = filter_manifest(
         MANIFEST,
         MANIFEST_PATH,
         [],
@@ -51,7 +62,8 @@ def test_manifest_filter_exclude_preserves_remaining_manifest_order() -> None:
 
 
 def test_manifest_filter_exclude_wins_over_only() -> None:
-    selected = _filter_manifest(
+    """Manifest filter exclude wins over only."""
+    selected = filter_manifest(
         MANIFEST,
         MANIFEST_PATH,
         ["beta,alpha"],
@@ -66,11 +78,12 @@ def test_manifest_filter_rejects_unknown_names(
     option: str,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """Manifest filter rejects unknown names."""
     only = ["missing"] if option == "only" else []
     exclude = ["missing"] if option == "exclude" else []
 
     with pytest.raises(SystemExit) as exc_info:
-        _filter_manifest(MANIFEST, MANIFEST_PATH, only, exclude)
+        filter_manifest(MANIFEST, MANIFEST_PATH, only, exclude)
 
     assert exc_info.value.code == 1
     assert f"--{option} names not found" in capsys.readouterr().err
@@ -83,14 +96,18 @@ def test_manifest_filter_rejects_an_explicit_empty_filter(
     group: str,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """Manifest filter rejects an explicit empty filter."""
     only = [group] if option == "only" else []
     exclude = [group] if option == "exclude" else []
 
     with pytest.raises(SystemExit) as exc_info:
-        _filter_manifest(MANIFEST, MANIFEST_PATH, only, exclude)
+        filter_manifest(MANIFEST, MANIFEST_PATH, only, exclude)
 
     assert exc_info.value.code == 1
-    assert f"--{option} requires at least one test name" in capsys.readouterr().err
+    assert (
+        f"--{option} requires at least one test name"
+        in capsys.readouterr().err
+    )
 
 
 @pytest.mark.parametrize(
@@ -105,14 +122,18 @@ def test_manifest_filter_rejects_an_empty_selection(
     exclude: list[str],
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """Manifest filter rejects an empty selection."""
     with pytest.raises(SystemExit) as exc_info:
-        _filter_manifest(manifest, MANIFEST_PATH, [], exclude)
+        filter_manifest(manifest, MANIFEST_PATH, [], exclude)
 
     assert exc_info.value.code == 1
     assert "No tests selected" in capsys.readouterr().err
 
 
-def test_cmd_run_rejects_bad_filter_before_opening_jtag(tmp_path: Path) -> None:
+def test_cmd_run_rejects_bad_filter_before_opening_jtag(
+    tmp_path: Path,
+) -> None:
+    """Cmd run rejects bad filter before opening jtag."""
     manifest_path = tmp_path / "manifest.json"
     manifest_path.write_text(json.dumps(MANIFEST))
     args = argparse.Namespace(
@@ -128,9 +149,9 @@ def test_cmd_run_rejects_bad_filter_before_opening_jtag(tmp_path: Path) -> None:
     }
 
     with (
-        mock.patch.object(cli, "load_config", return_value=cfg),
-        mock.patch.object(cli.run_log, "start"),
-        mock.patch.object(cli, "_link") as link,
+        mock.patch.object(common, "load_config", return_value=cfg),
+        mock.patch.object(run_log, "start"),
+        mock.patch.object(suite_cmd, "jtag_link") as link,
         pytest.raises(SystemExit),
     ):
         cli.cmd_run(args)
@@ -141,6 +162,7 @@ def test_cmd_run_rejects_bad_filter_before_opening_jtag(tmp_path: Path) -> None:
 def test_cmd_sim_rejects_bad_filter_before_building_boot_rom(
     tmp_path: Path,
 ) -> None:
+    """Cmd sim rejects bad filter before building boot rom."""
     manifest_path = tmp_path / "manifest.json"
     manifest_path.write_text(json.dumps(MANIFEST))
     args = argparse.Namespace(
@@ -157,10 +179,10 @@ def test_cmd_sim_rejects_bad_filter_before_building_boot_rom(
     }
 
     with (
-        mock.patch.object(cli, "load_config", return_value=cfg),
-        mock.patch.object(cli.run_log, "start"),
-        mock.patch.object(cli.boot_rom, "build_boot_rom") as build_boot_rom,
-        mock.patch.object(cli.sim_runner, "run_suite") as run_suite,
+        mock.patch.object(common, "load_config", return_value=cfg),
+        mock.patch.object(run_log, "start"),
+        mock.patch.object(boot_rom, "build_boot_rom") as build_boot_rom,
+        mock.patch.object(sim_runner, "run_suite") as run_suite,
         pytest.raises(SystemExit),
     ):
         cli.cmd_sim(args)

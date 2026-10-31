@@ -1,11 +1,11 @@
 # `certify`
 
-Builds and runs the ACT4 (RISC-V Architectural Certification Tests) suite under cocotb/GHDL, validating against the official `riscv-arch-test` suite rather than a project's own hand-picked tests. Never touches real hardware: ACT4 tests have no golden JSON of their own and signal completion via HTIF `tohost`, not a project's PASS/FAIL mailbox convention.
+Builds and runs the ACT4 (RISC-V Architectural Certification Tests) suite under cocotb/GHDL, validating against the official `riscv-arch-test` suite rather than a project's own hand-picked tests. Never touches real hardware: ACT4 tests have no golden JSON of their own and signal completion via HTIF `tohost`.
 
 Two stages, owned by different tools:
 
 1. `build_elfs` shells out to ACT4's own `make` (in the vendored `vendor/riscv-arch-test`) to compile self-checking ELFs for a project's own ACT4 target. ACT4 owns test generation/compilation entirely; the consuming project only supplies DUT-specific config (target config YAML, UDB YAML, macros header, linker script).
-2. `run_suite` converts each built ELF the same way [`compiler`](compiler.md) converts a project's own tests (`objcopy` to raw `.bin`, then [`bin_to_image`](bin_to_image.md) to `.hex`), then drives it through the same cocotb/GHDL toplevel [`sim_runner`](sim_runner.md) uses for the regular suite, reusing `sim.vhdl_sources`/`sim.toplevel`/`sim.ghdl_std` from `config.yaml` directly. Only `test_module` differs, since ACT4 tests signal completion via HTIF rather than the project's own mailbox convention.
+2. `run_suite` converts each built ELF the same way [`compiler`](compiler.md) converts a project's own tests (`objcopy` to raw `.bin`, then [`bin_to_image`](bin_to_image.md) to `.hex`), then drives it through the same cocotb/GHDL toplevel [`sim_runner`](sim_runner.md) uses for the regular suite, reusing `sim.vhdl_sources`/`sim.toplevel`/`sim.ghdl_std` from `config.yaml` directly. Only `test_module` differs, since it is the ACT4 one, which reads `tohost` the way the ACT4 model writes it.
 
 Needs a RISC-V GCC on `PATH` for ACT4's own build (the `compile_exe` in the ACT4 target's `test_config.yaml`) and `toolchain.objcopy` for the second stage. No Spike is involved.
 
@@ -22,7 +22,7 @@ Needs a RISC-V GCC on `PATH` for ACT4's own build (the `compile_exe` in the ACT4
 ## Prerequisites
 
 - The RISC-V GCC toolchain (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) on `PATH`, provided by the `ci-elf` image of [insper-riscv/Infra](https://github.com/insper-riscv/Infra), or installed as in its `manual/GCC_SETUP.md`, for ACT4's own build.
-- The `sim` extra (`uv sync --extra sim`) and GHDL on `PATH`.
+- The `sim` extra (`uv sync`) and GHDL on `PATH`.
 - ACT4's Ruby, Bundler and UDB toolchain, and the ACT4 checkout the `act.vendor_dir` key points at.
 
 ## Tests
@@ -32,7 +32,7 @@ No automated test in this repository. A consuming project's certification workfl
 ## Usage
 
 ```bash
-uv sync --extra sim
+uv sync
 uv run riscv-tools --config /path/to/project/config.yaml certify
 ```
 

@@ -1,6 +1,6 @@
 # `rom_writer`
 
-Carrega uma nova imagem de ROM numa placa já programada por JTAG, sem uma recompilação/reprogramação completa. Faz par com o pulso da "go flag" de reinício do [`mailbox`](mailbox.md) para fazer o núcleo voltar ao ponto de entrada e rodar a imagem recém-escrita (veja o `crt0.S` do próprio projeto consumidor).
+Carrega uma nova imagem de ROM numa placa já programada por JTAG, sem uma recompilação/reprogramação completa. Faz par com a escrita do `fromhost` do [`htif`](htif.md) para fazer o núcleo voltar ao ponto de entrada e rodar a imagem recém-escrita (veja o `crt0.S` do próprio projeto consumidor).
 
 Um projeto com mais de uma cópia física do mesmo conteúdo de ROM (veja o `rom_mif_target`/`rom_mem_instances` do [`quartus_program`](quartus_program.md)) escreve em todas as instâncias listadas numa só chamada, mantendo todas as cópias em sincronia.
 

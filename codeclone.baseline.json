@@ -1,0 +1,37 @@
+{
+  "meta": {
+    "generator": {
+      "name": "codeclone",
+      "version": "2.0.2"
+    },
+    "schema_version": "2.1",
+    "fingerprint_version": "1",
+    "python_tag": "cp314",
+    "created_at": "2026-10-31T16:52:13Z",
+    "payload_sha256": "a2e5e3ac672ddbc7ba95c3a9608257727a01480ef343bc6a70c168fc9355e99a",
+    "metrics_payload_sha256": "2d1383b91181b19e5791a68e8eec67c44cce431e98d7f59931df68fb45dc5d0d"
+  },
+  "clones": {
+    "functions": [],
+    "blocks": []
+  },
+  "metrics": {
+    "max_complexity": 14,
+    "high_risk_functions": [],
+    "max_coupling": 5,
+    "high_coupling_classes": [],
+    "max_cohesion": 4,
+    "low_cohesion_classes": [
+      "tests.test_uart_console:FakeProcess"
+    ],
+    "dependency_cycles": [],
+    "dependency_max_depth": 1,
+    "dead_code_items": [],
+    "health_score": 92,
+    "health_grade": "A",
+    "typing_param_permille": 1000,
+    "typing_return_permille": 966,
+    "docstring_permille": 1000,
+    "typing_any_count": 127
+  }
+}

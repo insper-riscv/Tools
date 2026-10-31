@@ -27,9 +27,6 @@ None for rewriting the PLL source. A full sweep also needs what [orchestrator](o
 | `tests/test_freq_sweep.py::test_set_pll_freq_single_phase_default` | A single phase uses the default offset. |
 | `tests/test_freq_sweep.py::test_set_pll_freq_missing_param_left_unchanged` | A parameter the file lacks is left alone. |
 | `tests/test_freq_sweep.py::test_set_pll_freq_custom_param_template` | A custom parameter name template is honoured. |
-| `tests/test_freq_sweep.py::test_get_pll_freq_reads_phase_zero` | The frequency is read from phase 0. |
-| `tests/test_freq_sweep.py::test_get_pll_freq_returns_none_when_absent` | An absent frequency reads as `None`. |
-| `tests/test_freq_sweep.py::test_set_then_get_pll_freq_round_trips` | A written frequency reads back unchanged. |
 
 ## Usage
 

@@ -1,17 +1,21 @@
-"""run_suite: the display follows the number of each program when the config asks."""
+"""run_suite: the display follows each program number if asked."""
 
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
 
+from riscv_tools import display
 from riscv_tools.jtag import JtagLink
-from riscv_tools.orchestrator import runner
+from riscv_tools.orchestrator import context, suite
 
 
 @pytest.mark.parametrize(
     "enabled, expected",
-    [(True, [0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0x10, 0x11]), (False, [])],
+    [
+        (True, [0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0x10, 0x11]),
+        (False, []),
+    ],
 )
 def test_display_shows_the_number_of_each_program(
     monkeypatch: pytest.MonkeyPatch,
@@ -19,6 +23,7 @@ def test_display_shows_the_number_of_each_program(
     enabled: bool,
     expected: list[int],
 ) -> None:
+    """Display shows the number of each program."""
     writes: list[int] = []
 
     def write_display(_link: object, value: int) -> None:
@@ -31,25 +36,23 @@ def test_display_shows_the_number_of_each_program(
         return failed
 
     def run_one(
-        _cfg: object, _link: object, entry: dict[str, str], *_a: object, **_k: object
+        _ctx: object,
+        entry: dict[str, str],
+        **_k: object,
     ) -> bool:
         return entry["name"] != "t3"
 
-    monkeypatch.setattr(runner.display, "write_display", write_display)
-    monkeypatch.setattr(runner.display, "write_fail", write_fail)
-    monkeypatch.setattr(runner, "run_one", run_one)
-    # eleven programs: the 10th and the 11th tell decimal from hexadecimal
+    monkeypatch.setattr(display, "write_display", write_display)
+    monkeypatch.setattr(display, "write_fail", write_fail)
+    monkeypatch.setattr(suite, "run_one", run_one)
+    # eleven programs: the 10th and the 11th tell decimal from
+    # hexadecimal
     manifest = [{"name": f"t{n}"} for n in range(1, 12)]
     cfg: dict[str, Any] = {"orchestrator": {"board_display": enabled}}
-    runner.run_suite(
-        cfg,
-        cast(JtagLink, None),
-        manifest,
-        tmp_path,
-        tmp_path,
-        tmp_path,
-        reconfigure=False,
+    ctx = context.RunContext(
+        cfg, cast(JtagLink, None), tmp_path, tmp_path, tmp_path
     )
+    suite.run_suite(ctx, manifest, context.SuiteOptions(reconfigure=False))
     assert writes == expected
     # cleared at the start, then set by the one program that fails
     assert flags == ([False, True] if enabled else [])

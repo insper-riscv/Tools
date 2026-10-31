@@ -1,10 +1,14 @@
+"""Tests for spike_exec."""
+
 import shutil
-import subprocess
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+from support import link_bare
 
 from riscv_tools.spike_exec import (
+    SpikeTarget,
     prepared_elf,
     require_spike,
     spike_command,
@@ -29,30 +33,45 @@ def _fake_spike(tmp_path: Path, name: str, stderr: str) -> Path:
 
 
 def test_require_spike_missing_binary_points_at_setup_doc() -> None:
+    """Require spike missing binary points at setup doc."""
     with pytest.raises(FileNotFoundError, match=r"SPIKE_SETUP\.md"):
         require_spike("spike-that-does-not-exist")
 
 
-def test_require_spike_rejects_debug_module_at_address_zero(tmp_path: Path) -> None:
+def test_require_spike_rejects_debug_module_at_address_zero(
+    tmp_path: Path,
+) -> None:
+    """Require spike rejects debug module at address zero."""
     fake = _fake_spike(
-        tmp_path, "spike_unpatched", "devices at [0, 1000) and [0, 10000) overlap"
+        tmp_path,
+        "spike_unpatched",
+        "devices at [0, 1000) and [0, 10000) overlap",
     )
 
     with pytest.raises(RuntimeError, match="debug module"):
         require_spike(str(fake))
 
 
-def test_require_spike_accepts_a_binary_without_the_overlap(tmp_path: Path) -> None:
+def test_require_spike_accepts_a_binary_without_the_overlap(
+    tmp_path: Path,
+) -> None:
+    """Require spike accepts a binary without the overlap."""
     fake = _fake_spike(tmp_path, "spike_patched", "some other error")
 
     assert require_spike(str(fake)) == str(fake)
 
 
 def test_spike_command_lists_every_region_and_the_entry_point() -> None:
+    """Spike command lists every region and the entry point."""
+    target = SpikeTarget(
+        spike_bin="spike",
+        nm_bin="nm",
+        isa="rv32im",
+        mem_regions=[(0, 0x8000), (0x8000, 0x1000)],
+        tohost_symbol="tohost",
+    )
     cmd = spike_command(
-        "spike",
-        "rv32im",
-        [(0, 0x8000), (0x8000, 0x1000)],
+        target,
         0x40,
         Path("t.elf"),
         ("+signature=s.txt",),
@@ -71,22 +90,12 @@ def test_spike_command_lists_every_region_and_the_entry_point() -> None:
 
 @needs_toolchain
 def test_prepared_elf_adds_fromhost_and_extra_symbols(tmp_path: Path) -> None:
+    """Prepared elf adds fromhost and extra symbols."""
     elf = tmp_path / "t.elf"
-    subprocess.run(
-        [
-            GCC,
-            "-march=rv32im",
-            "-mabi=ilp32",
-            "-nostdlib",
-            "-nostartfiles",
-            "-T",
-            str(FIXTURES / "link.ld"),
-            str(FIXTURES / "crt0.S"),
-            str(FIXTURES / "pass_asm.S"),
-            "-o",
-            str(elf),
-        ],
-        check=True,
+    link_bare(
+        [FIXTURES / "crt0.S", FIXTURES / "pass_asm.S"],
+        FIXTURES / "link.ld",
+        elf,
     )
     tohost = symbol_address(NM, elf, "tohost")
 
@@ -102,32 +111,16 @@ def test_prepared_elf_adds_fromhost_and_extra_symbols(tmp_path: Path) -> None:
 
 
 @needs_toolchain
-def test_prepared_elf_aliases_a_custom_tohost_symbol(tmp_path: Path) -> None:
-    src = tmp_path / "a.S"
-    src.write_text(
+def test_prepared_elf_aliases_a_custom_tohost_symbol(
+    build_bare_elf: Callable[[str, str], Path],
+) -> None:
+    """Prepared elf aliases a custom tohost symbol."""
+    elf = build_bare_elf(
         ".globl _start\n_start: j _start\n"
-        ".section .bss\n.balign 8\n.globl my_tohost\nmy_tohost: .space 8\n"
-    )
-    ld = tmp_path / "a.ld"
-    ld.write_text(
+        ".section .bss\n.balign 8\n.globl my_tohost\nmy_tohost: .space 8\n",
         "ENTRY(_start)\n"
-        "SECTIONS { . = 0x80000000; .text : { *(.text*) } .bss : { *(.bss*) } }\n"
-    )
-    elf = tmp_path / "a.elf"
-    subprocess.run(
-        [
-            GCC,
-            "-march=rv32im",
-            "-mabi=ilp32",
-            "-nostdlib",
-            "-nostartfiles",
-            "-T",
-            str(ld),
-            str(src),
-            "-o",
-            str(elf),
-        ],
-        check=True,
+        "SECTIONS { . = 0x80000000; .text : { *(.text*) } "
+        ".bss : { *(.bss*) } }\n",
     )
 
     with prepared_elf(OBJCOPY, NM, elf, "my_tohost") as prepared:

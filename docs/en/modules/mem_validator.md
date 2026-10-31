@@ -1,6 +1,6 @@
 # `mem_validator`
 
-Compares a RAM dump (a `.mif`, one 32-bit word per line, see [`ram_dump`](ram_dump.md)) against a golden JSON of expected byte values. Used for `RV32_TEST_KIND: memory` tests, where the PASS/FAIL mailbox alone isn't enough to prove a test did the right thing: it wrote the right values to memory, not just that it reached its own pass signal.
+Compares a RAM dump (a `.mif`, one 32-bit word per line, see [`ram_dump`](ram_dump.md)) against a golden JSON of expected byte values. Used for `RV32_TEST_KIND: memory` tests, where the PASS/FAIL result alone isn't enough to prove a test did the right thing: it wrote the right values to memory, not just that it reached its own pass signal.
 
 ## Golden JSON format
 

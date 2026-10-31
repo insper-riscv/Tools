@@ -1,3 +1,5 @@
+"""Tests for sim_runner_python_path."""
+
 import sys
 from pathlib import Path
 
@@ -9,6 +11,7 @@ from riscv_tools import sim_runner
 def test_extend_python_path_adds_the_root_relative_entries_once(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Extend python path adds the root relative entries once."""
     monkeypatch.setattr(sys, "path", ["/already"])
     (tmp_path / "platform").mkdir()
     sim_runner.extend_python_path(tmp_path, [".", "platform", "platform"])

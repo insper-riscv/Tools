@@ -1,6 +1,6 @@
 # `ram_dump`
 
-Saves a RAM instance's entire content to a `.mif` over JTAG. Used for `RV32_TEST_KIND: memory` tests, where the PASS/FAIL mailbox alone isn't enough to prove a test did the right thing (it wrote the right values to memory, not just that it reached its own pass signal): see [`mem_validator`](mem_validator.md), which compares the resulting dump against a golden JSON.
+Saves a RAM instance's entire content to a `.mif` over JTAG. Used for `RV32_TEST_KIND: memory` tests, where the PASS/FAIL result alone isn't enough to prove a test did the right thing (it wrote the right values to memory, not just that it reached its own pass signal): see [`mem_validator`](mem_validator.md), which compares the resulting dump against a golden JSON.
 
 ## Configuration
 

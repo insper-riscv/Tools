@@ -1,9 +1,10 @@
-"""The worst timing paths of a compiled Quartus project, grouped by register.
+"""The worst timing paths of a compiled Quartus project, by register.
 
-The Timing Analyzer reports paths one bit at a time (``r_alu_out[13]``). This
-module asks it for the worst setup paths of every clock domain, then folds the bits
-of a register into one row, so the critical path reads as "from this register to
-that one" and a stage that dominates shows up at once. Pure mechanism, no policy.
+The Timing Analyzer reports paths one bit at a time (``r_alu_out[13]``).
+This module asks it for the worst setup paths of every clock domain,
+then folds the bits of a register into one row, so the critical path
+reads as "from this register to that one" and a stage that dominates
+shows up at once. Pure mechanism, no policy.
 """
 
 import re
@@ -51,7 +52,7 @@ class TimingPath:
 
 @dataclass(frozen=True)
 class PathGroup:
-    """The paths that share a clock, a source register and a destination register.
+    """The paths sharing a clock, a source and a destination register.
 
     Parameters
     ----------
@@ -60,7 +61,8 @@ class PathGroup:
     source : str
         Source register without the bit index, with its pipeline stage.
     destination : str
-        Destination register without the bit index, with its pipeline stage.
+        Destination register without the bit index, with its pipeline
+        stage.
     paths : int
         How many bits of the pair appear among the reported paths.
     slack : float
@@ -103,7 +105,9 @@ def parse_paths(output: str) -> list[TimingPath]:
         if len(fields) != FIELDS:
             raise ValueError(f"malformed path line: {line!r}")
         _, clock, slack, delay, source, destination = fields
-        paths.append(TimingPath(clock, float(slack), float(delay), source, destination))
+        paths.append(
+            TimingPath(clock, float(slack), float(delay), source, destination)
+        )
     return paths
 
 
@@ -113,13 +117,15 @@ def register_of(node: str) -> str:
     Parameters
     ----------
     node : str
-        Hierarchical node name, such as ``core:CORE|reg_mem_wb:u_reg_mem_wb|r_x[3]``.
+        Hierarchical node name, such as
+        ``core:CORE|reg_mem_wb:u_reg_mem_wb|r_x[3]``.
 
     Returns
     -------
     str
-        The node without the bit index, with the stage in front when it sits in a
-        pipeline register (``MEM/WB r_x``), or the path below the top otherwise.
+        The node without the bit index, with the stage in front when it
+        sits in a pipeline register (``MEM/WB r_x``), or the path below
+        the top otherwise.
     """
     parts = _BIT_INDEX.sub("", node).split("|")
     name = parts[-1]
@@ -142,12 +148,16 @@ def group_paths(paths: list[TimingPath]) -> list[PathGroup]:
     Returns
     -------
     list of PathGroup
-        One group per clock, source register and destination register, the worst
-        slack first.
+        One group per clock, source register and destination register,
+        the worst slack first.
     """
     groups: dict[tuple[str, str, str], list[TimingPath]] = {}
     for path in paths:
-        key = (path.clock, register_of(path.source), register_of(path.destination))
+        key = (
+            path.clock,
+            register_of(path.source),
+            register_of(path.destination),
+        )
         groups.setdefault(key, []).append(path)
     rows = [
         PathGroup(
@@ -191,12 +201,13 @@ def format_table(groups: list[PathGroup]) -> str:
 def run_timing_paths(
     project_dir: Path, project_name: str, npaths: int = 30, model: str = "slow"
 ) -> list[TimingPath]:
-    """Run the Timing Analyzer on a compiled project and read its worst paths.
+    """Run the Timing Analyzer on a compiled project; read worst paths.
 
     Parameters
     ----------
     project_dir : Path
-        Directory of the Quartus project, where the compiled database lives.
+        Directory of the Quartus project, where the compiled database
+        lives.
     project_name : str
         Name of the project (the .qpf without the extension).
     npaths : int, optional
@@ -214,10 +225,19 @@ def run_timing_paths(
     RuntimeError
         The analyzer failed.
     """
-    cmd = ["quartus_sta", "-t", str(TCL_FILE), project_name, str(npaths), model]
+    cmd = [
+        "quartus_sta",
+        "-t",
+        str(TCL_FILE),
+        project_name,
+        str(npaths),
+        model,
+    ]
     done = subprocess.run(
         cmd, cwd=project_dir, capture_output=True, text=True, check=False
     )
     if done.returncode != 0:
-        raise RuntimeError(f"quartus_sta failed ({done.returncode}): {done.stderr}")
+        raise RuntimeError(
+            f"quartus_sta failed ({done.returncode}): {done.stderr}"
+        )
     return parse_paths(done.stdout)

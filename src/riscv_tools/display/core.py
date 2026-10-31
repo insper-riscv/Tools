@@ -1,8 +1,9 @@
 """The host side of the seven-segment display register of the platform.
 
-The six digits of the display are a 24-bit register that the program or the host
-writes (see Memory's seg_display). This module reads and writes it through the
-Virtual JTAG instance of the register. Pure mechanism, no policy.
+The six digits of the display are a 24-bit register that the program or
+the host writes (see Memory's seg_display). This module reads and writes
+it through the Virtual JTAG instance of the register. Pure mechanism, no
+policy.
 """
 
 import subprocess
@@ -21,15 +22,15 @@ MAX_TEST_NUMBER = 999999
 
 
 def _decimal_digits(number: int) -> int:
-    """Write the decimal digits of number as hexadecimal digits: 59 becomes 0x59."""
+    """Write the decimal digits of number as hex digits: 59 is 0x59."""
     return int(str(number), 16)
 
 
 def encode_act(number: int) -> int:
-    """Value of the register while the ELF number of an ACT4 run executes.
+    """Value of the register while an ACT4 run's ELF number executes.
 
-    HEX5 and HEX4 show ``A`` and ``C``; HEX3 to HEX0 show the number in decimal,
-    so the first ELF reads ``AC0001`` and the 59th ``AC0059``.
+    HEX5 and HEX4 show ``A`` and ``C``; HEX3 to HEX0 show the number in
+    decimal, so the first ELF reads ``AC0001`` and the 59th ``AC0059``.
 
     Parameters
     ----------
@@ -54,7 +55,7 @@ def encode_act(number: int) -> int:
 
 
 def encode_test(number: int) -> int:
-    """Value of the register while the number-th program of the own suite executes.
+    """Value of the register while the number-th own program runs.
 
     The six digits show the number in decimal: ``000001`` to ``999999``.
 
@@ -117,7 +118,9 @@ def _run(link: JtagLink, *args: str) -> int:
     ]
     done = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if done.returncode != 0:
-        raise RuntimeError(f"display.tcl failed ({done.returncode}): {done.stderr}")
+        raise RuntimeError(
+            f"display.tcl failed ({done.returncode}): {done.stderr}"
+        )
     return decode_value(done.stdout)
 
 
@@ -152,11 +155,15 @@ def check_display(link: JtagLink, count: int) -> int:
     ]
     done = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if done.returncode != 0:
-        raise RuntimeError(f"display.tcl failed ({done.returncode}): {done.stderr}")
+        raise RuntimeError(
+            f"display.tcl failed ({done.returncode}): {done.stderr}"
+        )
     for line in done.stdout.splitlines():
         if line.startswith(CHECK_PREFIX):
             return int(line.rsplit("=", 1)[1])
-    raise RuntimeError(f"the display script printed no result: {done.stdout!r}")
+    raise RuntimeError(
+        f"the display script printed no result: {done.stdout!r}"
+    )
 
 
 def read_display(link: JtagLink) -> int:
@@ -201,7 +208,7 @@ def write_display(link: JtagLink, value: int) -> int:
 
 
 def _run_fail(link: JtagLink, action: str) -> bool:
-    """Run display.tcl in fail mode (read, set or clear) and return the flag."""
+    """Run display.tcl in fail mode (read, set, clear), return flag."""
     cmd = [
         "quartus_stp",
         "-t",
@@ -213,28 +220,14 @@ def _run_fail(link: JtagLink, action: str) -> bool:
     ]
     done = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if done.returncode != 0:
-        raise RuntimeError(f"display.tcl failed ({done.returncode}): {done.stderr}")
+        raise RuntimeError(
+            f"display.tcl failed ({done.returncode}): {done.stderr}"
+        )
     for raw in reversed(done.stdout.splitlines()):
         line = raw.strip()
         if line.startswith(FLAG_PREFIX):
             return line[len(FLAG_PREFIX) :] == "1"
     raise RuntimeError(f"the display script printed no flag: {done.stdout!r}")
-
-
-def read_fail(link: JtagLink) -> bool:
-    """Read the failure flag that the board shows on its first red LED.
-
-    Parameters
-    ----------
-    link : JtagLink
-        Which JTAG cable/chip to use.
-
-    Returns
-    -------
-    bool
-        True when the flag is set.
-    """
-    return _run_fail(link, "read")
 
 
 def write_fail(link: JtagLink, failed: bool) -> bool:

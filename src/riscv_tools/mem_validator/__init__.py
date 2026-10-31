@@ -1,6 +1,6 @@
 """Compares a RAM dump against a golden JSON of expected byte values."""
 
-from .core import (
+from riscv_tools.mem_validator.core import (
     compare,
     compare_bytes,
     golden_word_offsets,
