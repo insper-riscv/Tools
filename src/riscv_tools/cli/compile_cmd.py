@@ -176,7 +176,10 @@ def _attach_image(
 
     The FLASH is addressed raw, without base-address subtraction, so an
     image linked at memory.rom_base gets that many leading zero words
-    and its content lands at the right word index.
+    and its content lands at the right word index. With
+    memory.rom_origin (the address the first word of the FLASH storage
+    has, 0 by default) the padding counts from there: a FLASH behind
+    the caches starts at its own base and has none.
 
     Parameters
     ----------
@@ -193,7 +196,9 @@ def _attach_image(
     """
     build_dir, bin_ = built
     name = entry["name"]
-    flash_pad_words = cfg["memory"]["rom_base"] // 4
+    flash_pad_words = (
+        cfg["memory"]["rom_base"] - (cfg["memory"].get("rom_origin") or 0)
+    ) // 4
     if is_real:
         mif = build_dir / f"{name}.mif"
         bin_to_image.bin_to_mif(

@@ -199,3 +199,37 @@ def test_the_command_needs_no_config(
     )
     cli.main()
     assert len(capsys.readouterr().out.splitlines()) == 36
+
+
+# The matrix of the core with the event counters: Zihpm joins Zicntr and
+# each implies Zicsr.
+HPM_SPEC = CORE_SPEC.replace(
+    "  - {name: Zifencei,",
+    "  - {name: Zihpm,    generic: has_zihpm,  implies: [has_zicsr]}\n"
+    "  - {name: Zifencei,",
+).replace("  - [Zicsr, Zicntr]\n", "  - [Zicsr, Zicntr]\n  - [Zicsr, Zihpm]\n")
+
+
+def test_the_matrix_with_zihpm_has_sixty_profiles(tmp_path: Path) -> None:
+    """Five states of CSR block give sixty profiles."""
+    profiles = expand(load_spec(_write(tmp_path, HPM_SPEC)))
+    assert len(profiles) == 60
+    assert len({p.name for p in profiles}) == 60
+
+
+def test_zihpm_turns_zicsr_on_and_never_cites_it(tmp_path: Path) -> None:
+    """A profile with Zihpm has Zicsr on and no zicsr in its name."""
+    for p in expand(load_spec(_write(tmp_path, HPM_SPEC))):
+        if "Zihpm" in p.extensions:
+            assert p.generics["has_zicsr"] is True
+            assert "zicsr" not in p.name
+
+
+def test_zicntr_and_zihpm_come_together_in_the_spec_order(
+    tmp_path: Path,
+) -> None:
+    """Zicntr and Zihpm together are named zicntr_zihpm."""
+    names = {p.name for p in expand(load_spec(_write(tmp_path, HPM_SPEC)))}
+    assert "rv32im_zicclsm_zicntr_zihpm_zifencei" in names
+    assert "rv32i_zihpm_zifencei_zmmul" in names
+    assert not any("zihpm_zicntr" in n for n in names)

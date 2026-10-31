@@ -42,3 +42,26 @@ def test_write_sdram_images_joins_the_segments_from_the_base(
     boot = paths["boot_hex_path"].read_text().lower().split()
     assert boot == ["00000013", "400000b7", "00008067"]
     assert paths["hex_path"] == paths["boot_hex_path"]
+
+
+def test_write_flash_images_split_the_flash_from_the_sdram(
+    tmp_path: Path,
+) -> None:
+    """Write flash images splits the code from the data."""
+    flash_base = 0x20000000
+    code = bytes(range(8))
+    data = b"\xaa\xbb\xcc\xdd"
+    elf = tmp_path / "t.elf"
+    elf.write_bytes(build_elf([(flash_base, code), (SDRAM_BASE, data)]))
+    paths = images.write_flash_images(
+        elf, tmp_path, "t", flash_base, SDRAM_BASE
+    )
+    assert set(paths) == {"boot_hex_path", "hex_path", "sdram_hex_path"}
+    assert paths["hex_path"].read_text().lower().split() == [
+        "03020100",
+        "07060504",
+    ]
+    assert paths["sdram_hex_path"].read_text().lower().split() == ["ddccbbaa"]
+    # the boot ROM jumps to the FLASH: lui x1, 0x20000
+    boot = paths["boot_hex_path"].read_text().lower().split()
+    assert boot == ["00000013", "200000b7", "00008067"]

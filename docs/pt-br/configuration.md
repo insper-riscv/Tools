@@ -71,6 +71,7 @@ Não há divisão `tests_real_dir`/`tests_sim_dir`/`golden_dir`: todo teste em `
 | `fromhost_addr` | Endereço de byte do `fromhost` (8 bytes), em que o host escreve para reiniciar o núcleo |
 | `ram_words` | Profundidade da RAM em palavras: usada para zerar a RAM inteira e validar o `.mif` de um programa |
 | `rom_base` | Endereço de byte em que a imagem do programa é linkada (0 para uma ROM que começa no endereço 0). O `.mif`/`.hex` de um teste linkado acima de 0 recebe `rom_base / 4` palavras zero à esquerda, porque a memória é endereçada de forma crua, sem subtrair uma base |
+| `rom_origin` | Endereço de byte que a primeira palavra do armazenamento da FLASH tem (padrão 0). Com ele o preenchimento à esquerda do `.mif`/`.hex` passa a ser `(rom_base - rom_origin) / 4` palavras e as regiões de memória do Spike começam nele: uma FLASH atrás das caches começa na própria base e não tem preenchimento |
 | `rom_words` | Profundidade da ROM em palavras: usada para validar/formatar o `.mif` de um programa |
 
 ### `emulator:`

@@ -132,3 +132,52 @@ def write_sdram_images(
         paths[key] = hex_path
     paths["hex_path"] = paths["boot_hex_path"]
     return paths
+
+
+def write_flash_images(
+    elf: Path, out_dir: Path, name: str, flash_base: int, sdram_base: int
+) -> dict[str, Path]:
+    """Write the three hex images of the FLASH platform from one ELF.
+
+    The ELF has its code in the FLASH and its data in the SDRAM, each
+    loaded at the address it runs from. The image of the FLASH starts at
+    `flash_base`, the one of the SDRAM at `sdram_base`, and the boot ROM
+    only jumps to the FLASH.
+
+    Parameters
+    ----------
+    elf : Path
+        The ACT4 ELF.
+    out_dir : Path
+        Where the files are written.
+    name : str
+        Stem of the file names.
+    flash_base : int
+        First address of the FLASH.
+    sdram_base : int
+        First address of the SDRAM.
+
+    Returns
+    -------
+    dict of {str: Path}
+        The hex files, under the keys `boot_hex_path`, `hex_path` (the
+        FLASH) and `sdram_hex_path`.
+    """
+    segments = load_segments(elf)
+    flash = region_image(segments, flash_base, sdram_base)
+    sdram = region_image(segments, sdram_base, _ADDRESS_SPACE)
+    boot = b"".join(
+        word.to_bytes(4, "little") for word in sdram_boot_words(flash_base)
+    )
+    paths: dict[str, Path] = {}
+    for key, suffix, image in (
+        ("boot_hex_path", "boot", boot),
+        ("hex_path", "flash", flash),
+        ("sdram_hex_path", "sdram", sdram),
+    ):
+        bin_path = out_dir / f"{name}.{suffix}.bin"
+        hex_path = out_dir / f"{name}.{suffix}.hex"
+        bin_path.write_bytes(image or bytes(4))
+        bin_to_image.bin_to_hex(bin_path, hex_path)
+        paths[key] = hex_path
+    return paths

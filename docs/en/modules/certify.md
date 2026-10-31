@@ -18,6 +18,11 @@ Needs a RISC-V GCC on `PATH` for ACT4's own build (the `compile_exe` in the ACT4
 | `act.extensions` | Comma-separated extension list forwarded to ACT4's own `make ... EXTENSIONS=` (default `"I,M"`). |
 | `act.jobs` | `make`'s own parallelism (default `0`, ACT4's own auto-detect). |
 | `act.sim_parameters` | Merged on top of `sim.parameters`; only needed to override something ACT4's own, typically larger images need sized differently than the project's real-hardware budget (e.g. `rom_addr_width`/`ram_addr_width`). Empty by default. |
+| `act.flash_base` | First address of the FLASH, when the code of the ELF sits in it and the data in the SDRAM (the platform with the FLASH behind the caches). The FLASH image starts there, the SDRAM one at `act.sdram_base`, and the boot ROM only jumps to the FLASH. No default. |
+| `act.flash_words` | Words of the FLASH storage in the FPGA: an ELF with larger code is reported, not run. Used only on the board. |
+| `act.ram_tests` | Names of the ELFs that rewrite their own code and so run from a variant of the target, with the body of the test in the RAM (empty by default). The report has one entry per test. |
+| `act.ram_target_config` | The `test_config.yaml` of the variant, whose linker script puts the body of the test in writable memory. Required with `act.ram_tests`. |
+| `act.ram_extensions` | Extensions that the variant builds; those of `act.extensions` when empty. |
 
 ## Prerequisites
 

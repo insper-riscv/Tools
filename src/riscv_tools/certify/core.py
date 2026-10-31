@@ -21,7 +21,11 @@ from typing import Any
 import yaml
 
 from riscv_tools import proc, sim_runner
-from riscv_tools.certify.images import write_images, write_sdram_images
+from riscv_tools.certify.images import (
+    write_flash_images,
+    write_images,
+    write_sdram_images,
+)
 
 _ACT_TEST_MODULE = "tools.riscv_build.act.sim.test_act"
 
@@ -115,6 +119,74 @@ def discover_elfs(elfs_dir: Path) -> list[Path]:
     )
 
 
+def suite_elfs(
+    cfg: dict[str, Any], root: Path, *, build: bool = True
+) -> list[Path]:
+    """Collect the ELFs of a run, the target's and its RAM variant's.
+
+    A test that rewrites its own code cannot run from a read-only
+    FLASH. With `act.ram_tests` (ELF names) and `act.ram_target_config`
+    (an ACT4 target whose linker script puts the body of the test in
+    writable memory) the run takes those tests from the variant and the
+    rest from the target, so the report has one entry per test.
+
+    Parameters
+    ----------
+    cfg : dict of {str: Any}
+        The merged project config: act.vendor_dir, target_config,
+        extensions and jobs, and optionally act.ram_target_config,
+        ram_tests and ram_extensions (the extensions the variant
+        builds, the target's own by default).
+    root : Path
+        The consuming project's root directory.
+    build : bool, optional
+        Build with ACT4's own `make`; with False the ELFs of an earlier
+        build are used.
+
+    Returns
+    -------
+    list of Path
+        The ELFs to run, sorted by name.
+
+    Raises
+    ------
+    FileNotFoundError
+        The variant has no ELF for a test of `act.ram_tests`.
+    """
+    act_cfg = cfg["act"]
+    vendor_dir = root / act_cfg["vendor_dir"]
+    target_config = root / act_cfg["target_config"]
+    if build:
+        elfs_dir = build_elfs(
+            vendor_dir, target_config, act_cfg["extensions"], act_cfg["jobs"]
+        )
+    else:
+        elfs_dir = vendor_dir / "work" / target_name(target_config) / "elfs"
+    elfs = discover_elfs(elfs_dir)
+
+    ram_tests = set(act_cfg.get("ram_tests") or [])
+    if not ram_tests:
+        return elfs
+    ram_config = root / act_cfg["ram_target_config"]
+    if build:
+        ram_dir = build_elfs(
+            vendor_dir,
+            ram_config,
+            act_cfg.get("ram_extensions") or act_cfg["extensions"],
+            act_cfg["jobs"],
+        )
+    else:
+        ram_dir = vendor_dir / "work" / target_name(ram_config) / "elfs"
+    ram_elfs = [e for e in discover_elfs(ram_dir) if e.stem in ram_tests]
+    missing = ram_tests - {e.stem for e in ram_elfs}
+    if missing:
+        raise FileNotFoundError(
+            f"no RAM variant ELF under {ram_dir} for {sorted(missing)}"
+        )
+    kept = [e for e in elfs if e.stem not in ram_tests]
+    return sorted(kept + ram_elfs, key=lambda e: e.name)
+
+
 def _raise_stack_limit() -> None:
     """Raise the soft stack limit of this process to the hard one.
 
@@ -144,9 +216,17 @@ def _write_elf_images(
     Returns
     -------
     dict of {str: Path}
-        The image paths, keyed as `write_images` or
-        `write_sdram_images` keys them.
+        The image paths, keyed as `write_images`, `write_sdram_images`
+        or `write_flash_images` keys them.
     """
+    if act_cfg.get("flash_base") is not None:
+        return write_flash_images(
+            elf,
+            test_build_dir,
+            elf.stem,
+            flash_base=int(str(act_cfg["flash_base"]), 0),
+            sdram_base=int(str(act_cfg["sdram_base"]), 0),
+        )
     if act_cfg.get("sdram_base") is not None:
         return write_sdram_images(
             elf,
@@ -241,15 +321,9 @@ def run_suite(
         root, [".", *(cfg["sim"].get("python_path") or [])]
     )
     act_cfg = cfg["act"]
-    vendor_dir = root / act_cfg["vendor_dir"]
-    target_config = root / act_cfg["target_config"]
-
-    elfs_dir = build_elfs(
-        vendor_dir, target_config, act_cfg["extensions"], act_cfg["jobs"]
-    )
-    elfs = discover_elfs(elfs_dir)
+    elfs = suite_elfs(cfg, root)
     if not elfs:
-        print(f"No ELFs found under {elfs_dir}; nothing to run")
+        print(f"No ELFs found for {act_cfg['target_config']}; nothing to run")
         return {}
 
     vhdl_sources = [str(root / src) for src in cfg["sim"]["vhdl_sources"]]
