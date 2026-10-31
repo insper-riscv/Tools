@@ -8,9 +8,11 @@ from unittest import mock
 
 import pytest
 
-from riscv_tools import cli
+from riscv_tools import boot_rom, cli, run_log, sim_runner
 from riscv_tools.cli import (
+    common,
     filter_manifest,
+    suite_cmd,
 )
 
 MANIFEST_PATH = Path("build/manifest.json")
@@ -147,9 +149,9 @@ def test_cmd_run_rejects_bad_filter_before_opening_jtag(
     }
 
     with (
-        mock.patch.object(cli, "load_config", return_value=cfg),
-        mock.patch.object(cli.run_log, "start"),
-        mock.patch.object(cli, "_link") as link,
+        mock.patch.object(common, "load_config", return_value=cfg),
+        mock.patch.object(run_log, "start"),
+        mock.patch.object(suite_cmd, "jtag_link") as link,
         pytest.raises(SystemExit),
     ):
         cli.cmd_run(args)
@@ -177,10 +179,10 @@ def test_cmd_sim_rejects_bad_filter_before_building_boot_rom(
     }
 
     with (
-        mock.patch.object(cli, "load_config", return_value=cfg),
-        mock.patch.object(cli.run_log, "start"),
-        mock.patch.object(cli.boot_rom, "build_boot_rom") as build_boot_rom,
-        mock.patch.object(cli.sim_runner, "run_suite") as run_suite,
+        mock.patch.object(common, "load_config", return_value=cfg),
+        mock.patch.object(run_log, "start"),
+        mock.patch.object(boot_rom, "build_boot_rom") as build_boot_rom,
+        mock.patch.object(sim_runner, "run_suite") as run_suite,
         pytest.raises(SystemExit),
     ):
         cli.cmd_sim(args)

@@ -6,7 +6,8 @@ from typing import Any
 
 import pytest
 
-from riscv_tools import cli
+from riscv_tools import cli, orchestrator
+from riscv_tools.cli import tools_cmd
 from riscv_tools.freq_sweep import PllParams, get_pll_freq, set_pll_freq
 
 THREE_PHASE_PLL = """\
@@ -177,9 +178,9 @@ def test_cmd_freq_sweep_resolves_pll_file_against_the_project_root(
     def fake_link(_cfg: dict[str, Any]) -> None:
         return None
 
-    monkeypatch.setattr(cli, "load_config", fake_load_config)
-    monkeypatch.setattr(cli, "_link", fake_link)
-    monkeypatch.setattr(cli.orchestrator, "run_freq_sweep_linear", fake_linear)
+    monkeypatch.setattr(tools_cmd, "load_config", fake_load_config)
+    monkeypatch.setattr(tools_cmd, "jtag_link", fake_link)
+    monkeypatch.setattr(orchestrator, "run_freq_sweep_linear", fake_linear)
 
     args = argparse.Namespace(
         config="unused",

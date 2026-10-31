@@ -1,5 +1,6 @@
 """Tests for profiles."""
 
+import argparse
 from pathlib import Path
 
 import pytest
@@ -174,7 +175,7 @@ def test_cli_prints_ghdl_generics(
 ) -> None:
     """Cli prints ghdl generics."""
     spec = _write(tmp_path, CORE_SPEC)
-    args = cli.argparse.Namespace(spec=str(spec), format="generics")
+    args = argparse.Namespace(spec=str(spec), format="generics")
     cli.cmd_profiles(args)
     lines = capsys.readouterr().out.splitlines()
     assert len(lines) == 36
