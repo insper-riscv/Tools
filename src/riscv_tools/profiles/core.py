@@ -117,7 +117,7 @@ def load_spec(path: Path) -> Spec:
             generic=str(e["generic"]),
             base_letter=_optional(e, "base_letter"),
             absent_token=_optional(e, "absent_token"),
-            implies=tuple(str(g) for g in e.get("implies") or []),
+            implies=tuple(str(g) for g in cast("list[Any]", e.get("implies") or [])),
         )
         for e in cast("list[dict[str, Any]]", raw["extensions"])
     )

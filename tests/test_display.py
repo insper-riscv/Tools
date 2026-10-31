@@ -1,5 +1,6 @@
 """display: the pieces that need no board."""
 
+import subprocess
 from typing import cast
 
 import pytest
@@ -53,7 +54,10 @@ def test_fail_flag_is_read_from_the_flag_line(monkeypatch: pytest.MonkeyPatch) -
         stdout = "Info: x\nFLAG=1\n"
         stderr = ""
 
-    monkeypatch.setattr(display.core.subprocess, "run", lambda *_a, **_k: Done())
+    def fake_run(*_a: object, **_k: object) -> Done:
+        return Done()
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
     link = cast(JtagLink, type("L", (), {"hardware_name": "h", "device_name": "d"})())
     assert display.read_fail(link) is True
     assert display.write_fail(link, False) is True  # the stub always answers FLAG=1
