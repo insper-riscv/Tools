@@ -16,210 +16,30 @@ The board must be programmed with the SDRAM platform and the core
 parked.
 """
 
-import struct
 import time
-from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TypedDict, Unpack
 
 from riscv_tools import (
-    bin_to_image,
     display,
     mailbox,
-    rom_writer,
     sdram_debug,
 )
 from riscv_tools.certify import core as certify_core
+from riscv_tools.certify.flash import image_words, write_flash_stub
+from riscv_tools.certify.symbols import elf_symbol
 from riscv_tools.jtag import JtagLink
 
-_FENCE_I = 0x0000100F
-_JR_T0 = 0x00028067
-_SHT_SYMTAB = 2
-_ELF32_SHDR = struct.Struct("<IIIIIIIIII")
-_ELF32_SYM = struct.Struct("<IIIBBH")
-_ELF32_HEADER_SHOFF = struct.Struct("<I")
-_ELF32_SHENT = struct.Struct("<HH")
-_E_SHOFF_OFFSET = 32
-_E_SHENTSIZE_OFFSET = 46
-_LUI_OPCODE = 0x37
-_LOW_12_BITS = 0xFFF
-_HIGH_20_BITS = 0xFFFFF000
 _DEFAULT_REGION_BYTES = 0x100000
+
+
 _DEFAULT_TIMEOUT_S = 30
+
+
 # What run_elf's result means: True is a PASS, False a FAIL and None a
 # timeout.
 VERDICTS = {True: "PASS", False: "FAIL", None: "TIMEOUT"}
-
-
-def flash_stub_words(sdram_base: int) -> list[int]:
-    """Return the FLASH stub that sends the core to the SDRAM ELF.
-
-    Parameters
-    ----------
-    sdram_base : int
-        First address of the SDRAM, 4 KiB aligned.
-
-    Returns
-    -------
-    list of int
-        `fence.i`, `lui t0, base` and `jr t0`.
-    """
-    if sdram_base & _LOW_12_BITS:
-        raise ValueError(
-            f"the SDRAM base {sdram_base:#x} is not 4 KiB aligned"
-        )
-    lui_t0 = (sdram_base & _HIGH_20_BITS) | (5 << 7) | _LUI_OPCODE
-    return [_FENCE_I, lui_t0, _JR_T0]
-
-
-def elf_symbol(elf: Path, name: str) -> int:
-    """Read a symbol address from the symbol table of a 32-bit ELF.
-
-    Parameters
-    ----------
-    elf : Path
-        The ELF file.
-    name : str
-        The symbol, for example `tohost`.
-
-    Returns
-    -------
-    int
-        The address of the symbol.
-
-    Raises
-    ------
-    KeyError
-        The ELF has no symbol of that name.
-    """
-    data = elf.read_bytes()
-    for table in _symbol_tables(data):
-        for sym_name, value in _symbols(data, table):
-            if sym_name == name:
-                return value
-    raise KeyError(f"{elf} has no symbol {name!r}")
-
-
-def _symbol_tables(data: bytes) -> Iterator[tuple[int, int, int, int]]:
-    """Find the symbol tables of a 32-bit ELF.
-
-    Parameters
-    ----------
-    data : bytes
-        The contents of the ELF.
-
-    Yields
-    ------
-    tuple of int
-        For every `SHT_SYMTAB` section, the file offset and size of its
-        entries, the entry size and the file offset of its string
-        table.
-    """
-    (shoff,) = _ELF32_HEADER_SHOFF.unpack_from(data, _E_SHOFF_OFFSET)
-    shentsize, shnum = _ELF32_SHENT.unpack_from(data, _E_SHENTSIZE_OFFSET)
-    for index in range(shnum):
-        header = _ELF32_SHDR.unpack_from(data, shoff + index * shentsize)
-        kind, offset, size, link, entsize = (
-            header[1],
-            header[4],
-            header[5],
-            header[6],
-            header[9],
-        )
-        if kind != _SHT_SYMTAB or not entsize:
-            continue
-        str_header = _ELF32_SHDR.unpack_from(data, shoff + link * shentsize)
-        yield offset, size, entsize, str_header[4]
-
-
-def _symbols(
-    data: bytes, table: tuple[int, int, int, int]
-) -> Iterator[tuple[str, int]]:
-    """List the symbols of one symbol table.
-
-    Parameters
-    ----------
-    data : bytes
-        The contents of the ELF.
-    table : tuple of int
-        One item of `_symbol_tables`.
-
-    Yields
-    ------
-    tuple of (str, int)
-        The name and the address of each symbol.
-    """
-    offset, size, entsize, str_offset = table
-    for sym in range(size // entsize):
-        sym_name, value, *_ = _ELF32_SYM.unpack_from(
-            data, offset + sym * entsize
-        )
-        end = data.index(b"\0", str_offset + sym_name)
-        yield data[str_offset + sym_name : end].decode(), value
-
-
-def image_words(elf: Path, sdram_base: int) -> list[int]:
-    """Return the words of the ELF image that starts at the SDRAM base.
-
-    Parameters
-    ----------
-    elf : Path
-        The ACT4 ELF of the SDRAM target.
-    sdram_base : int
-        First address of the SDRAM.
-
-    Returns
-    -------
-    list of int
-        The 32-bit words from `sdram_base` to the last byte of the ELF
-        below the HTIF words, little-endian, zero padded to a whole
-        word.
-    """
-    tohost = elf_symbol(elf, "tohost")
-    segments = certify_core.load_segments(elf)
-    image = certify_core.region_image(segments, sdram_base, tohost)
-    image += bytes(-len(image) % 4)
-    return [
-        int.from_bytes(image[i : i + 4], "little")
-        for i in range(0, len(image), 4)
-    ]
-
-
-def write_flash_stub(
-    link: JtagLink, cfg: dict[str, Any], build_dir: Path, sdram_base: int
-) -> None:
-    """Write the stub into the FLASH over JTAG.
-
-    Parameters
-    ----------
-    link : JtagLink
-        Which JTAG cable/chip to write to.
-    cfg : dict of {str: Any}
-        The merged project config: memory.rom_base, memory.rom_words and
-        quartus.rom_mem_instances.
-    build_dir : Path
-        Where the scratch image files go.
-    sdram_base : int
-        First address of the SDRAM.
-    """
-    stub = b"".join(
-        w.to_bytes(4, "little") for w in flash_stub_words(sdram_base)
-    )
-    bin_path = build_dir / "flash_stub.bin"
-    mif_path = build_dir / "flash_stub.mif"
-    bin_path.write_bytes(stub)
-    # The FLASH is addressed raw by the instruction bus, so the stub
-    # sits at the word index of memory.rom_base, where the boot ROM
-    # jumps to (the same padding `compile` gives an image).
-    pad_words = int(cfg["memory"]["rom_base"]) // 4
-    bin_to_image.bin_to_mif(
-        bin_path,
-        mif_path,
-        depth=pad_words + int(cfg["memory"]["rom_words"]),
-        pad_words=pad_words,
-    )
-    rom_writer.write_rom(link, cfg["quartus"]["rom_mem_instances"], mif_path)
 
 
 @dataclass(frozen=True)

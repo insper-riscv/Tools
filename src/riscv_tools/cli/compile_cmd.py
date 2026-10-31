@@ -12,13 +12,9 @@ from riscv_tools import (
 from riscv_tools import c_to_asm as c_to_asm_mod
 from riscv_tools import compiler as compiler_mod
 from riscv_tools.cli.common import project_root
-from riscv_tools.cli.project import (
-    CTest,
-    build_setup,
-    discover_tests,
-    generate_c_golden,
-    write_sim_hex,
-)
+from riscv_tools.cli.discovery import CTest, discover_tests
+from riscv_tools.cli.project import generate_c_golden, write_sim_hex
+from riscv_tools.cli.toolchain import build_setup
 from riscv_tools.settings import load_config
 
 

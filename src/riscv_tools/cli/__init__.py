@@ -16,9 +16,9 @@ from riscv_tools.cli.board_cmd import (
 )
 from riscv_tools.cli.certify_cmd import cmd_certify, cmd_certify_board
 from riscv_tools.cli.compile_cmd import cmd_compile
+from riscv_tools.cli.discovery import discover_tests
 from riscv_tools.cli.golden_cmd import cmd_generate_golden, cmd_generate_header
 from riscv_tools.cli.parser import main
-from riscv_tools.cli.project import discover_tests
 from riscv_tools.cli.spike_cmd import cmd_spike_run
 from riscv_tools.cli.suite_cmd import cmd_run, cmd_sim, filter_manifest
 from riscv_tools.cli.tools_cmd import (

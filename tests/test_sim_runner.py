@@ -199,9 +199,9 @@ def test_run_suite_isolates_work_directories_by_simulation_profile(
     def fake_extend_python_path(_root: Path, _entries: list[str]) -> None:
         pass
 
-    monkeypatch.setattr("riscv_tools.sim_runner.core.run_test", fake_run_test)
+    monkeypatch.setattr("riscv_tools.sim_runner.suite.run_test", fake_run_test)
     monkeypatch.setattr(
-        "riscv_tools.sim_runner.core.extend_python_path",
+        "riscv_tools.sim_runner.suite.extend_python_path",
         fake_extend_python_path,
     )
 

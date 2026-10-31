@@ -7,7 +7,7 @@ import pytest
 
 from riscv_tools import display
 from riscv_tools.jtag import JtagLink
-from riscv_tools.orchestrator import runner, suite
+from riscv_tools.orchestrator import context, suite
 
 
 @pytest.mark.parametrize(
@@ -49,10 +49,10 @@ def test_display_shows_the_number_of_each_program(
     # hexadecimal
     manifest = [{"name": f"t{n}"} for n in range(1, 12)]
     cfg: dict[str, Any] = {"orchestrator": {"board_display": enabled}}
-    ctx = runner.RunContext(
+    ctx = context.RunContext(
         cfg, cast(JtagLink, None), tmp_path, tmp_path, tmp_path
     )
-    suite.run_suite(ctx, manifest, runner.SuiteOptions(reconfigure=False))
+    suite.run_suite(ctx, manifest, context.SuiteOptions(reconfigure=False))
     assert writes == expected
     # cleared at the start, then set by the one program that fails
     assert flags == ([False, True] if enabled else [])

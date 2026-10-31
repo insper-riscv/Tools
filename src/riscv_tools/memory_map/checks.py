@@ -8,13 +8,12 @@ import yaml
 
 from riscv_tools.memory_map.core import (
     Mismatch,
-    hex_text,
     load_platform,
     platform_list,
     symbols,
-    validate_platform,
 )
 from riscv_tools.memory_map.expressions import evaluate
+from riscv_tools.memory_map.validation import hex_text, validate_platform
 
 
 def _read_values(check: dict[str, Any], path: Path) -> list[str]:

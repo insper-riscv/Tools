@@ -9,7 +9,7 @@ from riscv_tools import (
     mailbox,
 )
 from riscv_tools.cli.common import project_root
-from riscv_tools.cli.project import spike_target
+from riscv_tools.cli.toolchain import spike_target
 from riscv_tools.settings import load_config
 
 

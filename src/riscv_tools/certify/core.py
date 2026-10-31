@@ -15,26 +15,18 @@ itself.
 """
 
 import resource
-import struct
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-from riscv_tools import bin_to_image, proc, sim_runner
+from riscv_tools import proc, sim_runner
+from riscv_tools.certify.images import write_images, write_sdram_images
 
 _ACT_TEST_MODULE = "tools.riscv_build.act.sim.test_act"
+
+
 _ACT_SDRAM_TEST_MODULE = "tools.riscv_build.act.sim.test_act_sdram"
-_ELF_MAGIC = b"\x7fELF"
-_PT_LOAD = 1
-_ELF32_HEADER = struct.Struct("<16xHHIIIIIHHHHHH")
-_ELF32_PHDR = struct.Struct("<IIIIIIII")
-_ADDRESS_SPACE = 1 << 32
-_NOP = 0x00000013
-_LUI_OPCODE = 0x37
-_JALR_OPCODE = 0x67
-_LOW_12_BITS = 0xFFF
-_HIGH_20_BITS = 0xFFFFF000
 
 
 def target_name(target_config: Path) -> str:
@@ -121,178 +113,6 @@ def discover_elfs(elfs_dir: Path) -> list[Path]:
     return sorted(
         p for p in elfs_dir.rglob("*.elf") if not p.name.endswith(".sig.elf")
     )
-
-
-def load_segments(elf: Path) -> list[tuple[int, bytes]]:
-    """Read the loadable segments of a little-endian 32-bit ELF.
-
-    Parameters
-    ----------
-    elf : Path
-        The ELF file.
-
-    Returns
-    -------
-    list of (int, bytes)
-        The physical address and the file contents of every `PT_LOAD`
-        segment that has contents. Segments that only reserve zeroed
-        space (`.bss`, the HTIF words) have none.
-    """
-    data = elf.read_bytes()
-    if data[:4] != _ELF_MAGIC or data[4] != 1 or data[5] != 1:
-        raise ValueError(f"{elf} is not a little-endian 32-bit ELF")
-    fields = _ELF32_HEADER.unpack_from(data)
-    phoff, phentsize, phnum = fields[4], fields[8], fields[9]
-    segments: list[tuple[int, bytes]] = []
-    for index in range(phnum):
-        phdr = _ELF32_PHDR.unpack_from(data, phoff + index * phentsize)
-        kind, offset, paddr, filesz = phdr[0], phdr[1], phdr[3], phdr[4]
-        if kind == _PT_LOAD and filesz:
-            segments.append((paddr, data[offset : offset + filesz]))
-    return segments
-
-
-def region_image(
-    segments: list[tuple[int, bytes]], start: int, end: int
-) -> bytes:
-    """Build the flat image of the range `[start, end)` from segments.
-
-    Parameters
-    ----------
-    segments : list of (int, bytes)
-        The result of `load_segments`.
-    start, end : int
-        The first address of the range and the first address past it.
-
-    Returns
-    -------
-    bytes
-        The bytes of the range from `start` to the last byte any segment
-        puts there, with zeros between segments; empty if no segment
-        touches the range.
-    """
-    image = bytearray()
-    for address, contents in segments:
-        low, high = max(address, start), min(address + len(contents), end)
-        if low >= high:
-            continue
-        if len(image) < high - start:
-            image.extend(bytes(high - start - len(image)))
-        image[low - start : high - start] = contents[
-            low - address : high - address
-        ]
-    return bytes(image)
-
-
-def write_images(
-    elf: Path, out_dir: Path, name: str, ram_base: int, boot_bytes: int
-) -> dict[str, Path]:
-    """Write the three hex images the simulation loads from an ELF.
-
-    The code region (below `ram_base`) goes to the instruction memory
-    and its first `boot_bytes` bytes also to the boot ROM; the data
-    region (from `ram_base`) goes to the RAM. Every section of the ELF
-    is loaded at the address it runs from.
-
-    Parameters
-    ----------
-    elf : Path
-        The ACT4 ELF.
-    out_dir : Path
-        Where the `.bin` and `.hex` files are written.
-    name : str
-        Stem of the file names.
-    ram_base : int
-        First address of the RAM.
-    boot_bytes : int
-        Size in bytes of the boot ROM, at address 0.
-
-    Returns
-    -------
-    dict of {str: Path}
-        The hex files, under the keys `boot_hex_path`, `hex_path` and
-        `ram_hex_path`.
-    """
-    segments = load_segments(elf)
-    code = region_image(segments, 0, ram_base)
-    data = region_image(segments, ram_base, _ADDRESS_SPACE)
-    images = {
-        "boot_hex_path": code[:boot_bytes],
-        "hex_path": code,
-        "ram_hex_path": data,
-    }
-    paths: dict[str, Path] = {}
-    for key, image in images.items():
-        suffix = key.removesuffix("_hex_path") if key != "hex_path" else "rom"
-        bin_path = out_dir / f"{name}.{suffix}.bin"
-        hex_path = out_dir / f"{name}.{suffix}.hex"
-        # at least one word, so that the file is never empty
-        bin_path.write_bytes(image or bytes(4))
-        bin_to_image.bin_to_hex(bin_path, hex_path)
-        paths[key] = hex_path
-    return paths
-
-
-def sdram_boot_words(sdram_base: int) -> list[int]:
-    """Return the boot ROM that jumps to the SDRAM.
-
-    The words are a nop, `lui x1, base` and `jalr x0, 0(x1)`. The core
-    does not execute the first word after the reset, and the base has
-    the low 12 bits clear (the SDRAM is 64 MB aligned).
-    """
-    if sdram_base & _LOW_12_BITS:
-        raise ValueError(
-            f"the SDRAM base {sdram_base:#x} is not 4 KiB aligned"
-        )
-    lui_x1 = (sdram_base & _HIGH_20_BITS) | (1 << 7) | _LUI_OPCODE
-    jalr_x0 = (1 << 15) | _JALR_OPCODE
-    return [_NOP, lui_x1, jalr_x0]
-
-
-def write_sdram_images(
-    elf: Path, out_dir: Path, name: str, sdram_base: int
-) -> dict[str, Path]:
-    """Write the two hex images the SDRAM simulation loads from an ELF.
-
-    The ELF has everything in the SDRAM, loaded at the address it runs
-    from. The image of the SDRAM chip starts at `sdram_base`; the boot
-    ROM only jumps there.
-
-    Parameters
-    ----------
-    elf : Path
-        The ACT4 ELF.
-    out_dir : Path
-        Where the files are written.
-    name : str
-        Stem of the file names.
-    sdram_base : int
-        First address of the SDRAM.
-
-    Returns
-    -------
-    dict of {str: Path}
-        The hex files, under the keys `boot_hex_path` and
-        `sdram_hex_path`; `hex_path` is the boot image too, for the
-        flash that the platform still has and nobody reads.
-    """
-    segments = load_segments(elf)
-    sdram = region_image(segments, sdram_base, _ADDRESS_SPACE)
-    boot = b"".join(
-        word.to_bytes(4, "little") for word in sdram_boot_words(sdram_base)
-    )
-    paths: dict[str, Path] = {}
-    for key, suffix, image in (
-        ("boot_hex_path", "boot", boot),
-        ("sdram_hex_path", "sdram", sdram),
-    ):
-        bin_path = out_dir / f"{name}.{suffix}.bin"
-        hex_path = out_dir / f"{name}.{suffix}.hex"
-        bin_path.write_bytes(image or bytes(4))
-        bin_to_image.bin_to_hex(bin_path, hex_path)
-        paths[key] = hex_path
-    paths["hex_path"] = paths["boot_hex_path"]
-    return paths
 
 
 def _raise_stack_limit() -> None:

@@ -10,7 +10,9 @@ from riscv_tools import (
     spike_run,
 )
 from riscv_tools.cli.common import start_real_run
-from riscv_tools.cli.project import discover_tests, spike_elf, spike_target
+from riscv_tools.cli.discovery import discover_tests
+from riscv_tools.cli.project import spike_elf
+from riscv_tools.cli.toolchain import spike_target
 
 
 def print_run_summary(

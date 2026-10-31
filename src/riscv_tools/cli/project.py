@@ -1,6 +1,6 @@
 """Project config helpers, test discovery and golden generation."""
 
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -9,172 +9,13 @@ from riscv_tools import (
     golden_generator,
 )
 from riscv_tools import compiler as compiler_mod
-from riscv_tools.compiler import BuildSetup, LinkSetup
-from riscv_tools.spike_exec import SpikeTarget
-
-
-def _spike_mem_regions(cfg: dict[str, Any]) -> list[tuple[int, int]]:
-    """Build the mem_regions of generate_golden from a config.
-
-    The config is the one of the project.
-
-    Parameters
-    ----------
-    cfg : dict of {str: Any}
-        The merged project config: uses memory.rom_words/ram_base/
-        ram_words.
-
-    Returns
-    -------
-    list of (int, int)
-        [(0, rom_bytes), (ram_base, ram_bytes)]; this project's real
-        ROM+RAM layout, byte-sized. Spike needs this to even load a
-        bare-metal ELF linked to run at/near address 0 (see
-        generate_golden's own mem_regions doc); ROM and RAM are
-        listed as two regions rather than one spanning both, since
-        nothing here guarantees they're contiguous for every project
-        that uses this package.
-    """
-    mem = cfg["memory"]
-    return [
-        (0, mem["rom_words"] * 4),
-        (mem["ram_base"], mem["ram_words"] * 4),
-    ]
-
-
-def spike_target(
-    cfg: dict[str, Any], isa: str, entry_symbol: str = "_start"
-) -> SpikeTarget:
-    """Build the Spike run settings of a project.
-
-    Parameters
-    ----------
-    cfg : dict of {str: Any}
-        The merged project config.
-    isa : str
-        The `--isa=` value, which should match the test's own march.
-    entry_symbol : str, optional
-        The symbol execution starts at. Defaults to `_start`.
-
-    Returns
-    -------
-    SpikeTarget
-        The binaries, ISA, memory regions and symbols of the run.
-    """
-    return SpikeTarget(
-        spike_bin=cfg["emulator"]["spike_bin"],
-        nm_bin=cfg["toolchain"]["nm"],
-        isa=isa,
-        mem_regions=_spike_mem_regions(cfg),
-        tohost_symbol=cfg["emulator"]["tohost_symbol"],
-        entry_symbol=entry_symbol,
-        objcopy_bin=cfg["toolchain"]["objcopy"],
-    )
-
-
-def _toolchain_cfg(cfg: dict[str, Any], root: Path) -> dict[str, Any]:
-    """Return the `toolchain:` section with `specs` resolved.
-
-    The specs are resolved against the project root.
-
-    Parameters
-    ----------
-    cfg : dict of {str: Any}
-        The merged project config.
-    root : Path
-        The consuming project's root directory.
-
-    Returns
-    -------
-    dict of {str: Any}
-        A copy of `cfg["toolchain"]` whose `specs` (when set) is an
-        absolute path, so gcc finds it from any working directory.
-    """
-    toolchain = dict(cfg["toolchain"])
-    if toolchain.get("specs"):
-        toolchain["specs"] = str((root / toolchain["specs"]).resolve())
-    return toolchain
-
-
-def _optional_path(cfg: dict[str, Any], root: Path, key: str) -> Path | None:
-    """Resolve an optional `paths.<key>` against the project root.
-
-    Parameters
-    ----------
-    cfg : dict of {str: Any}
-        The merged project config.
-    root : Path
-        The consuming project's root directory.
-    key : str
-        The key under `paths:` (e.g. "crt0", "linker_script").
-
-    Returns
-    -------
-    Path or None
-        `root / paths.<key>`, or None when the key is not set.
-    """
-    value = cfg.get("paths", {}).get(key)
-    return root / value if value else None
-
-
-def _syscalls_sources(cfg: dict[str, Any], root: Path) -> list[Path]:
-    """Resolve the platform sources every test is compiled with.
-
-    These are `paths.sources` (the platform's own parts of the runtime,
-    for instance `_exit`) and the optional `paths.syscalls`, a
-    self-contained implementation (for example of malloc()) for projects
-    that link with libc "none" (-nostdlib). A project that needs neither
-    omits them, and this returns an empty list.
-
-    Parameters
-    ----------
-    cfg : dict of {str: Any}
-        The merged project config.
-    root : Path
-        The consuming project's root directory.
-
-    Returns
-    -------
-    list of Path
-        The `paths.sources` entries, then `paths.syscalls` if set, each
-        under the project root, meant to be spliced into a compile_test
-        call's extra_sources.
-    """
-    paths = cfg.get("paths", {})
-    syscalls = paths.get("syscalls")
-    return [
-        *[root / source for source in paths.get("sources", [])],
-        *([root / syscalls] if syscalls else []),
-    ]
-
-
-def build_setup(cfg: dict[str, Any], root: Path) -> BuildSetup:
-    """Build the compile settings shared by every test of a project.
-
-    Parameters
-    ----------
-    cfg : dict of {str: Any}
-        The merged project config.
-    root : Path
-        The consuming project's root directory.
-
-    Returns
-    -------
-    BuildSetup
-        The toolchain, ISA, include directory, crt0, linker script and
-        platform sources of the project.
-    """
-    return BuildSetup(
-        toolchain_cfg=_toolchain_cfg(cfg, root),
-        isa_cfg=cfg["isa"],
-        default_timeout_s=cfg["quartus"]["default_timeout_s"],
-        include_dir=root / cfg["paths"]["include_dir"],
-        link=LinkSetup(
-            crt0=_optional_path(cfg, root, "crt0"),
-            linker=_optional_path(cfg, root, "linker_script"),
-            extra_sources=_syscalls_sources(cfg, root),
-        ),
-    )
+from riscv_tools.cli.discovery import CTest
+from riscv_tools.cli.toolchain import (
+    build_setup,
+    optional_path,
+    spike_target,
+    syscalls_sources,
+)
 
 
 def spike_elf(
@@ -224,8 +65,8 @@ def spike_elf(
     #   script, and Spike starts at the boot ROM's entry
     #   (emulator.entry_symbol).
     # - Neither: reuse build_dir/{name}.elf.
-    golden_linker = _optional_path(cfg, root, "golden_linker_script")
-    boot_rom_src = _optional_path(cfg, root, "boot_rom")
+    golden_linker = optional_path(cfg, root, "golden_linker_script")
+    boot_rom_src = optional_path(cfg, root, "boot_rom")
     spike_sources = [root / s for s in cfg["emulator"].get("sources", [])]
     legacy_combined = golden_linker is not None and boot_rom_src is not None
     if spike_sources or legacy_combined:
@@ -244,7 +85,7 @@ def spike_elf(
                         else []
                     ),
                     *spike_sources,
-                    *_syscalls_sources(cfg, root),
+                    *syscalls_sources(cfg, root),
                 ],
                 link_flags=list(cfg["emulator"].get("gcc_flags", [])),
             ),
@@ -253,25 +94,6 @@ def spike_elf(
     else:
         elf_path = build_dir / f"{name}.elf"
     return elf_path
-
-
-@dataclass(frozen=True)
-class CTest:
-    """The identity of one C test.
-
-    Parameters
-    ----------
-    name : str
-        This test's name.
-    march : str
-        This test's own `-march=` string (from compiler.compile_test).
-    src : Path
-        This test's own source file (.c).
-    """
-
-    name: str
-    march: str
-    src: Path
 
 
 def generate_c_golden(
@@ -323,48 +145,6 @@ def generate_c_golden(
     golden_path = build_dir / f"{name}.golden.json"
     golden_generator.write_golden_json(golden, golden_path)
     return golden_path
-
-
-def discover_tests(root: Path, cfg: dict[str, Any]) -> list[Path]:
-    """Find every test source under paths.c_dir/paths.asm_dir.
-
-    Each test is a <c_dir|asm_dir>/<name>/ folder with exactly one
-    `src.c` or `src.S` and, for "memory"-kind tests, a `golden.json`
-    with the expected {byte address: byte value} map.
-
-    A folder with a `.off` file is skipped, and the file's content is
-    printed as the reason. Use it for a test that can never build or run
-    on this target, not to silence a test that should work.
-
-    Parameters
-    ----------
-    root : Path
-        The consuming project's root directory.
-    cfg : dict of {str: Any}
-        The merged project config: uses paths.c_dir/paths.asm_dir.
-
-    Returns
-    -------
-    list of Path
-        Every `src.c`/`src.S` found (excluding `.off` folders), sorted
-        by test name (the parent folder's name); folder names must be
-        unique across c_dir/asm_dir combined.
-    """
-    c_dir = root / cfg["paths"]["c_dir"]
-    asm_dir = root / cfg["paths"]["asm_dir"]
-    sources = list(c_dir.glob("*/src.c")) + list(asm_dir.glob("*/src.S"))
-
-    kept: list[Path] = []
-    for src in sources:
-        off_marker = src.parent / ".off"
-        if off_marker.is_file():
-            reason = off_marker.read_text().strip()
-            suffix = f": {reason}" if reason else ""
-            print(f"Skipping {src.parent.name} (.off present){suffix}")
-            continue
-        kept.append(src)
-
-    return sorted(kept, key=lambda p: p.parent.name)
 
 
 def write_sim_hex(

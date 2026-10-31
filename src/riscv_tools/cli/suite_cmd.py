@@ -19,7 +19,7 @@ from riscv_tools.cli.common import (
     start_run,
 )
 from riscv_tools.cli.spike_cmd import print_run_summary
-from riscv_tools.orchestrator.runner import RunContext, SuiteOptions
+from riscv_tools.orchestrator.context import RunContext, SuiteOptions
 
 
 def _split_test_name_groups(groups: list[str] | None) -> list[str]:

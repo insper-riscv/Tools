@@ -10,16 +10,13 @@ from riscv_tools import (
     quartus_program,
 )
 from riscv_tools.jtag import jtag_chain_healthy
+from riscv_tools.orchestrator.context import RunContext, SuiteOptions
 from riscv_tools.orchestrator.failure import (
     NeedsHumanInterventionError,
     raise_if_hardware_failure,
 )
-from riscv_tools.orchestrator.runner import (
-    RunContext,
-    SuiteOptions,
-    full_reconfigure_entry,
-    run_one,
-)
+from riscv_tools.orchestrator.jtag_run import full_reconfigure_entry
+from riscv_tools.orchestrator.runner import run_one
 
 # How often run_suite's wait_for_hardware mode polls `jtagconfig` while
 # blocked waiting for a human to physically fix the board.

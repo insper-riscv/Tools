@@ -19,7 +19,7 @@ from riscv_tools import (
     ram_target,
 )
 from riscv_tools.jtag import JtagLink
-from riscv_tools.orchestrator.runner import reconfigure_with_rom
+from riscv_tools.orchestrator.jtag_run import reconfigure_with_rom
 
 # run_freq_sweep_linear stops once this many consecutive candidates
 # fail; past that point the board is assumed to already be beyond
