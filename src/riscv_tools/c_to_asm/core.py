@@ -6,10 +6,10 @@ just one translation unit). A .S source is already assembly and is
 copied through unchanged.
 """
 
-import subprocess
 from pathlib import Path
 from typing import Any
 
+from riscv_tools.compiler.build import optimize_flags, run_gcc
 from riscv_tools.compiler.headers import EXT_RE, canonical_march
 
 
@@ -58,12 +58,10 @@ def c_to_asm(
     ext_csv = ext_match.group(1) if ext_match else ""
     march = canonical_march(isa_cfg, ext_csv)
 
-    subprocess.run(
+    run_gcc(
+        toolchain_cfg,
         [
-            str(toolchain_cfg["gcc"]),
-            f"-march={march}",
-            "-mabi=ilp32",
-            "-Os",
+            *optimize_flags(march),
             "-ffreestanding",
             "-nostdlib",
             f"-I{include_dir}",
@@ -72,6 +70,5 @@ def c_to_asm(
             "-o",
             str(asm_path),
         ],
-        check=True,
     )
     return asm_path

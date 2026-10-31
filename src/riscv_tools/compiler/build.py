@@ -136,6 +136,63 @@ class BuildSetup:
     link: LinkSetup = field(default_factory=LinkSetup)
 
 
+def optimize_flags(march: str) -> list[str]:
+    """Return the gcc flags that pick the ISA, the ABI and -Os.
+
+    Parameters
+    ----------
+    march : str
+        The `-march` value (see headers.canonical_march).
+
+    Returns
+    -------
+    list of str
+        The flags shared by every compile of a test source.
+    """
+    return [f"-march={march}", "-mabi=ilp32", "-Os"]
+
+
+def run_gcc(toolchain_cfg: dict[str, Any], args: list[str]) -> None:
+    """Run the project's gcc with args, raising if it fails.
+
+    Parameters
+    ----------
+    toolchain_cfg : dict of {str: Any}
+        The project's `toolchain:` config section; needs `gcc`.
+    args : list of str
+        Everything after the gcc binary on the command line.
+
+    Raises
+    ------
+    subprocess.CalledProcessError
+        gcc exited non-zero.
+    """
+    subprocess.run([str(toolchain_cfg["gcc"]), *args], check=True)
+
+
+def elf_to_bin(toolchain_cfg: dict[str, Any], elf: Path, bin_: Path) -> None:
+    """Write an ELF's loadable content as a flat binary.
+
+    Parameters
+    ----------
+    toolchain_cfg : dict of {str: Any}
+        The project's `toolchain:` config section; needs `objcopy`.
+    elf : Path
+        Linked ELF to convert.
+    bin_ : Path
+        Path to write the flat binary to (overwritten if it exists).
+
+    Raises
+    ------
+    subprocess.CalledProcessError
+        `objcopy` failed.
+    """
+    subprocess.run(
+        [str(toolchain_cfg["objcopy"]), "-O", "binary", str(elf), str(bin_)],
+        check=True,
+    )
+
+
 def compile_test(
     setup: BuildSetup, c_file: Path, name: str, build_dir: Path
 ) -> tuple[Path, str, str, float]:
@@ -202,12 +259,10 @@ def compile_test(
         else ["-ffreestanding", *libc_flags(toolchain_cfg)]
     )
 
-    subprocess.run(
+    run_gcc(
+        toolchain_cfg,
         [
-            str(toolchain_cfg["gcc"]),
-            f"-march={march}",
-            "-mabi=ilp32",
-            "-Os",
+            *optimize_flags(march),
             *runtime_flags,
             # Own startup file: the toolchain's are turned off.
             *(["-nostartfiles"] if crt0 is not None else []),
@@ -221,12 +276,8 @@ def compile_test(
             "-o",
             str(elf),
         ],
-        check=True,
     )
-    subprocess.run(
-        [str(toolchain_cfg["objcopy"]), "-O", "binary", str(elf), str(bin_)],
-        check=True,
-    )
+    elf_to_bin(toolchain_cfg, elf, bin_)
     return bin_, march, kind, timeout_s
 
 

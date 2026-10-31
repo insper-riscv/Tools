@@ -1,5 +1,7 @@
 """Read the PASS/FAIL mailbox and pulse the restart go flag."""
 
+from typing import Any
+
 from riscv_tools import ram_target
 from riscv_tools.jtag import JtagLink
 
@@ -159,4 +161,66 @@ def clear_mailbox(
     """
     ram_target.write_word(
         link, ram_mem_instance, word_offset(ram_base, mailbox_addr), 0
+    )
+
+
+def read_configured(link: JtagLink, cfg: dict[str, Any]) -> int:
+    """Read the mailbox of the RAM that the project's config describes.
+
+    Parameters
+    ----------
+    link : JtagLink
+        Which JTAG cable/chip to read from.
+    cfg : dict of {str: Any}
+        The loaded config.yaml; needs `memory` and the RAM backend.
+
+    Returns
+    -------
+    int
+        The mailbox word (see read_mailbox).
+    """
+    memory = cfg["memory"]
+    return read_mailbox(
+        link,
+        ram_target.target_from_config(cfg),
+        memory["ram_base"],
+        memory["mailbox_addr"],
+    )
+
+
+def clear_configured(link: JtagLink, cfg: dict[str, Any]) -> None:
+    """Clear the mailbox of the RAM that the project's config describes.
+
+    Parameters
+    ----------
+    link : JtagLink
+        Which JTAG cable/chip to write to.
+    cfg : dict of {str: Any}
+        The loaded config.yaml; needs `memory` and the RAM backend.
+    """
+    memory = cfg["memory"]
+    clear_mailbox(
+        link,
+        ram_target.target_from_config(cfg),
+        memory["ram_base"],
+        memory["mailbox_addr"],
+    )
+
+
+def pulse_configured(link: JtagLink, cfg: dict[str, Any]) -> None:
+    """Pulse the go flag of the RAM that the project's config describes.
+
+    Parameters
+    ----------
+    link : JtagLink
+        Which JTAG cable/chip to write to.
+    cfg : dict of {str: Any}
+        The loaded config.yaml; needs `memory` and the RAM backend.
+    """
+    memory = cfg["memory"]
+    pulse_go_flag(
+        link,
+        ram_target.target_from_config(cfg),
+        memory["ram_base"],
+        memory["go_flag_addr"],
     )

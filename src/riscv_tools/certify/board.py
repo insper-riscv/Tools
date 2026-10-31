@@ -35,7 +35,6 @@ from riscv_tools import (
     bin_to_image,
     display,
     mailbox,
-    ram_target,
     rom_writer,
     sdram_debug,
 )
@@ -217,10 +216,7 @@ def run_elf(
     sdram_debug.fill(link, 0, region.words, 0)
     sdram_debug.load_words(link, 0, words)
 
-    target = ram_target.target_from_config(cfg)
-    mailbox.pulse_go_flag(
-        link, target, cfg["memory"]["ram_base"], cfg["memory"]["go_flag_addr"]
-    )
+    mailbox.pulse_configured(link, cfg)
     started = time.monotonic()
     while time.monotonic() - started < region.timeout_s:
         (tohost,) = sdram_debug.read_words(link, tohost_word, 1)

@@ -1079,21 +1079,10 @@ def cmd_mailbox(args: argparse.Namespace) -> None:
     link = _link(cfg)
 
     if args.action == "read":
-        value = mailbox.read_mailbox(
-            link,
-            ram_target.target_from_config(cfg),
-            cfg["memory"]["ram_base"],
-            cfg["memory"]["mailbox_addr"],
-        )
-        print(f"MAILBOX={value}")
+        print(f"MAILBOX={mailbox.read_configured(link, cfg)}")
 
     else:
-        mailbox.pulse_go_flag(
-            link,
-            ram_target.target_from_config(cfg),
-            cfg["memory"]["ram_base"],
-            cfg["memory"]["go_flag_addr"],
-        )
+        mailbox.pulse_configured(link, cfg)
 
 
 def cmd_generate_header(args: argparse.Namespace) -> None:

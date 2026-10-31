@@ -9,12 +9,15 @@ the result, the same way a test's own compiled .hex gets reused across
 sim_runner.run_suite's manifest loop rather than rebuilt per test.
 """
 
-import subprocess
 from pathlib import Path
 from typing import Any
 
 from riscv_tools.bin_to_image.core import bin_to_hex
-from riscv_tools.compiler.build import elf_to_verilog_hex
+from riscv_tools.compiler.build import (
+    elf_to_bin,
+    elf_to_verilog_hex,
+    run_gcc,
+)
 
 
 def build_boot_rom(
@@ -57,9 +60,9 @@ def build_boot_rom(
     bin_ = build_dir / "boot_rom.bin"
     hex_ = build_dir / "boot_rom.hex"
 
-    subprocess.run(
+    run_gcc(
+        toolchain_cfg,
         [
-            str(toolchain_cfg["gcc"]),
             # boot_rom.S is plain RV32I (li/lw/sw/branches/jr) -- no
             # M-extension instructions, unlike a project's own tests
             # (isa.default_ext) -- fixed rather than threaded through
@@ -76,12 +79,8 @@ def build_boot_rom(
             "-o",
             str(elf),
         ],
-        check=True,
     )
-    subprocess.run(
-        [str(toolchain_cfg["objcopy"]), "-O", "binary", str(elf), str(bin_)],
-        check=True,
-    )
+    elf_to_bin(toolchain_cfg, elf, bin_)
     if hex_format == "verilog":
         elf_to_verilog_hex(toolchain_cfg, elf, hex_)
     else:

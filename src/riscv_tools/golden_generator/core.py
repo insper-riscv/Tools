@@ -22,6 +22,7 @@ from riscv_tools.spike_exec import (
     SpikeTarget,
     prepared_elf,
     require_spike,
+    run_spike,
     spike_command,
     symbol_address,
 )
@@ -173,13 +174,7 @@ def generate_golden(
             ),
         )
         try:
-            proc = subprocess.run(
-                cmd,
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=timeout_s,
-            )
+            proc = run_spike(cmd, timeout_s)
         except subprocess.TimeoutExpired as exc:
             raise RuntimeError(
                 f"{elf_path} did not write {spike.tohost_symbol} "

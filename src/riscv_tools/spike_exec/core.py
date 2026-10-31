@@ -190,6 +190,37 @@ def spike_command(
     ]
 
 
+def run_spike(
+    cmd: list[str], timeout_s: float
+) -> subprocess.CompletedProcess[str]:
+    """Run a Spike command line and capture its text output.
+
+    Parameters
+    ----------
+    cmd : list of str
+        The command line (see spike_command).
+    timeout_s : float
+        Seconds to wait before giving up.
+
+    Returns
+    -------
+    subprocess.CompletedProcess
+        The finished process; a non-zero exit code is not an error.
+
+    Raises
+    ------
+    subprocess.TimeoutExpired
+        Spike was still running after timeout_s.
+    """
+    return subprocess.run(
+        cmd,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=timeout_s,
+    )
+
+
 @contextmanager
 def prepared_elf(
     objcopy_bin: str,

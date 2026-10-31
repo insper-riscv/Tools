@@ -15,6 +15,7 @@ from riscv_tools.spike_exec import (
     SpikeTarget,
     prepared_elf,
     require_spike,
+    run_spike,
     spike_command,
     symbol_address,
 )
@@ -74,13 +75,7 @@ def run_elf(
     ) as elf:
         cmd = spike_command(spike, entry_pc, elf)
         try:
-            proc = subprocess.run(
-                cmd,
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=timeout_s,
-            )
+            proc = run_spike(cmd, timeout_s)
         except subprocess.TimeoutExpired:
             return SpikeRunResult(False, None, f"timed out after {timeout_s}s")
     return SpikeRunResult(

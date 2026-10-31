@@ -89,11 +89,6 @@ def _make_project(root: Path) -> None:
                     "gcc": GCC,
                     "objcopy": "riscv32-unknown-elf-objcopy",
                 },
-                "isa": {
-                    "base": "i",
-                    "default_ext": "",
-                    "canonical_order": "MAFDQLCBJTPVNH",
-                },
                 "paths": {
                     "include_dir": "include",
                     "crt0": "crt0.S",

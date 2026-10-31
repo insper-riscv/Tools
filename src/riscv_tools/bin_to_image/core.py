@@ -10,6 +10,35 @@ import struct
 from pathlib import Path
 
 
+def mif_text(depth: int, content: list[str]) -> str:
+    """Build the text of a .mif with 32-bit words and hex radix.
+
+    Parameters
+    ----------
+    depth : int
+        Word depth of the memory the .mif describes.
+    content : list of str
+        The lines between `CONTENT BEGIN` and `END;`.
+
+    Returns
+    -------
+    str
+        The complete .mif, ending with a newline.
+    """
+    lines = [
+        "WIDTH=32;",
+        f"DEPTH={depth};",
+        "",
+        "ADDRESS_RADIX=HEX;",
+        "DATA_RADIX=HEX;",
+        "",
+        "CONTENT BEGIN",
+        *content,
+        "END;",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def read_words(bin_path: Path, pad_words: int = 0) -> list[int]:
     """Read a flat binary as little-endian 32-bit words.
 
@@ -86,22 +115,11 @@ def bin_to_mif(
             f"memory only holds {depth}"
         )
 
-    lines = [
-        "WIDTH=32;",
-        f"DEPTH={depth};",
-        "",
-        "ADDRESS_RADIX=HEX;",
-        "DATA_RADIX=HEX;",
-        "",
-        "CONTENT BEGIN",
-    ]
-    for i, w in enumerate(words):
-        lines.append(f"    {i:04X} : {w:08X};")
+    content = [f"    {i:04X} : {w:08X};" for i, w in enumerate(words)]
     if len(words) < depth:
-        lines.append(f"    [{len(words):04X}..{depth - 1:04X}] : 00000000;")
-    lines.append("END;")
+        content.append(f"    [{len(words):04X}..{depth - 1:04X}] : 00000000;")
 
-    Path(mif_path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    Path(mif_path).write_text(mif_text(depth, content), encoding="utf-8")
     return len(words)
 
 

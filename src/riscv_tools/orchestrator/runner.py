@@ -254,31 +254,16 @@ def run_test_via_jtag(
     # The core is parked after the previous test: clear its mailbox
     # first, so the host never mistakes that test's result for this
     # one's.
-    mailbox.clear_mailbox(
-        link,
-        ram_target.target_from_config(cfg),
-        cfg["memory"]["ram_base"],
-        cfg["memory"]["mailbox_addr"],
-    )
+    mailbox.clear_configured(link, cfg)
     rom_writer.write_rom(
         link, cfg["quartus"]["rom_mem_instances"], root / entry["mif"]
     )
-    mailbox.pulse_go_flag(
-        link,
-        ram_target.target_from_config(cfg),
-        cfg["memory"]["ram_base"],
-        cfg["memory"]["go_flag_addr"],
-    )
+    mailbox.pulse_configured(link, cfg)
 
     poll_s = cfg["quartus"]["poll_interval_seconds"]
     deadline = time.monotonic() + entry["timeout_s"]
     while time.monotonic() < deadline:
-        value = mailbox.read_mailbox(
-            link,
-            ram_target.target_from_config(cfg),
-            cfg["memory"]["ram_base"],
-            cfg["memory"]["mailbox_addr"],
-        )
+        value = mailbox.read_configured(link, cfg)
         if value in (mailbox.PASS, mailbox.FAIL):
             return value
         time.sleep(poll_s)
@@ -494,12 +479,7 @@ def _run_with_recovery(
         wait_s = cfg["quartus"]["program_wait_seconds"]
         print(f"Waiting {wait_s}s for the program to run ...")
         time.sleep(wait_s)
-        return mailbox.read_mailbox(
-            link,
-            ram_target.target_from_config(cfg),
-            cfg["memory"]["ram_base"],
-            cfg["memory"]["mailbox_addr"],
-        )
+        return mailbox.read_configured(link, cfg)
     except subprocess.CalledProcessError as exc:
         _raise_if_hardware_failure(exc)
         print(f"{name}: full recompile+reprogram failed too ({exc})")

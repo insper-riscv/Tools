@@ -4,6 +4,7 @@ import tempfile
 from pathlib import Path
 
 from riscv_tools import mem_edit, ram_target, sdram_debug
+from riscv_tools.bin_to_image import mif_text
 from riscv_tools.jtag import JtagLink
 
 
@@ -26,21 +27,11 @@ def _blank_mif(depth: int) -> Path:
         Path to a newly created temp file holding the .mif content.
         Caller is responsible for deleting it.
     """
-    lines = [
-        "WIDTH=32;",
-        f"DEPTH={depth};",
-        "",
-        "ADDRESS_RADIX=HEX;",
-        "DATA_RADIX=HEX;",
-        "",
-        "CONTENT BEGIN",
-        f"    [0000..{depth - 1:04X}] : 00000000;",
-        "END;",
-    ]
+    text = mif_text(depth, [f"    [0000..{depth - 1:04X}] : 00000000;"])
     with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".mif", delete=False
+        mode="w", suffix=".mif", delete=False, encoding="utf-8"
     ) as f:
-        f.write("\n".join(lines) + "\n")
+        f.write(text)
     return Path(f.name)
 
 
