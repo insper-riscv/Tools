@@ -2,8 +2,7 @@
 
 ## Onde ele fica
 
-Crie uma pasta em `paths.c_dir` do projeto consumidor (normalmente `c/`),
-com o nome do que o teste faz, contendo um `src.c`:
+Crie uma pasta em `paths.c_dir` do projeto consumidor (normalmente `c/`), com o nome do que o teste faz, contendo um `src.c`:
 
 ```
 c/
@@ -11,14 +10,11 @@ c/
     └── src.c
 ```
 
-O `riscv-tools compile` encontra automaticamente toda pasta
-`<c_dir>/<name>/src.c`: o nome da pasta vira o nome do teste no manifest; não
-há mais nada a registrar.
+O `riscv-tools compile` encontra automaticamente toda pasta `<c_dir>/<name>/src.c`: o nome da pasta vira o nome do teste no manifest; não há mais nada a registrar.
 
 ## Comentários de cabeçalho
 
-Três comentários `//` opcionais no topo do `src.c` configuram como o
-[`compiler`](modules/compiler.md) compila e roda o teste:
+Três comentários `//` opcionais no topo do `src.c` configuram como o [`compiler`](modules/compiler.md) compila e roda o teste:
 
 | Cabeçalho | Significado |
 | :--- | :--- |
@@ -51,47 +47,26 @@ int main(void) {
 }
 ```
 
-O `rv32_test.h` é gerado a partir do `memory.tohost_addr` do seu
-`config.yaml`: não o escreva à mão; gere (ou gere de novo, depois de mudar esse
-endereço) com:
+O `RV32_PASS()` escreve `1` no `tohost`. O `RV32_FAIL()` reporta o código de falha 1 e o `RV32_FAIL(n)` reporta o código `n` (um código 0 é reportado como 1), escrito como `(n << 1) | 1`; o `run` o imprime como `FAIL (code n)`, então cada checagem que falha pode ter o próprio código.
+
+O `rv32_test.h` é gerado a partir do `memory.tohost_addr` do seu `config.yaml`: não o escreva à mão; gere (ou gere de novo, depois de mudar esse endereço) com:
 
 ```bash
 uv run riscv-tools --config <project>/config.yaml generate-header
 ```
 
-Escreve em `<paths.include_dir>/rv32_test.h` por padrão (`--out` para
-sobrescrever). A própria `rv32_wait_restart` continua vindo do `crt0.S` do seu
-projeto: este pacote só cuida do lado do `tohost`.
+Escreve em `<paths.include_dir>/rv32_test.h` por padrão (`--out` para sobrescrever). A própria `rv32_wait_restart` continua vindo do `crt0.S` do seu projeto: este pacote só cuida do lado do `tohost`.
 
-Evite `(volatile unsigned int *)0x0`: o GCC trata um ponteiro nulo literal como
-comportamento indefinido e pode otimizar o acesso inteiro para fora,
-independentemente do `volatile`. Escolha um endereço diferente de zero para
-qualquer coisa no começo da RAM/ROM.
+Evite `(volatile unsigned int *)0x0`: o GCC trata um ponteiro nulo literal como comportamento indefinido e pode otimizar o acesso inteiro para fora, independentemente do `volatile`. Escolha um endereço diferente de zero para qualquer coisa no começo da RAM/ROM.
 
 ## Testes `unit` versus `memory`
 
-`memory` é `unit` expandido, e não um tipo separado e sem relação: pegue
-qualquer teste `unit` que funcione, adicione um global `results` em que ele
-escreve a resposta, troque o comentário de cabeçalho para `memory`, e ele agora
-é um teste `memory`. Nada na lógica de `RV32_PASS()`/`RV32_FAIL()` muda.
+`memory` é `unit` expandido, e não um tipo separado e sem relação: pegue qualquer teste `unit` que funcione, adicione um global `results` em que ele escreve a resposta, troque o comentário de cabeçalho para `memory`, e ele agora é um teste `memory`. Nada na lógica de `RV32_PASS()`/`RV32_FAIL()` muda.
 
-- `unit` (o padrão): passar significa o `tohost` ler PASS. Basta quando o teste
-  consegue se julgar por inteiro com um `if`. Compila tanto para
-  `compile --emit mif` (real) quanto para `--emit hex` (sim).
-- `memory`: PASS no `tohost`, **e depois** um global `results` é comparado com o
-  golden.json, tanto no hardware real (um dump da RAM por JTAG) quanto na sim
-  (a mesma checagem, feita ao vivo pelo barramento de escrita da RAM, já que a
-  sim não tem como fazer dump de um array de memória diretamente; veja o
-  `sim/test_c_program.py` do próprio projeto). Um teste que sinaliza FAIL, ou
-  estoura o timeout, nunca chega a essa segunda checagem, igual a um teste
-  `unit` que falha do mesmo jeito. É isso que pega um teste que chegou a
-  `RV32_PASS()` com um valor calculado errado (por exemplo uma soma que saiu
-  com erro de um): só o `tohost` não distingue "rodou até o fim" de "rodou até o
-  fim e errou a resposta".
+- `unit` (o padrão): passar significa o `tohost` ler PASS. Basta quando o teste consegue se julgar por inteiro com um `if`. Compila tanto para `compile --emit mif` (real) quanto para `--emit hex` (sim).
+- `memory`: PASS no `tohost`, **e depois** um global `results` é comparado com o golden.json, tanto no hardware real (um dump da RAM por JTAG) quanto na sim (a mesma checagem, feita ao vivo pelo barramento de escrita da RAM, já que a sim não tem como fazer dump de um array de memória diretamente; veja o `sim/test_c_program.py` do próprio projeto). Um teste que sinaliza FAIL, ou estoura o timeout, nunca chega a essa segunda checagem, igual a um teste `unit` que falha do mesmo jeito. É isso que pega um teste que chegou a `RV32_PASS()` com um valor calculado errado (por exemplo uma soma que saiu com erro de um): só o `tohost` não distingue "rodou até o fim" de "rodou até o fim e errou a resposta".
 
-  Diferente de um teste de memória em asm (veja
-  [creating-an-asm-test.md](creating-an-asm-test.md)), um teste de memória em C
-  **não traz golden.json versionado**: declare um global `results`:
+  Diferente de um teste de memória em asm (veja [creating-an-asm-test.md](creating-an-asm-test.md)), um teste de memória em C **não traz golden.json versionado**: declare um global `results`:
 
   ```c
   // RV32_TEST_KIND: memory
@@ -107,28 +82,11 @@ escreve a resposta, troque o comentário de cabeçalho para `memory`, e ele agor
   }
   ```
 
-  Na compilação (tanto `--emit mif` quanto `--emit hex`), o golden é gerado
-  automaticamente: o endereço e o tamanho de `results` são resolvidos pela
-  tabela de símbolos do ELF compilado (`nm -S`, o mesmo mecanismo do
-  `generate-golden --symbol`), o ELF roda no Spike (veja
-  [golden_generator](modules/golden_generator.md)), e um
-  `<build_dir>/<name>.golden.json` novo é escrito, nunca um arquivo que você
-  escreve ou versiona. A correção é validada como "a CPU deste projeto produz o
-  mesmo conteúdo de memória que o Spike produz para o mesmo programa", e não
-  contra um valor que alguém calculou à mão uma vez e que pode ficar defasado
-  em silêncio depois de uma edição. Exige o Spike no `PATH` (veja
-  [generating-a-golden.md](generating-a-golden.md) para a mecânica, se você
-  quiser rodar o Spike à mão, por exemplo para depurar uma divergência).
+  Na compilação (tanto `--emit mif` quanto `--emit hex`), o golden é gerado automaticamente: o endereço e o tamanho de `results` são resolvidos pela tabela de símbolos do ELF compilado (`nm -S`, o mesmo mecanismo do `generate-golden --symbol`), o ELF roda no Spike (veja [golden_generator](modules/golden_generator.md)), e um `<build_dir>/<name>.golden.json` novo é escrito, nunca um arquivo que você escreve ou versiona. A correção é validada como "a CPU deste projeto produz o mesmo conteúdo de memória que o Spike produz para o mesmo programa", e não contra um valor que alguém calculou à mão uma vez e que pode ficar defasado em silêncio depois de uma edição. Exige o Spike no `PATH` (veja [generating-a-golden.md](generating-a-golden.md) para a mecânica, se você quiser rodar o Spike à mão, por exemplo para depurar uma divergência).
 
-  `results` pode guardar o que o teste quiser conferir (valores simples, uma
-  struct pequena, um array); o único requisito é ser um global real e com
-  tamanho (`volatile`, para o compilador não otimizar as escritas para fora),
-  e não um ponteiro cru para um endereço fixo.
+  `results` pode guardar o que o teste quiser conferir (valores simples, uma struct pequena, um array); o único requisito é ser um global real e com tamanho (`volatile`, para o compilador não otimizar as escritas para fora), e não um ponteiro cru para um endereço fixo.
 
-  Tanto `compile --emit mif` (real) quanto `--emit hex` (sim) compilam e
-  verificam por completo um teste `memory` agora: a comparação do golden com o
-  Spike roda igual nos dois, então um valor calculado errado é pego na suíte
-  rápida de GHDL a cada push, e não só quando roda de verdade.
+  Tanto `compile --emit mif` (real) quanto `--emit hex` (sim) compilam e verificam por completo um teste `memory` agora: a comparação do golden com o Spike roda igual nos dois, então um valor calculado errado é pego na suíte rápida de GHDL a cada push, e não só quando roda de verdade.
 
 ## Compilando, inspecionando, rodando
 
@@ -140,9 +98,7 @@ uv run riscv-tools --config <project>/config.yaml run                  # suíte 
 uv run riscv-tools --config <project>/config.yaml sim                  # suíte de sim (cocotb/GHDL)
 ```
 
-Veja [creating-an-asm-test.md](creating-an-asm-test.md) para escrever um teste
-direto em assembly RISC-V: por exemplo, para fixar um modo de endereçamento
-exato que um compilador pode não escolher sozinho.
+Veja [creating-an-asm-test.md](creating-an-asm-test.md) para escrever um teste direto em assembly RISC-V: por exemplo, para fixar um modo de endereçamento exato que um compilador pode não escolher sozinho.
 
 ---
 

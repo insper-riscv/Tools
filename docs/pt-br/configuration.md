@@ -1,32 +1,16 @@
 # Configuração
 
-Todo comando do `riscv-tools` recebe `--config <path>`, apontando para o
-`config.yaml` **do próprio projeto consumidor**: este pacote nunca traz os
-valores de um projeto específico, só padrões (veja `riscv_tools/settings.py`
-para a lógica de mesclagem, se tiver curiosidade, mas você não precisa lê-lo
-para usar isto).
+Todo comando do `riscv-tools` recebe `--config <path>`, apontando para o `config.yaml` **do próprio projeto consumidor**: este pacote nunca traz os valores de um projeto específico, só padrões.
 
 ## Como é montada
 
-Cada módulo tem um pequeno conjunto de padrões no próprio `__config__.py`
-(por exemplo `riscv_tools/htif/__config__.py`). O `riscv-tools` mescla todos
-eles e depois aplica o `config.yaml` do seu projeto por cima: o seu
-config.yaml sempre vence. Uma chave sem um padrão razoável entre projetos
-(um endereço de memória, um caminho dentro do seu repositório) é `None` nos
-padrões embutidos, o que significa que o seu `config.yaml` **precisa**
-defini-la: toda chave assim está marcada como "**obrigatória**" abaixo.
+Cada módulo traz um pequeno conjunto de padrões embutidos. O `riscv-tools` mescla todos eles e depois aplica o `config.yaml` do seu projeto por cima: o seu config.yaml sempre vence. Uma chave sem um padrão razoável entre projetos (um endereço de memória, um caminho dentro do seu repositório) é `None` nos padrões embutidos, o que significa que o seu `config.yaml` **precisa** defini-la: toda chave assim está marcada como "**obrigatória**" abaixo.
 
-Um arquivo de configuração pode partir de outro com `extends: <caminho>`
-(relativo ao arquivo que o declara). O arquivo é mesclado por cima da sua
-base com as mesmas regras: uma seção presente nos dois é mesclada chave a
-chave, e qualquer outro valor (inclusive uma lista) substitui o da base. Uma
-variante lista só o que muda, por exemplo um perfil de simulação que altera
-o `sim:` e mantém o resto. Uma cadeia que volta a si mesma é um erro.
+Um arquivo de configuração pode partir de outro com `extends: <caminho>` (relativo ao arquivo que o declara). O arquivo é mesclado por cima da sua base com as mesmas regras: uma seção presente nos dois é mesclada chave a chave, e qualquer outro valor (inclusive uma lista) substitui o da base. Uma variante lista só o que muda, por exemplo um perfil de simulação que altera o `sim:` e mantém o resto. Uma cadeia que volta a si mesma é um erro.
 
 ## Referência
 
-O seu `config.yaml` é um YAML aninhado com estas seções de nível superior.
-Qualquer chave omitida volta ao padrão embutido mostrado.
+O seu `config.yaml` é um YAML aninhado com estas seções de nível superior. Qualquer chave omitida volta ao padrão embutido mostrado.
 
 ### `toolchain:`
 
@@ -96,10 +80,11 @@ Não há divisão `tests_real_dir`/`tests_sim_dir`/`golden_dir`: todo teste em `
 | `spike_bin` | `spike` | `golden_generator`: nome/caminho do binário `spike`. Ele precisa manter o módulo de debug longe do endereço 0 (veja [generating-a-golden.md](generating-a-golden.md#requisitos)) |
 | `timeout_s` | `60` | `golden_generator`: segundos de espera até um teste escrever `tohost`, antes de a geração falhar |
 | `tohost_symbol` | `tohost` | `golden_generator`: o símbolo HTIF que o Spike observa até uma escrita diferente de zero. Convenção padrão; raramente precisa ser alterado |
+| `entry_symbol` | `_start` | `golden_generator`, `spike_run`: o símbolo cujo endereço é onde o Spike começa a executar. O rótulo de entrada usual do `crt0`; só mude se o seu código de boot o nomear de outro jeito |
 | `sources` | `[]` | `golden_generator`, `spike_run`: arquivos-fonte (relativos à raiz do projeto) linkados no ELF que o Spike executa e não na imagem do próprio teste. Para uma imagem que termina em código que, no hardware, fica em outro lugar (uma rotina da boot ROM num endereço fixo): um substituto dela, mais os símbolos `tohost` e `fromhost` de que o Spike precisa. Vazia, o Spike executa a imagem do próprio teste |
 | `gcc_flags` | `[]` | `golden_generator`, `spike_run`: argumentos extras do gcc para esse ELF, por exemplo um `-D` que faz o arquivo de especificação omitir o endereço fixo do hardware |
 
-### `sim:` (exige o extra `sim`, `uv sync`)
+### `sim:`
 
 | Chave | Padrão | Usada por |
 |---|---|---|
@@ -120,11 +105,7 @@ Os modelos de `parameters`, `run_files` e `env` são `{hex_path}` e `{mif_path}`
 
 ### `freq_sweep:` (só necessária para `riscv-tools freq-sweep`)
 
-Descreve o *formato* das strings de parâmetro do fonte do seu PLL: nenhuma
-delas tem um padrão razoável entre projetos, já que os nomes de instância e as
-convenções de parâmetros das megafunções de PLL são específicos de cada
-projeto. Veja [finding-fmax.md](finding-fmax.md) para saber para que serve e
-como rodar um sweep.
+Descreve o *formato* das strings de parâmetro do fonte do seu PLL: nenhuma delas tem um padrão razoável entre projetos, já que os nomes de instância e as convenções de parâmetros das megafunções de PLL são específicos de cada projeto. Veja [finding-fmax.md](finding-fmax.md) para saber para que serve e como rodar um sweep.
 
 | Chave | Padrão | Usada por |
 |---|---|---|
@@ -135,20 +116,33 @@ como rodar um sweep.
 | `freq_unit` | `MHz` | `freq_sweep`: sufixo literal de unidade escrito depois do valor de frequência, por exemplo `.output_clock_frequency0("10.000000 MHz")`. Só controla o sufixo da string: a conta de período/defasagem em si sempre assume MHz na entrada e ps na saída, seguindo a convenção do `altpll` do Quartus |
 | `phase_unit` | `ps` | `freq_sweep`: a mesma ideia, para o valor da defasagem |
 
-O `riscv-tools freq-sweep <mif> --golden <golden.json>` reaproveita
-`quartus.*`/`memory.ram_base` das seções `quartus:`/`memory:` acima (os mesmos
-campos que `full_reconfigure`/`run_one` usam) para a compilação, programação,
-dump e comparação de cada frequência candidata. Veja
-`orchestrator.run_freq_sweep_linear`/`run_freq_sweep_binary`.
+O `riscv-tools freq-sweep <mif> --golden <golden.json>` reaproveita `quartus.*` e `memory.ram_base` das seções `quartus:`/`memory:` acima para a compilação, programação, dump e comparação de cada frequência candidata (veja [finding-fmax.md](finding-fmax.md)).
 
-### `run_log:`
-
-Onde `run`/`sim`/`certify` mantêm, cada um, o próprio histórico de logs
-persistente e ignorado pelo git. Veja `run_log.start`.
+### `act:` (só necessária para `riscv-tools certify` e `certify-board`)
 
 | Chave | Padrão | Usada por |
 |---|---|---|
-| `logs_dir` | `logs` | `cli` (cmd_run/cmd_sim/cmd_certify): caminho (relativo à raiz do seu projeto) com um subdiretório por subcomando (`real`/`sim`/`certification`), cada um com um `latest.log` da execução em andamento mais toda execução anterior arquivada sob o próprio timestamp de início. Adicione `logs/` ao `.gitignore` do seu projeto |
+| `vendor_dir` | `vendor/riscv-arch-test` | `certify`: caminho do framework ACT4 vendorizado |
+| `target_config` | **obrigatória** | `certify`: o arquivo de configuração de alvo ACT4 do próprio projeto |
+| `extensions` | `I,M` | `certify`: lista de extensões, separadas por vírgula, repassada ao `make ... EXTENSIONS=` do próprio ACT4 |
+| `jobs` | `0` | `certify`: paralelismo do `make` do ACT4 (`0` deixa o ACT4 detectar) |
+| `sim_parameters` | `{}` | `certify`: mesclado por cima de `sim.parameters`, para dimensionar as memórias para as imagens maiores do ACT4 (por exemplo `rom_addr_width`/`ram_addr_width`) |
+| `board_display` | `false` | `certify-board`: mostra `AC` e o número do ELF no display de sete segmentos enquanto os ELFs rodam, e mantém o primeiro LED vermelho aceso depois de uma falha |
+
+### `orchestrator:` (opcional)
+
+| Chave | Padrão | Usada por |
+|---|---|---|
+| `interactive` | `[]` | `run`: nomes de testes do manifest que esperam um host falar com eles. Numa suíte eles só estourariam o timeout, então o `run` os pula, a menos que o `--only` os nomeie |
+| `board_display` | `false` | `run`: mostra o número do teste em execução (decimal, seis dígitos) no display de sete segmentos e mantém o primeiro LED vermelho aceso depois que qualquer teste falha |
+
+### `run_log:`
+
+Onde `run`/`sim`/`certify` mantêm, cada um, o próprio histórico de logs persistente e ignorado pelo git.
+
+| Chave | Padrão | Usada por |
+|---|---|---|
+| `logs_dir` | `logs` | `run`/`sim`/`certify`: caminho (relativo à raiz do seu projeto) com um subdiretório por subcomando (`real`/`sim`/`certification`), cada um com um `latest.log` da execução em andamento mais toda execução anterior arquivada sob o próprio timestamp de início. Adicione `logs/` ao `.gitignore` do seu projeto |
 
 ## Exemplo
 
@@ -170,6 +164,7 @@ paths:
 memory:
   ram_base: 0x00000000
   ram_words: 4096
+  rom_base: 0x00000000
   rom_words: 8192
   tohost_addr: 0x00003FE8
   fromhost_addr: 0x00003FF0
@@ -182,15 +177,9 @@ quartus:
   rom_mif_target: init.mif
 ```
 
-Todo o resto (`isa.*`, `quartus.rom_mem_instances`/`ram_mem_instance`/
-`poll_interval_seconds`/`program_wait_seconds`/`default_timeout_s`,
-`emulator.*`) é opcional: sobrescreva só o que não combina com o seu setup.
+Todo o resto (`isa.*`, `quartus.rom_mem_instances`/`ram_mem_instance`/`poll_interval_seconds`/`program_wait_seconds`/`default_timeout_s`, `emulator.*`) é opcional: sobrescreva só o que não combina com o seu setup.
 
-A `sim:` nem aparece neste exemplo mínimo: os caminhos de hardware real e de
-geração de goldens nunca a tocam, então ela só é necessária quando você passa a
-usar o `sim_runner`/`riscv-tools sim`, e nesse momento
-`toplevel`/`vhdl_sources`/`test_module` passam a ser obrigatórias (veja a
-Referência de configuração acima).
+A `sim:` nem aparece neste exemplo mínimo: os caminhos de hardware real e de geração de goldens nunca a tocam, então ela só é necessária quando você passa a usar o `sim_runner`/`riscv-tools sim`, e nesse momento `toplevel`/`vhdl_sources`/`test_module` passam a ser obrigatórias (veja a Referência de configuração acima).
 
 ---
 

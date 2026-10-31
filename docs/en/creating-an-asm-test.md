@@ -1,15 +1,10 @@
 # Creating a RISC-V test in assembly
 
-Useful when you need to pin down an exact instruction sequence or
-addressing mode that a compiler is free to avoid: e.g. proving
-whether `x0` as a load/store base register with a large immediate
-behaves correctly, which GCC may or may not choose to emit for an
-equivalent C expression.
+Useful when you need to pin down an exact instruction sequence or addressing mode that a compiler is free to avoid: e.g. proving whether `x0` as a load/store base register with a large immediate behaves correctly, which GCC may or may not choose to emit for an equivalent C expression.
 
 ## Where it goes
 
-A folder under `paths.asm_dir` (typically `asm/`), named for what the
-test does, containing a `src.S`:
+A folder under `paths.asm_dir` (typically `asm/`), named for what the test does, containing a `src.S`:
 
 ```
 asm/
@@ -17,22 +12,15 @@ asm/
     └── src.S
 ```
 
-Same convention as C tests (see
-[creating-a-c-test.md](creating-a-c-test.md#where-it-goes)): just
-`asm_dir`/`src.S` instead of `c_dir`/`src.c`.
+Same convention as C tests (see [creating-a-c-test.md](creating-a-c-test.md#where-it-goes)): just `asm_dir`/`src.S` instead of `c_dir`/`src.c`.
 
 ## Header comments
 
-Identical convention to C tests (`RV32_EXT`, `RV32_TEST_KIND`,
-`RV32_TIMEOUT_S`), written as `//` comments (GNU `as` accepts C++-style
-line comments, not just `#`/`;`). See
-[creating-a-c-test.md](creating-a-c-test.md#header-comments) for the
-full reference.
+Identical convention to C tests (`RV32_EXT`, `RV32_TEST_KIND`, `RV32_TIMEOUT_S`), written as `//` comments (GNU `as` accepts C++-style line comments, not just `#`/`;`). See [creating-a-c-test.md](creating-a-c-test.md#header-comments) for the full reference.
 
 ## Entry point
 
-`crt0.S` (in the consuming project) calls a symbol named `main` after
-`.data`/`.bss` setup: your `.S` file must define exactly that:
+`crt0.S` (in the consuming project) calls a symbol named `main` after `.data`/`.bss` setup: your `.S` file must define exactly that:
 
 ```asm
     .section .text
@@ -43,12 +31,7 @@ main:
 
 ## Signaling PASS/FAIL
 
-`rv32_test.h`'s `RV32_PASS()`/`RV32_FAIL()` are `static inline` C
-functions, so a separate `.S` file can't `call` them: there's no
-linkable symbol. Use the `RVMODEL_HALT_PASS` and `RVMODEL_HALT_FAIL(code)`
-macros of the project's `rv32_platform.h` (the names of the riscv-arch-test
-model), which write `tohost` (`1` for PASS, `(code << 1) | 1` for FAIL) and
-jump to `rv32_wait_restart`. They use `t0` and `t1`.
+`rv32_test.h`'s `RV32_PASS()`/`RV32_FAIL()` are `static inline` C functions, so a separate `.S` file can't `call` them: there's no linkable symbol. Use the `RVMODEL_HALT_PASS` and `RVMODEL_HALT_FAIL(code)` macros of the project's `rv32_platform.h` (the names of the riscv-arch-test model), which write `tohost` (`1` for PASS, `(code << 1) | 1` for FAIL) and jump to `rv32_wait_restart`. They use `t0` and `t1`.
 
 ```asm
     RVMODEL_HALT_PASS          // or RVMODEL_HALT_FAIL(3)
@@ -70,16 +53,11 @@ Without the macros, the same steps by hand are:
     j rv32_wait_restart
 ```
 
-Ending in your own `1: j 1b` spin loop instead of `j
-rv32_wait_restart` will make the whole suite hang on the *next* test:
-the core never returns to the state the orchestrator expects to
-JTAG-reload it from.
+Ending in your own `1: j 1b` spin loop instead of `j rv32_wait_restart` will make the whole suite hang on the *next* test: the core never returns to the state the orchestrator expects to JTAG-reload it from.
 
 ## Full example
 
-See [asm/section6-loadstore/src.S in insper-riscv/Testes](https://github.com/insper-riscv/Testes/blob/main/asm/section6-loadstore/src.S)
-for a complete worked example (loads a base register, does a
-LUI+SW+LW round trip, then signals PASS as above).
+See [asm/section6-loadstore/src.S in insper-riscv/Testes](https://github.com/insper-riscv/Testes/blob/main/asm/section6-loadstore/src.S) for a complete worked example (loads a base register, does a LUI+SW+LW round trip, then signals PASS as above).
 
 ## Building, inspecting, running
 
@@ -92,8 +70,7 @@ uv run riscv-tools --config <project>/config.yaml run                  # real ha
 uv run riscv-tools --config <project>/config.yaml sim                  # sim suite (cocotb/GHDL)
 ```
 
-`compile --emit asm` is a no-op passthrough for `.S` files: they're
-already assembly, there's nothing to compile down to.
+`compile --emit asm` is a no-op passthrough for `.S` files: they're already assembly, there's nothing to compile down to.
 
 ---
 
