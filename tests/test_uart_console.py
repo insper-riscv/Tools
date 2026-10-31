@@ -27,6 +27,13 @@ class FakeProcess:
 
     stdin = io.StringIO()
 
+    def __enter__(self) -> FakeProcess:
+        """Return the fake itself, as a real process does."""
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        """Nothing to close."""
+
     def wait(self) -> int:
         """Return the exit code."""
         return self.returncode

@@ -87,6 +87,25 @@ def _rotate(latest: Path) -> Path | None:
     return target
 
 
+def _spawn_tee(latest: Path) -> subprocess.Popen[bytes]:
+    """Start the tee process that appends the run output to latest.
+
+    The process outlives this call on purpose, so it is returned
+    instead of being managed by a with block.
+
+    Parameters
+    ----------
+    latest : Path
+        The log file tee appends to.
+
+    Returns
+    -------
+    subprocess.Popen
+        The running tee, with a pipe on its stdin.
+    """
+    return subprocess.Popen(["tee", "-a", str(latest)], stdin=subprocess.PIPE)
+
+
 def start(root: Path, kind: str, logs_dir: str = "logs") -> Path:
     """Rotate a kind's latest.log, start a new one and tee onto it.
 
@@ -141,8 +160,7 @@ def start(root: Path, kind: str, logs_dir: str = "logs") -> Path:
 
     sys.stdout.flush()
     sys.stderr.flush()
-    tee = subprocess.Popen(["tee", "-a", str(latest)], stdin=subprocess.PIPE)
-    tee_stdin = cast(IO[bytes], tee.stdin)
+    tee_stdin = cast(IO[bytes], _spawn_tee(latest).stdin)
     os.dup2(tee_stdin.fileno(), sys.stdout.fileno())
     os.dup2(tee_stdin.fileno(), sys.stderr.fileno())
 

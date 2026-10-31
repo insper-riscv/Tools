@@ -67,25 +67,47 @@ def run_streaming(
     print("+", " ".join(str(c) for c in cmd))
     for forced in ("stdout", "stderr", "text", "bufsize", "capture_output"):
         kw.pop(forced, None)
-    proc = subprocess.Popen(
+    with subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
         bufsize=1,
         **kw,
+    ) as proc:
+        stdout_text, stderr_text = _pump(proc)
+        returncode = proc.wait()
+    if returncode != 0:
+        raise subprocess.CalledProcessError(
+            returncode, cmd, output=stdout_text, stderr=stderr_text
+        )
+    return subprocess.CompletedProcess(
+        cmd, returncode, stdout_text, stderr_text
     )
+
+
+def _pump(proc: subprocess.Popen[str]) -> tuple[str, str]:
+    """Echo the output of proc as it arrives and collect it.
+
+    Parameters
+    ----------
+    proc : subprocess.Popen
+        A process started with stdout=PIPE, stderr=PIPE and text=True.
+
+    Returns
+    -------
+    tuple of str
+        Everything proc wrote to stdout and to stderr.
+    """
     # Statically Popen.stdout/.stderr are `IO[Any] | None`; both are
-    # always real files here since stdout=PIPE/stderr=PIPE were just
-    # passed above.
+    # always real files here since the caller passed PIPE for each.
     proc_stdout = cast(IO[str], proc.stdout)
     proc_stderr = cast(IO[str], proc.stderr)
-
     stdout_chunks: list[str] = []
     stderr_chunks: list[str] = []
 
     # key.data carries the actual file object alongside where to echo
-    # and accumulate its lines — key.fileobj itself is typed as the
+    # and accumulate its lines; key.fileobj itself is typed as the
     # broader FileDescriptorLike (int | IO[Any] | ...) by selectors,
     # with no .readline(), so reading through it directly doesn't
     # type-check even though we know exactly what we registered.
@@ -112,14 +134,4 @@ def run_streaming(
             stream_out.write(line)
             stream_out.flush()
             chunks.append(line)
-    proc.wait()
-
-    stdout_text = "".join(stdout_chunks)
-    stderr_text = "".join(stderr_chunks)
-    if proc.returncode != 0:
-        raise subprocess.CalledProcessError(
-            proc.returncode, cmd, output=stdout_text, stderr=stderr_text
-        )
-    return subprocess.CompletedProcess(
-        cmd, proc.returncode, stdout_text, stderr_text
-    )
+    return "".join(stdout_chunks), "".join(stderr_chunks)

@@ -121,33 +121,29 @@ def read_console(
     elif send:
         cmd.append(send.hex())
     received = bytearray()
-    process = subprocess.Popen(
+    with subprocess.Popen(
         cmd,
         stdin=subprocess.PIPE if typed is not None else None,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-    )
-    if typed is not None:
-        threading.Thread(
-            target=_forward_typed,
-            args=(typed, _pipe(process.stdin)),
-            daemon=True,
-        ).start()
-    stdout = _pipe(process.stdout)
-    try:
-        for line in stdout:
-            chunk = decode_line(line)
-            if chunk:
-                received += chunk
-                on_bytes(chunk)
-    except KeyboardInterrupt:
-        process.terminate()
-    finally:
-        process.wait()
-    if process.returncode not in (0, -15):
+    ) as process:
+        if typed is not None:
+            threading.Thread(
+                target=_forward_typed,
+                args=(typed, _pipe(process.stdin)),
+                daemon=True,
+            ).start()
+        try:
+            for line in _pipe(process.stdout):
+                chunk = decode_line(line)
+                if chunk:
+                    received += chunk
+                    on_bytes(chunk)
+        except KeyboardInterrupt:
+            process.terminate()
+        returncode = process.wait()
         error = process.stderr.read() if process.stderr else ""
-        raise RuntimeError(
-            f"uart_console.tcl failed ({process.returncode}): {error}"
-        )
+    if returncode not in (0, -15):
+        raise RuntimeError(f"uart_console.tcl failed ({returncode}): {error}")
     return bytes(received)
