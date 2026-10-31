@@ -189,11 +189,10 @@ def write_images(
 ) -> dict[str, Path]:
     """Write the three hex images the simulation loads from an ELF.
 
-    The ELF has every section loaded at the address it runs from. The
-    code region (below `ram_base`) goes to the instruction memory and
-    its first `boot_bytes` bytes also to the boot ROM, which the core
-    fetches from below that address; the data region (from `ram_base`)
-    goes to the RAM.
+    The code region (below `ram_base`) goes to the instruction memory
+    and its first `boot_bytes` bytes also to the boot ROM; the data
+    region (from `ram_base`) goes to the RAM. Every section of the ELF
+    is loaded at the address it runs from.
 
     Parameters
     ----------

@@ -19,31 +19,18 @@ def run_streaming(
 ) -> subprocess.CompletedProcess[str]:
     """Run cmd, echoing it and streaming stdout/stderr as they arrive.
 
-    Every caller in this project that shells out to a slow or
-    frequently-invoked real-world tool (quartus_sh, quartus_pgm,
-    quartus_stp) uses this instead of a plain
-    subprocess.run(capture_output=True), for two reasons at once:
+    Used instead of a plain subprocess.run(capture_output=True) for the
+    slow Quartus tools, for two reasons:
 
-    - Visibility: capture_output blocks until the whole process exits
-      before printing anything, fine for something that returns in
-      under a second, indistinguishable from hanging for something
-      that can run for minutes (a full compile) or that happens dozens
-      of times in a test suite (each JTAG quartus_stp call). This
-      reads both pipes via selectors (POSIX-only, fine; this project
-      doesn't run on Windows) and echoes each line as it arrives.
-    - Classification: a subprocess.CalledProcessError raised from here
-      always carries real .stdout/.stderr text (e.g. "Can't scan JTAG
-      chain") that a caller can classify (see
-      orchestrator.runner._is_hardware_failure), unlike the None/None
-      that a plain `subprocess.run(cmd, check=True)` leaves on its
-      exception.
+    - Visibility: each line is echoed as it arrives, so a compile that
+      runs for minutes does not look like a hang. Both pipes are read
+      with selectors (POSIX only).
+    - Classification: a CalledProcessError raised here always carries
+      the real .stdout and .stderr text (for example "Can't scan JTAG
+      chain"), which a caller can classify.
 
-    Does NOT change how many processes get launched for a given cmd;
-    callers that need to keep two commands in one shell process (see
-    HARDWARE_PROGRAMMING.md: quartus_sh --flow compile and quartus_pgm
-    must stay chained in a single `bash -c "cmd1 && cmd2"`, never two
-    separate subprocess calls) build that into cmd themselves; this
-    only changes how the one resulting process's own output is read.
+    The number of processes launched for cmd does not change; callers
+    that need two commands in one shell process build that into cmd.
 
     Parameters
     ----------

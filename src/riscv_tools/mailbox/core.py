@@ -12,22 +12,15 @@ FAIL = 2
 def word_offset(ram_base: int, addr: int, *, relative: bool = True) -> int:
     """Convert a byte address into a word offset.
 
-    Two different things both call themselves "the word offset of the
-    mailbox", and they're NOT the same number whenever ram_base != 0:
+    - relative=True (default): offset from the RAM base, (addr -
+      ram_base) // 4, which is what the In-System Memory Content Editor
+      expects.
+    - relative=False: absolute word offset, addr // 4, for code that
+      reads the CPU's raw address bus (for example a cocotb testbench),
+      which always carries absolute addresses.
 
-    - relative=True (default): offset relative to RAM's own base,
-      (addr - ram_base) // 4. What mem_edit's JTAG primitives expect,
-      since the In-System Memory Content Editor addresses RAM through
-      its own 0-based internal word index, not the CPU's byte address.
-    - relative=False: absolute word offset, addr // 4, no ram_base
-      subtraction. For code snooping the CPU's own raw address bus
-      directly (e.g. a cocotb testbench watching a DUT's ram_addr
-      signal) rather than going through a JTAG debug port; that bus
-      always carries the real, absolute address, never a RAM-relative
-      one, regardless of where ram_base is mapped.
-
-    Picking the wrong one silently misses every mailbox and go-flag
-    access when ram_base != 0.
+    The two differ whenever ram_base != 0; picking the wrong one
+    silently misses every mailbox and go-flag access.
 
     Parameters
     ----------
@@ -134,10 +127,9 @@ def clear_mailbox(
     """Set the mailbox back to 0 (still running) before a test starts.
 
     Without this, a test is judged by whatever the previous test left in
-    the mailbox until the new one writes its own: if the boot code does
-    not clear it (for instance because the board holds the boot ROM of
-    another platform), the host reads the old PASS at once and reports a
-    test that never ran as passed.
+    the mailbox, so a boot code that does not clear it makes the host
+    read the old PASS at once and report a test that never ran as
+    passed.
 
     Parameters
     ----------

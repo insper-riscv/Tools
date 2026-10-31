@@ -140,11 +140,10 @@ def _spike_run_all(
 def cmd_spike_run(args: argparse.Namespace) -> None:
     """Implement `riscv-tools spike-run`.
 
-    Runs every test of an already-compiled manifest to completion under
-    Spike and reports PASS/FAIL from the HTIF verdict each test writes
-    to tohost, without touching hardware or a simulator. Everything this
-    invocation prints is also written to
-    <run_log.logs_dir>/spike/latest.log (see run_log.start).
+    Runs every test of a compiled manifest to completion under Spike and
+    reports PASS/FAIL from the HTIF verdict each test writes to tohost,
+    without touching hardware or a simulator. Everything it prints is
+    also written to <run_log.logs_dir>/spike/latest.log.
 
     Parameters
     ----------

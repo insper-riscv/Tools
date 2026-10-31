@@ -21,11 +21,9 @@ from riscv_tools.settings import load_config
 def cmd_vhdl_sort(args: argparse.Namespace) -> None:
     """Implement `riscv-tools vhdl-sort`.
 
-    Prints args.files reordered so each file's VHDL entity/package
-    dependencies precede it (see vhdl_sort.topo_sort), for feeding
-    GHDL's `-a` (analyze) phase, or a Makefile's `$(shell ...)`.
-    Doesn't touch args.config; this subcommand needs no project
-    config.
+    Prints args.files reordered so each file's entity and package
+    dependencies come first, for GHDL's analyze phase or a Makefile's
+    `$(shell ...)`. It needs no project config.
 
     Parameters
     ----------
@@ -229,11 +227,9 @@ def cmd_timing_paths(args: argparse.Namespace) -> None:
 def cmd_freq_sweep(args: argparse.Namespace) -> None:
     """Implement `riscv-tools freq-sweep`.
 
-    Finds the board's Fmax for a fixed test program by sweeping (or
-    binary-searching) candidate clock frequencies, editing the
-    project's PLL and doing a full recompile+reprogram+RAM-compare at
-    each one (see orchestrator.run_freq_sweep_linear/
-    run_freq_sweep_binary).
+    Finds the board's Fmax for a fixed test program by sweeping or
+    binary-searching candidate clock frequencies, with a full recompile,
+    reprogram and RAM compare at each one.
 
     Parameters
     ----------

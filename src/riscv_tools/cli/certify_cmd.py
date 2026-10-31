@@ -13,21 +13,12 @@ from riscv_tools.cli.common import jtag_link, start_certification
 def cmd_certify(args: argparse.Namespace) -> None:
     """Implement `riscv-tools certify`.
 
-    Builds this project's own ACT4 target's self-checking ELFs (see
-    act.target_config in config.yaml, and
-    tools/riscv_build/act/rv32im-min/) via ACT4's own `make`
-    (act.vendor_dir, a pinned vendor/riscv-arch-test submodule), then
-    runs each one under cocotb/GHDL (see certify.run_suite). Requires
-    the "sim" extra (cocotb), a RISC-V GCC toolchain (compile_exe in
-    the ACT4 target's own test_config.yaml), and ACT4's own Ruby/
-    Bundler/UDB toolchain (see vendor/riscv-arch-test/README.md
-    "Prerequisites"), none of the real-hardware/JTAG toolchain this
-    project's other subcommands need.
-
-    Everything this invocation prints is also written to
-    <run_log.logs_dir>/certification/latest.log (see run_log.start),
-    a prior latest.log, if any, is archived under its own start
-    timestamp first.
+    Builds the self-checking ELFs of this project's ACT4 target with
+    ACT4's own `make` (act.vendor_dir) and runs each one under
+    cocotb/GHDL. It needs a RISC-V GCC and ACT4's Ruby, Bundler and UDB
+    toolchain, but none of the real-hardware toolchain. Everything it
+    prints is also written to
+    <run_log.logs_dir>/certification/latest.log.
 
     Parameters
     ----------
@@ -60,10 +51,8 @@ def cmd_certify_board(args: argparse.Namespace) -> None:
 
     Builds the ACT4 ELFs of the SDRAM target and runs each one on the
     board: the host writes the ELF into the SDRAM through the debug
-    port, restarts
-    the core and reads the HTIF `tohost` word (see certify.board). The
-    board must
-    already be programmed with the SDRAM platform.
+    port, restarts the core and reads the HTIF `tohost` word. The board
+    must already be programmed with the SDRAM platform.
 
     Parameters
     ----------

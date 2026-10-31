@@ -26,19 +26,11 @@ def cmd_compile(args: argparse.Namespace) -> None:
     """Implement `riscv-tools compile`.
 
     Builds every test under paths.c_dir/paths.asm_dir into .mif/.hex
-    (+ the combined manifest.json), or into human-readable .s (no
-    manifest) for --emit asm. Each test is its own
-    <c_dir|asm_dir>/<name>/ folder (see discover_tests), both "real"
-    (--emit mif) and "sim" (--emit hex) build every test regardless of
-    kind, and both attach a "memory"-kind test's golden.json to its
-    manifest entry the same way, so sim_runner's cocotb testbench can
-    do the same RAM-vs-golden check orchestrator.run_one does for real
-    hardware (bus-snooped writes standing in for a JTAG dump; see a
-    project's own sim/test_c_program.py). Before this, sim only
-    watched the PASS/FAIL mailbox, so a "memory" test whose computed
-    value was simply wrong (not just "didn't reach RV32_PASS()") still
-    reported PASS in simulation, only caught once run on real
-    hardware, sometimes much later.
+    plus the combined manifest.json, or into readable .s files (no
+    manifest) for --emit asm. Both "real" (--emit mif) and "sim" (--emit
+    hex) build every test and attach a "memory"-kind test's golden.json
+    to its manifest entry, so the simulation checks the final RAM
+    against the golden like the board run does.
 
     Parameters
     ----------
@@ -186,12 +178,9 @@ def _attach_image(
 ) -> None:
     """Convert a test's binary to its .mif/.hex and record the path.
 
-    FLASH is addressed RAW from BOOT_ROM/FLASH's shared instruction
-    bus (no base-address subtraction in hardware), so a test's own
-    image, linked at memory.rom_base, needs that many leading zero
-    words so its real content lands at the matching word index. See
-    bin_to_image.read_words for why (a plain `objcopy -O binary`
-    silently drops the leading gap).
+    The FLASH is addressed raw, without base-address subtraction, so an
+    image linked at memory.rom_base gets that many leading zero words
+    and its content lands at the right word index.
 
     Parameters
     ----------

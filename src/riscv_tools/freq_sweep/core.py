@@ -73,13 +73,10 @@ def set_pll_freq(pll_file: Path, mhz: float, params: PllParams) -> None:
     """Rewrite a PLL source's clock frequency and phase offsets.
 
     For each of `phase_count` clock outputs, replaces
-    `.<freq_param>("...")`  with the new frequency and
-    `.<phase_param>("...")` with that output's recomputed phase
-    offset, so multi-phase outputs stay proportionally spaced at the
-    new frequency (see _phase_offset_ps). A parameter pair that
-    doesn't appear in the file (e.g. phase_count set too high for
-    what the PLL source actually declares) is silently left
-    unchanged, matching `re.sub`'s no-match behavior.
+    `.<freq_param>("...")` with the new frequency and
+    `.<phase_param>("...")` with that output's recomputed phase offset,
+    so multi-phase outputs stay proportionally spaced. A parameter pair
+    that is not in the file is left unchanged.
 
     Parameters
     ----------

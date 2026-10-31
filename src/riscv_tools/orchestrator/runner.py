@@ -110,20 +110,12 @@ class SuiteOptions:
 class NeedsHumanInterventionError(Exception):
     """A JTAG/hardware failure that no retry can fix.
 
-    It needs a power-cycle.
-
-    Raised by _run_with_recovery when a subprocess failure's own error
-    text matches a known "the board/cable itself is unreachable"
-    signature (see _is_hardware_failure), as opposed to an ordinary
-    test timeout (mailbox never went PASS/FAIL, but every JTAG
-    operation involved reported success); that second case might be a
-    real CPU/test bug, not a wedged board, and doesn't raise this.
-
-    run_suite catches this, saves progress, and stops the suite rather
-    than ever calling run_one on the next manifest entry, no automated
-    retry has ever recovered from one of these this session (0/7 full
-    recompiles), so there is nothing left to try except a human
-    physically power-cycling the board.
+    Raised by _run_with_recovery when the error text of a failed
+    subprocess matches a known "board or cable unreachable" signature.
+    An ordinary test timeout, where every JTAG operation succeeded, is
+    not one of these, since it may be a real CPU or test bug. run_suite
+    catches this, saves progress and stops, because nothing is left to
+    try except a human power-cycling the board.
     """
 
 
@@ -157,11 +149,8 @@ def _is_hardware_failure(exc: subprocess.CalledProcessError) -> bool:
 def _raise_if_hardware_failure(exc: subprocess.CalledProcessError) -> None:
     """Re-raise exc as NeedsHumanInterventionError if it looks like one.
 
-    No-op otherwise.
-
-    Pulled out of _run_with_recovery's own tiers (repeated once per
-    tier) purely to keep that function's branch count down; the
-    actual classification logic lives in _is_hardware_failure.
+    It does nothing otherwise. The classification is in
+    _is_hardware_failure.
     """
     if _is_hardware_failure(exc):
         raise NeedsHumanInterventionError(str(exc)) from exc
@@ -170,12 +159,9 @@ def _raise_if_hardware_failure(exc: subprocess.CalledProcessError) -> None:
 def run_test_via_jtag(
     cfg: dict[str, Any], link: JtagLink, entry: dict[str, Any], root: Path
 ) -> int | None:
-    """Load the ROM of entry and pulse the restart flag.
+    """Load the ROM of entry, pulse the restart flag, poll the mailbox.
 
-    Then it polls the mailbox.
-
-    Loads entry's ROM and pulses the restart flag on the
-    already-programmed board, then polls the mailbox up to entry's
+    It works on the already-programmed board and polls up to entry's
     timeout_s.
 
     Parameters
@@ -302,34 +288,21 @@ def _run_with_recovery(
 ) -> int | None:
     """Run entry via JTAG, escalating through recovery tiers on timeout.
 
-    Three tiers, each tried only if the previous one didn't get a
-    mailbox result either:
+    Each tier is tried only if the previous one got no mailbox result:
 
-    1. A cheap soft restart (re-reload ROM + re-pulse go_flag, no JTAG
-       programming); crt0.S's _start unconditionally clears
-       mailbox_addr/go_flag_addr itself before running anything, so
-       this gives the core a real chance to leave whatever state it
-       was stuck in (its own poll loop, most likely).
-    2. A plain reprogram (existing .sof, no recompile), ~10s instead
-       of the several minutes a full compile takes. The design never
-       changes between tests in this same-frequency suite (only the
-       ROM content, reloaded over JTAG separately), so recompiling
-       would produce the identical bitstream.
-    3. A full recompile + reprogram, but ONLY if tier 2 failed because
-       the .sof itself doesn't exist (FileNotFoundError), not because
-       quartus_pgm couldn't reach the board. Recompiling can't fix a
-       JTAG chain that's down (that needs a physical power-cycle) and
-       produces the bitstream tier 2 already tried.
+    1. A soft restart: reload the ROM and pulse the go flag again.
+    2. A plain reprogram from the existing .sof, about 10 s instead of
+       the minutes a full compile takes; the design never changes
+       between tests, so recompiling would give the same bitstream.
+    3. A full recompile and reprogram, only if tier 2 failed because the
+       .sof does not exist (FileNotFoundError); recompiling cannot fix a
+       JTAG chain that is down.
 
-    Raises NeedsHumanInterventionError as soon as any tier's own failure
-    text matches a known hardware/cable signature (see
-    _is_hardware_failure); no automated tier recovers from one of
-    those, so the remaining tiers are skipped. A tier that
-    fails with unrecognized output (or a plain timeout with no
-    subprocess error at all) is NOT escalated this way; that might be
-    a real CPU/test bug rather than a wedged board, and still gets to
-    try the next, cheaper tier before this function gives up and
-    returns None.
+    Raises NeedsHumanInterventionError as soon as a tier's failure text
+    matches a known hardware or cable signature (see
+    _is_hardware_failure), since no automated tier recovers from one.
+    Any other failure, or a timeout with no subprocess error, goes on to
+    the next tier; when all fail, it returns None.
 
     Parameters
     ----------
@@ -464,17 +437,13 @@ def run_one(
 ) -> bool:
     """Run a single test end to end.
 
-    JTAG-reload + poll with recovery-tier escalation on timeout (see
-    _run_with_recovery for the full tier breakdown), then a
-    RAM-vs-golden compare if entry is a "memory" test. Raises
-    NeedsHumanInterventionError (RAM dump included) the moment any JTAG
-    operation's own failure text matches a known hardware/cable
-    signature; see _is_hardware_failure, since no automated retry
-    has ever recovered from one of those; run_suite catches it, saves
-    progress, and stops rather than grinding through the rest of the
-    manifest against a board that needs a human to power-cycle it.
-    Anything else (a plain timeout, or a subprocess failure with
-    unrecognized output) comes back as a plain False instead.
+    Reloads the ROM over JTAG and polls the mailbox, escalating through
+    the recovery tiers of _run_with_recovery on timeout, then compares
+    RAM with the golden for a "memory" test. Raises
+    NeedsHumanInterventionError (RAM dump included) as soon as a JTAG
+    failure matches a known hardware signature; run_suite catches it and
+    stops. Anything else (a timeout, or a subprocess failure with
+    unrecognized output) comes back as a plain False.
 
     Parameters
     ----------
@@ -559,14 +528,11 @@ def _wait_for_hardware_healthy(
 ) -> None:
     """Block until the JTAG chain recovers.
 
-    It polls jtag.jtag_chain_healthy while waiting.
-
-    Meant to be called right after printing a
-    NeedsHumanInterventionError's message, only when the caller
-    (run_suite's wait_for_hardware=True)
-    wants to stay running instead of exiting; the person fixing the
-    board (typically a physical power-cycle) is assumed to be watching
-    this process's own output, not some separate re-invocation.
+    Polls jtag.jtag_chain_healthy. It runs after the message of a
+    NeedsHumanInterventionError, only when run_suite was given
+    wait_for_hardware=True, so the person fixing the board (typically
+    with a power-cycle) can watch this process instead of re-invoking
+    it.
 
     Parameters
     ----------
@@ -591,18 +557,14 @@ def run_suite(
 ) -> dict[str, bool]:
     """Run every test in manifest against real hardware.
 
-    Compiles and programs the board once, then runs each entry via
-    run_one, in order, stopping immediately (not raising) the moment
-    any test raises NeedsHumanInterventionError, since no automated
-    retry recovers from that (see run_one/_run_with_recovery). If
-    options.results_path is given, every test's result is written
-    there as soon as it's known, including the stop point itself, so
-    a caller can detect an incomplete run (len(returned dict) <
-    len(manifest)) and resume later: re-invoke with a caller-filtered
-    manifest of just the untested entries (see cli.cmd_run's --resume)
-    plus options.results_so_far set to what results_path already held,
-    to get a single combined dict back covering the whole original
-    manifest across both invocations.
+    Compiles and programs the board once, then runs each entry with
+    run_one, in order. It stops (without raising) as soon as a test
+    raises NeedsHumanInterventionError. If options.results_path is
+    given, each result is written there as soon as it is known, so a
+    caller can detect an incomplete run (fewer results than manifest
+    entries) and resume with a manifest of the untested entries plus
+    options.results_so_far; the returned dict then covers the whole
+    original manifest.
 
     Parameters
     ----------
@@ -743,12 +705,11 @@ class _SuiteRun:
     def _reconfigure_once(self, already_compiled: bool) -> None:
         """Run one attempt of the initial reconfigure.
 
-        A previous attempt that already got quartus_sh --flow compile
-        to succeed leaves a known-good .sof, because the signatures
-        _raise_if_hardware_failure matches are all quartus_pgm/
-        quartus_stp text, never emitted unless the compile finished.
-        Then only the reprogramming needs retrying, not another
-        several-minute recompile of an identical design.
+        If an earlier attempt finished quartus_sh --flow compile, the
+        .sof is known good: the hardware-failure signatures all come
+        from quartus_pgm or quartus_stp, which only run after the
+        compile. Then only the reprogramming is retried, not another
+        recompile of the same design.
 
         Parameters
         ----------
@@ -774,11 +735,10 @@ class _SuiteRun:
     def _can_retry(self, exc: subprocess.CalledProcessError) -> bool:
         """Classify a failure of the initial reconfigure.
 
-        Unlike run_one's own tiers, there's no retry path for the
-        initial reconfigure itself: either this is a known JTAG/cable
-        signature (handled like every other call site) or it's a real
-        build/hardware problem, which still propagates as a hard
-        failure.
+        There is no retry path for the initial reconfigure: either the
+        failure matches a known JTAG or cable signature and is handled
+        like every other call site, or it is a real build or hardware
+        problem and propagates.
 
         Parameters
         ----------

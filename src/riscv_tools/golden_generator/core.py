@@ -33,14 +33,11 @@ _BYTE_MASK = 0xFF
 def symbol_range(nm_bin: str, elf_path: Path, symbol: str) -> tuple[int, int]:
     """Resolve a data symbol's [start, end) byte range from an ELF.
 
-    Lets a test declare one C global (e.g. ``volatile unsigned int
+    A test declares one C global (for example ``volatile unsigned int
     results[3];``) or one asm label with an explicit ``.size`` directive
-    (plain labels don't get one for free; GNU as only emits `.size`
-    automatically for compiler-generated symbols) as its "results"
-    region, instead of a human counting bytes to pass --start/--end by
-    hand. ``nm -S`` reports (address, size, type, name) for every
-    symbol; a compiler emits accurate `.size` info for global data
-    objects automatically.
+    as its results region, instead of passing --start and --end by hand.
+    The range comes from ``nm -S``, which reports the size of every
+    sized symbol.
 
     Parameters
     ----------

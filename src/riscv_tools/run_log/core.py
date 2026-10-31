@@ -57,13 +57,6 @@ def _rotate(latest: Path) -> Path | None:
         stamp = None
 
     if stamp is None:
-        # No (or unparsable) recorded start line, e.g. a latest.log
-        # left over from before this module existed, or one from a
-        # run that got killed before write_text() below ever ran.
-        # Falls back to the file's own last-modified time so it's
-        # still archived under SOME timestamp instead of being
-        # silently overwritten by the new latest.log about to be
-        # created.
         stamp = datetime.datetime.fromtimestamp(
             latest.stat().st_mtime
         ).strftime(_FS_TIMESTAMP_FMT)
@@ -71,9 +64,6 @@ def _rotate(latest: Path) -> Path | None:
     target = latest.with_name(f"{stamp}.log")
     suffix = 1
     while target.exists():
-        # Two runs starting within the same second, astronomically
-        # unlikely for a human-triggered CLI, but a suffix is cheap
-        # insurance against clobbering one run's history with another's.
         target = latest.with_name(f"{stamp}_{suffix}.log")
         suffix += 1
 
@@ -103,22 +93,13 @@ def _spawn_tee(latest: Path) -> subprocess.Popen[bytes]:
 def start(root: Path, kind: str, logs_dir: str = "logs") -> Path:
     """Rotate a kind's latest.log, start a new one and tee onto it.
 
-    Meant to be called once, near the top of a CLI subcommand
-    (cmd_run/cmd_sim/cmd_certify); everything printed for the rest of
-    the process, by this code or any subprocess it spawns (quartus_sh,
-    quartus_pgm, GHDL via cocotb, ...), ends up in both the real
-    terminal and the returned log file, the same way a shell's own
-    `... 2>&1 | tee file` would, but without needing the caller (or
-    CI) to remember to invoke one. Implemented via os.dup2 onto an
-    actual `tee` subprocess rather than reassigning sys.stdout/stderr
-    in Python, specifically so it also catches output from any child
-    process that inherits this process' file descriptors directly
-    (most subprocess tooling does, unless explicitly captured), a
-    pure Python-level stream swap would miss those.
-
-    Not meant to be undone within the same process: a `riscv-tools`
-    invocation is a single one-shot subcommand, so there's nothing to
-    "restore" stdout/stderr to before the process exits anyway.
+    Call it once, near the top of a CLI subcommand. Everything printed
+    for the rest of the process, including the output of subprocesses,
+    goes to both the terminal and the returned log file, like `2>&1 |
+    tee file`. It duplicates the file descriptors onto a `tee`
+    subprocess instead of reassigning sys.stdout, so child processes
+    that inherit the descriptors are captured too. It is not undone
+    within the process.
 
     Parameters
     ----------

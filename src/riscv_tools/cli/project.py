@@ -120,24 +120,11 @@ def _optional_path(cfg: dict[str, Any], root: Path, key: str) -> Path | None:
 def _syscalls_sources(cfg: dict[str, Any], root: Path) -> list[Path]:
     """Resolve the platform sources every test is compiled with.
 
-    That is `paths.sources` (the platform's own parts of the runtime,
-    for instance `_exit`) and the legacy `paths.syscalls`, described
-    below.
-
-    `paths.syscalls`, for the legacy libc "none": compile_test then
-    passes -nostdlib; a downloaded toolchain's own
-    bundled libc.a isn't guaranteed to match this project's -march/
-    -mabi at all (for example, the libc.a of the riscv-collab prebuilt
-    release is built for rv32imafdc/hard-float, which is incompatible
-    with -mabi=ilp32; no flag combination fixes a mismatched
-    precompiled library).
-    A project needing something like malloc() provides its own
-    self-contained implementation here instead of linking against
-    newlib at all.
-
-    Optional: a project with no such file (most don't need one; only
-    a test that actually references something like malloc() does)
-    simply omits paths.syscalls, and this returns an empty list.
+    These are `paths.sources` (the platform's own parts of the runtime,
+    for instance `_exit`) and the optional `paths.syscalls`, a
+    self-contained implementation (for example of malloc()) for projects
+    that link with libc "none" (-nostdlib). A project that needs neither
+    omits them, and this returns an empty list.
 
     Parameters
     ----------
@@ -290,16 +277,12 @@ class CTest:
 def generate_c_golden(
     cfg: dict[str, Any], test: CTest, build_dir: Path, root: Path
 ) -> Path:
-    """Auto-generate the golden.json of one .c memory test.
+    """Generate the golden.json of one .c memory test by running it.
 
-    The ELF of the test is run under Spike.
-
-    C memory tests never carry a checked-in golden.json; the whole
-    point is validating against Spike (the RISC-V Foundation's own
-    reference model) fresh every build, not a value someone worked out
-    by hand once that can go stale after an edit. Convention: the test
-    declares `volatile <type> results[N];` and writes what it wants
-    checked there; see docs/en/creating-a-c-test.md.
+    The test's ELF runs under Spike, so the golden always comes from the
+    reference model and never from a hand-written value. The test
+    declares `volatile <type> results[N];` and writes there what it
+    wants checked.
 
     Parameters
     ----------
@@ -345,21 +328,13 @@ def generate_c_golden(
 def discover_tests(root: Path, cfg: dict[str, Any]) -> list[Path]:
     """Find every test source under paths.c_dir/paths.asm_dir.
 
-    Each test is its own <c_dir|asm_dir>/<name>/ folder containing
-    exactly one `src.c` or `src.S` and, for "memory"-kind tests, a
-    `golden.json` holding the expected {byte address: byte value}
-    map (see mem_validator.compare), kept next to the source instead
-    of a separate golden/ directory.
+    Each test is a <c_dir|asm_dir>/<name>/ folder with exactly one
+    `src.c` or `src.S` and, for "memory"-kind tests, a `golden.json`
+    with the expected {byte address: byte value} map.
 
-    A folder containing a `.off` file is skipped entirely (with a
-    printed note) instead of being built, for a test that's known to
-    be permanently unbuildable/inapplicable on this target (e.g. one
-    that needs something the hardware genuinely can't do) rather than
-    a transient failure. `.off`'s content, if any, is printed as the
-    reason; keep it short and point at fuller docs if there's a real
-    investigation behind it. This is deliberately not a way to "skip
-    a currently-broken test", a test that should eventually work
-    again belongs in version control failing loudly, not silenced.
+    A folder with a `.off` file is skipped, and the file's content is
+    printed as the reason. Use it for a test that can never build or run
+    on this target, not to silence a test that should work.
 
     Parameters
     ----------

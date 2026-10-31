@@ -133,14 +133,12 @@ def compare_bytes(
     actual_label: str,
     golden_label: str,
 ) -> bool:
-    """Compare an in-memory byte map against golden bytes; print diff.
+    """Compare an in-memory byte map against golden bytes.
 
-    The shared core of compare() (a real-hardware JTAG dump, parsed
-    from a .mif) and a GHDL sim testbench's own bus-snooped
-    reconstruction of RAM's final content (see a project's own
-    sim/test_c_program.py); both end up with the same {byte_address:
-    byte_value} shape, so both go through the exact same diff/print
-    logic here instead of duplicating it.
+    The diff is printed. This is the shared core of compare() (a JTAG
+    dump parsed from a .mif) and of a simulation testbench that rebuilds
+    RAM from the bus: both produce the same {byte_address: byte_value}
+    map, so both use the same diff and print logic.
 
     Parameters
     ----------

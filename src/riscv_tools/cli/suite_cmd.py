@@ -73,12 +73,11 @@ def filter_manifest(
 ) -> list[dict[str, Any]]:
     """Select manifest entries requested by repeatable CLI name filters.
 
-    ``--only`` establishes an explicit ordered subset when present;
-    otherwise the manifest's own order is kept. ``--exclude`` is then
-    applied to that result, so exclusions win when both options name the
-    same test. Unknown names and an empty final selection are errors: a
-    misspelled exclusion must never silently run the test it meant to
-    omit.
+    ``--only`` picks an explicit ordered subset; without it the
+    manifest's order is kept. ``--exclude`` is applied to that result,
+    so it wins when both name the same test. Unknown names and an empty
+    final selection are errors, so a misspelled exclusion never silently
+    runs the test it meant to omit.
 
     Parameters
     ----------
@@ -200,22 +199,13 @@ def _load_progress(
 def cmd_run(args: argparse.Namespace) -> None:
     """Implement `riscv-tools run`.
 
-    Runs the real-hardware test suite from a manifest.json (see
-    orchestrator.run_suite), the full manifest by default, or a
-    caller-picked subset via --only/--exclude. Stops early (doesn't
-    raise) the moment a test hits a JTAG/hardware failure no automated
-    retry can
-    fix (orchestrator.NeedsHumanInterventionError); progress is saved
-    to <build_dir>/real/run_progress.json as it goes, and simply
-    re-running the exact same command later (after fixing the board)
-    picks up from where it stopped instead of re-running completed
-    tests: this function loads that file itself, if present, and
-    narrows the manifest to whatever isn't in it yet.
-
-    Everything this invocation prints, including from any subprocess
-    it spawns, is also written to <run_log.logs_dir>/real/latest.log
-    (see run_log.start), a prior latest.log, if any, is archived
-    under its own start timestamp first.
+    Runs the real-hardware suite from a manifest.json, the whole
+    manifest or a subset chosen with --only/--exclude. It stops early
+    (without raising) when a test hits a JTAG failure that no retry can
+    fix. Progress is saved to <build_dir>/real/run_progress.json, so
+    running the same command again after fixing the board resumes where
+    it stopped. Everything it prints is also written to
+    <run_log.logs_dir>/real/latest.log, archiving the previous log.
 
     Parameters
     ----------
@@ -305,15 +295,11 @@ def cmd_run(args: argparse.Namespace) -> None:
 def cmd_sim(args: argparse.Namespace) -> None:
     """Implement `riscv-tools sim`.
 
-    Runs a simulation test suite under cocotb/GHDL from a manifest.json
-    (see sim_runner.run_suite). Runs every entry by default, with
-    --only/--exclude available for DUT-specific subsets. Requires the
-    "sim" extra (cocotb) to be installed.
-
-    Everything this invocation prints, including GHDL/cocotb's own
-    output, is also written to <run_log.logs_dir>/sim/latest.log (see
-    run_log.start), a prior latest.log, if any, is archived under its
-    own start timestamp first.
+    Runs the simulation suite under cocotb/GHDL from a manifest.json:
+    every entry by default, or a subset chosen with --only/--exclude.
+    Everything it prints, including GHDL and cocotb output, is also
+    written to <run_log.logs_dir>/sim/latest.log, archiving the previous
+    log.
 
     Parameters
     ----------

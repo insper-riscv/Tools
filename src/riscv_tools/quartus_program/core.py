@@ -14,23 +14,13 @@ _run_captured = run_streaming
 
 
 def program_only(hardware_name: str, project_dir: Path, sof_file: str) -> None:
-    """Reprogram the board from the EXISTING .sof, no recompile.
+    """Reprogram the board from the existing .sof, without recompiling.
 
-    Much cheaper than full_reconfigure (~10s vs the several minutes a
-    full `quartus_sh --flow compile` takes), worth trying first when
-    a test's mailbox times out, in the same-frequency test suite
-    specifically: the design itself never changes between tests there
-    (only the ROM content, which gets reloaded over JTAG separately by
-    rom_writer, not baked in at compile time), so a wedged board most
-    likely just needs a fresh `quartus_pgm`, not a fresh compile of a
-    bitstream that would come out identical anyway. Only recompile
-    (full_reconfigure) if this doesn't get the board responding again.
-
-    Whatever ROM content happens to be baked into this .sof (from
-    whichever test's compile last ran) is what the board boots with
-    after this; the caller still needs to JTAG-write the CURRENT
-    test's ROM and pulse the restart flag afterward (see
-    orchestrator.run_test_via_jtag), same as after any other reprogram.
+    Takes about 10 s instead of the minutes a full compile takes, and is
+    enough when the design has not changed (only the ROM content, which
+    is loaded over JTAG). The board boots with the ROM baked into the
+    .sof, so the caller still has to write the current test's ROM and
+    pulse the restart flag afterwards.
 
     Parameters
     ----------
@@ -134,11 +124,10 @@ def full_reconfigure(
 ) -> None:
     """Compile the whole Quartus project and program the board.
 
-    Bakes rom.path in as the ROM's init_file, then programs the
-    board, the slow path. Meant to run once up front to establish a
-    baseline bitstream, and again as a fallback if a JTAG-reloaded
-    test (rom_writer + mailbox) times out, in case the board itself
-    wedged rather than the test hanging.
+    Bakes rom.path in as the ROM's init_file, then programs the board.
+    It is the slow path: run it once up front to get a baseline
+    bitstream, and again as a fallback when a JTAG-reloaded test times
+    out.
 
     Parameters
     ----------

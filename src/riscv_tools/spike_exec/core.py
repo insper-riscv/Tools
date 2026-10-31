@@ -152,11 +152,10 @@ def spike_command(
 ) -> list[str]:
     """Build a Spike command line that runs elf_path on the target.
 
-    Spike's own default memory sits at 0x80000000 and its reset vector
-    goes through a boot ROM at 0x1000, both of which collide with a
-    target whose real memory starts near address 0. Passing every real
-    region and starting at the ELF's entry point with no device tree
-    sidesteps both.
+    Spike's default memory (0x80000000) and boot ROM reset vector
+    (0x1000) collide with a target whose memory starts near address 0,
+    so the command passes every real region and starts at the ELF's
+    entry point with no device tree.
 
     Parameters
     ----------
@@ -231,11 +230,11 @@ def prepared_elf(
 ) -> Generator[Path]:
     """Yield a temporary copy of elf_path with the symbols Spike needs.
 
-    Spike's HTIF looks up `tohost` and `fromhost` by those exact names;
-    without both it prints a warning and never exits on completion. The
-    copy gets `tohost` as an alias when the project uses another name,
-    `fromhost` right after `tohost` when the link script doesn't define
-    it, and any extra symbols requested (e.g. `begin_signature`).
+    Spike's HTIF looks up `tohost` and `fromhost` by those names, and
+    without both it never exits on completion. The copy gets `tohost` as
+    an alias when the project uses another name, `fromhost` right after
+    `tohost` when the link script lacks it, and any extra symbols
+    requested (for example `begin_signature`).
 
     Parameters
     ----------

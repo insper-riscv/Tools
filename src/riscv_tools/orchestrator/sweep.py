@@ -61,12 +61,9 @@ class SweepJob:
 def run_freq_sweep_at(job: SweepJob, mhz: float) -> dict[str, Any]:
     """Test the board at one candidate clock frequency.
 
-    Edits the project's PLL to mhz (see freq_sweep.set_pll_freq), then
-    always does a full recompile+reprogram (quartus_program.
-    full_reconfigure); a clock frequency is baked in at synthesis
-    time, so unlike run_one's per-test loop there's no faster
-    JTAG-reload path available here, waits
-    quartus.program_wait_seconds, dumps RAM, and compares it against
+    Edits the project's PLL to mhz, then always does a full recompile
+    and reprogram, since the frequency is baked in at synthesis time. It
+    waits quartus.program_wait_seconds, dumps RAM and compares it with
     job.golden_path.
 
     Parameters

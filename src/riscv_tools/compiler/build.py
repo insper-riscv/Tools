@@ -195,12 +195,10 @@ def compile_test(
 ) -> tuple[Path, str, str, float]:
     """Compile one bare-metal test source (.c or .S) into a flat binary.
 
-    The runtime comes from one of two places. With `toolchain.specs`,
-    the test is a hosted program linked by `--specs=<file>` against the
-    toolchain's own crt0 and linker script, which the specs file selects
-    and gives the memory map to, so crt0 and linker are None. Without
-    it, the project's own crt0 and linker script are linked in, as
-    before.
+    With `toolchain.specs`, the test is a hosted program linked by
+    `--specs=<file>` against the toolchain's own crt0 and linker script,
+    so crt0 and linker are None. Without it, the project's own crt0 and
+    linker script are linked in.
 
     Parameters
     ----------

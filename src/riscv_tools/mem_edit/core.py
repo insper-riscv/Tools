@@ -36,14 +36,12 @@ def write_full(link: JtagLink, instance: int, mif_path: Path) -> None:
 def write_full_multi(
     link: JtagLink, instances: Sequence[int], mif_path: Path
 ) -> None:
-    """Overwrite several instances' ENTIRE depth from the SAME .mif.
+    """Overwrite the entire depth of several instances from one .mif.
 
-    Does every instance inside one JTAG session (one
-    write_full_multi.tcl invocation) instead of one write_full() call
-    per instance; each JTAG session has real open/close overhead, worth
-    avoiding when a project physically duplicates a memory across
-    instances that must always hold identical content (see
-    rom_writer.write_rom).
+    Writes every instance in one JTAG session instead of one
+    write_full() call each, which avoids the open and close overhead
+    when a memory is duplicated across instances that must hold the same
+    content (see rom_writer.write_rom).
 
     Parameters
     ----------
