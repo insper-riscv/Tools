@@ -1,28 +1,19 @@
 """Run the ACT4 ELFs on the board, from the SDRAM.
 
-The ELFs of the SDRAM target (see tools/riscv_build/act/rv32im-sdram/)
-are one flat image that starts at the base of the SDRAM. On the board
-the host loads each one through the SDRAM debug port while the core is
-parked in the boot ROM, then lets the core go:
+Each ELF is one flat image that starts at the base of the SDRAM. The
+host loads it through the SDRAM debug port while the core is parked in
+the boot ROM, then lets the core go:
 
-1. Once: the FLASH gets a three-instruction stub (`fence.i`, `lui t0,
-base`, `jr t0`).
-   The boot ROM jumps to the FLASH after every restart, and the stub
-   sends the core to the ELF; the `fence.i` drops whatever the
-   instruction cache still holds of the previous ELF.
-2. For each ELF: the region of the SDRAM that the ELF may use is zeroed
-(the board does
-   it), the image is written, the go flag restarts the core, and the
-   host reads the HTIF `tohost` word from the SDRAM until it holds an
-   odd value (1 is a PASS) or the time runs out.
-3. With `act.board_display` set, the display shows `AC` on HEX5 and HEX4
-and the number
-   of the ELF in the session, in decimal and counted from 1, on HEX3 to
-   HEX0 (`AC0001` to `AC0059`). The first red LED lights when an ELF
-   fails or times out and stays lit until the next session.
+1. Once, the FLASH gets a three-instruction stub (`fence.i`,
+   `lui t0, base`, `jr t0`) that sends the core to the ELF.
+2. For each ELF, the host zeroes the SDRAM region, writes the image,
+   restarts the core with the go flag and reads the HTIF `tohost` word
+   until it is odd (1 is a PASS) or the time runs out.
+3. With `act.board_display` set, the display shows `AC` and the ELF
+   number (`AC0001`), and the first red LED stays lit after a failure.
 
 The board must be programmed with the SDRAM platform and the core
-parked, as it is after `riscv-tools run` or right after the programming.
+parked.
 """
 
 import struct

@@ -1,11 +1,8 @@
 """End-to-end test of sim_runner.run_test against a real GHDL install.
 
-Uses the "sim" extra (cocotb + cocotb-tools), proves the whole chain
-(GHDL build via cocotb_tools.runner -> simulate -> parse results.xml)
-actually works, for both a passing and a failing cocotb test (see
-fixtures/sim_min/).
-
-Skipped automatically if either tool isn't available.
+Covers the whole chain (GHDL build, simulation, results.xml parsing) for
+a passing and a failing cocotb test (fixtures/sim_min/). Skipped if
+GHDL is missing.
 """
 
 import importlib

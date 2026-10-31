@@ -1,13 +1,9 @@
-"""Compose the other modules into a full real-hardware test run.
+"""Run the real-hardware test suite.
 
-Compiles once (quartus_program), then per test JTAG-writes ROM
-(rom_writer) + pulses restart (mailbox) + polls for PASS/FAIL
-(mailbox), falling back to a full recompile+reprogram if a test's
-mailbox never responds within its timeout (see run_suite/run_one).
-The clock frequency sweep, which builds on reconfigure_with_rom, lives
-in sweep.py.
-
-Owns no hardware mechanism itself, only sequencing.
+Compiles once, then for each test writes the ROM over JTAG, pulses the
+restart and polls the PASS/FAIL mailbox. If a test's mailbox never
+responds within its timeout, it falls back to a full recompile and
+reprogram. The clock frequency sweep is in sweep.py.
 """
 
 import json

@@ -1,15 +1,9 @@
 """Rotate and tee a run's console output into a per-kind history.
 
-Every `riscv-tools run/sim/certify` invocation prints a lot (JTAG
-reload/poll progress, GHDL/cocotb build+run output, quartus_sh/
-quartus_pgm's own streamed output; see proc.run_streaming) that's
-otherwise gone the moment the terminal scrolls past it or the session
-ends. This module makes each of those three subcommands write
-everything to <root>/<run_log.logs_dir>/<kind>/latest.log too (kept
-out of git; see a project's own .gitignore), so there's always a
-`tail -f` target for the run in progress plus a rotated history of
-every run before it, without needing a wrapper script or a manual
-`| tee` at every call site.
+Each `riscv-tools run`, `sim` and `certify` invocation also writes
+everything it prints to <root>/<run_log.logs_dir>/<kind>/latest.log and
+archives the previous log, so a run in progress can be followed with
+`tail -f` and earlier runs stay available.
 """
 
 import datetime

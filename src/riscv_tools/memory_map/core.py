@@ -1,36 +1,20 @@
 """Verify a platform's memory map against every copy written by hand.
 
-A platform's memory map (region bases and sizes, the words the boot ROM
-reserves at the top of RAM, the boot entry points, the peripheral
-windows) is needed in many files: the linker flags, the boot ROM, the C
-runtime,
-the VHDL, the Quartus IPs, the project's config.yaml. Each copy is only
-noticed when it disagrees on the board. This module makes one YAML file
-the
-source of truth and checks the copies against it.
-
-The platform file has three parts:
-
-- `regions`, `reserved`, `boot` and `peripherals`: the map itself.
-- `checks`: where each copy lives and how to read the number out of it.
+One YAML file is the source of truth for the map (region bases and
+sizes, the words reserved at the top of RAM, the boot entry points, the
+peripheral windows) and lists, under `checks`, where each copy lives
+and how to read the number out of it.
 
 A check names a `file` (relative to the project root), reads one value
-out of it (a regular expression with one capture group over the file's
-text,
-or a dotted `yaml` path), and compares it with an `expect` expression
-over
-the map's symbols. A check whose pattern matches nothing fails instead
-of
-passing silently, so a copy that is reformatted out of a check's reach
-is noticed.
+out of it (a regular expression with one capture group, or a dotted
+`yaml` path) and compares it with an `expect` expression over the map's
+symbols. A check whose pattern matches nothing fails.
 
 Symbols are `<REGION>.base|size|end|words`, `<reserved>.base|size|end`,
 `boot.entry`, `boot.wait_restart` and `<PERIPHERAL>.base|id`.
 Expressions accept `+ - * /` (exact division only), `log2()` (exact),
-`clog2()`
-(rounded up), hexadecimal, decimal, VHDL-based (`16#800#`) and suffixed
-(`30K`,
-`0x800u`) numbers.
+`clog2()` (rounded up), and hexadecimal, decimal, VHDL-based
+(`16#800#`) and suffixed (`30K`, `0x800u`) numbers.
 """
 
 import ast

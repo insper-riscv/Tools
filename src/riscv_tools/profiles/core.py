@@ -1,44 +1,28 @@
-r"""Expand a profile specification into valid combinations.
+r"""Expand a profile specification into valid extension combinations.
 
-The combinations are of extensions.
-
-A core profile is a set of optional extensions on top of a base ISA.
-Writing the list by hand lets an impossible combination slip in (M
-together with Zmmul,
-Zicntr together with Zicsr), so a specification states the extensions
-and the rules between
-them, and this module expands it into the combinations that obey every
-rule.
+A core profile is a set of optional extensions on top of a base ISA. A
+specification states the extensions and the rules between them (for
+example M excludes Zmmul), and this module expands it into the
+combinations that obey every rule.
 
 ```yaml
-base: rv32i                       # name of a profile with no extension
-extensions:                       # the order is the order of the name's
-tokens
-  - {name: Zicclsm,  generic: has_zicclsm}
-  - {name: Zicsr,    generic: has_zicsr}
-  - {name: Zicntr,   generic: has_zicntr, implies: [has_zicsr]}
-  - {name: Zifencei, generic: has_zifencei}
-  - {name: Zmmul,    generic: has_zmmul}
-  - {name: M,        generic: has_m, base_letter: m}      # rv32i + m =
-  rv32im
-mutually_exclusive:               # at most one extension of each group
+base: rv32i                  # name of the profile with no extension
+extensions:                  # order = order of the tokens in the name
+  - {name: Zicsr,  generic: has_zicsr}
+  - {name: Zicntr, generic: has_zicntr, implies: [has_zicsr]}
+  - {name: M,      generic: has_m, base_letter: m}  # rv32i+m = rv32im
+mutually_exclusive:          # at most one extension of each group
   - [M, Zmmul]
-  - [Zicsr, Zicntr]
-requires_any:                     # at least one extension of each group
-(optional)
+requires_any:                # at least one of each group (optional)
   - [Zicsr, Zicclsm]
 ```
 
-A profile is named after the extensions it has: `base_letter` goes into
-the base name (`rv32i` + `m` = `rv32im`) and every other extension adds
-`_<name in
-lowercase>`. An extension with `implies` also turns on the listed
-generics of the core,
-which is why its name never cites the extension it implies and the two
-are mutually
-exclusive. An extension with an `absent_token` is on by default: its
-name stays out of
-the name while it is present, and the token is added when it is missing.
+A profile is named after its extensions: `base_letter` goes into the
+base name and every other extension adds `_<name in lowercase>`. An
+extension with `implies` also turns on the listed generics, so its name
+never cites the implied extension. An extension with `absent_token` is
+on by default: its name stays out while present, and the token is added
+when it is missing.
 """
 
 from __future__ import annotations

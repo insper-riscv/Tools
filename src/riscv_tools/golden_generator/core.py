@@ -1,15 +1,11 @@
 """Generate a golden reference by running a test's ELF under Spike.
 
-Spike runs the program to completion. When the program writes its HTIF
-"done" value to tohost (see link.ld/crt0.S in the consuming project),
-Spike exits and, because the ELF carries `begin_signature` and
-`end_signature` symbols, writes that byte range of memory to a
-signature file, one 32-bit word per line. Those two symbols are added
-to a temporary copy of the ELF from the test's `results` symbol, so
-the project's own link script needs nothing extra.
-
-The golden is whatever the program left in the range, regardless of
-whether it signalled pass or fail through tohost.
+When the program writes its HTIF "done" value to tohost, Spike exits
+and writes the memory range between the `begin_signature` and
+`end_signature` symbols to a signature file, one 32-bit word per line.
+Those symbols are added to a temporary copy of the ELF, so the
+project's link script needs nothing extra. The golden is whatever the
+program left in the range, whether it signalled pass or fail.
 """
 
 import json

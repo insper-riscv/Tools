@@ -1,12 +1,9 @@
 """Sort VHDL sources into GHDL-analyzable dependency order.
 
-GHDL's `-a` (analyze) phase needs a design unit's dependencies
-(entities it instantiates, packages it `use`s) analyzed before the
-unit itself; feeding files in the wrong order fails with "primary
-unit ... not found". Hand-ordering a project's VHDL file list is
-tedious and breaks silently the moment a new dependency is added, so
-this derives the order from the files' own content instead, via
-lightweight regex parsing (no GHDL invocation, no real VHDL parser).
+GHDL analyzes a design unit only after the entities it instantiates and
+the packages it uses, so the order matters. The order is derived from
+the files' own content with lightweight regex parsing, without invoking
+GHDL.
 """
 
 import re

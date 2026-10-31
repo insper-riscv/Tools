@@ -1,12 +1,8 @@
-"""Build the fixed, shared bootloader (see a project's own boot_rom.S).
+"""Build the shared bootloader of a project (its boot_rom.S).
 
-A distinct concern from `compiler` (per-test .c/.S -> .elf/.bin):
-BOOT_ROM is built ONCE per invocation, not per test; it has no test
-source, no crt0 pairing, and isn't part of any test's own manifest.
-Every consumer that needs its image (sim_runner for GHDL, rom_writer/
-orchestrator for real hardware) calls `build_boot_rom` once and reuses
-the result, the same way a test's own compiled .hex gets reused across
-sim_runner.run_suite's manifest loop rather than rebuilt per test.
+The boot ROM has no test source and no crt0 pairing, so it is built
+once per invocation instead of once per test, and the caller reuses its
+image.
 """
 
 from pathlib import Path

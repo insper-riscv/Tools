@@ -1,33 +1,24 @@
 r"""Verify that the file paths a project configuration names exist.
 
-Moving a VHDL file between repositories breaks every list that names it:
-the simulation's source list, the tests' `tests.json`, the Quartus
-project's `VHDL_FILE` lines. Each breaks only when something runs it.
-This module reads those lists and fails when a listed path does not
-exist, so a move is checked before anything is built.
-
 A manifest (YAML) lists the references to check:
 
 ```yaml
 references:
   - name: sim sources
-    file: Tests/tools/riscv_build/config.yaml  # relative to root
-    yaml: sim.vhdl_sources     # dotted path; `*` walks a mapping's
-                               # values or a list
-    base: Tests                # what the paths are relative to
-                               # (default: the file's dir)
+    file: Tests/tools/riscv_build/config.yaml
+    yaml: sim.vhdl_sources    # dotted path; `*` walks a mapping or list
+    base: Tests               # what the paths are relative to
   - name: quartus project
     file: tests/FPGA/core/quartus/core_fpga_test.qsf
     pattern: 'VHDL_FILE (\S+)'  # group 1 of every match
   - name: directories
-    paths: [src, tests/FPGA]   # literal, relative to the root
+    paths: [src, tests/FPGA]  # literal paths
 ```
 
-`base` and `file` are relative to the root; `base` may be `@file` (the
-referencing file's directory, the default). A value that holds an
-environment variable (`$QUARTUS_ROOTDIR/...`) is skipped: it depends on
-the machine. A reference that yields no path at all fails, so a list
-that was renamed or reformatted out of reach is noticed.
+`file` and `base` are relative to the root; `base` may be `@file` (the
+directory of the referencing file, the default). A value with an
+environment variable (`$QUARTUS_ROOTDIR/...`) is skipped. A reference
+that yields no path fails.
 """
 
 import os

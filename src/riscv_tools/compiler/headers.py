@@ -1,20 +1,13 @@
-"""Per-test header conventions.
+"""Per-test header conventions, read from comments in a .c/.S source.
 
-Read from comments at the top of a .c/.S source file:
+    // RV32_EXT: M,A           extensions added to the rv32i base
+    // RV32_TEST_KIND: unit    (default) PASS/FAIL mailbox only
+    // RV32_TEST_KIND: memory  also compares RAM with a golden JSON
+    // RV32_TIMEOUT_S: 5       seconds to wait for the mailbox
 
-  // RV32_EXT: M          -> compiled with -march=rv32im (additions to
-  // RV32_EXT: M,A        -> the implicit rv32i base; order doesn't
-                              matter, normalized via
-                              isa.canonical_order)
-  // RV32_TEST_KIND: unit          -> default. Checked via the PASS/FAIL
-                                       mailbox only.
-  // RV32_TEST_KIND: memory        -> also dumps RAM and compares it
-                                       against a golden JSON.
-  // RV32_TIMEOUT_S: 5              -> how long the orchestrator waits
-                                       for this test's mailbox before
-                                       falling back to a full reprogram.
-                                       Defaults to orchestrator's
-                                       default_timeout_s.
+The extensions may come in any order; they are normalized with
+isa.canonical_order. Without a timeout header the project's default
+timeout applies.
 """
 
 import re

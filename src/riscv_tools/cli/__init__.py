@@ -1,11 +1,8 @@
 """Command-line entry point of ``riscv-tools``.
 
-Usage: ``riscv-tools --config <config.yaml> <subcommand> ...``.
-
-Every subcommand takes --config, pointing at the CONSUMING project's
-own config.yaml (memory map, Quartus project paths, toolchain, etc.),
-except `vhdl-sort`, `check-memory-map` and `check-paths`, which read
-only files and need no project config at all.
+Usage: ``riscv-tools --config <config.yaml> <subcommand> ...``. Every
+subcommand needs the project's config.yaml, except `vhdl-sort`,
+`check-memory-map` and `check-paths`, which only read files.
 """
 
 from riscv_tools.cli.board_cmd import (

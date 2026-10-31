@@ -1,15 +1,10 @@
 """Where a project's RAM lives, and how the host reaches it over JTAG.
 
-Two kinds of RAM exist. A RAM inside the FPGA is a memory instance of
-the In-System Memory Content Editor, named by its instance index (an
-int). A RAM outside the FPGA, the SDRAM of the SDRAM platform, is
-reached through the SDRAM debug port (SdramDebugRam). The modules that
-read the mailbox, set the go flag, dump or zero the RAM take a RamTarget
-and call these functions, so they work with either.
-
-Word offsets are counted from the base of the RAM (memory.ram_base). For
-the SDRAM that base is the base of the SDRAM, so a word offset is also a
-word address of the debug port.
+A RAM inside the FPGA is a memory instance of the In-System Memory
+Content Editor, named by its instance index (an int). A RAM outside the
+FPGA, such as the SDRAM, is reached through the SDRAM debug port
+(SdramDebugRam). Callers take a RamTarget and work with either. Word
+offsets count from the RAM base (memory.ram_base).
 """
 
 from collections.abc import Sequence

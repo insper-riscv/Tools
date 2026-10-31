@@ -1,13 +1,8 @@
 """End-to-end test of generate_golden against real Spike and GCC.
 
-Runs against the workstation's Spike and GCC toolchain; proves the whole
-chain (compile -> run under Spike until tohost -> read the signature ->
-emit golden JSON) actually works, for both a C test and a hand-written
-asm test (see fixtures/htif_min/).
-
-Skipped automatically if either tool isn't available, since neither
-is guaranteed to be present in every environment this package's own
-test suite runs in (see the top-level README).
+Covers the whole chain (compile, run under Spike until tohost, read the
+signature, emit the golden JSON) for a C test and an asm test
+(fixtures/htif_min/). Skipped if either tool is missing.
 """
 
 import json

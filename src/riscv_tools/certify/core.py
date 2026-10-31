@@ -1,28 +1,17 @@
 """Build and run the ACT4 certification suite under cocotb/GHDL.
 
-Two stages, kept separate since they're owned by different tools:
+Two stages:
 
-1. `build_elfs` shells out to ACT4's own `make` (vendor/riscv-arch-test)
-   to compile self-checking ELFs for this project's own ACT4 target
-   (act.target_config in config.yaml; see
-   tools/riscv_build/act/rv32im-min/). ACT4 owns test generation/
-   compilation entirely; this project only supplies the DUT-specific
-   config (test_config.yaml, UDB YAML, rvmodel_macros.h, link.ld).
-2. `run_suite` splits each built ELF by address into the images the
-simulation
-   loads (the code region into the instruction memory and the boot ROM,
-   the data region into the RAM; every section of an ACT4 ELF is loaded
-   at the address it runs from), and drives it through the SAME
-   cocotb/GHDL toplevel `sim_runner.run_test` uses for the regular
-   suite, with `test_module` the ACT4 one: ACT4 tests signal completion
-   via HTIF tohost, not this project's own PASS/FAIL mailbox convention
-   (see rv32im-min/rvmodel_macros.h).
+1. `build_elfs` runs ACT4's own `make` to compile the self-checking
+   ELFs of this project's ACT4 target (act.target_config).
+2. `run_suite` splits each ELF by address into the images the
+   simulation loads (code into the instruction memory and the boot ROM,
+   data into the RAM) and runs it on the same cocotb/GHDL toplevel as
+   the regular suite. ACT4 tests signal completion through HTIF tohost,
+   not through the PASS/FAIL mailbox.
 
-Doesn't touch real hardware at all; ACT4 tests have no golden.json/
-Spike-comparison step of their own (self-checking: the expected value
-is baked into each test's own assembly at generation time, upstream,
-long before this project ever sees it), so there's nothing here
-analogous to orchestrator.run_suite's real-hardware path.
+No hardware is involved, and there is no golden: each test checks
+itself.
 """
 
 import resource

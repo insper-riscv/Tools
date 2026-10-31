@@ -1,18 +1,10 @@
 """Edit a project's PLL source to reprogram its output clock frequency.
 
-Generalizes RV32IM's original ad hoc `set_pll_freq()` (a fixed regex
-against one specific `pll_0002.v` layout): the parameter-name
-patterns, unit strings, and how many phase-shifted clock outputs to
-rewrite all come from a project's own `freq_sweep:` config section
-(see __config__.py) instead of being hardcoded here; a project with
-a single-phase PLL, a differently named megafunction instance, or a
-VHDL rather than Verilog PLL wrapper (as long as it uses the same
-`.param("value")` instantiation syntax) configures this without
-touching this module's code.
-
-No hardware/JTAG interaction here, purely a text rewrite of the PLL
-source file. Recompiling/reprogramming after the edit is the caller's
-job (see orchestrator.run_freq_sweep_at).
+The parameter-name patterns, the unit strings and the number of
+phase-shifted outputs come from the project's `freq_sweep:` config
+section, so any PLL that uses the `.param("value")` instantiation
+syntax works. Only the PLL source is rewritten; recompiling and
+reprogramming is the caller's job.
 """
 
 import re

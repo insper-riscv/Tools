@@ -1,15 +1,8 @@
-"""Drive cocotb/GHDL simulation, the sim side of `orchestrator`.
+"""Drive the cocotb/GHDL simulation of a project's tests.
 
-`orchestrator` drives real hardware over JTAG instead. Owns no
-DUT-specific knowledge itself; the project's own cocotb test_module
-(see __config__.py) knows the actual VHDL signal hierarchy and polls
-the PASS/FAIL mailbox, the same convention `mailbox` uses for real
-hardware, just read directly from simulated signals instead of JTAG.
-
-Note cocotb 2.0 split its Python test-runner API
-(get_runner/build/test) out of the main `cocotb` package into
-`cocotb_tools.runner`; this module targets that (cocotb>=2.0), not the
-older `cocotb.runner` some 1.x docs/examples still reference.
+The project's own cocotb test module knows the VHDL signal hierarchy
+and polls the PASS/FAIL mailbox from simulated signals. This module
+targets `cocotb_tools.runner` (cocotb 2.0 or later).
 """
 
 import hashlib
