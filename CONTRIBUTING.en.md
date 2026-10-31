@@ -108,6 +108,8 @@ Any change to code, configuration, or documentation must pass all commands below
 ```bash
 uv run ruff check .                  # Linting and style
 uv run ruff format . --check         # Formatting
+uvx pycodestyle --max-line-length=79 --max-doc-length=72 --ignore=E203,W503 src tests  # PEP 8 style (E203 and W503 contradict PEP 8 itself)
+uvx pydocstyle --convention=pep257 src tests  # PEP 257 docstrings
 uv run pyright                       # Strict type checking
 uvx pyrefly check                    # Second strict type checker
 uv run deptry .                      # Declared and used dependencies

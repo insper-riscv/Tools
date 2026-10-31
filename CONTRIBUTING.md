@@ -10,7 +10,7 @@ O código segue o [PEP 8](https://peps.python.org/pep-0008) (estilo) e o [PEP 25
 
 ### 1.1. Estilo de Código (PEP 8)
 
-> **Desvio do PEP 8.** O PEP 8 manda escrever comentários em inglês, e este projeto os escreve em **português**. Todas as demais recomendações do PEP 8 sobre comentários se mantêm, ou seja, frases completas, sempre atualizadas e sem repetir o que o código já diz. Identificadores continuam em inglês.
+> **Desvio do PEP 8:** O PEP 8 manda escrever comentários em inglês, e este projeto os escreve em **português**. Todas as demais recomendações do PEP 8 sobre comentários se mantêm, ou seja, frases completas, sempre atualizadas e sem repetir o que o código já diz. Identificadores continuam em inglês.
 
 | Regra | Especificação |
 | :--- | :--- |
@@ -107,6 +107,8 @@ Qualquer alteração em código, configuração ou documentação deve passar se
 ```bash
 uv run ruff check .                  # Análise estática e estilo
 uv run ruff format . --check         # Formatação
+uvx pycodestyle --max-line-length=79 --max-doc-length=72 --ignore=E203,W503 src tests  # Estilo PEP 8 (E203 e W503 contradizem o próprio PEP 8)
+uvx pydocstyle --convention=pep257 src tests  # Docstrings PEP 257
 uv run pyright                       # Tipos em modo estrito
 uvx pyrefly check                    # Segundo verificador de tipos em modo estrito
 uv run deptry .                      # Dependências declaradas e usadas
