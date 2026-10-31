@@ -22,7 +22,7 @@ from support import write_rv32_header
 
 from riscv_tools import run_log
 from riscv_tools.cli import cmd_compile, cmd_spike_run
-from riscv_tools.compiler import BuildSetup, compile_test
+from riscv_tools.compiler import BuildSetup, LinkSetup, compile_test
 
 GCC = "riscv32-unknown-elf-gcc"
 NM = "riscv32-unknown-elf-nm"
@@ -223,9 +223,7 @@ def test_compile_needs_no_crt0_or_linker_script(tmp_path: Path) -> None:
         isa_cfg=ISA,
         default_timeout_s=5.0,
         include_dir=tmp_path,
-        crt0=None,
-        linker=None,
-        extra_sources=[FIXTURE / "_exit.c"],
+        link=LinkSetup(extra_sources=[FIXTURE / "_exit.c"]),
     )
     bin_, _march, _kind, _timeout = compile_test(
         setup, src, "strlen", tmp_path / "build"

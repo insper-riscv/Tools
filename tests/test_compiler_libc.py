@@ -6,7 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from riscv_tools.compiler import BuildSetup, compile_test, libc_flags
+from riscv_tools.compiler import (
+    BuildSetup,
+    LinkSetup,
+    compile_test,
+    libc_flags,
+)
 
 GCC = "riscv32-unknown-elf-gcc"
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "htif_min"
@@ -79,8 +84,7 @@ def _compile(tmp_path: Path, libc: str) -> Path:
         isa_cfg=ISA,
         default_timeout_s=5.0,
         include_dir=tmp_path,
-        crt0=FIXTURES / "crt0.S",
-        linker=FIXTURES / "link.ld",
+        link=LinkSetup(crt0=FIXTURES / "crt0.S", linker=FIXTURES / "link.ld"),
     )
     bin_, _march, _kind, _timeout = compile_test(
         setup, src, "strlen_test", tmp_path / "build"

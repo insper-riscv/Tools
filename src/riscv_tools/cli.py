@@ -42,7 +42,7 @@ from riscv_tools import c_to_asm as c_to_asm_mod
 from riscv_tools import compiler as compiler_mod
 from riscv_tools import display as display_mod
 from riscv_tools import timing_paths as timing_paths_mod
-from riscv_tools.compiler import BuildSetup
+from riscv_tools.compiler import BuildSetup, LinkSetup
 from riscv_tools.jtag import JtagLink, detect_jtag_hardware
 from riscv_tools.orchestrator.runner import RunContext, SuiteOptions, SweepJob
 from riscv_tools.settings import load_config
@@ -374,9 +374,11 @@ def _build_setup(cfg: dict[str, Any], root: Path) -> BuildSetup:
         isa_cfg=cfg["isa"],
         default_timeout_s=cfg["quartus"]["default_timeout_s"],
         include_dir=root / cfg["paths"]["include_dir"],
-        crt0=_optional_path(cfg, root, "crt0"),
-        linker=_optional_path(cfg, root, "linker_script"),
-        extra_sources=_syscalls_sources(cfg, root),
+        link=LinkSetup(
+            crt0=_optional_path(cfg, root, "crt0"),
+            linker=_optional_path(cfg, root, "linker_script"),
+            extra_sources=_syscalls_sources(cfg, root),
+        ),
     )
 
 
@@ -433,16 +435,24 @@ def _spike_elf(
     legacy_combined = golden_linker is not None and boot_rom_src is not None
     if spike_sources or legacy_combined:
         elf_path = build_dir / f"{name}.golden.elf"
+        base = _build_setup(cfg, root)
         setup = replace(
-            _build_setup(cfg, root),
+            base,
             default_timeout_s=0.0,
-            linker=golden_linker,
-            extra_sources=[
-                *([boot_rom_src] if legacy_combined and boot_rom_src else []),
-                *spike_sources,
-                *_syscalls_sources(cfg, root),
-            ],
-            link_flags=list(cfg["emulator"].get("gcc_flags", [])),
+            link=replace(
+                base.link,
+                linker=golden_linker,
+                extra_sources=[
+                    *(
+                        [boot_rom_src]
+                        if legacy_combined and boot_rom_src
+                        else []
+                    ),
+                    *spike_sources,
+                    *_syscalls_sources(cfg, root),
+                ],
+                link_flags=list(cfg["emulator"].get("gcc_flags", [])),
+            ),
         )
         compiler_mod.compile_test(setup, src, f"{name}.golden", build_dir)
     else:

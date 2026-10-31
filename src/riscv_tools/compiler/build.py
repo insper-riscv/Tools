@@ -72,24 +72,11 @@ def _linker_script_flags(linker: Path | None) -> list[str]:
 
 
 @dataclass(frozen=True)
-class BuildSetup:
-    """The build settings shared by every test of a project.
+class LinkSetup:
+    """What goes into the link of a test besides the test itself.
 
     Attributes
     ----------
-    toolchain_cfg : dict of {str: Any}
-        The project's `toolchain:` config section; needs `gcc` and
-        `objcopy` (binary names or full paths). `specs`, when set,
-        must be a path that resolves from the current directory (the
-        CLI makes it absolute).
-    isa_cfg : dict of {str: Any}
-        The project's `isa:` config section, passed through to
-        headers.parse_header.
-    default_timeout_s : float
-        Timeout to use if a test has no `// RV32_TIMEOUT_S:` header,
-        passed through to headers.parse_header.
-    include_dir : Path
-        Passed as `-I`, where `rv32_test.h` lives.
     crt0 : Path or None
         Path to the project's crt0.S, compiled and linked in alongside
         the test (which also turns the toolchain's startup files off).
@@ -112,14 +99,41 @@ class BuildSetup:
         symbol). Empty by default.
     """
 
+    crt0: Path | None = None
+    linker: Path | None = None
+    extra_sources: list[Path] = field(default_factory=list[Path])
+    link_flags: list[str] = field(default_factory=list[str])
+
+
+@dataclass(frozen=True)
+class BuildSetup:
+    """The build settings shared by every test of a project.
+
+    Attributes
+    ----------
+    toolchain_cfg : dict of {str: Any}
+        The project's `toolchain:` config section; needs `gcc` and
+        `objcopy` (binary names or full paths). `specs`, when set,
+        must be a path that resolves from the current directory (the
+        CLI makes it absolute).
+    isa_cfg : dict of {str: Any}
+        The project's `isa:` config section, passed through to
+        headers.parse_header.
+    default_timeout_s : float
+        Timeout to use if a test has no `// RV32_TIMEOUT_S:` header,
+        passed through to headers.parse_header.
+    include_dir : Path
+        Passed as `-I`, where `rv32_test.h` lives.
+    link : LinkSetup
+        Startup file, linker script and extra link inputs. The
+        defaults use the toolchain's own.
+    """
+
     toolchain_cfg: dict[str, Any]
     isa_cfg: dict[str, Any]
     default_timeout_s: float
     include_dir: Path
-    crt0: Path | None
-    linker: Path | None
-    extra_sources: list[Path] = field(default_factory=list[Path])
-    link_flags: list[str] = field(default_factory=list[str])
+    link: LinkSetup = field(default_factory=LinkSetup)
 
 
 def compile_test(
@@ -157,7 +171,7 @@ def compile_test(
         (see headers.parse_header).
     """
     toolchain_cfg = setup.toolchain_cfg
-    crt0 = setup.crt0
+    crt0 = setup.link.crt0
     march, kind, timeout_s = parse_header(
         setup.isa_cfg, setup.default_timeout_s, c_file.read_text()
     )
@@ -198,11 +212,11 @@ def compile_test(
             # Own startup file: the toolchain's are turned off.
             *(["-nostartfiles"] if crt0 is not None else []),
             f"-I{setup.include_dir}",
-            *_linker_script_flags(setup.linker),
+            *_linker_script_flags(setup.link.linker),
             *keep_results,
-            *setup.link_flags,
+            *setup.link.link_flags,
             *([str(crt0)] if crt0 is not None else []),
-            *[str(p) for p in setup.extra_sources],
+            *[str(p) for p in setup.link.extra_sources],
             str(c_file),
             "-o",
             str(elf),
