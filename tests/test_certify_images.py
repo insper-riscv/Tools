@@ -1,55 +1,13 @@
 """certify: the images the simulation loads from an ACT4 ELF."""
 
-import struct
 from pathlib import Path
 
 import pytest
+from support import build_elf
 
 from riscv_tools.certify import core
 
 SDRAM_BASE = 0x40000000
-
-
-def _elf(segments: list[tuple[int, bytes]]) -> bytes:
-    """Build a little-endian 32-bit ELF, one PT_LOAD per segment."""
-    phoff, phentsize = 52, 32
-    header = bytearray(52)
-    header[:4] = b"\x7fELF"
-    header[4], header[5] = 1, 1
-    struct.pack_into(
-        "<HHIIIIIHHHHHH",
-        header,
-        16,
-        2,
-        0xF3,
-        1,
-        0,
-        phoff,
-        0,
-        0,
-        52,
-        phentsize,
-        len(segments),
-        0,
-        0,
-        0,
-    )
-    offset = phoff + phentsize * len(segments)
-    phdrs, body = bytearray(), bytearray()
-    for address, data in segments:
-        phdrs += struct.pack(
-            "<IIIIIIII",
-            1,
-            offset + len(body),
-            address,
-            address,
-            len(data),
-            len(data),
-            7,
-            4,
-        )
-        body += data
-    return bytes(header + phdrs + body)
 
 
 def test_sdram_boot_words_jump_to_the_base():
@@ -73,7 +31,7 @@ def test_write_sdram_images_joins_the_segments_from_the_base(
     code = bytes(range(16))
     data = b"\xaa\xbb\xcc\xdd"
     elf = tmp_path / "t.elf"
-    elf.write_bytes(_elf([(SDRAM_BASE, code), (SDRAM_BASE + 0x20, data)]))
+    elf.write_bytes(build_elf([(SDRAM_BASE, code), (SDRAM_BASE + 0x20, data)]))
     paths = core.write_sdram_images(elf, tmp_path, "t", SDRAM_BASE)
     assert set(paths) == {"boot_hex_path", "sdram_hex_path", "hex_path"}
     words = paths["sdram_hex_path"].read_text().lower().split()

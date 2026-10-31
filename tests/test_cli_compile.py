@@ -1,6 +1,5 @@
 """Tests for cli_compile."""
 
-import argparse
 import json
 import shutil
 from pathlib import Path
@@ -8,7 +7,15 @@ from typing import Any
 
 import pytest
 import yaml
-from support import write_rv32_header
+from support import (
+    C_ADD_SOURCE,
+    C_MEM_SOURCE,
+    compile_args,
+    toolchain_section,
+    write_c_test,
+    write_config,
+    write_rv32_header,
+)
 
 from riscv_tools import run_log
 from riscv_tools.cli import (
@@ -22,27 +29,8 @@ SPIKE = "spike"
 
 
 def _make_project(root: Path) -> None:
-    (root / "c" / "add").mkdir(parents=True)
-    (root / "c" / "add" / "src.c").write_text(
-        '#include "rv32_test.h"\n'
-        "int main(void) {\n"
-        "    if (6 * 7 == 42) { RV32_PASS(); }\n"
-        "    RV32_FAIL();\n"
-        "    return 0;\n"
-        "}\n"
-    )
-
-    (root / "c" / "mem").mkdir(parents=True)
-    (root / "c" / "mem" / "src.c").write_text(
-        "// RV32_TEST_KIND: memory\n"
-        '#include "rv32_test.h"\n'
-        "volatile unsigned int results[1];\n"
-        "int main(void) {\n"
-        "    results[0] = 0x11111111u;\n"
-        "    RV32_PASS();\n"
-        "    return 0;\n"
-        "}\n"
-    )
+    write_c_test(root, "add", C_ADD_SOURCE)
+    write_c_test(root, "mem", C_MEM_SOURCE)
 
     (root / "asm" / "raw").mkdir(parents=True)
     (root / "asm" / "raw" / "src.S").write_text(
@@ -82,30 +70,26 @@ def _make_project(root: Path) -> None:
         "}\n"
     )
 
-    (root / "config.yaml").write_text(
-        yaml.safe_dump(
-            {
-                "toolchain": {
-                    "gcc": GCC,
-                    "objcopy": "riscv32-unknown-elf-objcopy",
-                },
-                "paths": {
-                    "include_dir": "include",
-                    "crt0": "crt0.S",
-                    "linker_script": "link.ld",
-                    "build_dir": "build",
-                    "c_dir": "c",
-                    "asm_dir": "asm",
-                },
-                "quartus": {"default_timeout_s": 5},
-                "memory": {
-                    "rom_base": 0,
-                    "rom_words": 8192,
-                    "ram_base": 0x8000,
-                    "ram_words": 1024,
-                },
-            }
-        )
+    write_config(
+        root,
+        {
+            "toolchain": toolchain_section(),
+            "paths": {
+                "include_dir": "include",
+                "crt0": "crt0.S",
+                "linker_script": "link.ld",
+                "build_dir": "build",
+                "c_dir": "c",
+                "asm_dir": "asm",
+            },
+            "quartus": {"default_timeout_s": 5},
+            "memory": {
+                "rom_base": 0,
+                "rom_words": 8192,
+                "ram_base": 0x8000,
+                "ram_words": 1024,
+            },
+        },
     )
 
 
@@ -115,21 +99,6 @@ def _no_log(*_args: object, **_kwargs: object) -> None:
 
 def _cfg_dict(root: Path) -> dict[str, Any]:
     return yaml.safe_load((root / "config.yaml").read_text())
-
-
-def _args(
-    root: Path, emit: str, only: str | None = None
-) -> argparse.Namespace:
-    args = argparse.Namespace(
-        config=str(root / "config.yaml"),
-        manifest=None,
-        manifest_per_test=None,
-        root=str(root),
-        emit=emit,
-    )
-    if only is not None:
-        args.only = only
-    return args
 
 
 def test_discover_tests_finds_c_and_asm_sorted_by_name(tmp_path: Path) -> None:
@@ -162,7 +131,7 @@ def test_cmd_compile_mif_builds_every_kind(tmp_path: Path) -> None:
     """Cmd compile mif builds every kind."""
     _make_project(tmp_path)
 
-    cmd_compile(_args(tmp_path, "mif"))
+    cmd_compile(compile_args(tmp_path, "mif"))
 
     manifest = json.loads(
         (tmp_path / "build" / "real" / "manifest.json").read_text()
@@ -187,7 +156,7 @@ def test_cmd_compile_hex_builds_every_kind(tmp_path: Path) -> None:
     """Cmd compile hex builds every kind."""
     _make_project(tmp_path)
 
-    cmd_compile(_args(tmp_path, "hex"))
+    cmd_compile(compile_args(tmp_path, "hex"))
 
     manifest = json.loads(
         (tmp_path / "build" / "sim" / "manifest.json").read_text()
@@ -213,9 +182,9 @@ def test_cmd_spike_run_passes_compiled_tests(
     """Cmd spike run passes compiled tests."""
     monkeypatch.setattr(run_log, "start", _no_log)
     _make_project(tmp_path)
-    cmd_compile(_args(tmp_path, "mif"))
+    cmd_compile(compile_args(tmp_path, "mif"))
 
-    args = _args(tmp_path, "mif", only="add,mem")
+    args = compile_args(tmp_path, "mif", only="add,mem")
     cmd_spike_run(args)
 
     out = capsys.readouterr().out
@@ -233,9 +202,9 @@ def test_cmd_spike_run_rejects_a_test_missing_from_the_manifest(
     """Cmd spike run rejects a test missing from the manifest."""
     monkeypatch.setattr(run_log, "start", _no_log)
     _make_project(tmp_path)
-    cmd_compile(_args(tmp_path, "mif"))
+    cmd_compile(compile_args(tmp_path, "mif"))
 
-    args = _args(tmp_path, "mif", only="nope")
+    args = compile_args(tmp_path, "mif", only="nope")
     with pytest.raises(SystemExit):
         cmd_spike_run(args)
 
@@ -253,7 +222,7 @@ def test_cmd_compile_hex_uses_the_verilog_format_when_configured(
     cfg["sim"] = {"hex_format": "verilog"}
     (tmp_path / "config.yaml").write_text(yaml.safe_dump(cfg))
 
-    cmd_compile(_args(tmp_path, "hex"))
+    cmd_compile(compile_args(tmp_path, "hex"))
 
     hex_text = (tmp_path / "build" / "sim" / "add.hex").read_text()
     assert hex_text.startswith("@00000000\n")

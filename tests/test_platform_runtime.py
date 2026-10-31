@@ -10,7 +10,6 @@ generates the goldens from the very image the hardware loads, and the
 image starts where the boot ROM jumps.
 """
 
-import argparse
 import json
 import shutil
 import subprocess
@@ -18,41 +17,30 @@ from pathlib import Path
 
 import pytest
 import yaml
-from support import write_rv32_header
+from support import (
+    C_ADD_SOURCE,
+    C_MEM_SOURCE,
+    GCC,
+    ISA,
+    compile_args,
+    has_picolibc,
+    toolchain_section,
+    write_c_test,
+    write_config,
+    write_rv32_header,
+)
 
 from riscv_tools import run_log
 from riscv_tools.cli import cmd_compile, cmd_spike_run
 from riscv_tools.compiler import BuildSetup, LinkSetup, compile_test
 
-GCC = "riscv32-unknown-elf-gcc"
 NM = "riscv32-unknown-elf-nm"
 SPIKE = "spike"
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "platform_min"
-ISA = {"base": "i", "default_ext": "", "canonical_order": "MAFDQLCBJTPVNH"}
-
-
-def _has_picolibc() -> bool:
-    if shutil.which(GCC) is None:
-        return False
-    probe = subprocess.run(
-        [
-            GCC,
-            "--specs=picolibc.specs",
-            "-E",
-            "-x",
-            "c",
-            "/dev/null",
-            "-o",
-            "/dev/null",
-        ],
-        check=False,
-        capture_output=True,
-    )
-    return probe.returncode == 0
 
 
 pytestmark = pytest.mark.skipif(
-    not _has_picolibc() or shutil.which(SPIKE) is None,
+    not has_picolibc() or shutil.which(SPIKE) is None,
     reason=f"needs a {GCC} configured with picolibc, and {SPIKE}",
 )
 
@@ -60,25 +48,8 @@ pytestmark = pytest.mark.skipif(
 def _make_project(root: Path) -> None:
     shutil.copytree(FIXTURE, root / "platform")
 
-    (root / "c" / "add").mkdir(parents=True)
-    (root / "c" / "add" / "src.c").write_text(
-        '#include "rv32_test.h"\n'
-        "int main(void) {\n"
-        "    if (6 * 7 == 42) { RV32_PASS(); }\n"
-        "    RV32_FAIL();\n"
-        "}\n"
-    )
-
-    (root / "c" / "mem").mkdir()
-    (root / "c" / "mem" / "src.c").write_text(
-        "// RV32_TEST_KIND: memory\n"
-        '#include "rv32_test.h"\n'
-        "volatile unsigned int results[1];\n"
-        "int main(void) {\n"
-        "    results[0] = 0x11111111u;\n"
-        "    RV32_PASS();\n"
-        "}\n"
-    )
+    write_c_test(root, "add", C_ADD_SOURCE)
+    write_c_test(root, "mem", C_MEM_SOURCE)
 
     # A `results` too big for the small-data section, so it lands in
     # .bss after the platform's own objects: the address the golden
@@ -143,53 +114,33 @@ def _make_project(root: Path) -> None:
 
     write_rv32_header(root, 0x0002FFFC)
 
-    (root / "config.yaml").write_text(
-        yaml.safe_dump(
-            {
-                "toolchain": {
-                    "gcc": GCC,
-                    "objcopy": "riscv32-unknown-elf-objcopy",
-                    "specs": "platform/rv32im-fpga.specs",
-                },
-                "isa": ISA,
-                "paths": {
-                    "include_dir": "include",
-                    "sources": ["platform/_exit.c"],
-                    "boot_rom": "platform/boot_rom.S",
-                    "boot_rom_linker_script": "platform/boot_rom.ld",
-                    "build_dir": "build",
-                    "c_dir": "c",
-                    "asm_dir": "asm",
-                },
-                "emulator": {
-                    "sources": ["platform/spike_exit.S"],
-                    "gcc_flags": ["-DRV32_SPIKE"],
-                },
-                "quartus": {"default_timeout_s": 5},
-                "memory": {
-                    "rom_base": 0x800,
-                    "rom_words": 7680,
-                    "ram_base": 0x8000,
-                    "ram_words": 40960,
-                },
-            }
-        )
+    write_config(
+        root,
+        {
+            "toolchain": toolchain_section(specs="platform/rv32im-fpga.specs"),
+            "isa": ISA,
+            "paths": {
+                "include_dir": "include",
+                "sources": ["platform/_exit.c"],
+                "boot_rom": "platform/boot_rom.S",
+                "boot_rom_linker_script": "platform/boot_rom.ld",
+                "build_dir": "build",
+                "c_dir": "c",
+                "asm_dir": "asm",
+            },
+            "emulator": {
+                "sources": ["platform/spike_exit.S"],
+                "gcc_flags": ["-DRV32_SPIKE"],
+            },
+            "quartus": {"default_timeout_s": 5},
+            "memory": {
+                "rom_base": 0x800,
+                "rom_words": 7680,
+                "ram_base": 0x8000,
+                "ram_words": 40960,
+            },
+        },
     )
-
-
-def _args(
-    root: Path, emit: str, only: str | None = None
-) -> argparse.Namespace:
-    args = argparse.Namespace(
-        config=str(root / "config.yaml"),
-        manifest=None,
-        manifest_per_test=None,
-        root=str(root),
-        emit=emit,
-    )
-    if only is not None:
-        args.only = only
-    return args
 
 
 def _no_log(*_args: object, **_kwargs: object) -> None:
@@ -243,7 +194,7 @@ def test_cmd_compile_builds_every_kind_and_the_goldens(tmp_path: Path) -> None:
     """Cmd compile builds every kind and the goldens."""
     _make_project(tmp_path)
 
-    cmd_compile(_args(tmp_path, "mif"))
+    cmd_compile(compile_args(tmp_path, "mif"))
 
     manifest = json.loads(
         (tmp_path / "build" / "real" / "manifest.json").read_text()
@@ -300,9 +251,9 @@ def test_cmd_spike_run_passes_programs_that_return_from_main(
     """Cmd spike run passes programs that return from main."""
     monkeypatch.setattr(run_log, "start", _no_log)
     _make_project(tmp_path)
-    cmd_compile(_args(tmp_path, "mif"))
+    cmd_compile(compile_args(tmp_path, "mif"))
 
-    args = _args(
+    args = compile_args(
         tmp_path, "mif", only="add,data,declared,mem,raw,returns,wide"
     )
     cmd_spike_run(args)
@@ -321,7 +272,7 @@ def test_cmd_compile_hex_places_the_image_at_the_flash_base(
     cfg["sim"] = {"hex_format": "verilog"}
     (tmp_path / "config.yaml").write_text(yaml.safe_dump(cfg))
 
-    cmd_compile(_args(tmp_path, "hex"))
+    cmd_compile(compile_args(tmp_path, "hex"))
 
     # The first line of an `objcopy -O verilog` file is the address of
     # the first word: the flash base, where the boot ROM jumps to.

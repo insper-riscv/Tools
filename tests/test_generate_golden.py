@@ -12,10 +12,10 @@ test suite runs in (see the top-level README).
 
 import json
 import shutil
-import subprocess
 from pathlib import Path
 
 import pytest
+from support import link_bare
 
 from riscv_tools.golden_generator import (
     generate_golden,
@@ -47,23 +47,12 @@ EXPECTED = {
 
 def _compile(source: Path, tmp_path: Path) -> Path:
     elf = tmp_path / f"{source.stem}.elf"
-    subprocess.run(
-        [
-            GCC,
-            f"-march={ISA}",
-            "-mabi=ilp32",
-            "-Os",
-            "-ffreestanding",
-            "-nostdlib",
-            "-nostartfiles",
-            "-T",
-            str(FIXTURES / "link.ld"),
-            str(FIXTURES / "crt0.S"),
-            str(source),
-            "-o",
-            str(elf),
-        ],
-        check=True,
+    link_bare(
+        [FIXTURES / "crt0.S", source],
+        FIXTURES / "link.ld",
+        elf,
+        march=ISA,
+        flags=["-Os", "-ffreestanding"],
     )
     return elf
 

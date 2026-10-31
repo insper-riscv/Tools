@@ -1,12 +1,10 @@
 """Fixtures shared by the whole test suite."""
 
-import subprocess
 from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-
-GCC = "riscv32-unknown-elf-gcc"
+from support import link_bare
 
 
 @pytest.fixture
@@ -22,21 +20,7 @@ def build_bare_elf(
         ld = tmp_path / "bare.ld"
         ld.write_text(script)
         elf = tmp_path / "bare.elf"
-        subprocess.run(
-            [
-                GCC,
-                "-march=rv32im",
-                "-mabi=ilp32",
-                "-nostdlib",
-                "-nostartfiles",
-                "-T",
-                str(ld),
-                str(src),
-                "-o",
-                str(elf),
-            ],
-            check=True,
-        )
+        link_bare([src], ld, elf)
         return elf
 
     return build

@@ -1,11 +1,11 @@
 """Tests for spike_exec."""
 
 import shutil
-import subprocess
 from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+from support import link_bare
 
 from riscv_tools.spike_exec import (
     SpikeTarget,
@@ -92,21 +92,10 @@ def test_spike_command_lists_every_region_and_the_entry_point() -> None:
 def test_prepared_elf_adds_fromhost_and_extra_symbols(tmp_path: Path) -> None:
     """Prepared elf adds fromhost and extra symbols."""
     elf = tmp_path / "t.elf"
-    subprocess.run(
-        [
-            GCC,
-            "-march=rv32im",
-            "-mabi=ilp32",
-            "-nostdlib",
-            "-nostartfiles",
-            "-T",
-            str(FIXTURES / "link.ld"),
-            str(FIXTURES / "crt0.S"),
-            str(FIXTURES / "pass_asm.S"),
-            "-o",
-            str(elf),
-        ],
-        check=True,
+    link_bare(
+        [FIXTURES / "crt0.S", FIXTURES / "pass_asm.S"],
+        FIXTURES / "link.ld",
+        elf,
     )
     tohost = symbol_address(NM, elf, "tohost")
 

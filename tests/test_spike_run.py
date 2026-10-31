@@ -1,10 +1,10 @@
 """Tests for spike_run."""
 
 import shutil
-import subprocess
 from pathlib import Path
 
 import pytest
+from support import link_bare
 
 from riscv_tools.spike_exec import SpikeTarget
 from riscv_tools.spike_run import SpikeRunResult, run_elf
@@ -23,22 +23,7 @@ pytestmark = pytest.mark.skipif(
 
 def _build(tmp_path: Path, crt0: Path, name: str) -> Path:
     elf = tmp_path / f"{name}.elf"
-    subprocess.run(
-        [
-            GCC,
-            "-march=rv32im",
-            "-mabi=ilp32",
-            "-nostdlib",
-            "-nostartfiles",
-            "-T",
-            str(FIXTURES / "link.ld"),
-            str(crt0),
-            str(FIXTURES / "pass_asm.S"),
-            "-o",
-            str(elf),
-        ],
-        check=True,
-    )
+    link_bare([crt0, FIXTURES / "pass_asm.S"], FIXTURES / "link.ld", elf)
     return elf
 
 

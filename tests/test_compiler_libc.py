@@ -1,10 +1,10 @@
 """Tests for compiler_libc."""
 
-import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
+from support import GCC, ISA, has_picolibc
 
 from riscv_tools.compiler import (
     BuildSetup,
@@ -13,33 +13,11 @@ from riscv_tools.compiler import (
     libc_flags,
 )
 
-GCC = "riscv32-unknown-elf-gcc"
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "htif_min"
-ISA = {"base": "i", "default_ext": "", "canonical_order": "MAFDQLCBJTPVNH"}
-
-
-def _has_picolibc() -> bool:
-    if shutil.which(GCC) is None:
-        return False
-    probe = subprocess.run(
-        [
-            GCC,
-            "--specs=picolibc.specs",
-            "-E",
-            "-x",
-            "c",
-            "/dev/null",
-            "-o",
-            "/dev/null",
-        ],
-        check=False,
-        capture_output=True,
-    )
-    return probe.returncode == 0
 
 
 needs_picolibc = pytest.mark.skipif(
-    not _has_picolibc(), reason=f"needs a {GCC} configured with picolibc"
+    not has_picolibc(), reason=f"needs a {GCC} configured with picolibc"
 )
 
 
