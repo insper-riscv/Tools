@@ -22,7 +22,7 @@ Precisa de um GCC RISC-V no `PATH` para o build do próprio ACT4 (o `compile_exe
 ## Pré-requisitos
 
 - A toolchain GCC RISC-V (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) no `PATH`, que a imagem `ci-elf` do [insper-riscv/Infra](https://github.com/insper-riscv/Infra) já traz, ou instalada como no `manual/GCC_SETUP.md` dele, para o build do próprio ACT4.
-- O extra `sim` (`uv sync --extra sim`) e o GHDL no `PATH`.
+- O extra `sim` (`uv sync`) e o GHDL no `PATH`.
 - A toolchain Ruby, Bundler e UDB do ACT4, e o checkout do ACT4 para o qual a chave `act.vendor_dir` aponta.
 
 ## Testes
@@ -32,7 +32,7 @@ Não há teste automatizado neste repositório. O workflow de certificação de 
 ## Uso
 
 ```bash
-uv sync --extra sim
+uv sync
 uv run riscv-tools --config /path/to/project/config.yaml certify
 ```
 

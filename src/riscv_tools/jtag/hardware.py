@@ -5,7 +5,7 @@ import subprocess
 
 
 def detect_jtag_hardware() -> str:
-    """Detect the live JTAG hardware name for quartus_pgm/quartus_stp's -c flag.
+    """Detect the live JTAG hardware name for the -c flag of Quartus.
 
     That suffix reflects USB topology, not the physical cable — it
     drifts across reboots and hub renumbering, so a static config value
@@ -35,11 +35,13 @@ def detect_jtag_hardware() -> str:
         m = re.match(r"^\s*\d+\)\s+(USB-Blaster.*)$", line)
         if m:
             return m.group(1).strip()
-    raise RuntimeError(f"jtagconfig produced no USB-Blaster hardware line:\n{out}")
+    raise RuntimeError(
+        f"jtagconfig produced no USB-Blaster hardware line:\n{out}"
+    )
 
 
 def jtag_chain_healthy() -> bool:
-    """Check whether `jtagconfig` currently reports a working device chain.
+    """Check whether `jtagconfig` reports a working device chain.
 
     Separate from detect_jtag_hardware: that one finds the cable's
     live name and can succeed even while the chain underneath it is

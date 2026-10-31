@@ -45,7 +45,7 @@ A chave `extends:` da configuração do projeto permite que isso seja um segundo
 ## Pré-requisitos
 
 - O GHDL no `PATH`.
-- O extra `sim` (`uv sync --extra sim`): `cocotb` e `cocotb-tools`.
+- O extra `sim` (`uv sync`): `cocotb` e `cocotb-tools`.
 - Com `sim.libraries`: as fontes da biblioteca de simulação do fornecedor.
 
 ## Testes
@@ -69,7 +69,7 @@ Os testes são pulados quando o GHDL ou o cocotb não estão disponíveis.
 ## Uso
 
 ```bash
-uv sync --extra sim
+uv sync
 uv run riscv-tools --config /path/to/project/config.yaml compile --emit hex
 uv run riscv-tools --config /path/to/project/config.yaml sim
 uv run riscv-tools --config /path/to/project/config.yaml sim --exclude uart-echo,uart-tx

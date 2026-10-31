@@ -1,5 +1,17 @@
-"""Builds and launches Spike runs: preflight, ELF preparation, command line."""
+"""Builds and launches Spike runs: preflight, ELF, command line."""
 
-from .core import prepared_elf, require_spike, spike_command, symbol_address
+from .core import (
+    SpikeTarget,
+    prepared_elf,
+    require_spike,
+    spike_command,
+    symbol_address,
+)
 
-__all__ = ["prepared_elf", "require_spike", "spike_command", "symbol_address"]
+__all__ = [
+    "SpikeTarget",
+    "prepared_elf",
+    "require_spike",
+    "spike_command",
+    "symbol_address",
+]

@@ -1,4 +1,4 @@
-"""End-to-end test of golden_generator.generate_golden against real Spike + GCC.
+"""End-to-end test of generate_golden against real Spike and GCC.
 
 Runs against the workstation's Spike and GCC toolchain; proves the whole
 chain (compile -> run under Spike until tohost -> read the signature ->
@@ -22,6 +22,7 @@ from riscv_tools.golden_generator import (
     symbol_range,
     write_golden_json,
 )
+from riscv_tools.spike_exec import SpikeTarget
 
 GCC = "riscv32-unknown-elf-gcc"
 NM = "riscv32-unknown-elf-nm"
@@ -67,6 +68,17 @@ def _compile(source: Path, tmp_path: Path) -> Path:
     return elf
 
 
+def _target() -> SpikeTarget:
+    assert SPIKE_BIN is not None  # guaranteed by pytestmark's skipif above
+    return SpikeTarget(
+        spike_bin=SPIKE_BIN,
+        nm_bin=NM,
+        isa=ISA,
+        mem_regions=[(0x80000000, 0x10000)],
+        tohost_symbol="tohost",
+    )
+
+
 @pytest.mark.parametrize("source_name", ["pass_c.c", "pass_asm.S"])
 def test_generate_golden_reads_back_expected_bytes(
     source_name: str, tmp_path: Path
@@ -75,22 +87,21 @@ def test_generate_golden_reads_back_expected_bytes(
     elf = _compile(FIXTURES / source_name, tmp_path)
 
     golden = generate_golden(
-        spike_bin=SPIKE_BIN,
-        nm_bin=NM,
-        elf_path=elf,
-        isa=ISA,
-        mem_regions=[(0x80000000, 0x10000)],
-        tohost_symbol="tohost",
-        addr_start=ADDR,
-        addr_end=ADDR + 4,
+        _target(),
+        elf,
+        (ADDR, ADDR + 4),
     )
 
     expected_word = EXPECTED[source_name]
-    expected_bytes = {ADDR + i: (expected_word >> (8 * i)) & 0xFF for i in range(4)}
+    expected_bytes = {
+        ADDR + i: (expected_word >> (8 * i)) & 0xFF for i in range(4)
+    }
     assert golden == expected_bytes
 
 
-def test_generate_golden_json_round_trips_through_compare(tmp_path: Path) -> None:
+def test_generate_golden_json_round_trips_through_compare(
+    tmp_path: Path,
+) -> None:
     """Exercise the full CLI-facing path.
 
     Same as above, but writes the golden JSON to disk, then reads it
@@ -101,14 +112,9 @@ def test_generate_golden_json_round_trips_through_compare(tmp_path: Path) -> Non
     elf = _compile(FIXTURES / "pass_c.c", tmp_path)
 
     golden = generate_golden(
-        spike_bin=SPIKE_BIN,
-        nm_bin=NM,
-        elf_path=elf,
-        isa=ISA,
-        mem_regions=[(0x80000000, 0x10000)],
-        tohost_symbol="tohost",
-        addr_start=ADDR,
-        addr_end=ADDR + 4,
+        _target(),
+        elf,
+        (ADDR, ADDR + 4),
     )
     out_path = tmp_path / "golden.json"
     write_golden_json(golden, out_path)
@@ -116,11 +122,13 @@ def test_generate_golden_json_round_trips_through_compare(tmp_path: Path) -> Non
     assert out_path.is_file()
     on_disk = json.loads(out_path.read_text())
     assert {int(k, 16): v for k, v in on_disk.items()} == golden
-    assert on_disk[f"0x{ADDR:08X}"] == 0xDD  # low byte of 0xAABBCCDD, little-endian
+    assert (
+        on_disk[f"0x{ADDR:08X}"] == 0xDD
+    )  # low byte of 0xAABBCCDD, little-endian
 
 
 def test_symbol_range_resolves_address_and_size(tmp_path: Path) -> None:
-    """symbol_range should resolve both a global's address and its byte size.
+    """symbol_range should resolve a global's address and byte size.
 
     pass_c_symbol.c declares `volatile unsigned int results[2]` — an
     8-byte object — with no explicit address, unlike the other
@@ -132,8 +140,10 @@ def test_symbol_range_resolves_address_and_size(tmp_path: Path) -> None:
     assert end - start == 8  # 2 * sizeof(unsigned int)
 
 
-def test_generate_golden_by_symbol_matches_explicit_start_end(tmp_path: Path) -> None:
-    """generate_golden fed symbol_range's output should match a hand-picked range.
+def test_generate_golden_by_symbol_matches_explicit_start_end(
+    tmp_path: Path,
+) -> None:
+    """generate_golden fed symbol_range should match a chosen range.
 
     Cross-checks the --symbol path against the pre-existing
     --start/--end path on the same fixture, rather than just trusting
@@ -144,14 +154,9 @@ def test_generate_golden_by_symbol_matches_explicit_start_end(tmp_path: Path) ->
     start, end = symbol_range(NM, elf, "results")
 
     golden = generate_golden(
-        spike_bin=SPIKE_BIN,
-        nm_bin=NM,
-        elf_path=elf,
-        isa=ISA,
-        mem_regions=[(0x80000000, 0x10000)],
-        tohost_symbol="tohost",
-        addr_start=start,
-        addr_end=end,
+        _target(),
+        elf,
+        (start, end),
     )
 
     expected_words = [0xAABBCCDD, 0x11223344]
@@ -163,19 +168,18 @@ def test_generate_golden_by_symbol_matches_explicit_start_end(tmp_path: Path) ->
     assert golden == expected_bytes
 
 
-def test_generate_golden_rounds_a_partial_word_range_up(tmp_path: Path) -> None:
+def test_generate_golden_rounds_a_partial_word_range_up(
+    tmp_path: Path,
+) -> None:
     assert SPIKE_BIN is not None  # guaranteed by pytestmark's skipif above
     elf = _compile(FIXTURES / "pass_asm.S", tmp_path)
 
     golden = generate_golden(
-        spike_bin=SPIKE_BIN,
-        nm_bin=NM,
-        elf_path=elf,
-        isa=ISA,
-        mem_regions=[(0x80000000, 0x10000)],
-        tohost_symbol="tohost",
-        addr_start=ADDR,
-        addr_end=ADDR + 1,
+        _target(),
+        elf,
+        (ADDR, ADDR + 1),
     )
 
-    assert golden == {ADDR + i: (0x11223344 >> (8 * i)) & 0xFF for i in range(4)}
+    assert golden == {
+        ADDR + i: (0x11223344 >> (8 * i)) & 0xFF for i in range(4)
+    }

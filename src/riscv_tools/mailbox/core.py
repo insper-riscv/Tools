@@ -1,4 +1,4 @@
-"""Read the PASS/FAIL mailbox and pulse the restart "go flag" over JTAG."""
+"""Read the PASS/FAIL mailbox and pulse the restart go flag."""
 
 from riscv_tools import ram_target
 from riscv_tools.jtag import JtagLink
@@ -69,9 +69,9 @@ def read_mailbox(
     link : JtagLink
         Which JTAG cable/chip to read from.
     ram_mem_instance : int or SdramDebugRam
-        How the RAM is reached: the In-System Memory Content Editor instance
-        index of the RAM, or SdramDebugRam for a RAM in the SDRAM (see
-        ram_target).
+        How the RAM is reached: the In-System Memory Content Editor
+        instance index of the RAM, or SdramDebugRam for a RAM in the
+        SDRAM (see ram_target).
     ram_base : int
         RAM's base byte address (memory.ram_base).
     mailbox_addr : int
@@ -107,9 +107,9 @@ def pulse_go_flag(
     link : JtagLink
         Which JTAG cable/chip to write to.
     ram_mem_instance : int or SdramDebugRam
-        How the RAM is reached: the In-System Memory Content Editor instance
-        index of the RAM, or SdramDebugRam for a RAM in the SDRAM (see
-        ram_target).
+        How the RAM is reached: the In-System Memory Content Editor
+        instance index of the RAM, or SdramDebugRam for a RAM in the
+        SDRAM (see ram_target).
     ram_base : int
         RAM's base byte address (memory.ram_base).
     go_flag_addr : int
@@ -131,22 +131,22 @@ def clear_mailbox(
     ram_base: int,
     mailbox_addr: int,
 ) -> None:
-    """Set the mailbox back to 0 (still running) before a test is started.
+    """Set the mailbox back to 0 (still running) before a test starts.
 
-    Without this, a test is judged by whatever the previous test left in the
-    mailbox until the new one writes its own: if the boot code does not clear
-    it (for instance because the board holds the boot ROM of another
-    platform), the host reads the old PASS at once and reports a test that
-    never ran as passed.
+    Without this, a test is judged by whatever the previous test left in
+    the mailbox until the new one writes its own: if the boot code does
+    not clear it (for instance because the board holds the boot ROM of
+    another platform), the host reads the old PASS at once and reports a
+    test that never ran as passed.
 
     Parameters
     ----------
     link : JtagLink
         Which JTAG cable/chip to write to.
     ram_mem_instance : int or SdramDebugRam
-        How the RAM is reached: the In-System Memory Content Editor instance
-        index of the RAM, or SdramDebugRam for a RAM in the SDRAM (see
-        ram_target).
+        How the RAM is reached: the In-System Memory Content Editor
+        instance index of the RAM, or SdramDebugRam for a RAM in the
+        SDRAM (see ram_target).
     ram_base : int
         RAM's base byte address (memory.ram_base).
     mailbox_addr : int

@@ -35,7 +35,9 @@ def test_canonical_march_unknown_single_letter_still_rejected():
 
 
 def test_parse_header_defaults():
-    march, kind, timeout_s = parse_header(ISA, 15, "int main(void) { return 0; }")
+    march, kind, timeout_s = parse_header(
+        ISA, 15, "int main(void) { return 0; }"
+    )
     assert march == "rv32i"
     assert kind == "unit"
     assert timeout_s == 15.0

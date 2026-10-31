@@ -1,4 +1,4 @@
-"""Rotates and tees a run's console output into a per-kind log history."""
+"""Rotates and tees a run's console into a per-kind history."""
 
 from .core import start
 

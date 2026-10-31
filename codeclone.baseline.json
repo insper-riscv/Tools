@@ -1,0 +1,45 @@
+{
+  "meta": {
+    "generator": {
+      "name": "codeclone",
+      "version": "2.0.2"
+    },
+    "schema_version": "2.1",
+    "fingerprint_version": "1",
+    "python_tag": "cp314",
+    "created_at": "2026-10-30T12:36:52Z",
+    "payload_sha256": "6574c46fa5e9a816c65a0e0cd847b1675f3154d6b3c4066c66683f68c45669f5",
+    "metrics_payload_sha256": "eb6a4f0dc1388af3792afa08851183d57d00ceb93b69c233a31b7e8ef7788860"
+  },
+  "clones": {
+    "functions": [],
+    "blocks": [
+      "0259ef804d499ebee6b3ddcc49d2f6edb0eddd7d|fc500daf206f524cc2ea8ffcca53b26ff5b69ed1|55efd86ed02372026b9fc620928c4618c8bfe4b1|cadc5608aac13dbe32d6a812c82313e1f9966cca",
+      "312014bccc99b5a4c65fda9637a21d371c26d47f|892c62815c308c11c355263bfaeaca95e457d925|d9ee5ce66349571374e9f23e51caf48f0038009e|df6c8aff5dc3c00efd5cb7122a1719e95bdc2014",
+      "312014bccc99b5a4c65fda9637a21d371c26d47f|d9ee5ce66349571374e9f23e51caf48f0038009e|df6c8aff5dc3c00efd5cb7122a1719e95bdc2014|0259ef804d499ebee6b3ddcc49d2f6edb0eddd7d",
+      "67a3c08aaeb95fd665055d20575b6ef35a2dc89a|312014bccc99b5a4c65fda9637a21d371c26d47f|892c62815c308c11c355263bfaeaca95e457d925|d9ee5ce66349571374e9f23e51caf48f0038009e",
+      "67a3c08aaeb95fd665055d20575b6ef35a2dc89a|312014bccc99b5a4c65fda9637a21d371c26d47f|d9ee5ce66349571374e9f23e51caf48f0038009e|df6c8aff5dc3c00efd5cb7122a1719e95bdc2014",
+      "ba2454c45a3c0cf2a3a7e64b66f03090d74930ae|2d15705a0b426fd817002af05a02aebe351576aa|a3d9246201e0126294acc3eadd75bf6a0bd5f35e|d66aa62fe67cc890110ae5cd20f0322c987b78e8"
+    ]
+  },
+  "metrics": {
+    "max_complexity": 14,
+    "high_risk_functions": [],
+    "max_coupling": 5,
+    "high_coupling_classes": [],
+    "max_cohesion": 2,
+    "low_cohesion_classes": [],
+    "dependency_cycles": [],
+    "dependency_max_depth": 2,
+    "dead_code_items": [
+      "src.riscv_tools.display.core:read_fail",
+      "src.riscv_tools.freq_sweep.core:get_pll_freq"
+    ],
+    "health_score": 90,
+    "health_grade": "A",
+    "typing_param_permille": 1000,
+    "typing_return_permille": 964,
+    "docstring_permille": 511,
+    "typing_any_count": 111
+  }
+}

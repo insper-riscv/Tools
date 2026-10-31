@@ -20,6 +20,7 @@ Owns no hardware mechanism itself — only sequencing.
 import json
 import subprocess
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -42,8 +43,105 @@ from riscv_tools.jtag import JtagLink, jtag_chain_healthy
 _CONSECUTIVE_FAILS_TO_STOP = 3
 
 
+@dataclass(frozen=True)
+class RunContext:
+    """The orchestration state shared by every test of a suite.
+
+    Parameters
+    ----------
+    cfg : dict of {str: Any}
+        The merged project config.
+    link : JtagLink
+        Which JTAG cable/chip to use.
+    build_dir : Path
+        Directory the RAM dumps are written into.
+    root : Path
+        The consuming project's root directory.
+    project_dir : Path
+        Path to the Quartus project directory.
+    """
+
+    cfg: dict[str, Any]
+    link: JtagLink
+    build_dir: Path
+    root: Path
+    project_dir: Path
+
+
+@dataclass(frozen=True)
+class SuiteOptions:
+    """The optional behaviors of run_suite.
+
+    Parameters
+    ----------
+    reconfigure : bool, optional
+        If True (the default), compile+program the board once before
+        running any test. If False, assume the board is ALREADY
+        correctly programmed; only use it when you are sure, since a
+        wrong guess looks like every test timing out.
+    results_path : Path, optional
+        If given, write the results here as JSON ({test_name: passed})
+        after every single test. None (the default) persists nothing.
+    results_so_far : dict of {str: bool}, optional
+        Results of an earlier, interrupted invocation covering entries
+        NOT in this call's manifest, merged into the returned dict and
+        into results_path.
+    wait_for_hardware : bool, optional
+        If False (the default), a NeedsHumanInterventionError stops
+        the suite. If True, block until the JTAG chain is healthy
+        again, then retry the step that failed.
+    durations : dict of {str: float}, optional
+        If given, mutated in place with the wall-clock seconds of each
+        test actually run.
+    skip_recompile : bool, optional
+        Only meaningful when reconfigure is True. If True, the initial
+        step is quartus_program.program_only (reprogram the already
+        built .sof) instead of a full recompile. Safe only when the
+        VHDL source has not changed since that .sof was built.
+    """
+
+    reconfigure: bool = True
+    results_path: Path | None = None
+    results_so_far: dict[str, bool] | None = None
+    wait_for_hardware: bool = False
+    durations: dict[str, float] | None = None
+    skip_recompile: bool = False
+
+
+@dataclass(frozen=True)
+class SweepJob:
+    """What a clock frequency sweep needs besides the frequencies.
+
+    Parameters
+    ----------
+    cfg : dict of {str: Any}
+        The merged project config, using freq_sweep.*, quartus.* and
+        memory.ram_base.
+    link : JtagLink
+        Which JTAG cable/chip to use.
+    mif_path : Path
+        The .mif to bake in as the ROM's init_file at every candidate
+        frequency: the same fixed test program is used each time.
+    golden_path : Path
+        The golden JSON the post-run RAM dump is compared against.
+    project_dir : Path
+        Path to the Quartus project directory.
+    build_dir : Path
+        Directory the RAM dump of each frequency is written into.
+    """
+
+    cfg: dict[str, Any]
+    link: JtagLink
+    mif_path: Path
+    golden_path: Path
+    project_dir: Path
+    build_dir: Path
+
+
 class NeedsHumanInterventionError(Exception):
-    """A JTAG/hardware failure that no automated retry can fix — needs a power-cycle.
+    """A JTAG/hardware failure that no retry can fix.
+
+    It needs a power-cycle.
 
     Raised by _run_with_recovery when a subprocess failure's own error
     text matches a known "the board/cable itself is unreachable"
@@ -80,7 +178,9 @@ _HARDWARE_FAILURE_SIGNATURES = (
 
 
 def _is_hardware_failure(exc: subprocess.CalledProcessError) -> bool:
-    """Check whether exc's own output matches a known JTAG/cable failure signature.
+    """Check whether exc matches a known JTAG/cable failure.
+
+    Only the output of exc itself is checked for the signature.
 
     Parameters
     ----------
@@ -120,7 +220,9 @@ def _raise_if_hardware_failure(exc: subprocess.CalledProcessError) -> None:
 def run_test_via_jtag(
     cfg: dict[str, Any], link: JtagLink, entry: dict[str, Any], root: Path
 ) -> int | None:
-    """Load entry's ROM and pulse the restart flag, then poll the mailbox.
+    """Load the ROM of entry and pulse the restart flag.
+
+    Then it polls the mailbox.
 
     Loads entry's ROM and pulses the restart flag on the
     already-programmed board, then polls the mailbox up to entry's
@@ -149,15 +251,18 @@ def run_test_via_jtag(
         signals completion, or None if entry["timeout_s"] elapses
         first.
     """
-    # The core is parked after the previous test: clear its mailbox first, so the
-    # host never mistakes that test's result for this one's.
+    # The core is parked after the previous test: clear its mailbox
+    # first, so the host never mistakes that test's result for this
+    # one's.
     mailbox.clear_mailbox(
         link,
         ram_target.target_from_config(cfg),
         cfg["memory"]["ram_base"],
         cfg["memory"]["mailbox_addr"],
     )
-    rom_writer.write_rom(link, cfg["quartus"]["rom_mem_instances"], root / entry["mif"])
+    rom_writer.write_rom(
+        link, cfg["quartus"]["rom_mem_instances"], root / entry["mif"]
+    )
     mailbox.pulse_go_flag(
         link,
         ram_target.target_from_config(cfg),
@@ -187,7 +292,9 @@ def full_reconfigure_entry(
     root: Path,
     project_dir: Path,
 ) -> None:
-    """Pull quartus_program.full_reconfigure's arguments out of cfg/entry.
+    """Pull the arguments of full_reconfigure out of cfg/entry.
+
+    They are the arguments of quartus_program.full_reconfigure.
 
     Thin adapter so callers don't have to.
 
@@ -213,19 +320,20 @@ def full_reconfigure_entry(
     None
     """
     quartus_program.full_reconfigure(
-        hardware_name=link.hardware_name,
-        project_dir=project_dir,
-        project_name=cfg["quartus"]["project_name"],
-        sof_file=cfg["quartus"]["sof_file"],
-        rom_mif_target=cfg["quartus"]["rom_mif_target"],
-        stale_cache_dirs=cfg["quartus"]["stale_cache_dirs"],
-        rom_mif_path=root / entry["mif"],
+        project=quartus_program.QuartusProject(
+            hardware_name=link.hardware_name,
+            project_dir=project_dir,
+            project_name=cfg["quartus"]["project_name"],
+            sof_file=cfg["quartus"]["sof_file"],
+            stale_cache_dirs=cfg["quartus"]["stale_cache_dirs"],
+        ),
+        rom=quartus_program.MifInit(
+            target=cfg["quartus"]["rom_mif_target"],
+            path=root / entry["mif"],
+        ),
     )
 
 
-# cfg/link/entry/build_dir/root/project_dir are each an independent
-# piece of orchestration state — not bundleable without a wrapper
-# object this module doesn't otherwise need.
 def _run_with_recovery(
     cfg: dict[str, Any],
     link: JtagLink,
@@ -274,7 +382,8 @@ def _run_with_recovery(
     cfg : dict of {str: Any}
         The merged project config — see run_test_via_jtag and
         full_reconfigure_entry for the fields used, plus
-        quartus.program_wait_seconds (wait after the tier-3 reconfigure).
+        quartus.program_wait_seconds (wait after the tier-3
+        reconfigure).
     link : JtagLink
         Which JTAG cable/chip to use.
     entry : dict of {str: Any}
@@ -397,13 +506,9 @@ def _run_with_recovery(
         return None
 
 
-def run_one(  # noqa: PLR0913, PLR0917
-    cfg: dict[str, Any],
-    link: JtagLink,
+def run_one(
+    ctx: RunContext,
     entry: dict[str, Any],
-    build_dir: Path,
-    root: Path,
-    project_dir: Path,
     *,
     position: tuple[int, int] | None = None,
     duration: dict[str, float] | None = None,
@@ -424,25 +529,17 @@ def run_one(  # noqa: PLR0913, PLR0917
 
     Parameters
     ----------
-    cfg : dict of {str: Any}
-        The merged project config — see run_test_via_jtag and
-        full_reconfigure_entry for the fields used, plus
-        quartus.program_wait_seconds (wait after the fallback
-        reconfigure).
-    link : JtagLink
-        Which JTAG cable/chip to use.
+    ctx : RunContext
+        The shared state: the merged project config (see
+        run_test_via_jtag and full_reconfigure_entry for the fields
+        used, plus quartus.program_wait_seconds), the JTAG link, the
+        directory of this test's RAM dump (build_dir/<name>_ram.mif,
+        for "memory" tests), the project root (entry["mif"] and
+        entry["golden"] are relative to it) and the Quartus project
+        directory (used only if the JTAG-reload path times out).
     entry : dict of {str: Any}
         One manifest entry — uses "name", "march", "kind",
         "timeout_s", "mif", and (for "memory" tests) "golden".
-    build_dir : Path
-        Directory to write this test's RAM dump into
-        (build_dir/<name>_ram.mif), for "memory" tests.
-    root : Path
-        The consuming project's root directory, entry["mif"]/
-        entry["golden"] are relative to this.
-    project_dir : Path
-        Path to the Quartus project directory, used only if the
-        JTAG-reload path times out.
     position : tuple of (int, int), keyword-only, optional
         (index, total) — this test's 1-based position in the overall
         suite and the suite's total size, shown in the printed header
@@ -477,7 +574,9 @@ def run_one(  # noqa: PLR0913, PLR0917
     )
     start = time.monotonic()
 
-    value = _run_with_recovery(cfg, link, entry, root, project_dir)
+    value = _run_with_recovery(
+        ctx.cfg, ctx.link, entry, ctx.root, ctx.project_dir
+    )
 
     if value == mailbox.PASS:
         print(f"{name}: PASS")
@@ -487,28 +586,32 @@ def run_one(  # noqa: PLR0913, PLR0917
         passed = False
     else:
         print(
-            f"{name}: TIMEOUT/UNKNOWN (mailbox={value}); program may not have finished"
+            f"{name}: TIMEOUT/UNKNOWN (mailbox={value}); program may not have "
+            "finished"
         )
         passed = False
 
     if entry["kind"] == "memory":
         # Same classification as _run_with_recovery's own tiers: a
         # recognized hardware-failure signature here raises
-        # NeedsHumanInterventionError too, same as everywhere else — this
-        # was the one JTAG call in run_one that wasn't covered by that
-        # logic.
+        # NeedsHumanInterventionError too, same as everywhere else —
+        # this was the one JTAG call in run_one that wasn't covered by
+        # that logic.
+        golden = ctx.root / entry["golden"]
         try:
-            dump_path = build_dir / f"{name}_ram.mif"
+            dump_path = ctx.build_dir / f"{name}_ram.mif"
             ram_dump.dump_ram(
-                link,
-                ram_target.target_from_config(cfg),
+                ctx.link,
+                ram_target.target_from_config(ctx.cfg),
                 dump_path,
-                mem_validator.golden_word_offsets(root / entry["golden"]),
+                mem_validator.golden_word_offsets(golden),
             )
-            passed = mem_validator.compare(dump_path, root / entry["golden"]) and passed
+            passed = mem_validator.compare(dump_path, golden) and passed
         except subprocess.CalledProcessError as exc:
             _raise_if_hardware_failure(exc)
-            print(f"{name}: RAM dump failed ({exc}); can't verify memory content")
+            print(
+                f"{name}: RAM dump failed ({exc}); can't verify memory content"
+            )
             passed = False
 
     duration_s = time.monotonic() - start
@@ -518,18 +621,21 @@ def run_one(  # noqa: PLR0913, PLR0917
     return passed
 
 
-# Same rationale as run_one above: each arg is independent
-# orchestration state.
 # How often run_suite's wait_for_hardware mode polls `jtagconfig` while
 # blocked waiting for a human to physically fix the board.
 _HARDWARE_WAIT_POLL_S = 5.0
 
 
-def _wait_for_hardware_healthy(poll_interval_s: float = _HARDWARE_WAIT_POLL_S) -> None:
-    """Block, polling jtag.jtag_chain_healthy, until the JTAG chain recovers.
+def _wait_for_hardware_healthy(
+    poll_interval_s: float = _HARDWARE_WAIT_POLL_S,
+) -> None:
+    """Block until the JTAG chain recovers.
 
-    Meant to be called right after printing a NeedsHumanInterventionError's
-    message, only when the caller (run_suite's wait_for_hardware=True)
+    It polls jtag.jtag_chain_healthy while waiting.
+
+    Meant to be called right after printing a
+    NeedsHumanInterventionError's message, only when the caller
+    (run_suite's wait_for_hardware=True)
     wants to stay running instead of exiting — the person fixing the
     board (typically a physical power-cycle) is assumed to be watching
     this process's own output, not some separate re-invocation.
@@ -550,115 +656,40 @@ def _wait_for_hardware_healthy(poll_interval_s: float = _HARDWARE_WAIT_POLL_S) -
     print("jtagconfig reports the chain is healthy again — resuming.")
 
 
-def run_suite(  # noqa: PLR0912, PLR0913, PLR0915, PLR0917
-    cfg: dict[str, Any],
-    link: JtagLink,
+def run_suite(
+    ctx: RunContext,
     manifest: list[dict[str, Any]],
-    build_dir: Path,
-    root: Path,
-    project_dir: Path,
-    *,
-    reconfigure: bool = True,
-    results_path: Path | None = None,
-    results_so_far: dict[str, bool] | None = None,
-    wait_for_hardware: bool = False,
-    durations: dict[str, float] | None = None,
-    skip_recompile: bool = False,
+    options: SuiteOptions | None = None,
 ) -> dict[str, bool]:
     """Run every test in manifest against real hardware.
 
     Compiles and programs the board once, then runs each entry via
     run_one, in order — stopping immediately (not raising) the moment
-    any test raises NeedsHumanInterventionError, since no automated retry
-    recovers from that (see run_one/_run_with_recovery). If
-    results_path is given, every test's result is written there as
-    soon as it's known — including the stop point itself — so a
-    caller can detect an incomplete run (len(returned dict) <
-    len(manifest)) and resume later: re-invoke with a
-    caller-filtered manifest of just the untested entries (see
-    cli.cmd_run's --resume) plus results_so_far set to what
-    results_path already held, to get a single combined dict back
-    covering the whole original manifest across both invocations.
+    any test raises NeedsHumanInterventionError, since no automated
+    retry recovers from that (see run_one/_run_with_recovery). If
+    options.results_path is given, every test's result is written
+    there as soon as it's known — including the stop point itself — so
+    a caller can detect an incomplete run (len(returned dict) <
+    len(manifest)) and resume later: re-invoke with a caller-filtered
+    manifest of just the untested entries (see cli.cmd_run's --resume)
+    plus options.results_so_far set to what results_path already held,
+    to get a single combined dict back covering the whole original
+    manifest across both invocations.
 
     Parameters
     ----------
-    cfg : dict of {str: Any}
-        The merged project config, forwarded to
-        full_reconfigure_entry/run_one.
-    link : JtagLink
-        Which JTAG cable/chip to use.
+    ctx : RunContext
+        The shared state, forwarded to full_reconfigure_entry/run_one.
     manifest : list of dict of {str: Any}
         The test list to run (typically compile --emit mif's full
         manifest.json, but may be a caller-filtered subset — see
-        cli.cmd_run's --only) — must be non-empty; when reconfigure is
-        True, manifest[0]'s ROM is what gets baked into the initial
-        compile.
-    build_dir : Path
-        Forwarded to run_one (RAM dump output directory).
-    root : Path
-        The consuming project's root directory, forwarded to
-        run_one/full_reconfigure_entry.
-    project_dir : Path
-        Path to the Quartus project directory, forwarded to
-        run_one/full_reconfigure_entry.
-    reconfigure : bool, keyword-only, optional
-        If True (the default), compile+program the board once via
-        full_reconfigure_entry before running any test — the normal,
-        safe-by-default path, needed whenever the board isn't known to
-        already be running a compatible bitstream. If False, skip
-        straight to run_one for every entry, assuming the board is
-        ALREADY correctly programmed (e.g. re-running a handful of
-        tests that failed earlier in the same session, via --only,
-        without wanting to risk another compile+quartus_pgm cycle —
-        see HARDWARE_PROGRAMMING.md for why that step is the fragile
-        one). Getting this wrong (board not actually programmed, or
-        programmed with an incompatible/stale bitstream) looks like
-        every test timing out waiting for its mailbox, not a clean
-        error — only pass False when you're sure.
-    results_path : Path, optional
-        If given, write results here as JSON ({test_name: passed})
-        after every single test — not just at the end — so progress
-        survives a NeedsHumanInterventionError stop (or, for that matter, a
-        crash/kill of this process itself). None (the default) means
-        don't persist anything.
-    results_so_far : dict of {str: bool}, optional
-        Results from an earlier, interrupted invocation covering
-        entries NOT in this call's manifest — merged into both the
-        returned dict and whatever gets written to results_path, so
-        callers resuming a stopped run get one complete picture back
-        instead of having to merge dicts themselves. None (the
-        default) is equivalent to an empty dict.
-    wait_for_hardware : bool, keyword-only, optional
-        If False (the default), a NeedsHumanInterventionError still
-        stops the suite and returns immediately — the right behavior
-        for CI, which can't power-cycle a board on its own and
-        shouldn't block a runner indefinitely. If True, instead of
-        returning, this prints the same message, blocks polling
-        jtag.jtag_chain_healthy every few seconds (see
-        _wait_for_hardware_healthy) until the chain recovers — meant
-        for an interactive local session someone is actively watching,
-        physically fixing the board (e.g. power-cycling it) — then
-        automatically retries the exact step that failed and continues
-        the suite, no re-invocation needed.
-    durations : dict of {str: float}, keyword-only, optional
-        If given, mutated in place with each actually-run test's own
-        wall-clock seconds (see run_one's own duration param) — for a
-        caller (cli.cmd_run) that wants to show per-test timing in its
-        summary without changing this function's own return type.
-        None (the default) skips it.
-    skip_recompile : bool, keyword-only, optional
-        Only meaningful when reconfigure is True. If True, the initial
-        reconfigure step goes straight to quartus_program.program_only
-        (reprogram from the already-built .sof, ~10s) instead of
-        full_reconfigure_entry (quartus_sh --flow compile && quartus_pgm,
-        several minutes) — safe only when the VHDL source hasn't
-        changed since that .sof was built. Repeated full recompiles in
-        one session have been observed to destabilize the JTAG chain
-        (see HARDWARE_PROGRAMMING.md), so this lets a caller who just
-        power-cycled the board (losing the SRAM-based FPGA's
-        configuration, not its .sof) skip straight to reprogramming.
-        False (the default) always does a full recompile on the first
-        attempt, same as before this parameter existed.
+        cli.cmd_run's --only) — must be non-empty; when
+        options.reconfigure is True, manifest[0]'s ROM is what gets
+        baked into the initial compile.
+    options : SuiteOptions, optional
+        The optional behaviors (reconfigure, persistence, resume,
+        waiting for the hardware, durations, skip_recompile). None
+        (the default) means SuiteOptions().
 
     Returns
     -------
@@ -676,37 +707,83 @@ def run_suite(  # noqa: PLR0912, PLR0913, PLR0915, PLR0917
     """
     if not manifest:
         raise ValueError("Manifest is empty; nothing to run")
+    suite = _SuiteRun(ctx, manifest, options or SuiteOptions())
+    if suite.options.reconfigure and not suite.reconfigure():
+        return suite.results
+    suite.run_entries()
+    return suite.results
 
-    results: dict[str, bool] = dict(results_so_far or {})
 
-    def _persist() -> None:
-        if results_path is not None:
-            results_path.parent.mkdir(parents=True, exist_ok=True)
-            results_path.write_text(json.dumps(results, indent=2))
+class _SuiteRun:
+    """The state and steps of one run_suite call.
 
-    def _handle_hi(name: str, exc: NeedsHumanInterventionError) -> bool:
-        """Report a hardware stop; return True if the caller should retry.
+    Parameters
+    ----------
+    ctx : RunContext
+        The shared state.
+    manifest : list of dict of {str: Any}
+        The non-empty test list.
+    options : SuiteOptions
+        The optional behaviors.
+    """
+
+    def __init__(
+        self,
+        ctx: RunContext,
+        manifest: list[dict[str, Any]],
+        options: SuiteOptions,
+    ) -> None:
+        self.ctx = ctx
+        self.manifest = manifest
+        self.options = options
+        self.already_done = len(options.results_so_far or {})
+        self.results: dict[str, bool] = dict(options.results_so_far or {})
+
+    def persist(self) -> None:
+        """Write the results so far, if a results path was given."""
+        path = self.options.results_path
+        if path is not None:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(self.results, indent=2))
+
+    def handle_hardware_stop(
+        self, name: str, exc: NeedsHumanInterventionError
+    ) -> bool:
+        """Report a hardware stop.
 
         Always persists progress and prints exc. If wait_for_hardware,
         blocks in _wait_for_hardware_healthy and returns True (retry
-        the step that just failed) instead of False (stop the suite,
-        caller returns `results` as-is).
+        the step that just failed) instead of False (stop the suite).
+
+        Parameters
+        ----------
+        name : str
+            The test (or step) that hit the failure.
+        exc : NeedsHumanInterventionError
+            The failure.
+
+        Returns
+        -------
+        bool
+            True if the caller should retry.
         """
-        _persist()
-        already_done = len(results_so_far or {})
-        remaining = len(manifest) - (len(results) - already_done)
+        self.persist()
+        wait = self.options.wait_for_hardware
+        remaining = len(self.manifest) - (
+            len(self.results) - self.already_done
+        )
         action = (
             "waiting for the board to come back"
-            if wait_for_hardware
+            if wait
             else "stopping the suite"
         )
         print(
             f"\n{name}: {action} — {exc}\n"
             f"This needs a physical power-cycle of the board, not "
-            f"another retry. {len(results)} test(s) done, {remaining} "
-            f"remaining (including this one)."
+            f"another retry. {len(self.results)} test(s) done, "
+            f"{remaining} remaining (including this one)."
         )
-        if not wait_for_hardware:
+        if not wait:
             print(
                 "Once the board is back (`jtagconfig` shows it healthy "
                 "again), re-run the exact same command to resume from "
@@ -716,97 +793,151 @@ def run_suite(  # noqa: PLR0912, PLR0913, PLR0915, PLR0917
         _wait_for_hardware_healthy()
         return True
 
-    if reconfigure:
+    def reconfigure(self) -> bool:
+        """Compile and program the board once, before any test.
+
+        Returns
+        -------
+        bool
+            False if the suite must stop on a hardware failure.
+        """
         print("Compiling and programming the board once ...")
-        already_compiled = skip_recompile
+        already_compiled = self.options.skip_recompile
         while True:
             try:
-                if already_compiled:
-                    # A previous attempt in this same loop already got
-                    # quartus_sh --flow compile to succeed — the
-                    # signatures _raise_if_hardware_failure matches are
-                    # all quartus_pgm/quartus_stp text, never emitted
-                    # unless compile already finished (the bash -c
-                    # chain's own `&&` would short-circuit before
-                    # quartus_pgm ever ran otherwise) — so the .sof is
-                    # known-good and unchanged; only reprogramming needs
-                    # retrying, not another several-minute recompile of
-                    # an identical design.
-                    quartus_program.program_only(
-                        hardware_name=link.hardware_name,
-                        project_dir=project_dir,
-                        sof_file=cfg["quartus"]["sof_file"],
-                    )
-                else:
-                    full_reconfigure_entry(cfg, link, manifest[0], root, project_dir)
-                break
+                self._reconfigure_once(already_compiled)
+                return True
             except subprocess.CalledProcessError as exc:
                 already_compiled = True
-                # Unlike run_one's own tiers, there's no retry path for
-                # the initial reconfigure itself — either this is a
-                # known JTAG/cable signature (handle it the same way
-                # as every other call site) or it's a real
-                # build/hardware problem, which should still propagate
-                # as a hard failure.
-                try:
-                    _raise_if_hardware_failure(exc)
-                except NeedsHumanInterventionError as hi_exc:
-                    if _handle_hi(manifest[0]["name"], hi_exc):
-                        continue
-                    return results
-                raise
+                if not self._can_retry(exc):
+                    return False
 
-    # 1-based position across the ORIGINAL manifest, not just this
-    # invocation's (possibly resumed/already-filtered) one — a resume
-    # restarting the header count at "[1/N]" would understate both how
-    # far along the suite actually is and what N even means.
-    already_done = len(results_so_far or {})
-    total = already_done + len(manifest)
-    show_display = bool(cfg.get("orchestrator", {}).get("board_display", False))
-    if show_display and not already_done:
-        # a new session starts without a failure; a resumed one keeps the flag it had
-        display.write_fail(link, False)
-    for i, entry in enumerate(manifest, start=already_done + 1):
-        if show_display:
-            # the number of the program in the session, in decimal, on the six digits
-            display.write_display(link, display.encode_test(i))
+    def _reconfigure_once(self, already_compiled: bool) -> None:
+        """Run one attempt of the initial reconfigure.
+
+        A previous attempt that already got quartus_sh --flow compile
+        to succeed leaves a known-good .sof, because the signatures
+        _raise_if_hardware_failure matches are all quartus_pgm/
+        quartus_stp text, never emitted unless the compile finished.
+        Then only the reprogramming needs retrying, not another
+        several-minute recompile of an identical design.
+
+        Parameters
+        ----------
+        already_compiled : bool
+            Whether to reprogram the existing .sof only.
+        """
+        ctx = self.ctx
+        if already_compiled:
+            quartus_program.program_only(
+                hardware_name=ctx.link.hardware_name,
+                project_dir=ctx.project_dir,
+                sof_file=ctx.cfg["quartus"]["sof_file"],
+            )
+        else:
+            full_reconfigure_entry(
+                ctx.cfg,
+                ctx.link,
+                self.manifest[0],
+                ctx.root,
+                ctx.project_dir,
+            )
+
+    def _can_retry(self, exc: subprocess.CalledProcessError) -> bool:
+        """Classify a failure of the initial reconfigure.
+
+        Unlike run_one's own tiers, there's no retry path for the
+        initial reconfigure itself: either this is a known JTAG/cable
+        signature (handled like every other call site) or it's a real
+        build/hardware problem, which still propagates as a hard
+        failure.
+
+        Parameters
+        ----------
+        exc : subprocess.CalledProcessError
+            The failure.
+
+        Returns
+        -------
+        bool
+            True to retry, False to stop the suite.
+
+        Raises
+        ------
+        subprocess.CalledProcessError
+            exc itself, when it is not a known hardware failure.
+        """
+        try:
+            _raise_if_hardware_failure(exc)
+        except NeedsHumanInterventionError as hi_exc:
+            return self.handle_hardware_stop(self.manifest[0]["name"], hi_exc)
+        raise exc
+
+    def run_entries(self) -> None:
+        """Run every manifest entry, stopping on a hardware failure."""
+        # 1-based position across the ORIGINAL manifest, not just this
+        # invocation's (possibly resumed/already-filtered) one — a
+        # resume restarting the header count at "[1/N]" would
+        # understate both how far along the suite actually is and what
+        # N even means.
+        total = self.already_done + len(self.manifest)
+        show = bool(
+            self.ctx.cfg.get("orchestrator", {}).get("board_display", False)
+        )
+        if show and not self.already_done:
+            # a new session starts without a failure; a resumed one
+            # keeps the flag it had
+            display.write_fail(self.ctx.link, False)
+        for i, entry in enumerate(self.manifest, start=self.already_done + 1):
+            if show:
+                # the number of the program in the session, in
+                # decimal, on the six digits
+                display.write_display(self.ctx.link, display.encode_test(i))
+            if not self._run_entry(entry, (i, total), show):
+                return
+            self.persist()
+
+    def _run_entry(
+        self, entry: dict[str, Any], position: tuple[int, int], show: bool
+    ) -> bool:
+        """Run one entry, retrying after a hardware stop if asked.
+
+        Parameters
+        ----------
+        entry : dict of {str: Any}
+            The manifest entry.
+        position : tuple of (int, int)
+            (index, total) of the entry in the whole suite.
+        show : bool
+            Whether the board display follows the suite.
+
+        Returns
+        -------
+        bool
+            False if the suite must stop.
+        """
+        name = entry["name"]
         while True:
             try:
-                results[entry["name"]] = run_one(
-                    cfg,
-                    link,
+                passed = run_one(
+                    self.ctx,
                     entry,
-                    build_dir,
-                    root,
-                    project_dir,
-                    position=(i, total),
-                    duration=durations,
+                    position=position,
+                    duration=self.options.durations,
                 )
-                if show_display and not results[entry["name"]]:
-                    # the first red LED stays lit once any program has failed
-                    display.write_fail(link, True)
-                break
             except NeedsHumanInterventionError as exc:
-                if _handle_hi(entry["name"], exc):
+                if self.handle_hardware_stop(name, exc):
                     continue
-                return results
-        _persist()
+                return False
+            self.results[name] = passed
+            if show and not passed:
+                # the first red LED stays lit once any program has
+                # failed
+                display.write_fail(self.ctx.link, True)
+            return True
 
-    return results
 
-
-# cfg/link/mif_path/golden_path/project_dir/build_dir are each an
-# independent piece of orchestration state — not bundleable without a
-# wrapper object this module doesn't otherwise need.
-def run_freq_sweep_at(  # noqa: PLR0913, PLR0917
-    cfg: dict[str, Any],
-    link: JtagLink,
-    mhz: float,
-    mif_path: Path,
-    golden_path: Path,
-    project_dir: Path,
-    build_dir: Path,
-) -> dict[str, Any]:
+def run_freq_sweep_at(job: SweepJob, mhz: float) -> dict[str, Any]:
     """Test the board at one candidate clock frequency.
 
     Edits the project's PLL to mhz (see freq_sweep.set_pll_freq), then
@@ -815,30 +946,19 @@ def run_freq_sweep_at(  # noqa: PLR0913, PLR0917
     time, so unlike run_one's per-test loop there's no faster
     JTAG-reload path available here — waits
     quartus.program_wait_seconds, dumps RAM, and compares it against
-    golden_path.
+    job.golden_path.
 
     Parameters
     ----------
-    cfg : dict of {str: Any}
-        The merged project config — uses freq_sweep.* (see
-        freq_sweep.__config__) and quartus.*/memory.ram_base (see
-        full_reconfigure_entry/run_one for the quartus.* fields).
-    link : JtagLink
-        Which JTAG cable/chip to use.
+    job : SweepJob
+        The sweep's shared state: the merged project config (uses
+        freq_sweep.* — see freq_sweep.__config__ — and quartus.*/
+        memory.ram_base), the JTAG link, the .mif to bake in, the
+        golden JSON the RAM dump is compared against (see
+        mem_validator.compare), the Quartus project directory and the
+        directory of the RAM dump (build_dir/freq_<mhz>mhz_ram.mif).
     mhz : float
         Candidate clock frequency to test, in MHz.
-    mif_path : Path
-        Path to the .mif to bake in as the ROM's init_file for this
-        test — the same fixed test program is used at every candidate
-        frequency.
-    golden_path : Path
-        Path to the golden JSON the post-run RAM dump is compared
-        against (see mem_validator.compare).
-    project_dir : Path
-        Path to the Quartus project directory.
-    build_dir : Path
-        Directory to write this frequency's RAM dump into
-        (build_dir/freq_<mhz>mhz_ram.mif).
 
     Returns
     -------
@@ -850,26 +970,34 @@ def run_freq_sweep_at(  # noqa: PLR0913, PLR0917
         doesn't abort a whole sweep), or "dump_fail" (the RAM dump
         itself failed after programming succeeded).
     """
+    cfg = job.cfg
+    link = job.link
     fs_cfg = cfg["freq_sweep"]
     freq_sweep.set_pll_freq(
         pll_file=Path(fs_cfg["pll_file"]),
         mhz=mhz,
-        phase_count=fs_cfg["phase_count"],
-        freq_param_template=fs_cfg["freq_param_template"],
-        phase_param_template=fs_cfg["phase_param_template"],
-        freq_unit=fs_cfg["freq_unit"],
-        phase_unit=fs_cfg["phase_unit"],
+        params=freq_sweep.PllParams(
+            phase_count=fs_cfg["phase_count"],
+            freq_param_template=fs_cfg["freq_param_template"],
+            phase_param_template=fs_cfg["phase_param_template"],
+            freq_unit=fs_cfg["freq_unit"],
+            phase_unit=fs_cfg["phase_unit"],
+        ),
     )
 
     try:
         quartus_program.full_reconfigure(
-            hardware_name=link.hardware_name,
-            project_dir=project_dir,
-            project_name=cfg["quartus"]["project_name"],
-            sof_file=cfg["quartus"]["sof_file"],
-            rom_mif_target=cfg["quartus"]["rom_mif_target"],
-            stale_cache_dirs=cfg["quartus"]["stale_cache_dirs"],
-            rom_mif_path=mif_path,
+            project=quartus_program.QuartusProject(
+                hardware_name=link.hardware_name,
+                project_dir=job.project_dir,
+                project_name=cfg["quartus"]["project_name"],
+                sof_file=cfg["quartus"]["sof_file"],
+                stale_cache_dirs=cfg["quartus"]["stale_cache_dirs"],
+            ),
+            rom=quartus_program.MifInit(
+                target=cfg["quartus"]["rom_mif_target"],
+                path=job.mif_path,
+            ),
         )
     except subprocess.CalledProcessError:
         print(f"{mhz} MHz: compile/program failed")
@@ -879,55 +1007,40 @@ def run_freq_sweep_at(  # noqa: PLR0913, PLR0917
     print(f"Waiting {wait_s}s for the program to run ...")
     time.sleep(wait_s)
 
-    dump_path = build_dir / f"freq_{mhz}mhz_ram.mif"
+    dump_path = job.build_dir / f"freq_{mhz}mhz_ram.mif"
     try:
         ram_dump.dump_ram(
             link,
             ram_target.target_from_config(cfg),
             dump_path,
-            mem_validator.golden_word_offsets(golden_path),
+            mem_validator.golden_word_offsets(job.golden_path),
         )
     except subprocess.CalledProcessError:
         print(f"{mhz} MHz: RAM dump failed")
         return {"freq_mhz": mhz, "status": "dump_fail"}
 
-    passed = mem_validator.compare(dump_path, golden_path)
+    passed = mem_validator.compare(dump_path, job.golden_path)
     status = "pass" if passed else "fail"
     print(f"{mhz} MHz: {status.upper()}")
     return {"freq_mhz": mhz, "status": status}
 
 
-# Same rationale as run_freq_sweep_at above: each arg is independent
-# orchestration state.
-def run_freq_sweep_linear(  # noqa: PLR0913, PLR0917
-    cfg: dict[str, Any],
-    link: JtagLink,
-    mif_path: Path,
-    golden_path: Path,
-    project_dir: Path,
-    build_dir: Path,
+def run_freq_sweep_linear(
+    job: SweepJob,
     start: float,
     stop: float,
     step: float,
 ) -> list[dict[str, Any]]:
-    """Sweep clock frequency linearly from start to stop, in step increments.
+    """Sweep the clock frequency linearly from start to stop.
+
+    The sweep goes in step increments.
 
     Stops early once _CONSECUTIVE_FAILS_TO_STOP candidates in a row
     fail (see module docstring).
 
     Parameters
     ----------
-    cfg : dict of {str: Any}
-        Forwarded to run_freq_sweep_at.
-    link : JtagLink
-        Which JTAG cable/chip to use.
-    mif_path : Path
-        Forwarded to run_freq_sweep_at.
-    golden_path : Path
-        Forwarded to run_freq_sweep_at.
-    project_dir : Path
-        Forwarded to run_freq_sweep_at.
-    build_dir : Path
+    job : SweepJob
         Forwarded to run_freq_sweep_at.
     start : float
         First candidate frequency, in MHz.
@@ -945,9 +1058,7 @@ def run_freq_sweep_linear(  # noqa: PLR0913, PLR0917
     results: list[dict[str, Any]] = []
     mhz = start
     while mhz <= stop + 1e-6:
-        result = run_freq_sweep_at(
-            cfg, link, round(mhz, 3), mif_path, golden_path, project_dir, build_dir
-        )
+        result = run_freq_sweep_at(job, round(mhz, 3))
         results.append(result)
 
         recent = results[-_CONSECUTIVE_FAILS_TO_STOP:]
@@ -965,34 +1076,19 @@ def run_freq_sweep_linear(  # noqa: PLR0913, PLR0917
     return results
 
 
-# Same rationale as run_freq_sweep_at above: each arg is independent
-# orchestration state.
-def run_freq_sweep_binary(  # noqa: PLR0913, PLR0917
-    cfg: dict[str, Any],
-    link: JtagLink,
-    mif_path: Path,
-    golden_path: Path,
-    project_dir: Path,
-    build_dir: Path,
+def run_freq_sweep_binary(
+    job: SweepJob,
     low: float,
     high: float,
     tolerance: float = 0.5,
 ) -> list[dict[str, Any]]:
-    """Binary-search for Fmax between low (expected PASS) and high (expected FAIL).
+    """Binary-search for Fmax between low and high.
+
+    The low end is expected to PASS and the high end to FAIL.
 
     Parameters
     ----------
-    cfg : dict of {str: Any}
-        Forwarded to run_freq_sweep_at.
-    link : JtagLink
-        Which JTAG cable/chip to use.
-    mif_path : Path
-        Forwarded to run_freq_sweep_at.
-    golden_path : Path
-        Forwarded to run_freq_sweep_at.
-    project_dir : Path
-        Forwarded to run_freq_sweep_at.
-    build_dir : Path
+    job : SweepJob
         Forwarded to run_freq_sweep_at.
     low : float
         Lower bound, in MHz — must PASS, or the search aborts (no
@@ -1013,26 +1109,25 @@ def run_freq_sweep_binary(  # noqa: PLR0913, PLR0917
     """
     results: list[dict[str, Any]] = []
 
-    r = run_freq_sweep_at(cfg, link, low, mif_path, golden_path, project_dir, build_dir)
+    r = run_freq_sweep_at(job, low)
     results.append(r)
     if r["status"] != "pass":
         print(f"FAIL at lower bound {low} MHz — aborting binary search")
         return results
 
-    r = run_freq_sweep_at(
-        cfg, link, high, mif_path, golden_path, project_dir, build_dir
-    )
+    r = run_freq_sweep_at(job, high)
     results.append(r)
     if r["status"] == "pass":
-        print(f"PASS at upper bound {high} MHz — Fmax is above {high}, raise --high")
+        print(
+            f"PASS at upper bound {high} MHz — Fmax is above {high}, raise "
+            "--high"
+        )
         return results
 
     lo, hi = low, high
     while (hi - lo) > tolerance:
         mid = round((lo + hi) / 2, 1)
-        r = run_freq_sweep_at(
-            cfg, link, mid, mif_path, golden_path, project_dir, build_dir
-        )
+        r = run_freq_sweep_at(job, mid)
         results.append(r)
         if r["status"] == "pass":
             lo = mid

@@ -1,4 +1,4 @@
-"""Drive cocotb/GHDL simulation, the simulation-side counterpart to `orchestrator`.
+"""Drive cocotb/GHDL simulation, the sim side of `orchestrator`.
 
 `orchestrator` drives real hardware over JTAG instead. Owns no
 DUT-specific knowledge itself — the project's own cocotb test_module
@@ -6,15 +6,10 @@ DUT-specific knowledge itself — the project's own cocotb test_module
 the PASS/FAIL mailbox, the same convention `mailbox` uses for real
 hardware, just read directly from simulated signals instead of JTAG.
 
-cocotb-tools is imported lazily inside the functions below, not at
-module level, so importing riscv_tools doesn't require it to be
-installed for projects that only use the real-hardware side (see
-pyproject.toml: cocotb/cocotb-tools are an optional "sim" extra, not a
-hard dependency). Note cocotb 2.0 split its Python test-runner API
-(get_runner/build/test) out of the main `cocotb` package into a
-separate `cocotb-tools` package, imported as `cocotb_tools.runner` —
-this module targets that (cocotb>=2.0), not the older `cocotb.runner`
-some 1.x docs/examples still reference.
+Note cocotb 2.0 split its Python test-runner API
+(get_runner/build/test) out of the main `cocotb` package into
+`cocotb_tools.runner`; this module targets that (cocotb>=2.0), not the
+older `cocotb.runner` some 1.x docs/examples still reference.
 """
 
 import hashlib
@@ -24,16 +19,22 @@ import re
 import shutil
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, NotRequired, Required, TypedDict, Unpack
+
+from cocotb_tools.check_results import get_results
+from cocotb_tools.runner import VHDL, get_runner
 
 
 def _profile_build_dir(build_dir: Path, sim_cfg: dict[str, Any]) -> Path:
-    """Return a stable, path-safe work directory for one simulation profile."""
+    """Return a stable, path-safe work directory for one profile."""
     toplevel = str(sim_cfg["toplevel"])
     readable = re.sub(r"[^A-Za-z0-9_.-]+", "-", toplevel).strip("._-")
     readable = (readable or "toplevel")[:48]
-    identity = json.dumps(sim_cfg, sort_keys=True, separators=(",", ":"), default=str)
+    identity = json.dumps(
+        sim_cfg, sort_keys=True, separators=(",", ":"), default=str
+    )
     fingerprint = hashlib.sha256(identity.encode()).hexdigest()[:12]
     return build_dir / f"{readable}-{fingerprint}"
 
@@ -61,7 +62,8 @@ def expand_env(text: str) -> str:
     unset = sorted(set(re.findall(r"\$\{?(\w+)\}?", expanded)))
     if unset:
         raise SystemExit(
-            f"{text!r} uses an environment variable that is not set: {', '.join(unset)}"
+            f"{text!r} uses an environment variable that is not set: "
+            f"{', '.join(unset)}"
         )
     return expanded
 
@@ -72,7 +74,7 @@ def build_libraries(
     ghdl_flags: list[str],
     libraries_dir: Path,
 ) -> None:
-    """Analyze each VHDL library into libraries_dir, once for a whole suite.
+    """Analyze each VHDL library into libraries_dir, once per suite.
 
     cocotb_tools.runner builds every source into a single library, so a
     library a design instantiates by name (e.g. altera_mf) is analyzed
@@ -113,24 +115,35 @@ def build_libraries(
         )
 
 
-# Each arg is an independent cocotb/GHDL run setting — not bundleable
-# without a config object this module doesn't otherwise need.
-def run_test(  # noqa: PLR0913, PLR0917
+class RunOptions(TypedDict):
+    """The keyword settings of `run_test` besides the design itself."""
+
+    test_name: Required[str]
+    build_dir: Required[Path]
+    parameters: NotRequired[dict[str, Any] | None]
+    ram_base: NotRequired[int]
+    golden_path: NotRequired[Path | None]
+    ghdl_flags: NotRequired[list[str] | None]
+    libraries_dir: NotRequired[Path | None]
+    run_files: NotRequired[dict[str, Path] | None]
+    extra_env: NotRequired[dict[str, str] | None]
+    ghdl_run_flags: NotRequired[list[str] | None]
+
+
+class BootRomImages(TypedDict, total=False):
+    """The optional boot ROM images that `run_suite` passes on."""
+
+    boot_rom_hex_path: Path | None
+    boot_rom_mif_path: Path | None
+
+
+def run_test(
     toplevel: str,
     vhdl_sources: list[str],
     ghdl_std: str,
     test_module: str,
     hex_path: Path,
-    test_name: str,
-    build_dir: Path,
-    parameters: dict[str, Any] | None = None,
-    ram_base: int = 0,
-    golden_path: Path | None = None,
-    ghdl_flags: list[str] | None = None,
-    libraries_dir: Path | None = None,
-    run_files: dict[str, Path] | None = None,
-    extra_env: dict[str, str] | None = None,
-    ghdl_run_flags: list[str] | None = None,
+    **options: Unpack[RunOptions],
 ) -> bool:
     """Build (if needed) and run one test under cocotb/GHDL.
 
@@ -153,6 +166,9 @@ def run_test(  # noqa: PLR0913, PLR0917
     hex_path : Path
         Path to this test's compiled .hex (from
         bin_to_image.bin_to_hex).
+    **options : Unpack[RunOptions]
+        Keyword settings, described below: `test_name` and `build_dir`
+        are required, the others optional.
     test_name : str
         This test's name (manifest entry "name") — passed through as
         TEST_NAME.
@@ -197,8 +213,8 @@ def run_test(  # noqa: PLR0913, PLR0917
     extra_env : dict of {str: str}, optional
         Environment variables added for the test module (sim.env).
     ghdl_run_flags : list of str, optional
-        GHDL simulation options, which the analyze and elaborate steps reject
-        (for example `--max-stack-alloc=0`).
+        GHDL simulation options, which the analyze and elaborate steps
+        reject (for example `--max-stack-alloc=0`).
 
     Returns
     -------
@@ -213,8 +229,16 @@ def run_test(  # noqa: PLR0913, PLR0917
         completion and failing normally) — see
         cocotb_tools.runner.get_results.
     """
-    from cocotb_tools.check_results import get_results  # noqa: PLC0415
-    from cocotb_tools.runner import VHDL, get_runner  # noqa: PLC0415
+    build_dir = options["build_dir"]
+    test_name = options["test_name"]
+    ram_base = options.get("ram_base", 0)
+    golden_path = options.get("golden_path")
+    parameters = options.get("parameters")
+    ghdl_flags = options.get("ghdl_flags")
+    libraries_dir = options.get("libraries_dir")
+    run_files = options.get("run_files")
+    extra_env = options.get("extra_env")
+    ghdl_run_flags = options.get("ghdl_run_flags")
 
     # Same arguments at every GHDL step: analyze/elaborate and run each
     # need the standard, the extra flags and the libraries' location.
@@ -237,11 +261,11 @@ def run_test(  # noqa: PLR0913, PLR0917
         shutil.copyfile(source, Path(build_dir) / name)
 
     # GHDL's run step (`ghdl -r`) needs --std= too, not just analyze/
-    # elaborate (`-i`/`-m` via build_args above) — confirmed empirically:
-    # without it, `-r` can't find an entity that was analyzed under a
-    # non-default std, since GHDL keeps per-standard library state.
-    # Runner.test() feeds this into `-r` via test_args (see
-    # cocotb_tools.runner.Ghdl: `ghdl_run_args = self.test_args`).
+    # elaborate (`-i`/`-m` via build_args above) — confirmed
+    # empirically: without it, `-r` can't find an entity that was
+    # analyzed under a non-default std, since GHDL keeps per-standard
+    # library state. Runner.test() feeds this into `-r` via test_args
+    # (see cocotb_tools.runner.Ghdl: `ghdl_run_args = self.test_args`).
     #
     # A fixed results_xml name (rather than cocotb's own default,
     # which is derived from the pytest test name when run under
@@ -265,8 +289,8 @@ def run_test(  # noqa: PLR0913, PLR0917
             test_module=test_module,
             build_dir=build_dir,
             test_args=ghdl_args,
-            # GHDL takes a simulation option only after the top-level unit, where cocotb
-            # puts the plusargs
+            # GHDL takes a simulation option only after the top-level
+            # unit, where cocotb puts the plusargs
             plusargs=ghdl_run_flags or [],
             results_xml=str(results_xml),
             extra_env={
@@ -274,7 +298,9 @@ def run_test(  # noqa: PLR0913, PLR0917
                 "ROM_HEX": str(Path(hex_path).resolve()),
                 "TEST_NAME": test_name,
                 "RAM_BASE": str(ram_base),
-                "GOLDEN_PATH": str(Path(golden_path).resolve()) if golden_path else "",
+                "GOLDEN_PATH": str(Path(golden_path).resolve())
+                if golden_path
+                else "",
             },
             parameters=parameters,
         )
@@ -288,22 +314,20 @@ def run_test(  # noqa: PLR0913, PLR0917
     return num_failed == 0
 
 
-# The two boot ROM images are the same kind of independent input as the
-# rest; bundling them would add a type for one caller.
 def extend_python_path(root: Path, entries: list[str]) -> None:
-    """Put directories on the module search path, ahead of what is there.
+    """Put directories on the module search path, ahead of the rest.
 
     The simulation's test module is imported by a cocotb subprocess that
-    inherits `sys.path` from this process, so a module is found only if its
-    directory is on it.
+    inherits `sys.path` from this process, so a module is found only if
+    its directory is on it.
 
     Parameters
     ----------
     root : Path
         The project root that relative entries are resolved against.
     entries : list of str
-        Directories, relative to `root` (or absolute). Ones already on the
-        path are left where they are.
+        Directories, relative to `root` (or absolute). Ones already on
+        the path are left where they are.
 
     Returns
     -------
@@ -316,13 +340,100 @@ def extend_python_path(root: Path, entries: list[str]) -> None:
             sys.path.insert(0, path)
 
 
-def run_suite(  # noqa: PLR0913, PLR0917
+def _resolved(path: Path | None) -> str:
+    """Return a path as an absolute string, or "" when it is None."""
+    return str(path.resolve()) if path else ""
+
+
+@dataclass(frozen=True)
+class _Suite:
+    """What every test of a suite shares, resolved once."""
+
+    cfg: dict[str, Any]
+    root: Path
+    profile_build_dir: Path
+    vhdl_sources: list[str]
+    libraries_dir: Path | None
+    boot_roms: BootRomImages
+
+    def run_entry(self, entry: dict[str, Any]) -> bool:
+        """Run one manifest test under cocotb/GHDL.
+
+        Parameters
+        ----------
+        entry : dict of {str: Any}
+            A manifest entry.
+
+        Returns
+        -------
+        bool
+            Whether the test passed.
+        """
+        sim_cfg = self.sim_cfg
+        name = str(entry["name"])
+        print(f"\n=== {name} ({entry['march']}) ===")
+        image_key = "mif" if sim_cfg["image"] == "mif" else "hex"
+        image_path = self.root / entry[image_key]
+        # Lets a project's own sim.parameters, sim.run_files and
+        # sim.env reference this test's compiled image (e.g. a VHDL
+        # generic that loads the ROM image by path, see
+        # sim_runner.__config__) without hardcoding one. The boot ROM
+        # paths are the SAME for every entry (built once by the
+        # caller); still routed through .format() per test so a
+        # project's config can reference them exactly like the test's
+        # own image, e.g. `BOOT_ROM_FILE: "{boot_rom_hex_path}"`.
+        names = {
+            "hex_path": _resolved(image_path) if image_key == "hex" else "",
+            "mif_path": _resolved(image_path) if image_key == "mif" else "",
+            "boot_rom_hex_path": _resolved(
+                self.boot_roms.get("boot_rom_hex_path")
+            ),
+            "boot_rom_mif_path": _resolved(
+                self.boot_roms.get("boot_rom_mif_path")
+            ),
+        }
+
+        def fill(value: Any) -> Any:
+            return value.format(**names) if isinstance(value, str) else value
+
+        templates: dict[str, Any] = sim_cfg.get("parameters") or {}
+        golden_path = (
+            self.root / entry["golden"] if "golden" in entry else None
+        )
+        passed = run_test(
+            toplevel=sim_cfg["toplevel"],
+            vhdl_sources=self.vhdl_sources,
+            ghdl_std=sim_cfg["ghdl_std"],
+            test_module=sim_cfg["test_module"],
+            hex_path=image_path,
+            test_name=name,
+            build_dir=self.profile_build_dir / name,
+            parameters={k: fill(v) for k, v in templates.items()},
+            ram_base=self.cfg["memory"]["ram_base"],
+            golden_path=golden_path,
+            ghdl_flags=list(sim_cfg["ghdl_flags"]),
+            libraries_dir=self.libraries_dir,
+            run_files={
+                file_name: Path(fill(source))
+                for file_name, source in sim_cfg["run_files"].items()
+            },
+            extra_env={k: str(fill(v)) for k, v in sim_cfg["env"].items()},
+        )
+        print(f"{name}: {'PASS' if passed else 'FAIL'}")
+        return passed
+
+    @property
+    def sim_cfg(self) -> dict[str, Any]:
+        """The `sim` section of the config."""
+        return self.cfg["sim"]
+
+
+def run_suite(
     cfg: dict[str, Any],
     manifest: list[dict[str, Any]],
     root: Path,
     build_dir: Path,
-    boot_rom_hex_path: Path | None = None,
-    boot_rom_mif_path: Path | None = None,
+    **boot_roms: Unpack[BootRomImages],
 ) -> dict[str, bool]:
     """Run every test in manifest under cocotb/GHDL.
 
@@ -367,81 +478,58 @@ def run_suite(  # noqa: PLR0913, PLR0917
         manifest order.
     """
     # sim.test_module is a root-relative dotted path (e.g.
-    # "tools.riscv_build.sim.test_c_program"): the cocotb subprocess finds it
-    # only through the sys.path of this process, also when riscv-tools runs as an
-    # installed console script (without it: "No module named 'tools'").
+    # "tools.riscv_build.sim.test_c_program"): the cocotb subprocess
+    # finds it only through the sys.path of this process, also when
+    # riscv-tools runs as an installed console script (without it: "No
+    # module named 'tools'").
     sim_cfg = cfg["sim"]
     profile_build_dir = _profile_build_dir(build_dir, sim_cfg)
     extend_python_path(root, [".", *sim_cfg["python_path"]])
-    image_key = "mif" if sim_cfg["image"] == "mif" else "hex"
-    ghdl_flags: list[str] = list(sim_cfg["ghdl_flags"])
     # `root / <absolute path>` is that absolute path, so a variable that
-    # expands to one (e.g. Quartus' install directory) is expanded first.
-    vhdl_sources = [str(root / expand_env(src)) for src in sim_cfg["vhdl_sources"]]
-    parameter_templates: dict[str, Any] = sim_cfg.get("parameters") or {}
+    # expands to one (e.g. Quartus' install directory) is expanded
+    # first.
+    suite = _Suite(
+        cfg=cfg,
+        root=root,
+        profile_build_dir=profile_build_dir,
+        vhdl_sources=[
+            str(root / expand_env(src)) for src in sim_cfg["vhdl_sources"]
+        ],
+        libraries_dir=_build_suite_libraries(sim_cfg, root, profile_build_dir),
+        boot_roms=boot_roms,
+    )
+    return {str(entry["name"]): suite.run_entry(entry) for entry in manifest}
 
-    libraries_dir: Path | None = None
-    if sim_cfg["libraries"]:
-        libraries_dir = profile_build_dir / "libraries"
-        build_libraries(
-            {
-                name: [str(root / expand_env(src)) for src in files]
-                for name, files in sim_cfg["libraries"].items()
-            },
-            sim_cfg["ghdl_std"],
-            ghdl_flags,
-            libraries_dir,
-        )
 
-    def resolved(path: Path | None) -> str:
-        return str(path.resolve()) if path else ""
+def _build_suite_libraries(
+    sim_cfg: dict[str, Any], root: Path, profile_build_dir: Path
+) -> Path | None:
+    """Analyze the suite's extra VHDL libraries, if it has any.
 
-    results: dict[str, bool] = {}
-    for entry in manifest:
-        name = str(entry["name"])
-        print(f"\n=== {name} ({entry['march']}) ===")
-        image_path = root / entry[image_key]
-        # Lets a project's own sim.parameters, sim.run_files and
-        # sim.env reference this test's compiled image (e.g. a VHDL
-        # generic that loads the ROM image by path, see
-        # sim_runner.__config__) without hardcoding one. The boot ROM
-        # paths are the SAME for every entry (built once by the
-        # caller); still routed through .format() per test so a
-        # project's config can reference them exactly like the test's
-        # own image, e.g. `BOOT_ROM_FILE: "{boot_rom_hex_path}"`.
-        names = {
-            "hex_path": resolved(image_path) if image_key == "hex" else "",
-            "mif_path": resolved(image_path) if image_key == "mif" else "",
-            "boot_rom_hex_path": resolved(boot_rom_hex_path),
-            "boot_rom_mif_path": resolved(boot_rom_mif_path),
-        }
+    Parameters
+    ----------
+    sim_cfg : dict of {str: Any}
+        The `sim` section of the config.
+    root : Path
+        The project root that library sources are relative to.
+    profile_build_dir : Path
+        The profile's build directory.
 
-        def fill(value: Any, names: dict[str, str] = names) -> Any:
-            return value.format(**names) if isinstance(value, str) else value
-
-        parameters: dict[str, Any] = {
-            k: fill(v) for k, v in parameter_templates.items()
-        }
-        golden_path = root / entry["golden"] if "golden" in entry else None
-        results[name] = run_test(
-            toplevel=sim_cfg["toplevel"],
-            vhdl_sources=vhdl_sources,
-            ghdl_std=sim_cfg["ghdl_std"],
-            test_module=sim_cfg["test_module"],
-            hex_path=image_path,
-            test_name=name,
-            build_dir=profile_build_dir / name,
-            parameters=parameters,
-            ram_base=cfg["memory"]["ram_base"],
-            golden_path=golden_path,
-            ghdl_flags=ghdl_flags,
-            libraries_dir=libraries_dir,
-            run_files={
-                file_name: Path(fill(source))
-                for file_name, source in sim_cfg["run_files"].items()
-            },
-            extra_env={k: str(fill(v)) for k, v in sim_cfg["env"].items()},
-        )
-        print(f"{name}: {'PASS' if results[name] else 'FAIL'}")
-
-    return results
+    Returns
+    -------
+    Path or None
+        Where the libraries were analyzed; None when there are none.
+    """
+    if not sim_cfg["libraries"]:
+        return None
+    libraries_dir = profile_build_dir / "libraries"
+    build_libraries(
+        {
+            name: [str(root / expand_env(src)) for src in files]
+            for name, files in sim_cfg["libraries"].items()
+        },
+        sim_cfg["ghdl_std"],
+        list(sim_cfg["ghdl_flags"]),
+        libraries_dir,
+    )
+    return libraries_dir

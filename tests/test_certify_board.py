@@ -23,7 +23,8 @@ def _elf(segments: list[tuple[int, bytes]], symbols: dict[str, int]) -> bytes:
         offsets[n] = pos
         pos += len(n) + 1
     symtab = bytes(16) + b"".join(
-        struct.pack("<IIIBBH", offsets[n], v, 4, 0, 0, 1) for n, v in symbols.items()
+        struct.pack("<IIIBBH", offsets[n], v, 4, 0, 0, 1)
+        for n, v in symbols.items()
     )
     body = bytearray()
     seg_offsets: list[int] = []
@@ -65,7 +66,9 @@ def _elf(segments: list[tuple[int, bytes]], symbols: dict[str, int]) -> bytes:
         0,
     )
     phdrs = b"".join(
-        struct.pack("<IIIIIIII", 1, off, addr, addr, len(data), len(data), 7, 4)
+        struct.pack(
+            "<IIIIIIII", 1, off, addr, addr, len(data), len(data), 7, 4
+        )
         for (addr, data), off in zip(segments, seg_offsets, strict=True)
     )
     return bytes(header) + phdrs + bytes(body) + sections
@@ -106,7 +109,7 @@ def test_image_words_stop_before_tohost(tmp_path: Path) -> None:
 def test_display_follows_each_elf(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """With board_display the display shows AC and the ELF number; the flag follows."""
+    """With board_display the display shows AC and the ELF number."""
     writes: list[int] = []
     verdicts: Iterator[bool | None] = iter([True, False, None])
 
@@ -156,7 +159,8 @@ def test_display_follows_each_elf(
     )
     assert result == {"a": True, "b": False, "c": None}
     assert writes == [0xAC0001, 0xAC0002, 0xAC0003]
-    # cleared at the start, then set by the failed ELF and by the timed-out one
+    # cleared at the start, then set by the failed ELF and by the
+    # timed-out one
     assert flags == [False, True, True]
 
 

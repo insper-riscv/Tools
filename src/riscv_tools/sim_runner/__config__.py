@@ -13,11 +13,11 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         # VHDL source files, in dependency order — project-specific,
         # no sane default.
         "vhdl_sources": None,
-        # The project's own cocotb test module (e.g. "sim.test_c_program")
-        # — it knows the DUT's actual signal hierarchy (ROM/RAM memory
-        # array handles, clk/rst names), which this package can't,
-        # and polls the PASS/FAIL mailbox the same way mailbox.py does
-        # for real hardware. No sane default.
+        # The project's own cocotb test module (e.g.
+        # "sim.test_c_program") — it knows the DUT's actual signal
+        # hierarchy (ROM/RAM memory array handles, clk/rst names), which
+        # this package can't, and polls the PASS/FAIL mailbox the same
+        # way mailbox.py does for real hardware. No sane default.
         "test_module": None,
         # VHDL-2008 (IEEE Std 1076-2008) — matches Quartus' own
         # VHDL_INPUT_VERSION ceiling (confirmed against Quartus

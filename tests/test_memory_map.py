@@ -16,8 +16,20 @@ from riscv_tools.memory_map import (
 
 PLATFORM: dict[str, Any] = {
     "regions": [
-        {"name": "BOOT_ROM", "base": "0x0", "size": "2K", "kind": "rom", "exec": True},
-        {"name": "FLASH", "base": "0x800", "size": "30K", "kind": "rom", "exec": True},
+        {
+            "name": "BOOT_ROM",
+            "base": "0x0",
+            "size": "2K",
+            "kind": "rom",
+            "exec": True,
+        },
+        {
+            "name": "FLASH",
+            "base": "0x800",
+            "size": "30K",
+            "kind": "rom",
+            "exec": True,
+        },
         {"name": "RAM", "base": "0x8000", "size": "160K", "kind": "ram"},
     ],
     "reserved": {
@@ -65,7 +77,8 @@ COPIES = {
     "x.specs": "*link:\n--defsym=__ram=0x8000 --defsym=__ram_size=160K-1056\n",
     "boot.S": "    li   t0, 0x00030000\n    li   t0, 0x00030000\n",
     "core.vhd": (
-        "constant BOOT_ROM_SIZE_BYTES : unsigned := to_unsigned(16#00000800#, 32);\n"
+        "constant BOOT_ROM_SIZE_BYTES : unsigned := "
+        "to_unsigned(16#00000800#, 32);\n"
     ),
     "ip.vhd": "numwords_a => 40960,\n",
 }
@@ -130,7 +143,12 @@ def _with(**changes: Any) -> dict[str, Any]:
             _with(
                 regions=[
                     *PLATFORM["regions"],
-                    {"name": "X", "base": "0x8000", "size": "1K", "kind": "ram"},
+                    {
+                        "name": "X",
+                        "base": "0x8000",
+                        "size": "1K",
+                        "kind": "ram",
+                    },
                 ]
             ),
             "regions RAM and X overlap",
@@ -151,7 +169,9 @@ def _with(**changes: Any) -> dict[str, Any]:
         (_with(boot={"entry": "0x8000"}), "boot.entry"),
         (_with(boot={"wait_restart": "0x900"}), "boot.wait_restart"),
         (
-            _with(peripherals=[{"name": "GPIO", "base": "0x90000000", "id": 2}]),
+            _with(
+                peripherals=[{"name": "GPIO", "base": "0x90000000", "id": 2}]
+            ),
             "peripheral GPIO base",
         ),
     ],
@@ -192,7 +212,9 @@ def test_check_fails_when_one_copy_diverges(
     assert [p.check for p in problems] == [check]
 
 
-def test_check_reports_every_divergent_match_of_one_pattern(tmp_path: Path) -> None:
+def test_check_reports_every_divergent_match_of_one_pattern(
+    tmp_path: Path,
+) -> None:
     path = _project(tmp_path)
     (tmp_path / "boot.S").write_text(
         "    li   t0, 0x00038000\n    li   t0, 0x00038000\n"
@@ -201,7 +223,9 @@ def test_check_reports_every_divergent_match_of_one_pattern(tmp_path: Path) -> N
     assert len(problems) == 2
 
 
-def test_check_fails_when_a_copy_no_longer_matches_the_pattern(tmp_path: Path) -> None:
+def test_check_fails_when_a_copy_no_longer_matches_the_pattern(
+    tmp_path: Path,
+) -> None:
     path = _project(tmp_path)
     (tmp_path / "ip.vhd").write_text("numwords_a=>40960\n")
     _, problems = check_memory_map(path, tmp_path)

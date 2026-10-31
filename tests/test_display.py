@@ -47,13 +47,22 @@ def test_write_rejects_a_value_over_24_bits():
         display.write_display(cast(JtagLink, None), 1 << 24)
 
 
-def test_fail_flag_is_read_from_the_flag_line(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_fail_flag_is_read_from_the_flag_line(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     class Done:
         returncode = 0
         stdout = "Info: x\nFLAG=1\n"
         stderr = ""
 
-    monkeypatch.setattr(display.core.subprocess, "run", lambda *_a, **_k: Done())
-    link = cast(JtagLink, type("L", (), {"hardware_name": "h", "device_name": "d"})())
+    def fake_run(*_a: object, **_k: object) -> Done:
+        return Done()
+
+    monkeypatch.setattr("riscv_tools.display.core.subprocess.run", fake_run)
+    link = cast(
+        JtagLink, type("L", (), {"hardware_name": "h", "device_name": "d"})()
+    )
     assert display.read_fail(link) is True
-    assert display.write_fail(link, False) is True  # the stub always answers FLAG=1
+    assert (
+        display.write_fail(link, False) is True
+    )  # the stub always answers FLAG=1

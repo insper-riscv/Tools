@@ -10,7 +10,9 @@ import json
 import re
 from pathlib import Path
 
-CONTENT_RE = re.compile(r"CONTENT\s+BEGIN(.*)END\s*;", re.IGNORECASE | re.DOTALL)
+CONTENT_RE = re.compile(
+    r"CONTENT\s+BEGIN(.*)END\s*;", re.IGNORECASE | re.DOTALL
+)
 LINE_RE = re.compile(r"^\s*([0-9A-Fa-f]+)\s*:\s*([0-9A-Fa-f]+)\s*;")
 RANGE_RE = re.compile(
     r"^\s*\[([0-9A-Fa-f]+)\.\.([0-9A-Fa-f]+)\]\s*:\s*([0-9A-Fa-f]+)\s*;"
@@ -21,6 +23,36 @@ _RADIX_TO_BASE = {"BIN": 2, "HEX": 16, "DEC": 10, "OCT": 8}
 # How many individual byte diffs compare() prints before truncating —
 # more than this and the output stops being useful anyway.
 _MAX_DIFFS_SHOWN = 50
+
+
+def _parse_mif_line(line: str, base: int) -> dict[int, int]:
+    """Parse one CONTENT line, a single address or an address range.
+
+    Parameters
+    ----------
+    line : str
+        The stripped line, `ADDR : VALUE;` or `[START..END] : VALUE;`.
+    base : int
+        Numeric base of the value column.
+
+    Returns
+    -------
+    dict of {int: int}
+        The {word_address: word_value} entries the line defines, empty
+        when the line is neither form.
+    """
+    rm = RANGE_RE.match(line)
+    if rm:
+        start, end, val = (
+            int(rm.group(1), 16),
+            int(rm.group(2), 16),
+            int(rm.group(3), base),
+        )
+        return dict.fromkeys(range(start, end + 1), val)
+    lm = LINE_RE.match(line)
+    if lm:
+        return {int(lm.group(1), 16): int(lm.group(2), base)}
+    return {}
 
 
 def parse_mif_words(mif_path: Path) -> dict[int, int]:
@@ -64,20 +96,7 @@ def parse_mif_words(mif_path: Path) -> dict[int, int]:
     base = _RADIX_TO_BASE[radix]
     words: dict[int, int] = {}
     for raw_line in m.group(1).splitlines():
-        line = raw_line.strip()
-        rm = RANGE_RE.match(line)
-        if rm:
-            start, end, val = (
-                int(rm.group(1), 16),
-                int(rm.group(2), 16),
-                int(rm.group(3), base),
-            )
-            for addr in range(start, end + 1):
-                words[addr] = val
-            continue
-        lm = LINE_RE.match(line)
-        if lm:
-            words[int(lm.group(1), 16)] = int(lm.group(2), base)
+        words.update(_parse_mif_line(raw_line.strip(), base))
     return words
 
 
@@ -113,7 +132,7 @@ def compare_bytes(
     actual_label: str,
     golden_label: str,
 ) -> bool:
-    """Compare an in-memory byte map against golden bytes and print the diff.
+    """Compare an in-memory byte map against golden bytes; print diff.
 
     The shared core of compare() (a real-hardware JTAG dump, parsed
     from a .mif) and a GHDL sim testbench's own bus-snooped
@@ -165,7 +184,7 @@ def compare_bytes(
 
 
 def load_golden(golden_json: Path) -> dict[int, int]:
-    """Load a golden JSON into a {byte_address: expected_byte_value} dict.
+    """Load a golden JSON into a {byte_address: expected_byte} dict.
 
     Parameters
     ----------
@@ -178,13 +197,17 @@ def load_golden(golden_json: Path) -> dict[int, int]:
     dict of {int: int}
         {byte_address: expected_byte_value}, keys parsed as hex.
     """
-    return {int(k, 16): int(v) for k, v in json.loads(golden_json.read_text()).items()}
+    return {
+        int(k, 16): int(v)
+        for k, v in json.loads(golden_json.read_text()).items()
+    }
 
 
 def golden_word_offsets(golden_json: Path) -> list[int]:
-    """List the words of RAM a golden checks, as word offsets from the base of the RAM.
+    """List the RAM words a golden checks, as offsets from the RAM base.
 
-    A RAM too big to dump whole (the SDRAM) is dumped only at these words.
+    A RAM too big to dump whole (the SDRAM) is dumped only at these
+    words.
 
     Parameters
     ----------
@@ -194,13 +217,14 @@ def golden_word_offsets(golden_json: Path) -> list[int]:
     Returns
     -------
     list of int
-        The word offsets that hold at least one byte of the golden, ascending.
+        The word offsets that hold at least one byte of the golden,
+        ascending.
     """
     return sorted({address // 4 for address in load_golden(golden_json)})
 
 
 def compare(dump_mif: Path, golden_json: Path) -> bool:
-    """Compare a RAM dump against a golden JSON and print a human-readable diff.
+    """Compare a RAM dump against a golden JSON and print the diff.
 
     Prints OK/FAIL, with a per-address breakdown of the first 50
     mismatches on failure.
@@ -224,5 +248,8 @@ def compare(dump_mif: Path, golden_json: Path) -> bool:
     actual = words_to_bytes(parse_mif_words(dump_mif))
     golden = load_golden(golden_json)
     return compare_bytes(
-        actual, golden, actual_label=dump_mif.name, golden_label=golden_json.name
+        actual,
+        golden,
+        actual_label=dump_mif.name,
+        golden_label=golden_json.name,
     )

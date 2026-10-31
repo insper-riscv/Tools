@@ -1,4 +1,4 @@
-"""Identify one JTAG connection and run this package's bundled .tcl scripts."""
+"""Identify one JTAG connection and run the bundled .tcl scripts."""
 
 import subprocess
 from dataclasses import dataclass

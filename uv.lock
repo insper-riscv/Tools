@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = "==3.14.*"
 
 [[package]]
@@ -29,18 +29,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/e7/9c/cd68994a36705d5a087bde37c8607bedee7a825746ffcda967ab9f04d96e/cocotb-2.1.0-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:157fff028a3aa0999451ff54b23a14ffabb4a00d1a23adbf17c3057b6fc2a10f", size = 689071, upload-time = "2026-08-30T19:02:06.711Z" },
     { url = "https://files.pythonhosted.org/packages/75/82/ff6cd4b24ed7401120c78a6e0fa60f91741e8fe94e2ca6f0507f355c7f90/cocotb-2.1.0-cp314-cp314t-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:b4614edd8292826943c605cf71966c718f5b90ea2a4a2a16d1087a2cd05db416", size = 4850591, upload-time = "2026-08-30T19:02:08.117Z" },
     { url = "https://files.pythonhosted.org/packages/7a/5c/a6c8f68e41b75722570ad1873ecec16f1379ac6c64f7538d21d72b339620/cocotb-2.1.0-cp314-cp314t-win_amd64.whl", hash = "sha256:f670e959a72cb362013c9f2dc581f3737c99bbe5822d54185a0c10354fca16ee", size = 670883, upload-time = "2026-08-30T19:02:09.888Z" },
-]
-
-[[package]]
-name = "cocotb-tools"
-version = "0.1.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "cocotb" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/dd/1d/5c112ac2683c4ed39259913aa5aed9fb9417204360fdf8e0f247cdaf850b/cocotb_tools-0.1.0.tar.gz", hash = "sha256:a21292a4e42093dd8f894cc27e08236c6cea5afc0e29b74cd3dead6bd8209498", size = 905, upload-time = "2026-04-12T14:33:14.482Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b6/cc/14b2fd02c7f264d00ec6b90539035811b853a2753c4864b3333c3f14b1fb/cocotb_tools-0.1.0-py3-none-any.whl", hash = "sha256:c230c4e598d55f9c2f1f6186c48eb355e10fd7e7b9a12c0fb95013e07636066b", size = 1098, upload-time = "2026-04-12T14:33:13.295Z" },
 ]
 
 [[package]]
@@ -103,6 +91,22 @@ wheels = [
 ]
 
 [[package]]
+name = "nodejs-wheel-binaries"
+version = "24.19.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/c0/76/7e97195e14346598565a0de4ca8bdbd5e634b3fb5b1ba590b7b1b89f8a63/nodejs_wheel_binaries-24.19.0.tar.gz", hash = "sha256:db217eef8cab8551667863379b08db4d9067403f6cbbe87481eb40edceb8aa9b", size = 8058, upload-time = "2026-08-19T21:47:19.671Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8c/52/0774b52c7be8151ad9d5aff44edc100c3f13d6d8eb3765f63ffa40e69fe8/nodejs_wheel_binaries-24.19.0-py2.py3-none-macosx_13_0_arm64.whl", hash = "sha256:e12cbfd69089504e42fb14194ce734a9dcf3eb38c820ca63dd511d36fb964e9c", size = 56047203, upload-time = "2026-08-19T21:46:43.448Z" },
+    { url = "https://files.pythonhosted.org/packages/67/3a/4fdbbfecf2c23d52c0e3f68de7f7c1b3c97a26d328c69c5f6c49c48e340e/nodejs_wheel_binaries-24.19.0-py2.py3-none-macosx_13_0_x86_64.whl", hash = "sha256:1c890adf4b7e6556ccc1ca66c866bb81884b6c9a581dee4e530dc7f78fb9d514", size = 56219459, upload-time = "2026-08-19T21:46:48.45Z" },
+    { url = "https://files.pythonhosted.org/packages/5f/a8/0147149415195c59b8a72a594916bfb80d6be4d586f9fbfda313889e0efc/nodejs_wheel_binaries-24.19.0-py2.py3-none-manylinux_2_28_aarch64.whl", hash = "sha256:4e029dadfae1295876063c96b236f673487e8c27379fe146c1e2250283520227", size = 60588256, upload-time = "2026-08-19T21:46:53.298Z" },
+    { url = "https://files.pythonhosted.org/packages/f4/89/6631d0982353da1bb7bc00bb1988f702822c62b42634f57999ee53b5c337/nodejs_wheel_binaries-24.19.0-py2.py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:4196a947bcc883f2003ab101762d729f3e99b5e86b75bd09151563403e2eceb8", size = 61123607, upload-time = "2026-08-19T21:46:58.117Z" },
+    { url = "https://files.pythonhosted.org/packages/32/a2/fa30f0841e4602995782e124359f9b910c7b481d98decf61ef0b2fc3ebfb/nodejs_wheel_binaries-24.19.0-py2.py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:352e048ab4dd35e7de5f338d1cc4fcbf77a0e93da30bf7336a8217ee246b31d7", size = 62632842, upload-time = "2026-08-19T21:47:03.42Z" },
+    { url = "https://files.pythonhosted.org/packages/18/01/22d97ca72213f66cc386ee638db30c2e62757fdf761c6029074bced83d1c/nodejs_wheel_binaries-24.19.0-py2.py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:28d078b2ced9e2069516e652dc4b1380e7a1a7f2d3934eccd1611586d283ba4c", size = 63250653, upload-time = "2026-08-19T21:47:07.938Z" },
+    { url = "https://files.pythonhosted.org/packages/88/d1/e3be8fa327a795bcaf7a19cd84299e338a7bce32ff0665fdce9cfa22573c/nodejs_wheel_binaries-24.19.0-py2.py3-none-win_amd64.whl", hash = "sha256:67e3abeb9c3830cae8c8487ae8a2af7cc27dfa75af06145cee5ca7d1857c81bd", size = 42448503, upload-time = "2026-08-19T21:47:12.093Z" },
+    { url = "https://files.pythonhosted.org/packages/1d/37/34cf28ba1691a060174948a9927fe61091982d6048b2e403071a9acce443/nodejs_wheel_binaries-24.19.0-py2.py3-none-win_arm64.whl", hash = "sha256:d9074c665ea68b04e183d82482c86dc907d3a9bd15eb6cf85542cb785266bb36", size = 40090155, upload-time = "2026-08-19T21:47:16.032Z" },
+]
+
+[[package]]
 name = "packaging"
 version = "26.3"
 source = { registry = "https://pypi.org/simple" }
@@ -140,6 +144,11 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/e1/1b/244c7b710031ada80f27e579ec20d28a2285dfc318fed0339866b1047f12/pyright-1.1.414.tar.gz", hash = "sha256:523c0a97c60da6333234955c277730c9cf4f5bd6d5399e7b7d2b0fc5d3599524", size = 4154638, upload-time = "2026-09-10T12:26:53.181Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d7/ba/18b6e682ead424ad24bcc134339ae5d1b931cd9ae260540592a058a91279/pyright-1.1.414-py3-none-any.whl", hash = "sha256:2a6b4b3298c9eec174c5ed83bd338de6eee82df2992f3e1930e6199d381be36f", size = 6225049, upload-time = "2026-09-10T12:26:51.427Z" },
+]
+
+[package.optional-dependencies]
+nodejs = [
+    { name = "nodejs-wheel-binaries" },
 ]
 
 [[package]]
@@ -201,35 +210,28 @@ name = "riscv-tools"
 version = "1.0.0"
 source = { editable = "." }
 dependencies = [
-    { name = "pyyaml" },
-]
-
-[package.optional-dependencies]
-sim = [
     { name = "cocotb" },
-    { name = "cocotb-tools" },
+    { name = "pyyaml" },
 ]
 
 [package.dev-dependencies]
 dev = [
     { name = "deptry" },
-    { name = "pyright" },
+    { name = "pyright", extra = ["nodejs"] },
     { name = "pytest" },
     { name = "ruff" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "cocotb", marker = "extra == 'sim'", specifier = ">=2.1" },
-    { name = "cocotb-tools", marker = "extra == 'sim'", specifier = ">=0.1" },
+    { name = "cocotb", specifier = ">=2.1" },
     { name = "pyyaml", specifier = ">=6.0" },
 ]
-provides-extras = ["sim"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "deptry", specifier = ">=0.20" },
-    { name = "pyright", specifier = ">=1.1" },
+    { name = "pyright", extras = ["nodejs"], specifier = ">=1.1" },
     { name = "pytest", specifier = ">=9.0" },
     { name = "ruff", specifier = ">=0.8" },
 ]

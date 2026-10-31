@@ -1,6 +1,8 @@
 """Defaults for zeroing RAM over JTAG.."""
 
-DEFAULTS = {
+from typing import Any
+
+DEFAULTS: dict[str, dict[str, Any]] = {
     "quartus": {
         # Instance index Quartus' In-System Memory Content Editor
         # assigns to the RAM debug tap. 1 is the common case (RAM

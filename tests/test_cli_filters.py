@@ -7,7 +7,9 @@ from unittest import mock
 import pytest
 
 from riscv_tools import cli
-from riscv_tools.cli import _filter_manifest  # pyright: ignore[reportPrivateUsage]
+from riscv_tools.cli import (
+    filter_manifest,
+)
 
 MANIFEST_PATH = Path("build/manifest.json")
 MANIFEST: list[dict[str, Any]] = [
@@ -23,13 +25,15 @@ def _names(entries: list[dict[str, Any]]) -> list[str]:
 
 
 def test_manifest_filter_without_options_preserves_order() -> None:
-    selected = _filter_manifest(MANIFEST, MANIFEST_PATH, [], [])
+    selected = filter_manifest(MANIFEST, MANIFEST_PATH, [], [])
 
     assert _names(selected) == ["alpha", "uart-echo", "beta", "uart-tx"]
 
 
-def test_manifest_filter_only_accepts_repeated_comma_separated_groups() -> None:
-    selected = _filter_manifest(
+def test_manifest_filter_only_accepts_repeated_comma_separated_groups() -> (
+    None
+):
+    selected = filter_manifest(
         MANIFEST,
         MANIFEST_PATH,
         [" beta,alpha ", "beta"],
@@ -40,7 +44,7 @@ def test_manifest_filter_only_accepts_repeated_comma_separated_groups() -> None:
 
 
 def test_manifest_filter_exclude_preserves_remaining_manifest_order() -> None:
-    selected = _filter_manifest(
+    selected = filter_manifest(
         MANIFEST,
         MANIFEST_PATH,
         [],
@@ -51,7 +55,7 @@ def test_manifest_filter_exclude_preserves_remaining_manifest_order() -> None:
 
 
 def test_manifest_filter_exclude_wins_over_only() -> None:
-    selected = _filter_manifest(
+    selected = filter_manifest(
         MANIFEST,
         MANIFEST_PATH,
         ["beta,alpha"],
@@ -70,7 +74,7 @@ def test_manifest_filter_rejects_unknown_names(
     exclude = ["missing"] if option == "exclude" else []
 
     with pytest.raises(SystemExit) as exc_info:
-        _filter_manifest(MANIFEST, MANIFEST_PATH, only, exclude)
+        filter_manifest(MANIFEST, MANIFEST_PATH, only, exclude)
 
     assert exc_info.value.code == 1
     assert f"--{option} names not found" in capsys.readouterr().err
@@ -87,10 +91,13 @@ def test_manifest_filter_rejects_an_explicit_empty_filter(
     exclude = [group] if option == "exclude" else []
 
     with pytest.raises(SystemExit) as exc_info:
-        _filter_manifest(MANIFEST, MANIFEST_PATH, only, exclude)
+        filter_manifest(MANIFEST, MANIFEST_PATH, only, exclude)
 
     assert exc_info.value.code == 1
-    assert f"--{option} requires at least one test name" in capsys.readouterr().err
+    assert (
+        f"--{option} requires at least one test name"
+        in capsys.readouterr().err
+    )
 
 
 @pytest.mark.parametrize(
@@ -106,13 +113,15 @@ def test_manifest_filter_rejects_an_empty_selection(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     with pytest.raises(SystemExit) as exc_info:
-        _filter_manifest(manifest, MANIFEST_PATH, [], exclude)
+        filter_manifest(manifest, MANIFEST_PATH, [], exclude)
 
     assert exc_info.value.code == 1
     assert "No tests selected" in capsys.readouterr().err
 
 
-def test_cmd_run_rejects_bad_filter_before_opening_jtag(tmp_path: Path) -> None:
+def test_cmd_run_rejects_bad_filter_before_opening_jtag(
+    tmp_path: Path,
+) -> None:
     manifest_path = tmp_path / "manifest.json"
     manifest_path.write_text(json.dumps(MANIFEST))
     args = argparse.Namespace(

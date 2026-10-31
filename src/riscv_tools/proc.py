@@ -1,4 +1,4 @@
-"""Run a subprocess, streaming its output live while still capturing it whole.
+"""Run a subprocess, streaming its output live and capturing it.
 
 Shared by jtag.link.run and quartus_program.core._run_captured — both
 used to have their own near-identical `subprocess.run(...,
@@ -13,8 +13,10 @@ import sys
 from typing import IO, Any, cast
 
 
-def run_streaming(cmd: list[str], **kw: Any) -> subprocess.CompletedProcess[str]:
-    """Run cmd, echoing it first and streaming stdout/stderr as they arrive.
+def run_streaming(
+    cmd: list[str], **kw: Any
+) -> subprocess.CompletedProcess[str]:
+    """Run cmd, echoing it and streaming stdout/stderr as they arrive.
 
     Every caller in this project that shells out to a slow or
     frequently-invoked real-world tool (quartus_sh, quartus_pgm,
@@ -89,10 +91,14 @@ def run_streaming(cmd: list[str], **kw: Any) -> subprocess.CompletedProcess[str]
     # type-check even though we know exactly what we registered.
     sel = selectors.DefaultSelector()
     sel.register(
-        proc_stdout, selectors.EVENT_READ, (proc_stdout, sys.stdout, stdout_chunks)
+        proc_stdout,
+        selectors.EVENT_READ,
+        (proc_stdout, sys.stdout, stdout_chunks),
     )
     sel.register(
-        proc_stderr, selectors.EVENT_READ, (proc_stderr, sys.stderr, stderr_chunks)
+        proc_stderr,
+        selectors.EVENT_READ,
+        (proc_stderr, sys.stderr, stderr_chunks),
     )
     open_streams = 2
     while open_streams > 0:
@@ -114,4 +120,6 @@ def run_streaming(cmd: list[str], **kw: Any) -> subprocess.CompletedProcess[str]
         raise subprocess.CalledProcessError(
             proc.returncode, cmd, output=stdout_text, stderr=stderr_text
         )
-    return subprocess.CompletedProcess(cmd, proc.returncode, stdout_text, stderr_text)
+    return subprocess.CompletedProcess(
+        cmd, proc.returncode, stdout_text, stderr_text
+    )

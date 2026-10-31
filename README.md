@@ -66,7 +66,7 @@ uv run riscv-tools --config /path/to/project/config.yaml generate-golden \
     build/real/some_test.elf --march rv32im --start 0x10 --end 0x20 --out golden/some_test.json
 
 # Simulação (precisa do extra "sim": cocotb + cocotb-tools, e do GHDL no PATH)
-uv sync --extra sim
+uv sync
 uv run riscv-tools --config /path/to/project/config.yaml compile --emit hex
 uv run riscv-tools --config /path/to/project/config.yaml sim
 uv run riscv-tools --config /path/to/project/config.yaml sim --only test-a,test-b
@@ -93,7 +93,7 @@ uv run riscv-tools --config /path/to/project/config.yaml freq-sweep \
 ## Desenvolvimento
 
 ```bash
-uv sync --group dev --extra sim
+uv sync --group dev
 uv run pytest
 ```
 

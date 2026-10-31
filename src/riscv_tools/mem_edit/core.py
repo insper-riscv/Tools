@@ -33,14 +33,17 @@ def write_full(link: JtagLink, instance: int, mif_path: Path) -> None:
     run_tcl(link, "write_full.tcl", instance, mif_path)
 
 
-def write_full_multi(link: JtagLink, instances: Sequence[int], mif_path: Path) -> None:
-    """Overwrite several memory instances' ENTIRE depth from the SAME .mif.
+def write_full_multi(
+    link: JtagLink, instances: Sequence[int], mif_path: Path
+) -> None:
+    """Overwrite several instances' ENTIRE depth from the SAME .mif.
 
-    Does every instance inside one JTAG session (one write_full_multi.tcl
-    invocation) instead of one write_full() call per instance — each
-    JTAG session has real open/close overhead, worth avoiding when a
-    project physically duplicates a memory across instances that must
-    always hold identical content (see rom_writer.write_rom).
+    Does every instance inside one JTAG session (one
+    write_full_multi.tcl invocation) instead of one write_full() call
+    per instance — each JTAG session has real open/close overhead, worth
+    avoiding when a project physically duplicates a memory across
+    instances that must always hold identical content (see
+    rom_writer.write_rom).
 
     Parameters
     ----------
@@ -60,8 +63,10 @@ def write_full_multi(link: JtagLink, instances: Sequence[int], mif_path: Path) -
     run_tcl(link, "write_full_multi.tcl", mif_path, *instances)
 
 
-def write_word(link: JtagLink, instance: int, word_offset: int, value: int) -> None:
-    """Overwrite exactly one word, leaving the rest of the instance untouched.
+def write_word(
+    link: JtagLink, instance: int, word_offset: int, value: int
+) -> None:
+    """Overwrite exactly one word, leaving the rest untouched.
 
     Parameters
     ----------
@@ -116,7 +121,9 @@ def read_words(
     for line in result.stdout.splitlines():
         if line.startswith("WORDS="):
             return [int(w) for w in line.split("=", 1)[1].split()]
-    raise RuntimeError(f"read_words.tcl produced no WORDS= line:\n{result.stdout}")
+    raise RuntimeError(
+        f"read_words.tcl produced no WORDS= line:\n{result.stdout}"
+    )
 
 
 def dump(link: JtagLink, instance: int, out_mif: Path) -> None:

@@ -1,6 +1,8 @@
 """Defaults for writing a ROM image over JTAG."""
 
-DEFAULTS = {
+from typing import Any
+
+DEFAULTS: dict[str, dict[str, Any]] = {
     "quartus": {
         # Instance index/indices Quartus' In-System Memory Content
         # Editor assigns to the ROM debug tap(s), in declaration order

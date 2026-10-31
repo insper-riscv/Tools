@@ -1,6 +1,12 @@
-"""Drives cocotb/GHDL simulation — the sim-side counterpart to `orchestrator`."""
+"""Drives cocotb/GHDL simulation, the sim side of `orchestrator`."""
 
-from .core import build_libraries, expand_env, extend_python_path, run_suite, run_test
+from .core import (
+    build_libraries,
+    expand_env,
+    extend_python_path,
+    run_suite,
+    run_test,
+)
 
 __all__ = [
     "build_libraries",

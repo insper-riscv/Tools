@@ -1,4 +1,4 @@
-"""Compiles a C source to human-readable RISC-V assembly, for inspecting codegen."""
+"""Compiles a C source to readable RISC-V assembly (codegen check)."""
 
 from .core import c_to_asm
 
