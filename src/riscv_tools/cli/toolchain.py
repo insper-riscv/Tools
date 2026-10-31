@@ -16,22 +16,23 @@ def _spike_mem_regions(cfg: dict[str, Any]) -> list[tuple[int, int]]:
     ----------
     cfg : dict of {str: Any}
         The merged project config: uses memory.rom_words/ram_base/
-        ram_words.
+        ram_words and, optionally, memory.rom_origin.
 
     Returns
     -------
     list of (int, int)
-        [(0, rom_bytes), (ram_base, ram_bytes)]; this project's real
-        ROM+RAM layout, byte-sized. Spike needs this to even load a
-        bare-metal ELF linked to run at/near address 0 (see
-        generate_golden's own mem_regions doc); ROM and RAM are
+        [(rom_origin, rom_bytes), (ram_base, ram_bytes)]; this
+        project's real ROM+RAM layout, byte-sized. Spike needs this
+        to even load a bare-metal ELF linked to run at/near address 0
+        (see generate_golden's own mem_regions doc); ROM and RAM are
         listed as two regions rather than one spanning both, since
         nothing here guarantees they're contiguous for every project
         that uses this package.
     """
     mem = cfg["memory"]
+    rom_origin = mem.get("rom_origin") or 0
     return [
-        (0, mem["rom_words"] * 4),
+        (rom_origin, mem["rom_words"] * 4),
         (mem["ram_base"], mem["ram_words"] * 4),
     ]
 

@@ -22,12 +22,15 @@ from pathlib import Path
 from typing import Any, TypedDict, Unpack
 
 from riscv_tools import (
+    bin_to_image,
     display,
     htif,
+    rom_writer,
     sdram_debug,
 )
 from riscv_tools.certify import core as certify_core
 from riscv_tools.certify.flash import image_words, write_flash_stub
+from riscv_tools.certify.segments import load_segments, region_image
 from riscv_tools.certify.symbols import elf_symbol
 from riscv_tools.jtag import JtagLink
 
@@ -93,6 +96,84 @@ def run_elf(
     return None, len(words), time.monotonic() - started
 
 
+def run_elf_flash(
+    link: JtagLink,
+    cfg: dict[str, Any],
+    elf: Path,
+    region: SdramRegion,
+    build_dir: Path,
+) -> tuple[bool | None, int, float]:
+    """Load one ELF into the FLASH and the SDRAM, run it, read `tohost`.
+
+    The code and the constants of the ELF go to the storage of the
+    FLASH chip over the memory editor, the data to the SDRAM through
+    the debug port. The boot ROM jumps to the FLASH after the restart,
+    with a `fence.i` that drops the lines of the previous ELF.
+
+    Parameters
+    ----------
+    link : JtagLink
+        Which JTAG cable/chip to use.
+    cfg : dict of {str: Any}
+        The merged project config: memory.ram_base/fromhost_addr,
+        quartus.rom_mem_instances, act.flash_base and act.flash_words
+        (the words of the FLASH storage in the FPGA).
+    elf : Path
+        The ACT4 ELF of the target with the FLASH behind the caches.
+    region : SdramRegion
+        The first address of the SDRAM, the words of it that the ELF
+        may use (zeroed before the load) and how long to wait for
+        `tohost`.
+    build_dir : Path
+        Where the FLASH image goes.
+
+    Returns
+    -------
+    tuple of (bool or None, int, float)
+        True for a PASS, False for a FAIL, None for a timeout; the
+        number of words of code in the FLASH; the seconds from the
+        restart to the end.
+
+    Raises
+    ------
+    ValueError
+        The code of the ELF does not fit in the FLASH storage.
+    """
+    flash_words = int(cfg["act"]["flash_words"])
+    flash_base = int(str(cfg["act"]["flash_base"]), 0)
+    image = region_image(load_segments(elf), flash_base, region.base)
+    if len(image) > flash_words * 4:
+        raise ValueError(
+            f"{elf.stem}: the code takes {len(image)} bytes, "
+            f"the FLASH storage {flash_words * 4}"
+        )
+    bin_path = build_dir / "flash_image.bin"
+    mif_path = build_dir / "flash_image.mif"
+    bin_path.write_bytes(image or bytes(4))
+    bin_to_image.bin_to_mif(bin_path, mif_path, depth=flash_words)
+
+    tohost_word = (elf_symbol(elf, "tohost") - region.base) // 4
+    sdram_debug.fill(link, 0, region.words, 0)
+    sdram_debug.load_words(link, 0, image_words(elf, region.base))
+    rom_writer.write_rom(link, cfg["quartus"]["rom_mem_instances"], mif_path)
+
+    htif.pulse_fromhost_configured(link, cfg)
+    started = time.monotonic()
+    while time.monotonic() - started < region.timeout_s:
+        (tohost,) = sdram_debug.read_words(link, tohost_word, 1)
+        if tohost & 1:
+            return tohost == 1, len(image) // 4, time.monotonic() - started
+    return None, len(image) // 4, time.monotonic() - started
+
+
+@dataclass(frozen=True)
+class BoardRun:
+    """Where the scratch files go and whether the display is used."""
+
+    build_dir: Path
+    show_display: bool
+
+
 class BoardOptions(TypedDict, total=False):
     """The optional settings of `run_suite_on_board`."""
 
@@ -124,20 +205,9 @@ def _find_elfs(
     list of Path
         The ELFs to run.
     """
-    target_config = root / act_cfg["target_config"]
-    if build:
-        elfs_dir = certify_core.build_elfs(
-            root / act_cfg["vendor_dir"],
-            target_config,
-            act_cfg["extensions"],
-            act_cfg["jobs"],
-        )
-    else:
-        name = certify_core.target_name(target_config)
-        elfs_dir = root / act_cfg["vendor_dir"] / "work" / name / "elfs"
     return [
         e
-        for e in certify_core.discover_elfs(elfs_dir)
+        for e in certify_core.suite_elfs({"act": act_cfg}, root, build=build)
         if not only or e.stem in only
     ]
 
@@ -185,9 +255,14 @@ def run_suite_on_board(
     region = _sdram_region(act_cfg)
     elfs = _find_elfs(act_cfg, root, only, build=options.get("build", True))
     build_dir.mkdir(parents=True, exist_ok=True)
-    write_flash_stub(link, cfg, build_dir, region.base)
+    if act_cfg.get("flash_base") is None:
+        write_flash_stub(link, cfg, build_dir, region.base)
     return _run_elfs(
-        link, cfg, elfs, region, bool(act_cfg.get("board_display", False))
+        link,
+        cfg,
+        elfs,
+        region,
+        BoardRun(build_dir, bool(act_cfg.get("board_display", False))),
     )
 
 
@@ -219,7 +294,7 @@ def _run_elfs(
     cfg: dict[str, Any],
     elfs: list[Path],
     region: SdramRegion,
-    show_display: bool,
+    run: BoardRun,
 ) -> dict[str, bool | None]:
     """Run each ELF on the board, showing its number on the display.
 
@@ -233,15 +308,16 @@ def _run_elfs(
         The ELFs to run, in order.
     region : SdramRegion
         Where the ELFs are loaded and how long each may run.
-    show_display : bool
-        Whether to write the ELF number and the failure flag to the
-        board's display.
+    run : BoardRun
+        The directory of the scratch files and whether to write the ELF
+        number and the failure flag to the board's display.
 
     Returns
     -------
     dict of {str: bool or None}
         The result of each ELF run: True PASS, False FAIL, None timeout.
     """
+    show_display = run.show_display
     if show_display:
         # a new session starts without a failure
         display.write_fail(link, False)
@@ -249,7 +325,12 @@ def _run_elfs(
     for index, elf in enumerate(elfs):
         if show_display:
             display.write_display(link, display.encode_act(index + 1))
-        passed, words, seconds = run_elf(link, cfg, elf, region)
+        if cfg["act"].get("flash_base") is not None:
+            passed, words, seconds = run_elf_flash(
+                link, cfg, elf, region, run.build_dir
+            )
+        else:
+            passed, words, seconds = run_elf(link, cfg, elf, region)
         results[elf.stem] = passed
         if show_display and passed is not True:
             # the first red LED stays lit once any ELF has failed or

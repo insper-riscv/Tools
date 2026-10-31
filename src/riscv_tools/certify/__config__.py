@@ -30,5 +30,14 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         # combinatorial coverage); see a project's own config.yaml
         # for whether/how it uses this.
         "sim_parameters": {},
+        # Tests that rewrite their own code run from a variant of the
+        # target whose linker script puts the body of the test in
+        # writable memory (see certify.core.suite_elfs): the ELF names,
+        # the variant's test_config.yaml and the extensions it builds
+        # (the target's own when empty). Without ram_tests the run uses
+        # the target alone.
+        "ram_tests": [],
+        "ram_target_config": None,
+        "ram_extensions": None,
     },
 }
