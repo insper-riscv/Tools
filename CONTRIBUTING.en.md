@@ -86,6 +86,7 @@ changing code:
   an existing one, prefer the smaller, more specific module: merging
   two modules later is easy; un-tangling a module that grew several
   unrelated jobs is not.
+- All code, tests and documentation that read or write `tohost` and `fromhost` follow the HTIF protocol described in [docs/en/htif-protocol.md](docs/en/htif-protocol.md): the command format, the pass and fail encoding and the use of `fromhost` as a restart. Changing any of these requires updating that document in the same pull request.
 
 ## 3. Markdown Documentation Rules
 

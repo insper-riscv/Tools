@@ -85,6 +85,7 @@ alterar código:
   existente, prefira o módulo menor e mais específico: juntar dois módulos
   depois é fácil; desembaraçar um módulo que acumulou vários trabalhos
   distintos não é.
+- Todo código, teste ou documentação que lê ou escreve `tohost` e `fromhost` segue o protocolo HTIF descrito em [docs/pt-br/htif-protocol.md](docs/pt-br/htif-protocol.md): o formato do comando, a codificação de aprovado e falha e o uso do `fromhost` como reinício. Mudar qualquer um desses pontos exige atualizar esse documento no mesmo pull request.
 
 ## 3. Regras de Documentação Markdown
 
