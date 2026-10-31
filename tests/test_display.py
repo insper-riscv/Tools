@@ -73,7 +73,6 @@ def test_fail_flag_is_read_from_the_flag_line(
     link = cast(
         JtagLink, type("L", (), {"hardware_name": "h", "device_name": "d"})()
     )
-    assert display.read_fail(link) is True
     assert (
         display.write_fail(link, False) is True
     )  # the stub always answers FLAG=1

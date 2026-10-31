@@ -8,7 +8,7 @@ import pytest
 
 from riscv_tools import cli, orchestrator
 from riscv_tools.cli import tools_cmd
-from riscv_tools.freq_sweep import PllParams, get_pll_freq, set_pll_freq
+from riscv_tools.freq_sweep import PllParams, set_pll_freq
 
 THREE_PHASE_PLL = """\
 altpll_component : altpll
@@ -118,42 +118,6 @@ def test_set_pll_freq_custom_param_template(tmp_path: Path) -> None:
     )
 
     assert '.clkout_freq0("200.000000 kHz")' in pll_file.read_text()
-
-
-def test_get_pll_freq_reads_phase_zero(tmp_path: Path) -> None:
-    """Get pll freq reads phase zero."""
-    pll_file = tmp_path / "pll.v"
-    pll_file.write_text(THREE_PHASE_PLL)
-
-    assert get_pll_freq(pll_file, "output_clock_frequency{idx}", "MHz") == 10.0
-
-
-def test_get_pll_freq_returns_none_when_absent(tmp_path: Path) -> None:
-    """Get pll freq returns none when absent."""
-    pll_file = tmp_path / "pll.v"
-    pll_file.write_text("-- nothing relevant here\n")
-
-    assert get_pll_freq(pll_file, "output_clock_frequency{idx}", "MHz") is None
-
-
-def test_set_then_get_pll_freq_round_trips(tmp_path: Path) -> None:
-    """Set then get pll freq round trips."""
-    pll_file = tmp_path / "pll.v"
-    pll_file.write_text(THREE_PHASE_PLL)
-
-    set_pll_freq(
-        pll_file,
-        33.5,
-        PllParams(
-            phase_count=3,
-            freq_param_template="output_clock_frequency{idx}",
-            phase_param_template="phase_shift{idx}",
-            freq_unit="MHz",
-            phase_unit="ps",
-        ),
-    )
-
-    assert get_pll_freq(pll_file, "output_clock_frequency{idx}", "MHz") == 33.5
 
 
 def test_cmd_freq_sweep_resolves_pll_file_against_the_project_root(

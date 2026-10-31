@@ -129,35 +129,3 @@ def set_pll_freq(pll_file: Path, mhz: float, params: PllParams) -> None:
         )
 
     pll_file.write_text(text)
-
-
-def get_pll_freq(
-    pll_file: Path, freq_param_template: str, freq_unit: str
-) -> float | None:
-    """Read a PLL source's currently configured clock frequency.
-
-    Reads phase 0 (idx=0) only — set_pll_freq always sets every phase
-    output to the same frequency, so any one of them reflects the
-    current setting.
-
-    Parameters
-    ----------
-    pll_file : Path
-        Path to the PLL source file to read.
-    freq_param_template : str
-        "{idx}"-templated parameter name (see set_pll_freq).
-    freq_unit : str
-        Unit suffix expected after the frequency value (see
-        set_pll_freq).
-
-    Returns
-    -------
-    float or None
-        The currently configured frequency in MHz, or None if
-        `freq_param_template.format(idx=0)` isn't found in pll_file.
-    """
-    text = pll_file.read_text()
-    freq_param = re.escape(freq_param_template.format(idx=0))
-    unit = re.escape(freq_unit)
-    m = re.search(rf'\.{freq_param}\("([\d.]+)\s*{unit}"\)', text)
-    return float(m.group(1)) if m else None

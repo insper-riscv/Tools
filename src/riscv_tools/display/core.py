@@ -230,22 +230,6 @@ def _run_fail(link: JtagLink, action: str) -> bool:
     raise RuntimeError(f"the display script printed no flag: {done.stdout!r}")
 
 
-def read_fail(link: JtagLink) -> bool:
-    """Read the failure flag that the board shows on its first red LED.
-
-    Parameters
-    ----------
-    link : JtagLink
-        Which JTAG cable/chip to use.
-
-    Returns
-    -------
-    bool
-        True when the flag is set.
-    """
-    return _run_fail(link, "read")
-
-
 def write_fail(link: JtagLink, failed: bool) -> bool:
     """Set or clear the failure flag and read it back.
 
