@@ -54,38 +54,42 @@ def _make_project(root: Path) -> None:
     # A `results` too big for the small-data section, so it lands in
     # .bss after the platform's own objects: the address the golden
     # holds must still be the one in the image the hardware loads.
-    (root / "c" / "wide").mkdir()
-    (root / "c" / "wide" / "src.c").write_text(
+    write_c_test(
+        root,
+        "wide",
         "// RV32_TEST_KIND: memory\n"
         '#include "rv32_test.h"\n'
         "volatile unsigned int results[8];\n"
         "int main(void) {\n"
         "    for (int i = 0; i < 8; i++) { results[i] = i + 1; }\n"
         "    RV32_PASS();\n"
-        "}\n"
+        "}\n",
     )
 
     # Declares `results` and never touches it: the linker must still
     # keep it, since the golden is read from it.
-    (root / "c" / "declared").mkdir()
-    (root / "c" / "declared" / "src.c").write_text(
+    write_c_test(
+        root,
+        "declared",
         "// RV32_TEST_KIND: memory\n"
         '#include "rv32_test.h"\n'
         "volatile unsigned int results[1];\n"
-        "int main(void) { RV32_PASS(); }\n"
+        "int main(void) { RV32_PASS(); }\n",
     )
 
     # Returns from main, as any C program does: the crt0 calls exit().
-    (root / "c" / "returns").mkdir()
-    (root / "c" / "returns" / "src.c").write_text(
-        "int main(void) { return 0; }\n"
+    write_c_test(
+        root,
+        "returns",
+        "int main(void) { return 0; }\n",
     )
 
     # Initialized data, zero data and a constant: what the crt0 must
     # copy, clear and leave alone. A wrong value returns nonzero, which
     # _exit reports as FAIL.
-    (root / "c" / "data").mkdir()
-    (root / "c" / "data" / "src.c").write_text(
+    write_c_test(
+        root,
+        "data",
         'char text[7] = "abcdef";\n'
         "int word = 0x12345678;\n"
         "int zero;\n"
@@ -98,7 +102,7 @@ def _make_project(root: Path) -> None:
         "    if (table[0] != 0x0BADF00D || table[selector] != 0x1234)"
         " return 4;\n"
         "    return 0;\n"
-        "}\n"
+        "}\n",
     )
 
     (root / "asm" / "raw").mkdir(parents=True)

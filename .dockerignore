@@ -1,7 +1,23 @@
+# Git
 .git
-.venv
-.ruff_cache
+.gitignore
+
+# Cache
+.cache
+.complexipy_cache
 .pytest_cache
+.ruff_cache
 __pycache__
+
+# Bytecode
 *.pyc
+
+# Distribution / Packaging
+.venv
+dist
 build
+*.egg-info
+
+# IDEs
+.vscode
+.claude
