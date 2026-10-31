@@ -26,10 +26,8 @@ def word_offset(ram_base: int, addr: int, *, relative: bool = True) -> int:
       always carries the real, absolute address, never a RAM-relative
       one, regardless of where ram_base is mapped.
 
-    Picking the wrong one silently misses every mailbox/go-flag access
-    whenever ram_base != 0 (found via RV32IM's own sim testbench
-    hardcoding the relative=True math against a raw bus signal after
-    RV32IM moved off ram_base=0; see docs/DATA_HARVARD_BUG.md).
+    Picking the wrong one silently misses every mailbox and go-flag
+    access when ram_base != 0.
 
     Parameters
     ----------

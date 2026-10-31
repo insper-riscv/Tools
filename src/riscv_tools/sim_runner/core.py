@@ -226,21 +226,15 @@ def run_test(
     for name, source in (options.get("run_files") or {}).items():
         shutil.copyfile(source, Path(build_dir) / name)
 
-    # A fixed results_xml name (rather than cocotb's own default,
-    # which is derived from the pytest test name when run under
-    # pytest, not useful here) so we know exactly where to re-read
-    # results from below.
+    # results.xml gets a fixed name, so the results can be read back
+    # below.
     results_xml = Path(build_dir) / "results.xml"
 
-    # Unlike the older cocotb.runner (1.x), cocotb_tools.runner's
-    # Runner.test() (2.x) raises SystemExit itself when any testcase
-    # failed, confirmed empirically (a deliberately-failing cocotb
-    # test here raised SystemExit(1) even though the simulation ran to
-    # completion and produced a normal results.xml with FAIL=1). A
-    # failed TEST isn't a crash of the whole suite, so that expected
-    # case is caught and translated into a plain False return; only a
-    # missing results.xml (genuine crash before any results existed)
-    # propagates.
+    # Runner.test() raises SystemExit when any testcase failed, even
+    # though the simulation completed and wrote a normal results.xml.
+    # A failed test is an expected outcome, so SystemExit is caught and
+    # turned into a False return; only a missing results.xml (a crash
+    # before any results existed) propagates.
     try:
         runner.test(
             hdl_toplevel=toplevel,

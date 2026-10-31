@@ -318,18 +318,13 @@ def _run_with_recovery(
     3. A full recompile + reprogram, but ONLY if tier 2 failed because
        the .sof itself doesn't exist (FileNotFoundError), not because
        quartus_pgm couldn't reach the board. Recompiling can't fix a
-       JTAG chain that's down (that needs a physical power-cycle
-       either way) and produces the identical bitstream tier 2 already
-       tried; empirically 0/7 of those recompiles recovered a single
-       test this session, at ~4-5 minutes each. Skipping this tier
-       when it can't help is the whole point of separating it from
-       tier 2's failure handling.
+       JTAG chain that's down (that needs a physical power-cycle) and
+       produces the bitstream tier 2 already tried.
 
     Raises NeedsHumanInterventionError as soon as any tier's own failure
     text matches a known hardware/cable signature (see
-    _is_hardware_failure); no automated tier below has ever recovered
-    from one of those this session, so there's no point paying for
-    tier 2/3 just to confirm it again more expensively. A tier that
+    _is_hardware_failure); no automated tier recovers from one of
+    those, so the remaining tiers are skipped. A tier that
     fails with unrecognized output (or a plain timeout with no
     subprocess error at all) is NOT escalated this way; that might be
     a real CPU/test bug rather than a wedged board, and still gets to

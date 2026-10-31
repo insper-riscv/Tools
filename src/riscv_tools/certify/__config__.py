@@ -15,8 +15,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         # project-specific, no sane default.
         "target_config": None,
         # Comma-separated extension list forwarded to ACT4's own
-        # `make ... EXTENSIONS=`. Grows as the core gains extensions
-        # (A next, most likely); see rv32im-min.yaml's own history.
+        # `make ... EXTENSIONS=`.
         "extensions": "I,M",
         # `make`'s own -j equivalent (0 = auto-detect CPU count, ACT4's
         # own default; see vendor/riscv-arch-test/Makefile: JOBS).

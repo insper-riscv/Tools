@@ -166,18 +166,11 @@ def full_reconfigure(
     for stale in project.stale_cache_dirs:
         shutil.rmtree(project_dir / stale, ignore_errors=True)
 
-    # compile and program are shelled out as ONE bash -c chain, not two
-    # separate subprocess.run() calls, because invoking quartus_pgm as
-    # its own Python-launched subprocess right after quartus_sh
-    # reliably reports "Can't scan JTAG chain" (error 87), reproduced
-    # 4/4 times through this module's own subprocess.run() sequence
-    # (with delays from 0s to 10s between the two calls, delay length
-    # made no difference), while chaining the exact same two commands
-    # in a single shell process (this project's own manual
-    # `quartus_sh ...; quartus_pgm ...` in one `bash -c`, even with a
-    # ~1s gap) succeeded 2/2 times. The cause isn't confirmed, but the
-    # workaround is reproducible: keep both commands in one shell
-    # process, not two Python subprocess.run() calls.
+    # Compile and program run as ONE bash -c chain, not as two
+    # subprocess.run() calls: quartus_pgm launched on its own right
+    # after quartus_sh fails with "Can't scan JTAG chain" (error 87),
+    # whatever the delay between the two, while the same two commands
+    # in a single shell succeed.
     compile_cmd = ["quartus_sh", "--flow", "compile", project.project_name]
     pgm_cmd = [
         "quartus_pgm",
