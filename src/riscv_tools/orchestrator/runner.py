@@ -6,7 +6,6 @@ responds within its timeout, it falls back to a full recompile and
 reprogram. The clock frequency sweep is in sweep.py.
 """
 
-import json
 import subprocess
 import time
 from dataclasses import dataclass
@@ -14,7 +13,6 @@ from pathlib import Path
 from typing import Any
 
 from riscv_tools import (
-    display,
     mailbox,
     mem_validator,
     quartus_program,
@@ -22,24 +20,8 @@ from riscv_tools import (
     ram_target,
     rom_writer,
 )
-from riscv_tools.jtag import JtagLink, jtag_chain_healthy
-
-# Substrings of real Quartus/jtagd error text that mean the JTAG chain
-# or cable itself is unreachable, never that the design misbehaved or
-# the test failed. Matched case-insensitively against the stdout and
-# stderr of a CalledProcessError.
-_HARDWARE_FAILURE_SIGNATURES = (
-    "can't scan jtag chain",
-    "jtag chain broken",
-    "unable to read device chain",
-    "programming hardware cable not detected",
-    "hardware is not found",
-    "no editable memory instance",
-    "error when scanning hardware",
-)
-# How often run_suite's wait_for_hardware mode polls `jtagconfig` while
-# blocked waiting for a human to physically fix the board.
-_HARDWARE_WAIT_POLL_S = 5.0
+from riscv_tools.jtag import JtagLink
+from riscv_tools.orchestrator.failure import raise_if_hardware_failure
 
 
 @dataclass(frozen=True)
@@ -105,55 +87,6 @@ class SuiteOptions:
     wait_for_hardware: bool = False
     durations: dict[str, float] | None = None
     skip_recompile: bool = False
-
-
-class NeedsHumanInterventionError(Exception):
-    """A JTAG/hardware failure that no retry can fix.
-
-    Raised by _run_with_recovery when the error text of a failed
-    subprocess matches a known "board or cable unreachable" signature.
-    An ordinary test timeout, where every JTAG operation succeeded, is
-    not one of these, since it may be a real CPU or test bug. run_suite
-    catches this, saves progress and stops, because nothing is left to
-    try except a human power-cycling the board.
-    """
-
-
-def _is_hardware_failure(exc: subprocess.CalledProcessError) -> bool:
-    """Check whether exc matches a known JTAG/cable failure.
-
-    Only the output of exc itself is checked for the signature.
-
-    Parameters
-    ----------
-    exc : subprocess.CalledProcessError
-        A failure from jtag.link.run/run_tcl or
-        quartus_program._run_captured, both always populate
-        .stdout/.stderr with real text now (see their own docstrings).
-
-    Returns
-    -------
-    bool
-        True if exc's stdout+stderr contain one of
-        _HARDWARE_FAILURE_SIGNATURES; this specific test's own retry
-        tiers are exhausted, and neither would a trying-again-later
-        retry help without a human power-cycling the board first.
-        False for any other failure (e.g. a nonzero exit with
-        different or no output), treated as an ordinary test failure,
-        not grounds to stop the whole suite.
-    """
-    text = f"{exc.stdout or ''}\n{exc.stderr or ''}".lower()
-    return any(sig in text for sig in _HARDWARE_FAILURE_SIGNATURES)
-
-
-def _raise_if_hardware_failure(exc: subprocess.CalledProcessError) -> None:
-    """Re-raise exc as NeedsHumanInterventionError if it looks like one.
-
-    It does nothing otherwise. The classification is in
-    _is_hardware_failure.
-    """
-    if _is_hardware_failure(exc):
-        raise NeedsHumanInterventionError(str(exc)) from exc
 
 
 def run_test_via_jtag(
@@ -337,65 +270,32 @@ def _run_with_recovery(
     """
     name = entry["name"]
 
-    try:
-        value = run_test_via_jtag(cfg, link, entry, root)
-    except subprocess.CalledProcessError as exc:
-        # A JTAG chain that's already down when this test starts (e.g.
-        # the previous test's own fallback never got the board back)
-        # fails write_rom/pulse_go_flag immediately, before any
-        # polling even begins.
-        _raise_if_hardware_failure(exc)
-        value = None
-
+    # A JTAG chain that's already down when this test starts (for
+    # example because the previous test's fallback never got the board
+    # back) fails right away, before any polling begins.
+    value = _try_jtag(cfg, link, entry, root)
     if value is not None:
         return value
 
-    # Tier 1: cheap soft restart. Matters because a tier-3 recompile
-    # leaves the core running UNSUPERVISED for however long `quartus_sh
-    # --flow compile` takes (minutes) before quartus_pgm ever touches
-    # the cable again; that's a long window for a spinning core to
-    # make things worse, not better, before we even attempt the
-    # expensive/fragile path.
+    # Tier 1: cheap soft restart. A tier-3 recompile leaves the core
+    # running unsupervised while `quartus_sh --flow compile` takes
+    # minutes, which can make things worse before the expensive path
+    # is even tried.
     print(
         f"{name}: no mailbox result after {entry['timeout_s']}s; "
         "retrying a soft restart (rewrite ROM + pulse go-flag) once "
         "before trying a plain reprogram"
     )
-    try:
-        value = run_test_via_jtag(cfg, link, entry, root)
-    except subprocess.CalledProcessError as exc:
-        _raise_if_hardware_failure(exc)
-        value = None
-
+    value = _try_jtag(cfg, link, entry, root)
     if value is not None:
         return value
 
-    # Tier 2: plain reprogram, no recompile. FileNotFoundError means
-    # "no .sof to reprogram from at all" (tier 3 can actually help,
-    # unrelated to the board's JTAG reachability), distinct from a
-    # CalledProcessError, which means quartus_pgm itself ran and either
-    # hit a recognized hardware failure (raise, stop the suite) or
-    # something else entirely (fall through, still worth a timeout
-    # report rather than assuming the board is wedged).
+    # Tier 2: plain reprogram, no recompile.
     print(
         f"{name}: still no mailbox result after a soft restart; "
         "trying a plain reprogram (existing .sof, no recompile)"
     )
-    sof_missing = False
-    try:
-        quartus_program.program_only(
-            hardware_name=link.hardware_name,
-            project_dir=project_dir,
-            sof_file=cfg["quartus"]["sof_file"],
-        )
-        value = run_test_via_jtag(cfg, link, entry, root)
-    except FileNotFoundError:
-        value = None
-        sof_missing = True
-    except subprocess.CalledProcessError as exc:
-        _raise_if_hardware_failure(exc)
-        value = None
-
+    value, sof_missing = _try_reprogram(cfg, link, entry, root, project_dir)
     if value is not None:
         return value
 
@@ -409,13 +309,92 @@ def _run_with_recovery(
         )
         return None
 
-    # Tier 3: full recompile + reprogram, only reached when there's no
-    # .sof to fall back on.
+    # Tier 3: full recompile + reprogram, only when there is no .sof.
     print(
         f"{name}: still no mailbox result, and no .sof exists to "
         "reprogram from, falling back to a full recompile+reprogram, "
         "which this specific case actually needs"
     )
+    return _try_recompile(cfg, link, entry, root, project_dir)
+
+
+def _try_jtag(
+    cfg: dict[str, Any], link: JtagLink, entry: dict[str, Any], root: Path
+) -> int | None:
+    """Run entry via JTAG once.
+
+    Returns
+    -------
+    int or None
+        The mailbox value, or None if the test never answered.
+
+    Raises
+    ------
+    NeedsHumanInterventionError
+        The failure matches a known hardware or cable signature.
+    """
+    try:
+        return run_test_via_jtag(cfg, link, entry, root)
+    except subprocess.CalledProcessError as exc:
+        raise_if_hardware_failure(exc)
+        return None
+
+
+def _try_reprogram(
+    cfg: dict[str, Any],
+    link: JtagLink,
+    entry: dict[str, Any],
+    root: Path,
+    project_dir: Path,
+) -> tuple[int | None, bool]:
+    """Reprogram from the existing .sof (tier 2), then run entry.
+
+    A missing .sof means tier 3 can help; a failed quartus_pgm that is
+    not a known hardware failure is an ordinary timeout.
+
+    Returns
+    -------
+    tuple of (int or None, bool)
+        The mailbox value, and whether the .sof was missing.
+
+    Raises
+    ------
+    NeedsHumanInterventionError
+        The failure matches a known hardware or cable signature.
+    """
+    try:
+        quartus_program.program_only(
+            hardware_name=link.hardware_name,
+            project_dir=project_dir,
+            sof_file=cfg["quartus"]["sof_file"],
+        )
+        return run_test_via_jtag(cfg, link, entry, root), False
+    except FileNotFoundError:
+        return None, True
+    except subprocess.CalledProcessError as exc:
+        raise_if_hardware_failure(exc)
+        return None, False
+
+
+def _try_recompile(
+    cfg: dict[str, Any],
+    link: JtagLink,
+    entry: dict[str, Any],
+    root: Path,
+    project_dir: Path,
+) -> int | None:
+    """Recompile, reprogram and run entry (tier 3).
+
+    Returns
+    -------
+    int or None
+        The mailbox value, or None if the recompile failed.
+
+    Raises
+    ------
+    NeedsHumanInterventionError
+        The failure matches a known hardware or cable signature.
+    """
     try:
         full_reconfigure_entry(cfg, link, entry, root, project_dir)
         wait_s = cfg["quartus"]["program_wait_seconds"]
@@ -423,8 +402,8 @@ def _run_with_recovery(
         time.sleep(wait_s)
         return mailbox.read_configured(link, cfg)
     except subprocess.CalledProcessError as exc:
-        _raise_if_hardware_failure(exc)
-        print(f"{name}: full recompile+reprogram failed too ({exc})")
+        raise_if_hardware_failure(exc)
+        print(f"{entry['name']}: full recompile+reprogram failed too ({exc})")
         return None
 
 
@@ -480,41 +459,9 @@ def run_one(
         ctx.cfg, ctx.link, entry, ctx.root, ctx.project_dir
     )
 
-    if value == mailbox.PASS:
-        print(f"{name}: PASS")
-        passed = True
-    elif value == mailbox.FAIL:
-        print(f"{name}: FAIL")
-        passed = False
-    else:
-        print(
-            f"{name}: TIMEOUT/UNKNOWN (mailbox={value}); program may not have "
-            "finished"
-        )
-        passed = False
-
+    passed = _report_verdict(name, value)
     if entry["kind"] == "memory":
-        # Same classification as _run_with_recovery's own tiers: a
-        # recognized hardware-failure signature here raises
-        # NeedsHumanInterventionError too, same as everywhere else;
-        # this was the one JTAG call in run_one that wasn't covered by
-        # that logic.
-        golden = ctx.root / entry["golden"]
-        try:
-            dump_path = ctx.build_dir / f"{name}_ram.mif"
-            ram_dump.dump_ram(
-                ctx.link,
-                ram_target.target_from_config(ctx.cfg),
-                dump_path,
-                mem_validator.golden_word_offsets(golden),
-            )
-            passed = mem_validator.compare(dump_path, golden) and passed
-        except subprocess.CalledProcessError as exc:
-            _raise_if_hardware_failure(exc)
-            print(
-                f"{name}: RAM dump failed ({exc}); can't verify memory content"
-            )
-            passed = False
+        passed = _check_ram(ctx, entry) and passed
 
     duration_s = time.monotonic() - start
     print(f"{name}: took {duration_s:.1f}s")
@@ -523,281 +470,41 @@ def run_one(
     return passed
 
 
-def _wait_for_hardware_healthy(
-    poll_interval_s: float = _HARDWARE_WAIT_POLL_S,
-) -> None:
-    """Block until the JTAG chain recovers.
-
-    Polls jtag.jtag_chain_healthy. It runs after the message of a
-    NeedsHumanInterventionError, only when run_suite was given
-    wait_for_hardware=True, so the person fixing the board (typically
-    with a power-cycle) can watch this process instead of re-invoking
-    it.
-
-    Parameters
-    ----------
-    poll_interval_s : float, optional
-        Seconds between `jtagconfig` checks. Defaults to
-        _HARDWARE_WAIT_POLL_S.
-
-    Returns
-    -------
-    None
-        Once jtag_chain_healthy() returns True.
-    """
-    while not jtag_chain_healthy():
-        time.sleep(poll_interval_s)
-    print("jtagconfig reports the chain is healthy again; resuming.")
+def _report_verdict(name: str, value: int | None) -> bool:
+    """Print the verdict of a test and return whether it passed."""
+    if value == mailbox.PASS:
+        print(f"{name}: PASS")
+        return True
+    if value == mailbox.FAIL:
+        print(f"{name}: FAIL")
+        return False
+    print(
+        f"{name}: TIMEOUT/UNKNOWN (mailbox={value}); program may not have "
+        "finished"
+    )
+    return False
 
 
-def run_suite(
-    ctx: RunContext,
-    manifest: list[dict[str, Any]],
-    options: SuiteOptions | None = None,
-) -> dict[str, bool]:
-    """Run every test in manifest against real hardware.
-
-    Compiles and programs the board once, then runs each entry with
-    run_one, in order. It stops (without raising) when a test raises
-    NeedsHumanInterventionError. With options.results_path, each result
-    is saved as soon as it is known, so an interrupted run can resume.
-
-    Parameters
-    ----------
-    ctx : RunContext
-        The shared state.
-    manifest : list of dict of {str: Any}
-        The tests to run; must be non-empty. With options.reconfigure,
-        the ROM of manifest[0] is baked into the initial compile.
-    options : SuiteOptions, optional
-        The optional behaviors. None means SuiteOptions().
-
-    Returns
-    -------
-    dict of {str: bool}
-        {test_name: passed}, including options.results_so_far. Fewer
-        entries than results_so_far plus manifest means the run stopped.
+def _check_ram(ctx: RunContext, entry: dict[str, Any]) -> bool:
+    """Dump the RAM and compare it with the golden of a "memory" test.
 
     Raises
     ------
-    ValueError
-        manifest is empty.
+    NeedsHumanInterventionError
+        The dump failed with a known hardware or cable signature.
     """
-    if not manifest:
-        raise ValueError("Manifest is empty; nothing to run")
-    suite = _SuiteRun(ctx, manifest, options or SuiteOptions())
-    if suite.options.reconfigure and not suite.reconfigure():
-        return suite.results
-    suite.run_entries()
-    return suite.results
-
-
-class _SuiteRun:
-    """The state and steps of one run_suite call."""
-
-    def __init__(
-        self,
-        ctx: RunContext,
-        manifest: list[dict[str, Any]],
-        options: SuiteOptions,
-    ) -> None:
-        self.ctx = ctx
-        self.manifest = manifest
-        self.options = options
-        self.already_done = len(options.results_so_far or {})
-        self.results: dict[str, bool] = dict(options.results_so_far or {})
-
-    def persist(self) -> None:
-        """Write the results so far, if a results path was given."""
-        path = self.options.results_path
-        if path is not None:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(json.dumps(self.results, indent=2))
-
-    def handle_hardware_stop(
-        self, name: str, exc: NeedsHumanInterventionError
-    ) -> bool:
-        """Report a hardware stop.
-
-        Always persists progress and prints exc. If wait_for_hardware,
-        blocks in _wait_for_hardware_healthy and returns True (retry
-        the step that just failed) instead of False (stop the suite).
-
-        Parameters
-        ----------
-        name : str
-            The test (or step) that hit the failure.
-        exc : NeedsHumanInterventionError
-            The failure.
-
-        Returns
-        -------
-        bool
-            True if the caller should retry.
-        """
-        self.persist()
-        wait = self.options.wait_for_hardware
-        remaining = len(self.manifest) - (
-            len(self.results) - self.already_done
+    name = entry["name"]
+    golden = ctx.root / entry["golden"]
+    try:
+        dump_path = ctx.build_dir / f"{name}_ram.mif"
+        ram_dump.dump_ram(
+            ctx.link,
+            ram_target.target_from_config(ctx.cfg),
+            dump_path,
+            mem_validator.golden_word_offsets(golden),
         )
-        action = (
-            "waiting for the board to come back"
-            if wait
-            else "stopping the suite"
-        )
-        print(
-            f"\n{name}: {action} ({exc})\n"
-            f"This needs a physical power-cycle of the board, not "
-            f"another retry. {len(self.results)} test(s) done, "
-            f"{remaining} remaining (including this one)."
-        )
-        if not wait:
-            print(
-                "Once the board is back (`jtagconfig` shows it healthy "
-                "again), re-run the exact same command to resume from "
-                "here; completed tests won't be re-run."
-            )
-            return False
-        _wait_for_hardware_healthy()
-        return True
-
-    def reconfigure(self) -> bool:
-        """Compile and program the board once, before any test.
-
-        Returns
-        -------
-        bool
-            False if the suite must stop on a hardware failure.
-        """
-        print("Compiling and programming the board once ...")
-        already_compiled = self.options.skip_recompile
-        while True:
-            try:
-                self._reconfigure_once(already_compiled)
-                return True
-            except subprocess.CalledProcessError as exc:
-                already_compiled = True
-                if not self._can_retry(exc):
-                    return False
-
-    def _reconfigure_once(self, already_compiled: bool) -> None:
-        """Run one attempt of the initial reconfigure.
-
-        If an earlier attempt finished quartus_sh --flow compile, the
-        .sof is known good: the hardware-failure signatures all come
-        from quartus_pgm or quartus_stp, which only run after the
-        compile. Then only the reprogramming is retried, not another
-        recompile of the same design.
-
-        Parameters
-        ----------
-        already_compiled : bool
-            Whether to reprogram the existing .sof only.
-        """
-        ctx = self.ctx
-        if already_compiled:
-            quartus_program.program_only(
-                hardware_name=ctx.link.hardware_name,
-                project_dir=ctx.project_dir,
-                sof_file=ctx.cfg["quartus"]["sof_file"],
-            )
-        else:
-            full_reconfigure_entry(
-                ctx.cfg,
-                ctx.link,
-                self.manifest[0],
-                ctx.root,
-                ctx.project_dir,
-            )
-
-    def _can_retry(self, exc: subprocess.CalledProcessError) -> bool:
-        """Classify a failure of the initial reconfigure.
-
-        There is no retry path for the initial reconfigure: either the
-        failure matches a known JTAG or cable signature and is handled
-        like every other call site, or it is a real build or hardware
-        problem and propagates.
-
-        Parameters
-        ----------
-        exc : subprocess.CalledProcessError
-            The failure.
-
-        Returns
-        -------
-        bool
-            True to retry, False to stop the suite.
-
-        Raises
-        ------
-        subprocess.CalledProcessError
-            exc itself, when it is not a known hardware failure.
-        """
-        try:
-            _raise_if_hardware_failure(exc)
-        except NeedsHumanInterventionError as hi_exc:
-            return self.handle_hardware_stop(self.manifest[0]["name"], hi_exc)
-        raise exc
-
-    def run_entries(self) -> None:
-        """Run every manifest entry, stopping on a hardware failure."""
-        # 1-based position across the ORIGINAL manifest, not just this
-        # invocation's (possibly resumed/already-filtered) one, a
-        # resume restarting the header count at "[1/N]" would
-        # understate both how far along the suite actually is and what
-        # N even means.
-        total = self.already_done + len(self.manifest)
-        show = bool(
-            self.ctx.cfg.get("orchestrator", {}).get("board_display", False)
-        )
-        if show and not self.already_done:
-            # a new session starts without a failure; a resumed one
-            # keeps the flag it had
-            display.write_fail(self.ctx.link, False)
-        for i, entry in enumerate(self.manifest, start=self.already_done + 1):
-            if show:
-                # the number of the program in the session, in
-                # decimal, on the six digits
-                display.write_display(self.ctx.link, display.encode_test(i))
-            if not self._run_entry(entry, (i, total), show):
-                return
-            self.persist()
-
-    def _run_entry(
-        self, entry: dict[str, Any], position: tuple[int, int], show: bool
-    ) -> bool:
-        """Run one entry, retrying after a hardware stop if asked.
-
-        Parameters
-        ----------
-        entry : dict of {str: Any}
-            The manifest entry.
-        position : tuple of (int, int)
-            (index, total) of the entry in the whole suite.
-        show : bool
-            Whether the board display follows the suite.
-
-        Returns
-        -------
-        bool
-            False if the suite must stop.
-        """
-        name = entry["name"]
-        while True:
-            try:
-                passed = run_one(
-                    self.ctx,
-                    entry,
-                    position=position,
-                    duration=self.options.durations,
-                )
-            except NeedsHumanInterventionError as exc:
-                if self.handle_hardware_stop(name, exc):
-                    continue
-                return False
-            self.results[name] = passed
-            if show and not passed:
-                # the first red LED stays lit once any program has
-                # failed
-                display.write_fail(self.ctx.link, True)
-            return True
+        return mem_validator.compare(dump_path, golden)
+    except subprocess.CalledProcessError as exc:
+        raise_if_hardware_failure(exc)
+        print(f"{name}: RAM dump failed ({exc}); can't verify memory content")
+        return False
