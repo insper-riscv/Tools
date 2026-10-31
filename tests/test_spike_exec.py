@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from riscv_tools.spike_exec import (
+    SpikeTarget,
     prepared_elf,
     require_spike,
     spike_command,
@@ -33,26 +34,37 @@ def test_require_spike_missing_binary_points_at_setup_doc() -> None:
         require_spike("spike-that-does-not-exist")
 
 
-def test_require_spike_rejects_debug_module_at_address_zero(tmp_path: Path) -> None:
+def test_require_spike_rejects_debug_module_at_address_zero(
+    tmp_path: Path,
+) -> None:
     fake = _fake_spike(
-        tmp_path, "spike_unpatched", "devices at [0, 1000) and [0, 10000) overlap"
+        tmp_path,
+        "spike_unpatched",
+        "devices at [0, 1000) and [0, 10000) overlap",
     )
 
     with pytest.raises(RuntimeError, match="debug module"):
         require_spike(str(fake))
 
 
-def test_require_spike_accepts_a_binary_without_the_overlap(tmp_path: Path) -> None:
+def test_require_spike_accepts_a_binary_without_the_overlap(
+    tmp_path: Path,
+) -> None:
     fake = _fake_spike(tmp_path, "spike_patched", "some other error")
 
     assert require_spike(str(fake)) == str(fake)
 
 
 def test_spike_command_lists_every_region_and_the_entry_point() -> None:
+    target = SpikeTarget(
+        spike_bin="spike",
+        nm_bin="nm",
+        isa="rv32im",
+        mem_regions=[(0, 0x8000), (0x8000, 0x1000)],
+        tohost_symbol="tohost",
+    )
     cmd = spike_command(
-        "spike",
-        "rv32im",
-        [(0, 0x8000), (0x8000, 0x1000)],
+        target,
         0x40,
         Path("t.elf"),
         ("+signature=s.txt",),
@@ -111,7 +123,8 @@ def test_prepared_elf_aliases_a_custom_tohost_symbol(tmp_path: Path) -> None:
     ld = tmp_path / "a.ld"
     ld.write_text(
         "ENTRY(_start)\n"
-        "SECTIONS { . = 0x80000000; .text : { *(.text*) } .bss : { *(.bss*) } }\n"
+        "SECTIONS { . = 0x80000000; .text : { *(.text*) } "
+        ".bss : { *(.bss*) } }\n"
     )
     elf = tmp_path / "a.elf"
     subprocess.run(

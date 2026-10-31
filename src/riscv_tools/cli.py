@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
-"""Command-line entry point: ``riscv-tools --config <config.yaml> <subcommand> ...``.
+"""Command-line entry point of ``riscv-tools``.
+
+Usage: ``riscv-tools --config <config.yaml> <subcommand> ...``.
 
 Every subcommand takes --config, pointing at the CONSUMING project's
 own config.yaml (memory map, Quartus project paths, toolchain, etc.)
-— except `vhdl-sort`, `check-memory-map` and `check-paths`, which read only
-files and need no project config at all.
+— except `vhdl-sort`, `check-memory-map` and `check-paths`, which read
+only files and need no project config at all.
 """
 
 import argparse
 import json
 import sys
 import time
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -39,12 +42,17 @@ from riscv_tools import c_to_asm as c_to_asm_mod
 from riscv_tools import compiler as compiler_mod
 from riscv_tools import display as display_mod
 from riscv_tools import timing_paths as timing_paths_mod
+from riscv_tools.compiler import BuildSetup
 from riscv_tools.jtag import JtagLink, detect_jtag_hardware
+from riscv_tools.orchestrator.runner import RunContext, SuiteOptions, SweepJob
 from riscv_tools.settings import load_config
+from riscv_tools.spike_exec import SpikeTarget
 
 
 def _link(cfg: dict[str, Any]) -> JtagLink:
-    """Build a JtagLink for the currently connected cable and the project's chip.
+    """Build a JtagLink for the connected cable and the chip.
+
+    The chip is the one of the project.
 
     Parameters
     ----------
@@ -58,7 +66,8 @@ def _link(cfg: dict[str, Any]) -> JtagLink:
         jtag.detect_jtag_hardware) and cfg's device_name.
     """
     return JtagLink(
-        hardware_name=detect_jtag_hardware(), device_name=cfg["quartus"]["jtag_device"]
+        hardware_name=detect_jtag_hardware(),
+        device_name=cfg["quartus"]["jtag_device"],
     )
 
 
@@ -80,7 +89,9 @@ def _root(args: argparse.Namespace) -> Path:
 
 
 def _spike_mem_regions(cfg: dict[str, Any]) -> list[tuple[int, int]]:
-    """Build golden_generator.generate_golden's mem_regions from a project's config.
+    """Build the mem_regions of generate_golden from a config.
+
+    The config is the one of the project.
 
     Parameters
     ----------
@@ -106,8 +117,40 @@ def _spike_mem_regions(cfg: dict[str, Any]) -> list[tuple[int, int]]:
     ]
 
 
+def _spike_target(
+    cfg: dict[str, Any], isa: str, entry_symbol: str = "_start"
+) -> SpikeTarget:
+    """Build the Spike run settings of a project.
+
+    Parameters
+    ----------
+    cfg : dict of {str: Any}
+        The merged project config.
+    isa : str
+        The `--isa=` value, which should match the test's own march.
+    entry_symbol : str, optional
+        The symbol execution starts at. Defaults to `_start`.
+
+    Returns
+    -------
+    SpikeTarget
+        The binaries, ISA, memory regions and symbols of the run.
+    """
+    return SpikeTarget(
+        spike_bin=cfg["emulator"]["spike_bin"],
+        nm_bin=cfg["toolchain"]["nm"],
+        isa=isa,
+        mem_regions=_spike_mem_regions(cfg),
+        tohost_symbol=cfg["emulator"]["tohost_symbol"],
+        entry_symbol=entry_symbol,
+        objcopy_bin=cfg["toolchain"]["objcopy"],
+    )
+
+
 def _toolchain_cfg(cfg: dict[str, Any], root: Path) -> dict[str, Any]:
-    """Return the `toolchain:` section with `specs` resolved against the project root.
+    """Return the `toolchain:` section with `specs` resolved.
+
+    The specs are resolved against the project root.
 
     Parameters
     ----------
@@ -152,11 +195,12 @@ def _optional_path(cfg: dict[str, Any], root: Path, key: str) -> Path | None:
 def _syscalls_sources(cfg: dict[str, Any], root: Path) -> list[Path]:
     """Resolve the platform sources every test is compiled with.
 
-    That is `paths.sources` (the platform's own parts of the runtime, for
-    instance `_exit`) and the legacy `paths.syscalls`, described below.
+    That is `paths.sources` (the platform's own parts of the runtime,
+    for instance `_exit`) and the legacy `paths.syscalls`, described
+    below.
 
-    `paths.syscalls`, for the legacy libc "none": compile_test then passes
-    -nostdlib — a downloaded toolchain's own
+    `paths.syscalls`, for the legacy libc "none": compile_test then
+    passes -nostdlib — a downloaded toolchain's own
     bundled libc.a isn't guaranteed to match this project's -march/
     -mabi at all (confirmed the hard way: a real CI failure where the
     riscv-collab prebuilt release's libc.a turned out built for
@@ -192,10 +236,39 @@ def _syscalls_sources(cfg: dict[str, Any], root: Path) -> list[Path]:
     ]
 
 
+def _build_setup(cfg: dict[str, Any], root: Path) -> BuildSetup:
+    """Build the compile settings shared by every test of a project.
+
+    Parameters
+    ----------
+    cfg : dict of {str: Any}
+        The merged project config.
+    root : Path
+        The consuming project's root directory.
+
+    Returns
+    -------
+    BuildSetup
+        The toolchain, ISA, include directory, crt0, linker script and
+        platform sources of the project.
+    """
+    return BuildSetup(
+        toolchain_cfg=_toolchain_cfg(cfg, root),
+        isa_cfg=cfg["isa"],
+        default_timeout_s=cfg["quartus"]["default_timeout_s"],
+        include_dir=root / cfg["paths"]["include_dir"],
+        crt0=_optional_path(cfg, root, "crt0"),
+        linker=_optional_path(cfg, root, "linker_script"),
+        extra_sources=_syscalls_sources(cfg, root),
+    )
+
+
 def _spike_elf(
     cfg: dict[str, Any], name: str, build_dir: Path, root: Path, src: Path
 ) -> Path:
-    """Return the ELF Spike should run for one test, building it if needed.
+    """Return the ELF Spike should run for one test.
+
+    The ELF is built if needed.
 
     Parameters
     ----------
@@ -220,8 +293,9 @@ def _spike_elf(
     Path
         The ELF to hand to Spike.
     """
-    # A project with a BOOT_ROM/FLASH/RAM split (see riscv_tools.boot_rom)
-    # can't always hand Spike its normal, FLASH-only elf_path: on real
+    # A project with a BOOT_ROM/FLASH/RAM split (see
+    # riscv_tools.boot_rom) can't always hand Spike its normal,
+    # FLASH-only elf_path: on real
     # hardware the boot ROM is a SEPARATE image, so that ELF has nothing
     # at the address the program jumps to when it finishes
     # (rv32_wait_restart, the code that signals HTIF).
@@ -230,9 +304,11 @@ def _spike_elf(
     #   fromhost symbols), linked into an ELF built just for Spike, with
     #   emulator.gcc_flags. No linker script of the project's: the
     #   toolchain's does the linking (see toolchain.specs).
-    # - paths.golden_linker_script (legacy): the test linked together with
-    #   the boot ROM source (paths.boot_rom) by the project's own script,
-    #   and Spike starts at the boot ROM's entry (emulator.entry_symbol).
+    # - paths.golden_linker_script (legacy): the test linked together
+    # with
+    #   the boot ROM source (paths.boot_rom) by the project's own
+    #   script, and Spike starts at the boot ROM's entry
+    #   (emulator.entry_symbol).
     # - Neither: reuse build_dir/{name}.elf.
     golden_linker = _optional_path(cfg, root, "golden_linker_script")
     boot_rom_src = _optional_path(cfg, root, "boot_rom")
@@ -240,16 +316,10 @@ def _spike_elf(
     legacy_combined = golden_linker is not None and boot_rom_src is not None
     if spike_sources or legacy_combined:
         elf_path = build_dir / f"{name}.golden.elf"
-        compiler_mod.compile_test(
-            _toolchain_cfg(cfg, root),
-            cfg["isa"],
-            0.0,
-            src,
-            f"{name}.golden",
-            build_dir,
-            root / cfg["paths"]["include_dir"],
-            _optional_path(cfg, root, "crt0"),
-            golden_linker,
+        setup = replace(
+            _build_setup(cfg, root),
+            default_timeout_s=0.0,
+            linker=golden_linker,
             extra_sources=[
                 *([boot_rom_src] if legacy_combined and boot_rom_src else []),
                 *spike_sources,
@@ -257,20 +327,37 @@ def _spike_elf(
             ],
             link_flags=list(cfg["emulator"].get("gcc_flags", [])),
         )
+        compiler_mod.compile_test(setup, src, f"{name}.golden", build_dir)
     else:
         elf_path = build_dir / f"{name}.elf"
     return elf_path
 
 
-def _generate_c_golden(  # noqa: PLR0913, PLR0917
-    cfg: dict[str, Any],
-    march: str,
-    name: str,
-    build_dir: Path,
-    root: Path,
-    src: Path,
+@dataclass(frozen=True)
+class _CTest:
+    """The identity of one C test.
+
+    Parameters
+    ----------
+    name : str
+        This test's name.
+    march : str
+        This test's own `-march=` string (from compiler.compile_test).
+    src : Path
+        This test's own source file (.c).
+    """
+
+    name: str
+    march: str
+    src: Path
+
+
+def _generate_c_golden(
+    cfg: dict[str, Any], test: _CTest, build_dir: Path, root: Path
 ) -> Path:
-    """Auto-generate one .c memory test's golden.json by running its ELF under Spike.
+    """Auto-generate the golden.json of one .c memory test.
+
+    The ELF of the test is run under Spike.
 
     C memory tests never carry a checked-in golden.json — the whole
     point is validating against Spike (the RISC-V Foundation's own
@@ -283,45 +370,37 @@ def _generate_c_golden(  # noqa: PLR0913, PLR0917
     ----------
     cfg : dict of {str: Any}
         The merged project config.
-    march : str
-        This test's own `-march=` string (from compiler.compile_test),
-        passed to Spike as `--isa=`.
-    name : str
-        This test's name — build_dir/{name}.elf must already exist
-        (compiler.compile_test's own output), UNLESS
-        paths.golden_linker_script is configured (see below), in which
-        case a separate build_dir/{name}.golden.elf is built instead.
+    test : _CTest
+        The test. Its march is passed to Spike as `--isa=`;
+        build_dir/{name}.elf must already exist (compiler.compile_test's
+        own output), UNLESS paths.golden_linker_script is configured
+        (see below), in which case a separate
+        build_dir/{name}.golden.elf is built instead from its source,
+        recompiled against paths.golden_linker_script.
     build_dir : Path
         Where {name}.elf lives and {name}.golden.json gets written.
     root : Path
         The consuming project's root directory — resolves
         paths.boot_rom/golden_linker_script.
-    src : Path
-        This test's own source file (.c) — recompiled against
-        paths.golden_linker_script when configured (see below).
 
     Returns
     -------
     Path
         build_dir/{name}.golden.json.
     """
-    elf_path = _spike_elf(cfg, name, build_dir, root, src)
+    name = test.name
+    elf_path = _spike_elf(cfg, name, build_dir, root, test.src)
 
     addr_start, addr_end = golden_generator.symbol_range(
         cfg["toolchain"]["nm"], elf_path, "results"
     )
     golden = golden_generator.generate_golden(
-        spike_bin=cfg["emulator"]["spike_bin"],
-        nm_bin=cfg["toolchain"]["nm"],
-        elf_path=elf_path,
-        isa=march,
-        mem_regions=_spike_mem_regions(cfg),
-        tohost_symbol=cfg["emulator"]["tohost_symbol"],
-        entry_symbol=cfg["emulator"].get("entry_symbol", "_start"),
-        addr_start=addr_start,
-        addr_end=addr_end,
+        _spike_target(
+            cfg, test.march, cfg["emulator"].get("entry_symbol", "_start")
+        ),
+        elf_path,
+        (addr_start, addr_end),
         ram_base=cfg["memory"]["ram_base"],
-        objcopy_bin=cfg["toolchain"]["objcopy"],
         timeout_s=cfg["emulator"]["timeout_s"],
     )
     golden_path = build_dir / f"{name}.golden.json"
@@ -329,7 +408,7 @@ def _generate_c_golden(  # noqa: PLR0913, PLR0917
     return golden_path
 
 
-def _discover_tests(root: Path, cfg: dict[str, Any]) -> list[Path]:
+def discover_tests(root: Path, cfg: dict[str, Any]) -> list[Path]:
     """Find every test source under paths.c_dir/paths.asm_dir.
 
     Each test is its own <c_dir|asm_dir>/<name>/ folder containing
@@ -382,7 +461,9 @@ def _discover_tests(root: Path, cfg: dict[str, Any]) -> list[Path]:
 def _write_sim_hex(
     cfg: dict[str, Any], stem: Path, bin_: Path, hex_: Path, pad_words: int
 ) -> None:
-    """Write a test's simulation .hex in the format sim.hex_format selects.
+    """Write the simulation .hex of a test.
+
+    The format is the one that sim.hex_format selects.
 
     Parameters
     ----------
@@ -418,7 +499,7 @@ def cmd_compile(args: argparse.Namespace) -> None:
     Builds every test under paths.c_dir/paths.asm_dir into .mif/.hex
     (+ the combined manifest.json), or into human-readable .s (no
     manifest) for --emit asm. Each test is its own
-    <c_dir|asm_dir>/<name>/ folder (see _discover_tests) — both "real"
+    <c_dir|asm_dir>/<name>/ folder (see discover_tests) — both "real"
     (--emit mif) and "sim" (--emit hex) build every test regardless of
     kind, and both attach a "memory"-kind test's golden.json to its
     manifest entry the same way, so sim_runner's cocotb testbench can
@@ -452,7 +533,7 @@ def cmd_compile(args: argparse.Namespace) -> None:
     cfg = load_config(args.config)
     root = _root(args)
 
-    sources = _discover_tests(root, cfg)
+    sources = discover_tests(root, cfg)
     if not sources:
         print(
             f"No tests found under {root / cfg['paths']['c_dir']} or "
@@ -462,102 +543,17 @@ def cmd_compile(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     if args.emit == "asm":
-        build_dir = root / cfg["paths"]["build_dir"] / "asm"
-        for src in sources:
-            asm = c_to_asm_mod.c_to_asm(
-                cfg["toolchain"],
-                cfg["isa"],
-                src,
-                src.parent.name,
-                build_dir,
-                root / cfg["paths"]["include_dir"],
-            )
-            print(f"Wrote {asm}")
+        _compile_asm(cfg, root, sources)
         return
 
     is_real = args.emit == "mif"
-    build_dir = root / cfg["paths"]["build_dir"] / ("real" if is_real else "sim")
+    build_dir = (
+        root / cfg["paths"]["build_dir"] / ("real" if is_real else "sim")
+    )
 
-    manifest: list[dict[str, Any]] = []
-
-    for src in sources:
-        name = src.parent.name
-
-        print(f"Building {src.relative_to(root)} ...")
-
-        bin_, march, kind, timeout_s = compiler_mod.compile_test(
-            _toolchain_cfg(cfg, root),
-            cfg["isa"],
-            cfg["quartus"]["default_timeout_s"],
-            src,
-            name,
-            build_dir,
-            root / cfg["paths"]["include_dir"],
-            _optional_path(cfg, root, "crt0"),
-            _optional_path(cfg, root, "linker_script"),
-            extra_sources=_syscalls_sources(cfg, root),
-        )
-
-        lang = "C" if src.suffix == ".c" else "ASM"
-        entry: dict[str, Any] = {
-            "name": name,
-            "march": march,
-            "kind": kind,
-            "lang": lang,
-        }
-
-        # FLASH is addressed RAW from BOOT_ROM/FLASH's shared instruction
-        # bus (no base-address subtraction in hardware — see
-        # rv32im_pipeline_core.vhd), so a test's own image, linked at
-        # memory.rom_base, needs that many leading zero words so its
-        # real content lands at the matching word index — see
-        # bin_to_image.read_words' own docstring for why (a plain
-        # `objcopy -O binary` silently drops the leading gap).
-        flash_pad_words = cfg["memory"]["rom_base"] // 4
-
-        if is_real:
-            entry["timeout_s"] = timeout_s
-            mif = build_dir / f"{name}.mif"
-            bin_to_image.bin_to_mif(
-                bin_,
-                mif,
-                depth=flash_pad_words + cfg["memory"]["rom_words"],
-                pad_words=flash_pad_words,
-            )
-            entry["mif"] = str(mif.relative_to(root))
-        else:
-            hex_ = build_dir / f"{name}.hex"
-            _write_sim_hex(cfg, build_dir / name, bin_, hex_, flash_pad_words)
-            entry["hex"] = str(hex_.relative_to(root))
-
-        # Attached the same way for "real" and "sim": sim_runner's own
-        # cocotb testbench does a bus-snooped RAM-vs-golden compare
-        # exactly like orchestrator.run_one's JTAG-dump-vs-golden
-        # compare does for real hardware — see this function's own
-        # docstring for why that matters (a wrong computed value used
-        # to only surface once run for real, sometimes much later).
-        if kind == "memory" and src.suffix == ".c":
-            golden_path = _generate_c_golden(cfg, march, name, build_dir, root, src)
-            entry["golden"] = str(golden_path.relative_to(root))
-        elif kind == "memory":
-            golden_path = src.parent / "golden.json"
-
-            if not golden_path.is_file():
-                print(
-                    f"ERROR: {name} is memory but {golden_path} is missing",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-
-            entry["golden"] = str(golden_path.relative_to(root))
-
-        if args.manifest_per_test:
-            per_test_path = Path(args.manifest_per_test.format(name=name))
-            per_test_path.parent.mkdir(parents=True, exist_ok=True)
-            per_test_path.write_text(json.dumps(entry, indent=2))
-            print(f"Wrote {per_test_path}")
-
-        manifest.append(entry)
+    manifest = [
+        _compile_one(args, cfg, root, src, build_dir) for src in sources
+    ]
 
     manifest_path = (
         Path(args.manifest) if args.manifest else build_dir / "manifest.json"
@@ -566,6 +562,180 @@ def cmd_compile(args: argparse.Namespace) -> None:
     manifest_path.write_text(json.dumps(manifest, indent=2))
 
     print(f"Wrote {manifest_path} ({len(manifest)} test(s))")
+
+
+def _compile_asm(cfg: dict[str, Any], root: Path, sources: list[Path]) -> None:
+    """Write the human-readable .s of every test (`--emit asm`).
+
+    Parameters
+    ----------
+    cfg : dict of {str: Any}
+        The merged project config.
+    root : Path
+        The consuming project's root directory.
+    sources : list of Path
+        The test sources.
+    """
+    build_dir = root / cfg["paths"]["build_dir"] / "asm"
+    for src in sources:
+        asm = c_to_asm_mod.c_to_asm(
+            cfg["toolchain"],
+            cfg["isa"],
+            src,
+            build_dir / f"{src.parent.name}.s",
+            root / cfg["paths"]["include_dir"],
+        )
+        print(f"Wrote {asm}")
+
+
+def _compile_one(
+    args: argparse.Namespace,
+    cfg: dict[str, Any],
+    root: Path,
+    src: Path,
+    build_dir: Path,
+) -> dict[str, Any]:
+    """Build one test and describe it as a manifest entry.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed CLI arguments; uses args.emit ("mif" or "hex") and
+        args.manifest_per_test.
+    cfg : dict of {str: Any}
+        The merged project config.
+    root : Path
+        The consuming project's root directory.
+    src : Path
+        The test source.
+    build_dir : Path
+        Where the outputs are written.
+
+    Returns
+    -------
+    dict of {str: Any}
+        The manifest entry of the test.
+    """
+    name = src.parent.name
+    is_real = args.emit == "mif"
+
+    print(f"Building {src.relative_to(root)} ...")
+
+    bin_, march, kind, timeout_s = compiler_mod.compile_test(
+        _build_setup(cfg, root), src, name, build_dir
+    )
+
+    entry: dict[str, Any] = {
+        "name": name,
+        "march": march,
+        "kind": kind,
+        "lang": "C" if src.suffix == ".c" else "ASM",
+    }
+    if is_real:
+        entry["timeout_s"] = timeout_s
+    _attach_image(entry, cfg, root, (build_dir, bin_), is_real)
+
+    # Attached the same way for "real" and "sim": sim_runner's own
+    # cocotb testbench does a bus-snooped RAM-vs-golden compare
+    # exactly like orchestrator.run_one's JTAG-dump-vs-golden
+    # compare does for real hardware (a wrong computed value used
+    # to only surface once run for real, sometimes much later).
+    if kind == "memory":
+        golden_path = _golden_for(cfg, root, build_dir, src, march)
+        entry["golden"] = str(golden_path.relative_to(root))
+
+    if args.manifest_per_test:
+        per_test_path = Path(args.manifest_per_test.format(name=name))
+        per_test_path.parent.mkdir(parents=True, exist_ok=True)
+        per_test_path.write_text(json.dumps(entry, indent=2))
+        print(f"Wrote {per_test_path}")
+
+    return entry
+
+
+def _attach_image(
+    entry: dict[str, Any],
+    cfg: dict[str, Any],
+    root: Path,
+    built: tuple[Path, Path],
+    is_real: bool,
+) -> None:
+    """Convert a test's binary to its .mif/.hex and record the path.
+
+    FLASH is addressed RAW from BOOT_ROM/FLASH's shared instruction
+    bus (no base-address subtraction in hardware), so a test's own
+    image, linked at memory.rom_base, needs that many leading zero
+    words so its real content lands at the matching word index. See
+    bin_to_image.read_words for why (a plain `objcopy -O binary`
+    silently drops the leading gap).
+
+    Parameters
+    ----------
+    entry : dict of {str: Any}
+        The manifest entry, which gets its "mif" or "hex" key.
+    cfg : dict of {str: Any}
+        The merged project config.
+    root : Path
+        The consuming project's root directory.
+    built : tuple of (Path, Path)
+        The build directory and the test's flat binary.
+    is_real : bool
+        True for a .mif, False for a .hex.
+    """
+    build_dir, bin_ = built
+    name = entry["name"]
+    flash_pad_words = cfg["memory"]["rom_base"] // 4
+    if is_real:
+        mif = build_dir / f"{name}.mif"
+        bin_to_image.bin_to_mif(
+            bin_,
+            mif,
+            depth=flash_pad_words + cfg["memory"]["rom_words"],
+            pad_words=flash_pad_words,
+        )
+        entry["mif"] = str(mif.relative_to(root))
+        return
+    hex_ = build_dir / f"{name}.hex"
+    _write_sim_hex(cfg, build_dir / name, bin_, hex_, flash_pad_words)
+    entry["hex"] = str(hex_.relative_to(root))
+
+
+def _golden_for(
+    cfg: dict[str, Any], root: Path, build_dir: Path, src: Path, march: str
+) -> Path:
+    """Find or generate the golden.json of a "memory" test.
+
+    Parameters
+    ----------
+    cfg : dict of {str: Any}
+        The merged project config.
+    root : Path
+        The consuming project's root directory.
+    build_dir : Path
+        Where the outputs are written.
+    src : Path
+        The test source.
+    march : str
+        The `-march=` string of the test.
+
+    Returns
+    -------
+    Path
+        The golden: generated for a .c test, checked in for a .S test.
+        Exits the process with status 1 if the latter is missing.
+    """
+    name = src.parent.name
+    if src.suffix == ".c":
+        test = _CTest(name=name, march=march, src=src)
+        return _generate_c_golden(cfg, test, build_dir, root)
+    golden_path = src.parent / "golden.json"
+    if not golden_path.is_file():
+        print(
+            f"ERROR: {name} is memory but {golden_path} is missing",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return golden_path
 
 
 def cmd_write_rom(args: argparse.Namespace) -> None:
@@ -585,7 +755,9 @@ def cmd_write_rom(args: argparse.Namespace) -> None:
     """
     cfg = load_config(args.config)
     link = _link(cfg)
-    rom_writer.write_rom(link, cfg["quartus"]["rom_mem_instances"], Path(args.mif))
+    rom_writer.write_rom(
+        link, cfg["quartus"]["rom_mem_instances"], Path(args.mif)
+    )
 
 
 def cmd_zero_ram(args: argparse.Namespace) -> None:
@@ -614,14 +786,14 @@ def cmd_console(args: argparse.Namespace) -> None:
     """Implement `riscv-tools console`.
 
     Shows what the program prints through the JTAG UART while it runs,
-    until interrupted or for args.seconds seconds, and gives it args.send
-    first.
+    until interrupted or for args.seconds seconds, and gives it
+    args.send first.
 
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments — uses args.config, args.seconds, args.send,
-        args.interactive.
+        Parsed CLI arguments — uses args.config, args.seconds,
+        args.send, args.interactive.
 
     Returns
     -------
@@ -646,8 +818,8 @@ def cmd_console(args: argparse.Namespace) -> None:
 def cmd_display(args: argparse.Namespace) -> None:
     """Implement `riscv-tools display`.
 
-    Reads the seven-segment display register of the platform, or writes it first when
-    args.value is given, and prints what it holds.
+    Reads the seven-segment display register of the platform, or writes
+    it first when args.value is given, and prints what it holds.
 
     Parameters
     ----------
@@ -683,8 +855,8 @@ def cmd_dump_ram(args: argparse.Namespace) -> None:
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments — uses args.config, args.out, args.start_word,
-        args.words.
+        Parsed CLI arguments — uses args.config, args.out,
+        args.start_word, args.words.
 
     Returns
     -------
@@ -695,7 +867,9 @@ def cmd_dump_ram(args: argparse.Namespace) -> None:
     words = None
     if args.words is not None:
         words = list(range(args.start_word, args.start_word + args.words))
-    ram_dump.dump_ram(link, ram_target.target_from_config(cfg), Path(args.out), words)
+    ram_dump.dump_ram(
+        link, ram_target.target_from_config(cfg), Path(args.out), words
+    )
 
 
 def cmd_program(args: argparse.Namespace) -> None:
@@ -722,29 +896,37 @@ def cmd_program(args: argparse.Namespace) -> None:
     # as part of this full compile — never JTAG-rewritten per test the
     # way FLASH (args.mif) is. Only meaningful for a project with a
     # 3-memory BOOT_ROM/FLASH/RAM split (paths.boot_rom set).
-    boot_rom_mif_path = None
+    boot_init: quartus_program.MifInit | None = None
     if cfg.get("paths", {}).get("boot_rom") and cfg["quartus"].get(
         "boot_rom_mif_target"
     ):
         build_dir = root / cfg["paths"]["build_dir"] / "boot_rom"
-        boot_rom.build_boot_rom(cfg["toolchain"], cfg["paths"], root, build_dir)
+        boot_rom.build_boot_rom(
+            cfg["toolchain"], cfg["paths"], root, build_dir
+        )
         boot_rom_mif_path = build_dir / "boot_rom.mif"
         bin_to_image.bin_to_mif(
             build_dir / "boot_rom.bin",
             boot_rom_mif_path,
             depth=cfg["memory"]["boot_rom_words"],
         )
+        boot_init = quartus_program.MifInit(
+            target=cfg["quartus"]["boot_rom_mif_target"],
+            path=boot_rom_mif_path,
+        )
 
     quartus_program.full_reconfigure(
-        hardware_name=link.hardware_name,
-        project_dir=root / cfg["quartus"]["project_dir"],
-        project_name=cfg["quartus"]["project_name"],
-        sof_file=cfg["quartus"]["sof_file"],
-        rom_mif_target=cfg["quartus"]["rom_mif_target"],
-        stale_cache_dirs=cfg["quartus"]["stale_cache_dirs"],
-        rom_mif_path=Path(args.mif),
-        boot_rom_mif_target=cfg["quartus"].get("boot_rom_mif_target"),
-        boot_rom_mif_path=boot_rom_mif_path,
+        project=quartus_program.QuartusProject(
+            hardware_name=link.hardware_name,
+            project_dir=root / cfg["quartus"]["project_dir"],
+            project_name=cfg["quartus"]["project_name"],
+            sof_file=cfg["quartus"]["sof_file"],
+            stale_cache_dirs=cfg["quartus"]["stale_cache_dirs"],
+        ),
+        rom=quartus_program.MifInit(
+            target=cfg["quartus"]["rom_mif_target"], path=Path(args.mif)
+        ),
+        boot_rom=boot_init,
     )
 
 
@@ -842,12 +1024,15 @@ def cmd_generate_golden(args: argparse.Namespace) -> None:
     """
     if bool(args.symbol) == bool(args.start or args.end):
         print(
-            "error: pass either --symbol, or both --start and --end (not both forms)",
+            "error: pass either --symbol, or both --start and --end (not both "
+            "forms)",
             file=sys.stderr,
         )
         sys.exit(2)
     if bool(args.start) != bool(args.end):
-        print("error: --start and --end must be given together", file=sys.stderr)
+        print(
+            "error: --start and --end must be given together", file=sys.stderr
+        )
         sys.exit(2)
 
     cfg = load_config(args.config)
@@ -862,16 +1047,10 @@ def cmd_generate_golden(args: argparse.Namespace) -> None:
         addr_start, addr_end = int(args.start, 0), int(args.end, 0)
 
     golden = golden_generator.generate_golden(
-        spike_bin=cfg["emulator"]["spike_bin"],
-        nm_bin=nm_bin,
-        elf_path=elf_path,
-        isa=args.march,
-        mem_regions=_spike_mem_regions(cfg),
-        tohost_symbol=cfg["emulator"]["tohost_symbol"],
-        addr_start=addr_start,
-        addr_end=addr_end,
+        _spike_target(cfg, args.march),
+        elf_path,
+        (addr_start, addr_end),
         ram_base=cfg["memory"]["ram_base"],
-        objcopy_bin=cfg["toolchain"]["objcopy"],
         timeout_s=cfg["emulator"]["timeout_s"],
     )
 
@@ -888,7 +1067,10 @@ def _print_run_summary(
     root: Path,
     build_dir: Path,
 ) -> None:
-    """Print cmd_run's final `PASS/FAIL  name  [lang, kind, golden: ..., Ns]` table."""
+    """Print the final table of cmd_run.
+
+    Each row is ``PASS/FAIL  name  [lang, kind, golden: ..., Ns]``.
+    """
     print("\n=== Summary ===")
     name_width = max((len(name) for name in results), default=0)
     for name, ok in results.items():
@@ -902,11 +1084,58 @@ def _print_run_summary(
             # checked-in <test_dir>/golden.json — whichever one this
             # test's golden path actually resolves under.
             golden_path = root / entry["golden"]
-            origin = "spike" if golden_path.is_relative_to(build_dir) else "checked-in"
+            origin = (
+                "spike"
+                if golden_path.is_relative_to(build_dir)
+                else "checked-in"
+            )
             detail = f"{lang}, {kind}, golden: {origin}"
         if name in durations:
             detail = f"{detail}, {durations[name]:.1f}s"
-        print(f"  {'PASS' if ok else 'FAIL'}  {name:<{name_width}}  [{detail}]")
+        print(
+            f"  {'PASS' if ok else 'FAIL'}  {name:<{name_width}}  [{detail}]"
+        )
+
+
+def _wanted_names(
+    only: str | None,
+    by_name: dict[str, dict[str, Any]],
+    manifest_path: Path,
+) -> list[str]:
+    """Resolve the tests `spike-run` should run.
+
+    Parameters
+    ----------
+    only : str or None
+        Comma-separated test names, or None/empty for all.
+    by_name : dict of {str: dict of {str: Any}}
+        The manifest entries by name.
+    manifest_path : Path
+        Path used in error diagnostics.
+
+    Returns
+    -------
+    list of str
+        The names to run. Exits with status 1 on an unknown name.
+    """
+    wanted = [n for n in (only or "").split(",") if n] or list(by_name)
+    unknown = [n for n in wanted if n not in by_name]
+    if unknown:
+        print(f"not in {manifest_path}: {', '.join(unknown)}", file=sys.stderr)
+        sys.exit(1)
+    return wanted
+
+
+def _print_failure_output(result: spike_run.SpikeRunResult) -> None:
+    """Print the Spike output of a failed run.
+
+    Parameters
+    ----------
+    result : spike_run.SpikeRunResult
+        The run outcome.
+    """
+    if not result.passed and result.output:
+        print(result.output.rstrip())
 
 
 def cmd_spike_run(args: argparse.Namespace) -> None:
@@ -915,8 +1144,8 @@ def cmd_spike_run(args: argparse.Namespace) -> None:
     Runs every test of an already-compiled manifest to completion under
     Spike and reports PASS/FAIL from the HTIF verdict each test writes
     to tohost, without touching hardware or a simulator. Everything this
-    invocation prints is also written to <run_log.logs_dir>/spike/latest.log
-    (see run_log.start).
+    invocation prints is also written to
+    <run_log.logs_dir>/spike/latest.log (see run_log.start).
 
     Parameters
     ----------
@@ -941,20 +1170,17 @@ def cmd_spike_run(args: argparse.Namespace) -> None:
     )
     if not manifest_path.is_file():
         print(
-            f"{manifest_path} not found; run `riscv-tools compile --emit mif` first",
+            f"{manifest_path} not found; run `riscv-tools compile --emit mif` "
+            "first",
             file=sys.stderr,
         )
         sys.exit(1)
 
     manifest: list[dict[str, Any]] = json.loads(manifest_path.read_text())
     by_name = {entry["name"]: entry for entry in manifest}
-    wanted = [n for n in (args.only or "").split(",") if n] or list(by_name)
-    unknown = [n for n in wanted if n not in by_name]
-    if unknown:
-        print(f"not in {manifest_path}: {', '.join(unknown)}", file=sys.stderr)
-        sys.exit(1)
+    wanted = _wanted_names(args.only, by_name, manifest_path)
 
-    sources = {src.parent.name: src for src in _discover_tests(root, cfg)}
+    sources = {src.parent.name: src for src in discover_tests(root, cfg)}
     emulator = cfg["emulator"]
     results: dict[str, bool] = {}
     durations: dict[str, float] = {}
@@ -963,20 +1189,13 @@ def cmd_spike_run(args: argparse.Namespace) -> None:
         print(f"Running {name} under Spike ...")
         started = time.monotonic()
         result = spike_run.run_elf(
-            spike_bin=emulator["spike_bin"],
-            nm_bin=cfg["toolchain"]["nm"],
-            objcopy_bin=cfg["toolchain"]["objcopy"],
-            elf_path=_spike_elf(cfg, name, build_dir, root, sources[name]),
-            isa=entry["march"],
-            mem_regions=_spike_mem_regions(cfg),
-            tohost_symbol=emulator["tohost_symbol"],
-            entry_symbol=emulator["entry_symbol"],
+            _spike_target(cfg, entry["march"], emulator["entry_symbol"]),
+            _spike_elf(cfg, name, build_dir, root, sources[name]),
             timeout_s=entry.get("timeout_s", emulator["timeout_s"]),
         )
         durations[name] = time.monotonic() - started
         results[name] = result.passed
-        if not result.passed and result.output:
-            print(result.output.rstrip())
+        _print_failure_output(result)
 
     _print_run_summary(results, by_name, durations, root, build_dir)
     if not all(results.values()):
@@ -984,7 +1203,7 @@ def cmd_spike_run(args: argparse.Namespace) -> None:
 
 
 def _split_test_name_groups(groups: list[str] | None) -> list[str]:
-    """Expand repeatable comma-separated CLI values without duplicates."""
+    """Expand repeatable comma-separated CLI values, deduplicated."""
     names: list[str] = []
     seen: set[str] = set()
     for group in groups or []:
@@ -996,7 +1215,37 @@ def _split_test_name_groups(groups: list[str] | None) -> list[str]:
     return names
 
 
-def _filter_manifest(
+def _check_filter_names(
+    filters: tuple[tuple[str, list[str] | None, list[str]], ...],
+    by_name: dict[str, dict[str, Any]],
+    manifest_path: Path,
+) -> None:
+    """Exit with status 1 on an empty or unknown name filter.
+
+    Parameters
+    ----------
+    filters : tuple of (str, list of str or None, list of str)
+        For each option, its flag, raw values and expanded names.
+    by_name : dict of {str: dict of {str: Any}}
+        The manifest entries by name.
+    manifest_path : Path
+        Path used in error diagnostics.
+    """
+    for option, groups, names in filters:
+        if groups and not names:
+            print(f"{option} requires at least one test name", file=sys.stderr)
+            sys.exit(1)
+        missing = [name for name in names if name not in by_name]
+        if missing:
+            print(
+                f"{option} names not found in {manifest_path}: "
+                f"{', '.join(missing)}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+
+def filter_manifest(
     manifest: list[dict[str, Any]],
     manifest_path: Path,
     only_groups: list[str] | None,
@@ -1008,7 +1257,8 @@ def _filter_manifest(
     otherwise the manifest's own order is kept. ``--exclude`` is then
     applied to that result, so exclusions win when both options name the
     same test. Unknown names and an empty final selection are errors: a
-    misspelled exclusion must never silently run the test it meant to omit.
+    misspelled exclusion must never silently run the test it meant to
+    omit.
 
     Parameters
     ----------
@@ -1030,22 +1280,20 @@ def _filter_manifest(
     only_names = _split_test_name_groups(only_groups)
     exclude_names = _split_test_name_groups(exclude_groups)
 
-    for option, groups, names in (
-        ("--only", only_groups, only_names),
-        ("--exclude", exclude_groups, exclude_names),
-    ):
-        if groups and not names:
-            print(f"{option} requires at least one test name", file=sys.stderr)
-            sys.exit(1)
-        missing = [name for name in names if name not in by_name]
-        if missing:
-            print(
-                f"{option} names not found in {manifest_path}: {', '.join(missing)}",
-                file=sys.stderr,
-            )
-            sys.exit(1)
+    _check_filter_names(
+        (
+            ("--only", only_groups, only_names),
+            ("--exclude", exclude_groups, exclude_names),
+        ),
+        by_name,
+        manifest_path,
+    )
 
-    selected = [by_name[name] for name in only_names] if only_names else list(manifest)
+    selected = (
+        [by_name[name] for name in only_names]
+        if only_names
+        else list(manifest)
+    )
     excluded = set(exclude_names)
     selected = [entry for entry in selected if entry["name"] not in excluded]
     if not selected:
@@ -1057,13 +1305,86 @@ def _filter_manifest(
     return selected
 
 
+def _select_run_manifest(
+    cfg: dict[str, Any],
+    args: argparse.Namespace,
+    manifest: list[dict[str, Any]],
+    manifest_path: Path,
+) -> list[dict[str, Any]]:
+    """Pick the entries `riscv-tools run` should run.
+
+    Parameters
+    ----------
+    cfg : dict of {str: Any}
+        The merged project config; uses orchestrator.interactive.
+    args : argparse.Namespace
+        Parsed CLI arguments; uses the optional args.only and
+        args.exclude.
+    manifest : list of dict of {str: Any}
+        Every entry of the manifest.
+    manifest_path : Path
+        Path used in error diagnostics.
+
+    Returns
+    -------
+    list of dict of {str: Any}
+        The non-empty selection.
+    """
+    # programs that wait for a host to talk to them (a monitor) would
+    # only time out in a suite; they run when --only asks for them
+    interactive = set(cfg.get("orchestrator", {}).get("interactive", []))
+    if not getattr(args, "only", None) and interactive:
+        manifest = [
+            entry for entry in manifest if entry["name"] not in interactive
+        ]
+    return filter_manifest(
+        manifest,
+        manifest_path,
+        getattr(args, "only", []),
+        getattr(args, "exclude", []),
+    )
+
+
+def _load_progress(
+    results_path: Path, requested_names: set[str]
+) -> dict[str, bool]:
+    """Load the results a stopped run left behind.
+
+    Parameters
+    ----------
+    results_path : Path
+        The run_progress.json of an earlier invocation, if any.
+    requested_names : set of str
+        The tests this invocation is about; others are dropped.
+
+    Returns
+    -------
+    dict of {str: bool}
+        The already completed tests; empty if there is no file.
+    """
+    if not results_path.is_file():
+        return {}
+    done = {
+        name: ok
+        for name, ok in json.loads(results_path.read_text()).items()
+        if name in requested_names
+    }
+    if done:
+        print(
+            f"Resuming from {results_path} — {len(done)} "
+            f"already-completed test(s) will be skipped"
+        )
+    return done
+
+
 def cmd_run(args: argparse.Namespace) -> None:
     """Implement `riscv-tools run`.
 
     Runs the real-hardware test suite from a manifest.json (see
     orchestrator.run_suite) — the full manifest by default, or a
-    caller-picked subset via --only/--exclude. Stops early (doesn't raise) the
-    moment a test hits a JTAG/hardware failure no automated retry can
+    caller-picked subset via --only/--exclude. Stops early (doesn't
+    raise) the moment a test hits a JTAG/hardware failure no automated
+    retry can
     fix (orchestrator.NeedsHumanInterventionError) — progress is saved
     to <build_dir>/real/run_progress.json as it goes, and simply
     re-running the exact same command later (after fixing the board)
@@ -1099,12 +1420,15 @@ def cmd_run(args: argparse.Namespace) -> None:
         kind ("unit"/"memory") and, for memory-kind tests, whether
         their golden.json came from Spike at this same compile (a .c
         test — see cli._generate_c_golden) or is checked into the
-        repo (a .S test). Deletes run_progress.json, since there's nothing left
-        to resume. Exits the process with status 1 if the manifest file
+        repo (a .S test). Deletes run_progress.json, since there's
+        nothing left to resume. Exits the process with status 1 if the
+        manifest file
         is missing, if --only/--exclude names a test that isn't in
-        the manifest or selects no tests, or if any completed test failed;
-        status 2 if the suite stopped early for human intervention (run_progress.json
-        is left in place in that case, specifically so a re-run finds
+        the manifest or selects no tests, or if any completed test
+        failed; status 2 if the suite stopped early for human
+        intervention
+        (run_progress.json is left in place in that case, specifically
+        so a re-run finds
         it).
     """
     cfg = load_config(args.config)
@@ -1117,7 +1441,8 @@ def cmd_run(args: argparse.Namespace) -> None:
 
     if not manifest_path.is_file():
         print(
-            f"{manifest_path} not found — run `riscv-tools compile --emit mif` first",
+            f"{manifest_path} not found — run `riscv-tools compile --emit "
+            "mif` first",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -1130,38 +1455,14 @@ def cmd_run(args: argparse.Namespace) -> None:
     # particular invocation never touched.
     manifest_by_name = {entry["name"]: entry for entry in manifest}
 
-    # programs that wait for a host to talk to them (a monitor) would only time out in a
-    # suite; they run when --only asks for them
-    interactive = set(cfg.get("orchestrator", {}).get("interactive", []))
-    if not getattr(args, "only", None) and interactive:
-        manifest = [entry for entry in manifest if entry["name"] not in interactive]
-
-    manifest = _filter_manifest(
-        manifest,
-        manifest_path,
-        getattr(args, "only", []),
-        getattr(args, "exclude", []),
-    )
-
+    manifest = _select_run_manifest(cfg, args, manifest, manifest_path)
     requested_names = {entry["name"] for entry in manifest}
     results_path = build_dir / "run_progress.json"
-    results_so_far: dict[str, bool] = {}
-    if results_path.is_file():
-        results_so_far = {
-            name: ok
-            for name, ok in json.loads(results_path.read_text()).items()
-            if name in requested_names
-        }
-        if results_so_far:
-            print(
-                f"Resuming from {results_path} — {len(results_so_far)} "
-                f"already-completed test(s) will be skipped"
-            )
-            manifest = [e for e in manifest if e["name"] not in results_so_far]
+    results_so_far = _load_progress(results_path, requested_names)
+    manifest = [e for e in manifest if e["name"] not in results_so_far]
 
     link = _link(cfg)
     print(f"JTAG hardware: {link.hardware_name}")
-    project_dir = root / cfg["quartus"]["project_dir"]
 
     durations: dict[str, float] = {}
     if not manifest:
@@ -1169,18 +1470,22 @@ def cmd_run(args: argparse.Namespace) -> None:
         results = results_so_far
     else:
         results = orchestrator.run_suite(
-            cfg,
-            link,
+            RunContext(
+                cfg=cfg,
+                link=link,
+                build_dir=build_dir,
+                root=root,
+                project_dir=root / cfg["quartus"]["project_dir"],
+            ),
             manifest,
-            build_dir,
-            root,
-            project_dir,
-            reconfigure=not args.skip_reconfigure,
-            results_path=results_path,
-            results_so_far=results_so_far,
-            wait_for_hardware=args.wait_for_hardware,
-            durations=durations,
-            skip_recompile=args.skip_recompile,
+            SuiteOptions(
+                reconfigure=not args.skip_reconfigure,
+                results_path=results_path,
+                results_so_far=results_so_far,
+                wait_for_hardware=args.wait_for_hardware,
+                durations=durations,
+                skip_recompile=args.skip_recompile,
+            ),
         )
 
     _print_run_summary(results, manifest_by_name, durations, root, build_dir)
@@ -1188,7 +1493,8 @@ def cmd_run(args: argparse.Namespace) -> None:
     if len(results) < len(requested_names):
         print(
             f"\nStopped early: {len(results)}/{len(requested_names)} test(s) "
-            f"done. Re-run this exact command after fixing the board to resume."
+            f"done. Re-run this exact command after fixing the board to "
+            "resume."
         )
         sys.exit(2)
 
@@ -1232,21 +1538,26 @@ def cmd_sim(args: argparse.Namespace) -> None:
     # sim.image "mif" simulates the same images the hardware loads,
     # which `compile --emit mif` writes (and lists) under build/real.
     use_mif = cfg["sim"]["image"] == "mif"
-    manifest_dir = root / cfg["paths"]["build_dir"] / ("real" if use_mif else "sim")
+    manifest_dir = (
+        root / cfg["paths"]["build_dir"] / ("real" if use_mif else "sim")
+    )
     manifest_path = (
-        Path(args.manifest) if args.manifest else manifest_dir / "manifest.json"
+        Path(args.manifest)
+        if args.manifest
+        else manifest_dir / "manifest.json"
     )
 
     if not manifest_path.is_file():
         print(
             f"{manifest_path} not found — run "
-            f"`riscv-tools compile --emit {'mif' if use_mif else 'hex'}` first",
+            f"`riscv-tools compile --emit {'mif' if use_mif else 'hex'}` "
+            "first",
             file=sys.stderr,
         )
         sys.exit(1)
 
     manifest: list[dict[str, Any]] = json.loads(manifest_path.read_text())
-    manifest = _filter_manifest(
+    manifest = filter_manifest(
         manifest,
         manifest_path,
         getattr(args, "only", []),
@@ -1345,23 +1656,26 @@ def cmd_certify(args: argparse.Namespace) -> None:
 def cmd_certify_board(args: argparse.Namespace) -> None:
     """Implement `riscv-tools certify-board`.
 
-    Builds the ACT4 ELFs of the SDRAM target and runs each one on the board: the
-    host writes the ELF into the SDRAM through the debug port, restarts the core and
-    reads the HTIF `tohost` word (see certify.board). The board must already be
-    programmed with the SDRAM platform.
+    Builds the ACT4 ELFs of the SDRAM target and runs each one on the
+    board: the host writes the ELF into the SDRAM through the debug
+    port, restarts
+    the core and reads the HTIF `tohost` word (see certify.board). The
+    board must
+    already be programmed with the SDRAM platform.
 
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments: args.config, args.root, args.only (comma-separated ELF
-        names, optional), args.extensions (overrides act.extensions) and
+        Parsed CLI arguments: args.config, args.root, args.only
+        (comma-separated ELF names, optional), args.extensions
+        (overrides act.extensions) and
         args.skip_build.
 
     Returns
     -------
     None
-        Prints a result per ELF and a summary. Exits with status 1 if any ELF
-        did not pass.
+        Prints a result per ELF and a summary. Exits with status 1 if
+        any ELF did not pass.
     """
     cfg = load_config(args.config)
     if args.extensions is not None:
@@ -1412,8 +1726,9 @@ def cmd_vhdl_sort(args: argparse.Namespace) -> None:
 def cmd_check_paths(args: argparse.Namespace) -> None:
     """Implement `riscv-tools check-paths`.
 
-    Fails when a file path listed in the project's configuration does not
-    exist (see path_check.check_paths). Doesn't touch args.config: the
+    Fails when a file path listed in the project's configuration does
+    not exist (see path_check.check_paths). Doesn't touch args.config:
+    the
     manifest lists the references to read.
 
     Parameters
@@ -1424,7 +1739,8 @@ def cmd_check_paths(args: argparse.Namespace) -> None:
     Returns
     -------
     None
-        Prints the result; exits the process with status 1 on any problem.
+        Prints the result; exits the process with status 1 on any
+        problem.
     """
     root = _root(args)
     manifest = Path(args.manifest)
@@ -1442,9 +1758,10 @@ def cmd_check_paths(args: argparse.Namespace) -> None:
 def cmd_profiles(args: argparse.Namespace) -> None:
     """Implement `riscv-tools profiles`.
 
-    Prints every valid combination of the extensions of a profile specification (see
-    profiles.expand). Doesn't touch args.config: the specification lists the
-    extensions and the rules between them.
+    Prints every valid combination of the extensions of a profile
+    specification (see profiles.expand). Doesn't touch args.config: the
+    specification lists
+    the extensions and the rules between them.
 
     Parameters
     ----------
@@ -1457,34 +1774,81 @@ def cmd_profiles(args: argparse.Namespace) -> None:
         Prints one line per profile, or one JSON list.
     """
     found = profiles.expand(profiles.load_spec(Path(args.spec)))
-    if args.format == "json":
-        print(
-            json.dumps(
-                [
-                    {
-                        "name": p.name,
-                        "extensions": list(p.extensions),
-                        "generics": dict(p.generics),
-                    }
-                    for p in found
-                ],
-                indent=2,
-            )
+    formatters = {"json": _profiles_json, "generics": _profiles_generics}
+    for line in formatters.get(args.format, _profiles_names)(found):
+        print(line)
+
+
+def _profiles_json(found: list[profiles.Profile]) -> list[str]:
+    """Format profiles as one JSON list.
+
+    Parameters
+    ----------
+    found : list of Profile
+        The profiles.
+
+    Returns
+    -------
+    list of str
+        One line holding the JSON text.
+    """
+    return [
+        json.dumps(
+            [
+                {
+                    "name": p.name,
+                    "extensions": list(p.extensions),
+                    "generics": dict(p.generics),
+                }
+                for p in found
+            ],
+            indent=2,
         )
-    elif args.format == "generics":
-        for p in found:
-            flags = " ".join(f"-g{k}={str(v).lower()}" for k, v in p.generics.items())
-            print(f"{p.name} {flags}")
-    else:
-        for p in found:
-            print(p.name)
+    ]
+
+
+def _profiles_generics(found: list[profiles.Profile]) -> list[str]:
+    """Format profiles as a name and its GHDL `-g` flags per line.
+
+    Parameters
+    ----------
+    found : list of Profile
+        The profiles.
+
+    Returns
+    -------
+    list of str
+        One line per profile.
+    """
+    return [
+        f"{p.name} "
+        + " ".join(f"-g{k}={str(v).lower()}" for k, v in p.generics.items())
+        for p in found
+    ]
+
+
+def _profiles_names(found: list[profiles.Profile]) -> list[str]:
+    """Format profiles as one name per line.
+
+    Parameters
+    ----------
+    found : list of Profile
+        The profiles.
+
+    Returns
+    -------
+    list of str
+        One line per profile.
+    """
+    return [p.name for p in found]
 
 
 def cmd_check_memory_map(args: argparse.Namespace) -> None:
     """Implement `riscv-tools check-memory-map`.
 
-    Checks every copy of a platform's memory map against the platform's YAML
-    (see memory_map.check_memory_map). Doesn't touch args.config: the
+    Checks every copy of a platform's memory map against the platform's
+    YAML (see memory_map.check_memory_map). Doesn't touch args.config:
+    the
     platform file lists the copies to read.
 
     Parameters
@@ -1495,7 +1859,8 @@ def cmd_check_memory_map(args: argparse.Namespace) -> None:
     Returns
     -------
     None
-        Prints the result; exits the process with status 1 on any disagreement.
+        Prints the result; exits the process with status 1 on any
+        disagreement.
     """
     root = _root(args)
     platform = Path(args.platform)
@@ -1513,14 +1878,16 @@ def cmd_check_memory_map(args: argparse.Namespace) -> None:
 def cmd_timing_paths(args: argparse.Namespace) -> None:
     """Implement `riscv-tools timing-paths`.
 
-    Runs the Timing Analyzer on the compiled project and prints the worst setup
-    paths of every clock domain, the bits of a register folded into one row.
+    Runs the Timing Analyzer on the compiled project and prints the
+    worst setup paths of every clock domain, the bits of a register
+    folded into one
+    row.
 
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments: args.config, args.root, args.npaths, args.model and
-        args.out (optional file for the table).
+        Parsed CLI arguments: args.config, args.root, args.npaths,
+        args.model and args.out (optional file for the table).
 
     Returns
     -------
@@ -1574,34 +1941,25 @@ def cmd_freq_sweep(args: argparse.Namespace) -> None:
     # documented as relative to the project root, not to the cwd
     cfg["freq_sweep"]["pll_file"] = str(root / cfg["freq_sweep"]["pll_file"])
 
-    mif_path = Path(args.mif)
-    golden_path = Path(args.golden)
+    job = SweepJob(
+        cfg=cfg,
+        link=link,
+        mif_path=Path(args.mif),
+        golden_path=Path(args.golden),
+        project_dir=project_dir,
+        build_dir=build_dir,
+    )
 
     if args.binary:
-        results = orchestrator.run_freq_sweep_binary(
-            cfg,
-            link,
-            mif_path,
-            golden_path,
-            project_dir,
-            build_dir,
-            args.low,
-            args.high,
-        )
+        results = orchestrator.run_freq_sweep_binary(job, args.low, args.high)
     else:
         results = orchestrator.run_freq_sweep_linear(
-            cfg,
-            link,
-            mif_path,
-            golden_path,
-            project_dir,
-            build_dir,
-            args.start,
-            args.stop,
-            args.step,
+            job, args.start, args.stop, args.step
         )
 
-    out_path = Path(args.out) if args.out else build_dir / "freq_sweep_results.json"
+    out_path = (
+        Path(args.out) if args.out else build_dir / "freq_sweep_results.json"
+    )
     out_path.write_text(json.dumps(results, indent=2))
     print(f"Wrote {out_path}")
 
@@ -1620,37 +1978,14 @@ def cmd_freq_sweep(args: argparse.Namespace) -> None:
 # Statement count grows with each subcommand's own add_argument calls
 # (repetitive parser wiring, not real branching complexity) — splitting
 # it up would just move the same lines behind indirection.
-def main() -> None:  # noqa: PLR0915
-    """CLI entry point (console script `riscv-tools`).
+def _add_subcommands_1(sub: Any) -> None:
+    """Register a group of subcommands.
 
-    Builds the argument parser, registers every subcommand, and
-    dispatches to its cmd_* handler. Reads sys.argv via argparse; no
-    parameters.
-
-    Returns
-    -------
-    None
-        Exits the process with a non-zero status on argument errors,
-        or whatever the dispatched cmd_* function causes (see each
-        cmd_*'s own Returns/Raises).
+    Parameters
+    ----------
+    sub : Any
+        The subparsers of the main parser.
     """
-    parser = argparse.ArgumentParser(
-        prog="riscv-tools",
-        description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    parser.add_argument(
-        "--config",
-        default=None,
-        help="Path to the consuming project's config.yaml "
-        "(required for every subcommand except vhdl-sort, check-memory-map "
-        "and check-paths)",
-    )
-    parser.add_argument(
-        "--root", default=None, help="Consuming project's root dir (default: cwd)"
-    )
-    sub = parser.add_subparsers(dest="command", required=True)
-
     p = sub.add_parser(
         "compile",
         help="Compile tests/c/{real,sim} into mif/hex/asm (+ manifest.json)",
@@ -1665,12 +2000,15 @@ def main() -> None:  # noqa: PLR0915
     p.add_argument(
         "--manifest-per-test",
         default=None,
-        help='Full path template containing "{name}" (e.g. "some/dir/{name}.json") — '
+        help='Full path template containing "{name}" (e.g. '
+        '"some/dir/{name}.json") — '
         "if given, also writes each test's own manifest entry to its own file",
     )
     p.set_defaults(func=cmd_compile)
 
-    p = sub.add_parser("write-rom", help="JTAG-write a .mif into the ROM instance")
+    p = sub.add_parser(
+        "write-rom", help="JTAG-write a .mif into the ROM instance"
+    )
     p.add_argument("mif")
     p.set_defaults(func=cmd_write_rom)
 
@@ -1679,14 +2017,16 @@ def main() -> None:  # noqa: PLR0915
 
     p = sub.add_parser(
         "dump-ram",
-        help="JTAG-dump the RAM to a .mif (a RAM in the SDRAM: only --words words)",
+        help="JTAG-dump the RAM to a .mif (a RAM in the SDRAM: only --words "
+        "words)",
     )
     p.add_argument("out")
     p.add_argument(
         "--start-word",
         type=int,
         default=0,
-        help="first word offset to dump from the base of the RAM (with --words)",
+        help="first word offset to dump from the base of the RAM (with "
+        "--words)",
     )
     p.add_argument(
         "--words",
@@ -1707,37 +2047,44 @@ def main() -> None:  # noqa: PLR0915
         help="how long to listen; 0 (the default) listens until Ctrl-C",
     )
     p.add_argument(
-        "--send", default="", help="text to give to the program as it starts listening"
+        "--send",
+        default="",
+        help="text to give to the program as it starts listening",
     )
     p.add_argument(
         "--interactive",
         action="store_true",
-        help="give the program each line you type, until the input ends (Ctrl-D)",
+        help="give the program each line you type, until the input ends "
+        "(Ctrl-D)",
     )
     p.set_defaults(func=cmd_console)
 
     p = sub.add_parser(
         "display",
-        help="Read or write the seven-segment display register of the platform",
+        help="Read or write the seven-segment display register of the "
+        "platform",
     )
     p.add_argument(
         "value",
         nargs="?",
         default=None,
-        help="six hex digits to show (HEX5 first); omit to only read the register",
+        help="six hex digits to show (HEX5 first); omit to only read the "
+        "register",
     )
     p.add_argument(
         "--check",
         type=int,
         default=0,
         metavar="N",
-        help="write N pseudo-random values and read each back; exit 1 on a difference",
+        help="write N pseudo-random values and read each back; exit 1 on a "
+        "difference",
     )
     p.set_defaults(func=cmd_display)
 
     p = sub.add_parser(
         "program",
-        help="Compile the Quartus project and program the board (full reconfigure)",
+        help="Compile the Quartus project and program the board (full "
+        "reconfigure)",
     )
     p.add_argument(
         "mif", help=".mif to bake in as the ROM's init_file before compiling"
@@ -1745,7 +2092,8 @@ def main() -> None:  # noqa: PLR0915
     p.set_defaults(func=cmd_program)
 
     p = sub.add_parser(
-        "mailbox", help="Read the PASS/FAIL mailbox, or pulse the restart go-flag"
+        "mailbox",
+        help="Read the PASS/FAIL mailbox, or pulse the restart go-flag",
     )
     p.add_argument("action", choices=["read", "pulse"])
     p.set_defaults(func=cmd_mailbox)
@@ -1755,13 +2103,16 @@ def main() -> None:  # noqa: PLR0915
         help="List every valid core profile of a profile specification",
     )
     p.add_argument(
-        "--spec", required=True, help="YAML with the extensions and their rules"
+        "--spec",
+        required=True,
+        help="YAML with the extensions and their rules",
     )
     p.add_argument(
         "--format",
         choices=["names", "json", "generics"],
         default="names",
-        help="names: one per line; generics: name and GHDL -g flags; json: all",
+        help="names: one per line; generics: name and GHDL -g flags; json: "
+        "all",
     )
     p.set_defaults(func=cmd_profiles)
 
@@ -1776,6 +2127,15 @@ def main() -> None:  # noqa: PLR0915
     )
     p.set_defaults(func=cmd_generate_header)
 
+
+def _add_subcommands_2(sub: Any) -> None:
+    """Register a group of subcommands.
+
+    Parameters
+    ----------
+    sub : Any
+        The subparsers of the main parser.
+    """
     p = sub.add_parser(
         "generate-golden",
         help="Generate a golden JSON by running an ELF under Spike",
@@ -1785,19 +2145,24 @@ def main() -> None:  # noqa: PLR0915
     p.add_argument(
         "--symbol",
         default=None,
-        help="Data symbol to snapshot (e.g. a C global) — its address and size "
+        help="Data symbol to snapshot (e.g. a C global) — its address and "
+        "size "
         "are resolved automatically via `nm -S`, instead of --start/--end. "
         "Mutually exclusive with --start/--end.",
     )
     p.add_argument(
-        "--start", default=None, help="First byte address to snapshot (hex or decimal)"
+        "--start",
+        default=None,
+        help="First byte address to snapshot (hex or decimal)",
     )
     p.add_argument(
         "--end",
         default=None,
         help="One past the last byte address to snapshot (hex or decimal)",
     )
-    p.add_argument("--out", required=True, help="Where to write the golden .json")
+    p.add_argument(
+        "--out", required=True, help="Where to write the golden .json"
+    )
     p.set_defaults(func=cmd_generate_golden)
 
     p = sub.add_parser(
@@ -1863,10 +2228,13 @@ def main() -> None:  # noqa: PLR0915
 
     p = sub.add_parser(
         "spike-run",
-        help="Run every compiled test to completion under Spike and report PASS/FAIL",
+        help="Run every compiled test to completion under Spike and report "
+        "PASS/FAIL",
     )
     p.add_argument("--manifest", default=None)
-    p.add_argument("--only", default=None, help="Comma-separated test names to run")
+    p.add_argument(
+        "--only", default=None, help="Comma-separated test names to run"
+    )
     p.set_defaults(func=cmd_spike_run)
 
     p = sub.add_parser(
@@ -1907,15 +2275,21 @@ def main() -> None:  # noqa: PLR0915
 
     p = sub.add_parser(
         "certify-board",
-        help="Build the ACT4 ELFs of the SDRAM target and run each one on the board "
+        help="Build the ACT4 ELFs of the SDRAM target and run each one on the "
+        "board "
         "(loaded into the SDRAM through the debug port)",
     )
-    p.add_argument("--extensions", default=None, help="Overrides act.extensions")
-    p.add_argument("--only", default=None, help="Comma-separated ELF names to run")
+    p.add_argument(
+        "--extensions", default=None, help="Overrides act.extensions"
+    )
+    p.add_argument(
+        "--only", default=None, help="Comma-separated ELF names to run"
+    )
     p.add_argument(
         "--skip-build",
         action="store_true",
-        help="Use the ELFs that an earlier `certify` built, without ACT4's `make`",
+        help="Use the ELFs that an earlier `certify` built, without ACT4's "
+        "`make`",
     )
     p.set_defaults(func=cmd_certify_board)
 
@@ -1938,6 +2312,15 @@ def main() -> None:  # noqa: PLR0915
     )
     p.set_defaults(func=cmd_check_memory_map)
 
+
+def _add_subcommands_3(sub: Any) -> None:
+    """Register a group of subcommands.
+
+    Parameters
+    ----------
+    sub : Any
+        The subparsers of the main parser.
+    """
     p = sub.add_parser(
         "check-paths",
         help="Fail when a file path listed in the project's configuration "
@@ -1946,13 +2329,15 @@ def main() -> None:  # noqa: PLR0915
     p.add_argument(
         "--manifest",
         required=True,
-        help="Manifest YAML (relative to --root) listing the references to check",
+        help="Manifest YAML (relative to --root) listing the references to "
+        "check",
     )
     p.set_defaults(func=cmd_check_paths)
 
     p = sub.add_parser(
         "timing-paths",
-        help="List the worst setup paths of every clock domain of the compiled "
+        help="List the worst setup paths of every clock domain of the "
+        "compiled "
         "Quartus project, grouped by register",
     )
     p.add_argument(
@@ -1977,7 +2362,8 @@ def main() -> None:  # noqa: PLR0915
     )
     p.add_argument(
         "mif",
-        help=".mif to bake in as the ROM's init_file at every candidate frequency",
+        help=".mif to bake in as the ROM's init_file at every candidate "
+        "frequency",
     )
     p.add_argument(
         "--golden",
@@ -1985,13 +2371,25 @@ def main() -> None:  # noqa: PLR0915
         help="Golden JSON the post-run RAM dump is compared against",
     )
     p.add_argument(
-        "--binary", action="store_true", help="Binary search instead of linear sweep"
+        "--binary",
+        action="store_true",
+        help="Binary search instead of linear sweep",
     )
-    p.add_argument("--start", type=float, default=1.0, help="(linear) start freq, MHz")
-    p.add_argument("--stop", type=float, default=30.0, help="(linear) stop freq, MHz")
-    p.add_argument("--step", type=float, default=2.0, help="(linear) step, MHz")
-    p.add_argument("--low", type=float, default=1.0, help="(binary) low bound, MHz")
-    p.add_argument("--high", type=float, default=50.0, help="(binary) high bound, MHz")
+    p.add_argument(
+        "--start", type=float, default=1.0, help="(linear) start freq, MHz"
+    )
+    p.add_argument(
+        "--stop", type=float, default=30.0, help="(linear) stop freq, MHz"
+    )
+    p.add_argument(
+        "--step", type=float, default=2.0, help="(linear) step, MHz"
+    )
+    p.add_argument(
+        "--low", type=float, default=1.0, help="(binary) low bound, MHz"
+    )
+    p.add_argument(
+        "--high", type=float, default=50.0, help="(binary) high bound, MHz"
+    )
     p.add_argument(
         "--out",
         default=None,
@@ -2000,9 +2398,47 @@ def main() -> None:  # noqa: PLR0915
     )
     p.set_defaults(func=cmd_freq_sweep)
 
+
+def main() -> None:
+    """CLI entry point (console script `riscv-tools`).
+
+    Builds the argument parser, registers every subcommand, and
+    dispatches to its cmd_* handler. Reads sys.argv via argparse; no
+    parameters.
+
+    Returns
+    -------
+    None
+        Exits the process with a non-zero status on argument errors,
+        or whatever the dispatched cmd_* function causes (see each
+        cmd_*'s own Returns/Raises).
+    """
+    parser = argparse.ArgumentParser(
+        prog="riscv-tools",
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--config",
+        default=None,
+        help="Path to the consuming project's config.yaml "
+        "(required for every subcommand except vhdl-sort, check-memory-map "
+        "and check-paths)",
+    )
+    parser.add_argument(
+        "--root",
+        default=None,
+        help="Consuming project's root dir (default: cwd)",
+    )
+    sub = parser.add_subparsers(dest="command", required=True)
+    _add_subcommands_1(sub)
+    _add_subcommands_2(sub)
+    _add_subcommands_3(sub)
+
     args = parser.parse_args()
     if (
-        args.command not in {"vhdl-sort", "check-memory-map", "check-paths", "profiles"}
+        args.command
+        not in {"vhdl-sort", "check-memory-map", "check-paths", "profiles"}
         and args.config is None
     ):
         parser.error("--config is required for this subcommand")

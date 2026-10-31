@@ -1,4 +1,4 @@
-"""timing_paths: reading, naming and grouping of the paths, with no Quartus."""
+"""timing_paths: reading, naming and grouping paths, no Quartus."""
 
 import pytest
 
@@ -58,6 +58,6 @@ def test_table_has_one_row_per_group() -> None:
     )
     assert table.count("\n") == 4
     assert (
-        "| `clkA` | `MEM/WB r_ext_ram_op` | `EX/MEM r_alu_out` | 2 | -2.016 | 21.772 |"
-        in table
+        "| `clkA` | `MEM/WB r_ext_ram_op` | `EX/MEM r_alu_out` | 2 "
+        "| -2.016 | 21.772 |" in table
     )

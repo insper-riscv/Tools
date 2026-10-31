@@ -24,7 +24,7 @@ def build_boot_rom(
     build_dir: Path,
     hex_format: str = "words",
 ) -> Path:
-    """Compile boot_rom.S/boot_rom.ld into a flat binary and convert it to .hex.
+    """Compile boot_rom.S/boot_rom.ld into a flat .bin, then a .hex.
 
     Parameters
     ----------
@@ -79,7 +79,8 @@ def build_boot_rom(
         check=True,
     )
     subprocess.run(
-        [str(toolchain_cfg["objcopy"]), "-O", "binary", str(elf), str(bin_)], check=True
+        [str(toolchain_cfg["objcopy"]), "-O", "binary", str(elf), str(bin_)],
+        check=True,
     )
     if hex_format == "verilog":
         elf_to_verilog_hex(toolchain_cfg, elf, hex_)

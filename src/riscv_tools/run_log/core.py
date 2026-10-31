@@ -1,4 +1,4 @@
-"""Rotate and tee a run's full console output into a persistent per-kind log history.
+"""Rotate and tee a run's console output into a per-kind history.
 
 Every `riscv-tools run/sim/certify` invocation prints a lot (JTAG
 reload/poll progress, GHDL/cocotb build+run output, quartus_sh/
@@ -34,7 +34,7 @@ _FS_TIMESTAMP_FMT = "%Y%m%d_%H%M%S"
 
 
 def _rotate(latest: Path) -> Path | None:
-    """Archive an existing latest.log under its own recorded start timestamp.
+    """Archive an existing latest.log under its recorded timestamp.
 
     Parameters
     ----------
@@ -70,9 +70,9 @@ def _rotate(latest: Path) -> Path | None:
         # still archived under SOME timestamp instead of being
         # silently overwritten by the new latest.log about to be
         # created.
-        stamp = datetime.datetime.fromtimestamp(latest.stat().st_mtime).strftime(
-            _FS_TIMESTAMP_FMT
-        )
+        stamp = datetime.datetime.fromtimestamp(
+            latest.stat().st_mtime
+        ).strftime(_FS_TIMESTAMP_FMT)
 
     target = latest.with_name(f"{stamp}.log")
     suffix = 1
@@ -88,7 +88,7 @@ def _rotate(latest: Path) -> Path | None:
 
 
 def start(root: Path, kind: str, logs_dir: str = "logs") -> Path:
-    """Rotate a kind's latest.log, start a fresh one, and tee this process onto it.
+    """Rotate a kind's latest.log, start a new one and tee onto it.
 
     Meant to be called once, near the top of a CLI subcommand
     (cmd_run/cmd_sim/cmd_certify) — everything printed for the rest of

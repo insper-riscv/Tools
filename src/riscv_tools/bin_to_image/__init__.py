@@ -1,4 +1,4 @@
-"""Flat .bin -> hardware/sim-loadable format conversions (.mif, .hex)."""
+"""Flat .bin to hardware/sim-loadable formats (.mif, .hex)."""
 
 from .core import bin_to_hex, bin_to_mif, read_words
 

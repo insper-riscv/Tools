@@ -10,10 +10,13 @@ GCC = "riscv32-unknown-elf-gcc"
 
 
 @pytest.mark.skipif(shutil.which(GCC) is None, reason=f"needs {GCC} on PATH")
-def test_elf_to_verilog_hex_keeps_the_real_word_address(tmp_path: Path) -> None:
+def test_elf_to_verilog_hex_keeps_the_real_word_address(
+    tmp_path: Path,
+) -> None:
     src = tmp_path / "f.S"
     src.write_text(
-        ".section .text\n.globl _start\n_start:\n li t0, 1\n li t1, 2\n j _start\n"
+        ".section .text\n.globl _start\n_start:\n"
+        " li t0, 1\n li t1, 2\n j _start\n"
         ".data\n.word 0xdeadbeef\n"
     )
     ld = tmp_path / "f.ld"
@@ -39,7 +42,9 @@ def test_elf_to_verilog_hex_keeps_the_real_word_address(tmp_path: Path) -> None:
     )
     hex_path = tmp_path / "f.hex"
 
-    elf_to_verilog_hex({"objcopy": "riscv32-unknown-elf-objcopy"}, elf, hex_path)
+    elf_to_verilog_hex(
+        {"objcopy": "riscv32-unknown-elf-objcopy"}, elf, hex_path
+    )
 
     assert hex_path.read_text().split("\n") == [
         "@00000200",

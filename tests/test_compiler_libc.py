@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from riscv_tools.compiler import compile_test, libc_flags
+from riscv_tools.compiler import BuildSetup, compile_test, libc_flags
 
 GCC = "riscv32-unknown-elf-gcc"
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "htif_min"
@@ -40,7 +40,9 @@ def test_libc_flags_defaults_to_no_libc() -> None:
     assert libc_flags({}) == ["-nostdlib"]
 
 
-def test_libc_flags_picolibc_keeps_sections_the_link_script_does_not_reach() -> None:
+def test_libc_flags_picolibc_keeps_sections_the_script_does_not_reach() -> (
+    None
+):
     assert libc_flags({"libc": "picolibc"}) == [
         "--specs=picolibc.specs",
         "-Wl,--no-gc-sections",
@@ -63,16 +65,20 @@ def _compile(tmp_path: Path, libc: str) -> Path:
         "    return 0;\n"
         "}\n"
     )
+    setup = BuildSetup(
+        toolchain_cfg={
+            "gcc": GCC,
+            "objcopy": "riscv32-unknown-elf-objcopy",
+            "libc": libc,
+        },
+        isa_cfg=ISA,
+        default_timeout_s=5.0,
+        include_dir=tmp_path,
+        crt0=FIXTURES / "crt0.S",
+        linker=FIXTURES / "link.ld",
+    )
     bin_, _march, _kind, _timeout = compile_test(
-        {"gcc": GCC, "objcopy": "riscv32-unknown-elf-objcopy", "libc": libc},
-        ISA,
-        5.0,
-        src,
-        "strlen_test",
-        tmp_path / "build",
-        tmp_path,
-        FIXTURES / "crt0.S",
-        FIXTURES / "link.ld",
+        setup, src, "strlen_test", tmp_path / "build"
     )
     return bin_
 

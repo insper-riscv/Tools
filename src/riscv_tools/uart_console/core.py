@@ -1,8 +1,9 @@
-"""The host side of the program's console: the JTAG UART of the platform.
+"""The host side of the program's console: the platform JTAG UART.
 
-A program prints through a UART whose other end is a Virtual JTAG instance (see
-Memory's docs/EXTERNAL_BUS.md). This module scans it and hands the bytes to a
-callback as they arrive, while the program runs. Pure mechanism, no policy.
+A program prints through a UART whose other end is a Virtual JTAG
+instance (see Memory's docs/EXTERNAL_BUS.md). This module scans it and
+hands the bytes to a callback as they arrive, while the program runs.
+Pure mechanism, no policy.
 """
 
 import contextlib
@@ -36,9 +37,31 @@ def decode_line(line: str) -> bytes | None:
     return bytes.fromhex(line[len(BYTES_PREFIX) :])
 
 
-def _forward_typed(source: TextIO, process: subprocess.Popen[str]) -> None:
-    """Give each line the reader types to the script, as hex digits of its bytes."""
-    stdin: IO[str] = process.stdin  # type: ignore[assignment]
+def _pipe(stream: IO[str] | None) -> IO[str]:
+    """Return a pipe that Popen was asked to create.
+
+    Parameters
+    ----------
+    stream : IO of str or None
+        The `stdin` or `stdout` attribute of the process.
+
+    Returns
+    -------
+    IO of str
+        The same stream.
+
+    Raises
+    ------
+    RuntimeError
+        The process has no such pipe.
+    """
+    if stream is None:
+        raise RuntimeError("the uart_console process has no such pipe")
+    return stream
+
+
+def _forward_typed(source: TextIO, stdin: IO[str]) -> None:
+    """Give each typed line to the script as hex digits of its bytes."""
     try:
         for line in source:
             stdin.write(line.encode().hex() + "\n")
@@ -58,7 +81,7 @@ def read_console(
     *,
     typed: TextIO | None = None,
 ) -> bytes:
-    """Scan the UART, calling on_bytes with each chunk the program printed.
+    """Scan the UART, calling on_bytes with each chunk printed.
 
     Parameters
     ----------
@@ -71,8 +94,9 @@ def read_console(
     send : bytes, optional
         Bytes to give to the program, one per scan, at the start.
     typed : TextIO, optional
-        An input whose lines are given to the program as they arrive (the
-        keyboard of an interactive console); the console ends with it.
+        An input whose lines are given to the program as they arrive
+        (the keyboard of an interactive console); the console ends with
+        it.
 
     Returns
     -------
@@ -106,9 +130,11 @@ def read_console(
     )
     if typed is not None:
         threading.Thread(
-            target=_forward_typed, args=(typed, process), daemon=True
+            target=_forward_typed,
+            args=(typed, _pipe(process.stdin)),
+            daemon=True,
         ).start()
-    stdout: IO[str] = process.stdout  # type: ignore[assignment]
+    stdout = _pipe(process.stdout)
     try:
         for line in stdout:
             chunk = decode_line(line)
@@ -121,5 +147,7 @@ def read_console(
         process.wait()
     if process.returncode not in (0, -15):
         error = process.stderr.read() if process.stderr else ""
-        raise RuntimeError(f"uart_console.tcl failed ({process.returncode}): {error}")
+        raise RuntimeError(
+            f"uart_console.tcl failed ({process.returncode}): {error}"
+        )
     return bytes(received)

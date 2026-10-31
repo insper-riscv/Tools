@@ -1,4 +1,4 @@
-"""Composes the other modules into a full real-hardware test-suite run."""
+"""Compose the other modules into a real-hardware test-suite run."""
 
 from .runner import (
     NeedsHumanInterventionError,

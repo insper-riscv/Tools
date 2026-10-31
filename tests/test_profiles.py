@@ -67,7 +67,7 @@ def _write(tmp_path: Path, text: str) -> Path:
 
 
 def test_core_spec_has_thirty_six_profiles(tmp_path: Path) -> None:
-    """Zicclsm x2, CSRs x3 (none, Zicsr, Zicntr), Zifencei x2, multiplier x3."""
+    """Zicclsm x2, CSRs x3, Zifencei x2 and multiplier x3."""
     profiles = expand(load_spec(_write(tmp_path, CORE_SPEC)))
     assert len(profiles) == 36
     assert len({p.name for p in profiles}) == 36
@@ -91,31 +91,43 @@ def test_a_name_never_cites_zicsr_next_to_zicntr(tmp_path: Path) -> None:
 
 
 def test_zicntr_turns_zicsr_on(tmp_path: Path) -> None:
-    by_name = {p.name: p for p in expand(load_spec(_write(tmp_path, CORE_SPEC)))}
+    by_name = {
+        p.name: p for p in expand(load_spec(_write(tmp_path, CORE_SPEC)))
+    }
     p = by_name["rv32im_zicclsm_zicntr_zifencei"]
     assert p.generics["has_zicntr"] is True
     assert p.generics["has_zicsr"] is True
     assert p.generics["has_m"] is True
     assert p.generics["has_zmmul"] is False
     q = by_name["rv32i_zicsr"]
-    assert q.generics["has_zicntr"] is False and q.generics["has_zicsr"] is True
+    assert (
+        q.generics["has_zicntr"] is False and q.generics["has_zicsr"] is True
+    )
 
 
-def test_the_core_without_csrs_and_without_zicclsm_is_valid(tmp_path: Path) -> None:
-    by_name = {p.name: p for p in expand(load_spec(_write(tmp_path, CORE_SPEC)))}
+def test_the_core_without_csrs_and_without_zicclsm_is_valid(
+    tmp_path: Path,
+) -> None:
+    by_name = {
+        p.name: p for p in expand(load_spec(_write(tmp_path, CORE_SPEC)))
+    }
     p = by_name["rv32i"]
     assert p.generics["has_zicsr"] is False
     assert p.generics["has_zicclsm"] is False
 
 
-def test_the_order_of_the_specification_orders_the_profiles(tmp_path: Path) -> None:
+def test_the_order_of_the_specification_orders_the_profiles(
+    tmp_path: Path,
+) -> None:
     profiles = expand(load_spec(_write(tmp_path, CORE_SPEC)))
     assert [len(p.extensions) for p in profiles] == sorted(
         len(p.extensions) for p in profiles
     )
 
 
-def test_an_absent_token_still_marks_a_missing_extension(tmp_path: Path) -> None:
+def test_an_absent_token_still_marks_a_missing_extension(
+    tmp_path: Path,
+) -> None:
     text = CORE_SPEC.replace(
         "{name: Zicclsm,  generic: has_zicclsm}",
         "{name: Zicclsm,  generic: has_zicclsm, absent_token: nozicclsm}",
@@ -154,7 +166,8 @@ def test_cli_prints_ghdl_generics(
     lines = capsys.readouterr().out.splitlines()
     assert len(lines) == 36
     expected = (
-        "rv32im_zicclsm_zicntr -ghas_zicclsm=true -ghas_zicsr=true -ghas_zicntr=true"
+        "rv32im_zicclsm_zicntr -ghas_zicclsm=true -ghas_zicsr=true"
+        " -ghas_zicntr=true"
         " -ghas_zifencei=false -ghas_zmmul=false -ghas_m=true"
     )
     assert expected in lines
@@ -166,6 +179,8 @@ def test_the_command_needs_no_config(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     spec = _write(tmp_path, CORE_SPEC)
-    monkeypatch.setattr("sys.argv", ["riscv-tools", "profiles", "--spec", str(spec)])
+    monkeypatch.setattr(
+        "sys.argv", ["riscv-tools", "profiles", "--spec", str(spec)]
+    )
     cli.main()
     assert len(capsys.readouterr().out.splitlines()) == 36

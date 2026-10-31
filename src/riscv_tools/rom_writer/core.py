@@ -7,7 +7,9 @@ from riscv_tools import mem_edit
 from riscv_tools.jtag import JtagLink
 
 
-def write_rom(link: JtagLink, rom_mem_instances: Sequence[int], mif_path: Path) -> None:
+def write_rom(
+    link: JtagLink, rom_mem_instances: Sequence[int], mif_path: Path
+) -> None:
     """Load a new ROM image into an already-programmed board over JTAG.
 
     Pairs with mailbox.pulse_go_flag to make the core jump back to

@@ -1,28 +1,35 @@
 """Verify a platform's memory map against every copy written by hand.
 
 A platform's memory map (region bases and sizes, the words the boot ROM
-reserves at the top of RAM, the boot entry points, the peripheral windows)
-is needed in many files: the linker flags, the boot ROM, the C runtime, the
-VHDL, the Quartus IPs, the project's config.yaml. Each copy is only noticed
-when it disagrees on the board. This module makes one YAML file the source
-of truth and checks the copies against it.
+reserves at the top of RAM, the boot entry points, the peripheral
+windows) is needed in many files: the linker flags, the boot ROM, the C
+runtime,
+the VHDL, the Quartus IPs, the project's config.yaml. Each copy is only
+noticed when it disagrees on the board. This module makes one YAML file
+the
+source of truth and checks the copies against it.
 
 The platform file has three parts:
 
 - `regions`, `reserved`, `boot` and `peripherals`: the map itself.
 - `checks`: where each copy lives and how to read the number out of it.
 
-A check names a `file` (relative to the project root), reads one value out
-of it (a regular expression with one capture group over the file's text, or
-a dotted `yaml` path), and compares it with an `expect` expression over the
-map's symbols. A check whose pattern matches nothing fails instead of
-passing silently, so a copy that is reformatted out of a check's reach is
-noticed.
+A check names a `file` (relative to the project root), reads one value
+out of it (a regular expression with one capture group over the file's
+text,
+or a dotted `yaml` path), and compares it with an `expect` expression
+over
+the map's symbols. A check whose pattern matches nothing fails instead
+of
+passing silently, so a copy that is reformatted out of a check's reach
+is noticed.
 
 Symbols are `<REGION>.base|size|end|words`, `<reserved>.base|size|end`,
-`boot.entry`, `boot.wait_restart` and `<PERIPHERAL>.base|id`. Expressions
-accept `+ - * /` (exact division only), `log2()` (exact), `clog2()` (rounded
-up), hexadecimal, decimal, VHDL-based (`16#800#`) and suffixed (`30K`,
+`boot.entry`, `boot.wait_restart` and `<PERIPHERAL>.base|id`.
+Expressions accept `+ - * /` (exact division only), `log2()` (exact),
+`clog2()`
+(rounded up), hexadecimal, decimal, VHDL-based (`16#800#`) and suffixed
+(`30K`,
 `0x800u`) numbers.
 """
 
@@ -56,7 +63,8 @@ class Mismatch:
     file : str
         The file the value was read from ("" for the map itself).
     detail : str
-        What disagrees: actual and expected values, or why it could not be read.
+        What disagrees: actual and expected values, or why it could not
+        be read.
     """
 
     check: str
@@ -76,7 +84,9 @@ class Mismatch:
 
 
 def evaluate(expr: str | int, names: dict[str, int] | None = None) -> int:
-    """Evaluate a number or an arithmetic expression over the map's symbols.
+    """Evaluate a number or an arithmetic expression.
+
+    The expression ranges over the symbols of the map.
 
     Parameters
     ----------
@@ -169,32 +179,110 @@ def _eval_node(node: ast.expr, table: dict[str, int], source: str) -> int:
     Raises
     ------
     ValueError
-        On an unknown symbol, an unsupported operation or an inexact division.
+        On an unknown symbol, an unsupported operation or an inexact
+        division.
     """
     if isinstance(node, ast.Constant) and isinstance(node.value, int):
         return node.value
     if isinstance(node, ast.Name):
-        if node.id not in table:
-            raise ValueError(f"unknown symbol {node.id.replace('__', '.')!r}")
-        return table[node.id]
+        return _eval_name(node, table)
     if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
         return -_eval_node(node.operand, table, source)
     if isinstance(node, ast.BinOp):
-        left = _eval_node(node.left, table, source)
-        right = _eval_node(node.right, table, source)
-        if type(node.op) in _BINARY:
-            return _BINARY[type(node.op)](left, right)
-        if isinstance(node.op, ast.Div):
-            if right == 0 or left % right:
-                raise ValueError(f"inexact division in {source!r}")
-            return left // right
+        return _eval_binop(node, table, source)
+    if isinstance(node, ast.Call):
+        return _eval_call(node, table, source)
+    raise ValueError(f"unsupported expression {source!r}")
+
+
+def _eval_name(node: ast.Name, table: dict[str, int]) -> int:
+    """Look a symbol up.
+
+    Parameters
+    ----------
+    node : ast.Name
+        The symbol node.
+    table : dict of {str: int}
+        Symbols, with dots replaced by double underscores.
+
+    Returns
+    -------
+    int
+        The symbol's value.
+
+    Raises
+    ------
+    ValueError
+        If the symbol is unknown.
+    """
+    if node.id not in table:
+        raise ValueError(f"unknown symbol {node.id.replace('__', '.')!r}")
+    return table[node.id]
+
+
+def _eval_binop(node: ast.BinOp, table: dict[str, int], source: str) -> int:
+    """Evaluate a binary operation.
+
+    Parameters
+    ----------
+    node : ast.BinOp
+        The operation node.
+    table : dict of {str: int}
+        Symbols, with dots replaced by double underscores.
+    source : str
+        The original text, for error messages.
+
+    Returns
+    -------
+    int
+        The operation's value.
+
+    Raises
+    ------
+    ValueError
+        On an unsupported operator or an inexact division.
+    """
+    left = _eval_node(node.left, table, source)
+    right = _eval_node(node.right, table, source)
+    if type(node.op) in _BINARY:
+        return _BINARY[type(node.op)](left, right)
+    if isinstance(node.op, ast.Div):
+        if right == 0 or left % right:
+            raise ValueError(f"inexact division in {source!r}")
+        return left // right
+    raise ValueError(f"unsupported expression {source!r}")
+
+
+def _eval_call(node: ast.Call, table: dict[str, int], source: str) -> int:
+    """Evaluate a `log2` or `clog2` call.
+
+    Parameters
+    ----------
+    node : ast.Call
+        The call node.
+    table : dict of {str: int}
+        Symbols, with dots replaced by double underscores.
+    source : str
+        The original text, for error messages.
+
+    Returns
+    -------
+    int
+        The call's value.
+
+    Raises
+    ------
+    ValueError
+        If the call is not `log2`/`clog2` of one argument.
+    """
     if (
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
+        isinstance(node.func, ast.Name)
         and node.func.id in {"log2", "clog2"}
         and len(node.args) == 1
     ):
-        return _log2(node.func.id, _eval_node(node.args[0], table, source), source)
+        return _log2(
+            node.func.id, _eval_node(node.args[0], table, source), source
+        )
     raise ValueError(f"unsupported expression {source!r}")
 
 
@@ -219,7 +307,7 @@ def load_platform(path: Path) -> dict[str, Any]:
     data = yaml.safe_load(path.read_text())
     if not isinstance(data, dict):
         raise ValueError(f"{path}: not a YAML mapping")
-    return data  # pyright: ignore[reportUnknownVariableType]
+    return cast("dict[str, Any]", data)
 
 
 def _list(platform: dict[str, Any], key: str) -> list[dict[str, Any]]:
@@ -286,7 +374,11 @@ def symbols(platform: dict[str, Any]) -> dict[str, int]:
     for name, item in _dict(platform, "reserved").items():
         base = evaluate(item["base"])
         size = evaluate(item["size"])
-        out |= {f"{name}.base": base, f"{name}.size": size, f"{name}.end": base + size}
+        out |= {
+            f"{name}.base": base,
+            f"{name}.size": size,
+            f"{name}.end": base + size,
+        }
     for key, value in (_dict(platform, "boot")).items():
         out[f"boot.{key}"] = evaluate(value)
     for periph in _list(platform, "peripherals"):
@@ -371,21 +463,25 @@ def _boot_problems(
     Returns
     -------
     list of Mismatch
-        `entry` outside every executable region, `wait_restart` outside the
-        first region.
+        `entry` outside every executable region, `wait_restart` outside
+        the first region.
     """
     problems: list[Mismatch] = []
     if "entry" in boot and not any(
         b <= evaluate(boot["entry"]) < b + s for _, b, s in execs
     ):
         problems.append(
-            Mismatch("platform", "", "boot.entry is not inside an executable region")
+            Mismatch(
+                "platform", "", "boot.entry is not inside an executable region"
+            )
         )
     if "wait_restart" in boot and spans:
         name, base, size = spans[0]
         if not base <= evaluate(boot["wait_restart"]) < base + size:
             problems.append(
-                Mismatch("platform", "", f"boot.wait_restart is not inside {name}")
+                Mismatch(
+                    "platform", "", f"boot.wait_restart is not inside {name}"
+                )
             )
     return problems
 
@@ -393,10 +489,11 @@ def _boot_problems(
 def validate_platform(platform: dict[str, Any]) -> list[Mismatch]:
     """Check the map's own consistency, before any copy is read.
 
-    Regions must not overlap; reserved words must sit inside a RAM region and
-    not overlap each other; the boot entry must be inside an executable region
-    and `wait_restart` inside the first one; a peripheral's base must be
-    `0x80000000 | id << 28` (the L2IP window convention).
+    Regions must not overlap; reserved words must sit inside a RAM
+    region and not overlap each other; the boot entry must be inside an
+    executable region and `wait_restart` inside the first one; a
+    peripheral's base must be `0x80000000 | id << 28` (the L2IP window
+    convention).
 
     Parameters
     ----------
@@ -409,8 +506,14 @@ def validate_platform(platform: dict[str, Any]) -> list[Mismatch]:
         The problems; empty when the map is consistent.
     """
     regions = _list(platform, "regions")
-    spans = [(r["name"], evaluate(r["base"]), evaluate(r["size"])) for r in regions]
-    rams = [s for s, r in zip(spans, regions, strict=True) if r.get("kind") == "ram"]
+    spans = [
+        (r["name"], evaluate(r["base"]), evaluate(r["size"])) for r in regions
+    ]
+    rams = [
+        s
+        for s, r in zip(spans, regions, strict=True)
+        if r.get("kind") == "ram"
+    ]
     reserved = [
         (n, evaluate(v["base"]), evaluate(v["size"]))
         for n, v in _dict(platform, "reserved").items()
@@ -421,13 +524,33 @@ def validate_platform(platform: dict[str, Any]) -> list[Mismatch]:
         Mismatch(
             "platform",
             "",
-            f"reserved {name} ({_span(base, size)}) is not inside a RAM region",
+            f"reserved {name} ({_span(base, size)}) is not inside a RAM "
+            "region",
         )
         for name, base, size in reserved
         if not any(b <= base and base + size <= b + s for _, b, s in rams)
     ]
     problems += _boot_problems(_dict(platform, "boot"), spans, execs)
-    for periph in _list(platform, "peripherals"):
+    return problems + _peripheral_problems(_list(platform, "peripherals"))
+
+
+def _peripheral_problems(
+    peripherals: list[dict[str, Any]],
+) -> list[Mismatch]:
+    """Check the base of every peripheral against its id.
+
+    Parameters
+    ----------
+    peripherals : list of dict of {str: Any}
+        The `peripherals` section.
+
+    Returns
+    -------
+    list of Mismatch
+        One per peripheral whose base does not follow the convention.
+    """
+    problems: list[Mismatch] = []
+    for periph in peripherals:
         want = 0x80000000 | (int(periph["id"]) << _PERIPHERAL_ID_SHIFT)
         if evaluate(periph["base"]) != want:
             problems.append(
@@ -447,7 +570,8 @@ def _read_values(check: dict[str, Any], path: Path) -> list[str]:
     Parameters
     ----------
     check : dict of {str: Any}
-        The check: `pattern` (one capture group) or `yaml` (dotted path).
+        The check: `pattern` (one capture group) or `yaml` (dotted
+        path).
     path : Path
         The file to read.
 
@@ -482,8 +606,8 @@ def _run_check(
     Parameters
     ----------
     check : dict of {str: Any}
-        The check: `file`, `pattern` or `yaml`, `expect`, and optionally `name`,
-        `optional` (skip when the file is absent).
+        The check: `file`, `pattern` or `yaml`, `expect`, and optionally
+        `name`, `optional` (skip when the file is absent).
     root : Path
         The project root the file is relative to.
     table : dict of {str: int}
@@ -506,27 +630,55 @@ def _run_check(
     except (ValueError, OSError, re.error, yaml.YAMLError) as exc:
         return [Mismatch(name, check["file"], str(exc))]
     if not raw:
-        return [Mismatch(name, check["file"], "nothing matched: the copy moved")]
+        return [
+            Mismatch(name, check["file"], "nothing matched: the copy moved")
+        ]
     problems: list[Mismatch] = []
     for text in raw:
-        try:
-            actual = evaluate(text)
-        except ValueError as exc:
-            problems.append(Mismatch(name, check["file"], str(exc)))
-            continue
-        if actual != expected:
-            problems.append(
-                Mismatch(
-                    name,
-                    check["file"],
-                    f"found {text.strip()} ({_hex(actual)}), "
-                    f"expected {check['expect']} ({_hex(expected)})",
-                )
-            )
+        problem = _compare(check, name, text, expected)
+        if problem is not None:
+            problems.append(problem)
     return problems
 
 
-def check_memory_map(platform_path: Path, root: Path) -> tuple[int, list[Mismatch]]:
+def _compare(
+    check: dict[str, Any], name: str, text: str, expected: int
+) -> Mismatch | None:
+    """Compare one value read from a file with the expected one.
+
+    Parameters
+    ----------
+    check : dict of {str: Any}
+        The check, for its `file` and `expect`.
+    name : str
+        The check's name.
+    text : str
+        The raw value text.
+    expected : int
+        The expected value.
+
+    Returns
+    -------
+    Mismatch or None
+        The disagreement, or None when the values are equal.
+    """
+    try:
+        actual = evaluate(text)
+    except ValueError as exc:
+        return Mismatch(name, check["file"], str(exc))
+    if actual == expected:
+        return None
+    return Mismatch(
+        name,
+        check["file"],
+        f"found {text.strip()} ({_hex(actual)}), "
+        f"expected {check['expect']} ({_hex(expected)})",
+    )
+
+
+def check_memory_map(
+    platform_path: Path, root: Path
+) -> tuple[int, list[Mismatch]]:
     """Validate a platform's map and check every copy against it.
 
     Parameters
@@ -539,7 +691,8 @@ def check_memory_map(platform_path: Path, root: Path) -> tuple[int, list[Mismatc
     Returns
     -------
     tuple of (int, list of Mismatch)
-        How many checks ran, and the disagreements (empty when all agree).
+        How many checks ran, and the disagreements (empty when all
+        agree).
     """
     platform = load_platform(platform_path)
     problems = validate_platform(platform)

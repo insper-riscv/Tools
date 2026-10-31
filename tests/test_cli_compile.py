@@ -1,3 +1,4 @@
+import argparse
 import json
 import shutil
 from pathlib import Path
@@ -7,13 +8,10 @@ import pytest
 import yaml
 
 from riscv_tools import run_log
-
-# _discover_tests is private, but the discovery/sorting behavior it
-# implements is worth testing directly, without a real toolchain.
 from riscv_tools.cli import (
-    _discover_tests,  # pyright: ignore[reportPrivateUsage]
     cmd_compile,
     cmd_spike_run,
+    discover_tests,
 )
 
 GCC = "riscv32-unknown-elf-gcc"
@@ -93,7 +91,10 @@ def _make_project(root: Path) -> None:
     (root / "config.yaml").write_text(
         yaml.safe_dump(
             {
-                "toolchain": {"gcc": GCC, "objcopy": "riscv32-unknown-elf-objcopy"},
+                "toolchain": {
+                    "gcc": GCC,
+                    "objcopy": "riscv32-unknown-elf-objcopy",
+                },
                 "isa": {
                     "base": "i",
                     "default_ext": "",
@@ -127,23 +128,25 @@ def _cfg_dict(root: Path) -> dict[str, Any]:
     return yaml.safe_load((root / "config.yaml").read_text())
 
 
-def _args(root: Path, emit: str) -> Any:
-    class _Args:
-        config = str(root / "config.yaml")
-        root_ = str(root)
-        manifest = None
-        manifest_per_test = None
-
-    args = _Args()
-    args.root = str(root)  # type: ignore[attr-defined]
-    args.emit = emit  # type: ignore[attr-defined]
+def _args(
+    root: Path, emit: str, only: str | None = None
+) -> argparse.Namespace:
+    args = argparse.Namespace(
+        config=str(root / "config.yaml"),
+        manifest=None,
+        manifest_per_test=None,
+        root=str(root),
+        emit=emit,
+    )
+    if only is not None:
+        args.only = only
     return args
 
 
 def test_discover_tests_finds_c_and_asm_sorted_by_name(tmp_path: Path) -> None:
     _make_project(tmp_path)
 
-    sources = _discover_tests(tmp_path, _cfg_dict(tmp_path))
+    sources = discover_tests(tmp_path, _cfg_dict(tmp_path))
 
     assert [s.parent.name for s in sources] == ["add", "mem", "raw"]
     assert sources[0].name == "src.c"
@@ -157,7 +160,7 @@ def test_discover_tests_empty_when_no_folders(tmp_path: Path) -> None:
         yaml.safe_dump({"paths": {"c_dir": "c", "asm_dir": "asm"}})
     )
 
-    assert _discover_tests(tmp_path, _cfg_dict(tmp_path)) == []
+    assert discover_tests(tmp_path, _cfg_dict(tmp_path)) == []
 
 
 @pytest.mark.skipif(
@@ -169,7 +172,9 @@ def test_cmd_compile_mif_builds_every_kind(tmp_path: Path) -> None:
 
     cmd_compile(_args(tmp_path, "mif"))
 
-    manifest = json.loads((tmp_path / "build" / "real" / "manifest.json").read_text())
+    manifest = json.loads(
+        (tmp_path / "build" / "real" / "manifest.json").read_text()
+    )
     assert {e["name"] for e in manifest} == {"add", "mem", "raw"}
     mem_entry = next(e for e in manifest if e["name"] == "mem")
     assert mem_entry["kind"] == "memory"
@@ -191,7 +196,9 @@ def test_cmd_compile_hex_builds_every_kind(tmp_path: Path) -> None:
 
     cmd_compile(_args(tmp_path, "hex"))
 
-    manifest = json.loads((tmp_path / "build" / "sim" / "manifest.json").read_text())
+    manifest = json.loads(
+        (tmp_path / "build" / "sim" / "manifest.json").read_text()
+    )
     assert {e["name"] for e in manifest} == {"add", "mem", "raw"}
     mem_entry = next(e for e in manifest if e["name"] == "mem")
     assert mem_entry["kind"] == "memory"
@@ -214,8 +221,7 @@ def test_cmd_spike_run_passes_compiled_tests(
     _make_project(tmp_path)
     cmd_compile(_args(tmp_path, "mif"))
 
-    args = _args(tmp_path, "mif")
-    args.only = "add,mem"  # type: ignore[attr-defined]
+    args = _args(tmp_path, "mif", only="add,mem")
     cmd_spike_run(args)
 
     out = capsys.readouterr().out
@@ -234,8 +240,7 @@ def test_cmd_spike_run_rejects_a_test_missing_from_the_manifest(
     _make_project(tmp_path)
     cmd_compile(_args(tmp_path, "mif"))
 
-    args = _args(tmp_path, "mif")
-    args.only = "nope"  # type: ignore[attr-defined]
+    args = _args(tmp_path, "mif", only="nope")
     with pytest.raises(SystemExit):
         cmd_spike_run(args)
 

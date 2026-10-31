@@ -18,6 +18,85 @@ ENTITY_DEP_RE = re.compile(r"\bentity\s+work\.(\w+)", re.IGNORECASE)
 USE_DEP_RE = re.compile(r"\buse\s+work\.(\w+)", re.IGNORECASE)
 
 
+def _scan_file(
+    f: Path,
+    text: str,
+    unit_file: dict[str, Path],
+    file_deps: dict[Path, set[str]],
+) -> None:
+    """Record the design units a file declares and the ones it uses.
+
+    Parameters
+    ----------
+    f : Path
+        The file the text was read from.
+    text : str
+        The file's content.
+    unit_file : dict of {str: Path}
+        Maps a design unit name to its declaring file; updated in
+        place.
+    file_deps : dict of {Path: set of str}
+        Maps a file to the names of the units it depends on; updated
+        in place.
+    """
+    for m in ENTITY_DECL_RE.finditer(text):
+        unit_file[m.group(1).lower()] = f
+
+    for m in PACKAGE_DECL_RE.finditer(text):
+        name = m.group(1).lower()
+        if name != "body":
+            unit_file[name] = f
+
+    deps = file_deps.setdefault(f, set())
+    deps.update(m.group(1).lower() for m in ENTITY_DEP_RE.finditer(text))
+    deps.update(m.group(1).lower() for m in USE_DEP_RE.finditer(text))
+
+
+def _dependency_order(
+    files: list[Path],
+    unit_file: dict[str, Path],
+    file_deps: dict[Path, set[str]],
+) -> list[Path]:
+    """Depth-first order of files, dependencies first.
+
+    Parameters
+    ----------
+    files : list of Path
+        The files to order; traversal starts from them sorted.
+    unit_file : dict of {str: Path}
+        Maps a design unit name to its declaring file.
+    file_deps : dict of {Path: set of str}
+        Maps a file to the names of the units it depends on.
+
+    Returns
+    -------
+    list of Path
+        `files`, each one after the files it depends on; a cycle is
+        broken arbitrarily.
+    """
+    file_set = set(files)
+    visited: set[Path] = set()
+    visiting: set[Path] = set()
+    result: list[Path] = []
+
+    def visit(f: Path) -> None:
+        if f in visited or f in visiting:
+            return
+        visiting.add(f)
+        for dep_name in file_deps.get(f, set()):
+            dep_file = unit_file.get(dep_name)
+            if dep_file is not None and dep_file != f and dep_file in file_set:
+                visit(dep_file)
+        visiting.discard(f)
+        visited.add(f)
+        result.append(f)
+
+    for f in sorted(files):
+        visit(f)
+
+    return result
+
+
 def topo_sort(files: list[Path]) -> list[Path]:
     """Sort VHDL files so each one's `work.*` dependencies precede it.
 
@@ -53,37 +132,6 @@ def topo_sort(files: list[Path]) -> list[Path]:
             text = f.read_text()
         except OSError, UnicodeDecodeError:
             continue
+        _scan_file(f, text, unit_file, file_deps)
 
-        for m in ENTITY_DECL_RE.finditer(text):
-            unit_file[m.group(1).lower()] = f
-
-        for m in PACKAGE_DECL_RE.finditer(text):
-            name = m.group(1).lower()
-            if name != "body":
-                unit_file[name] = f
-
-        deps = file_deps.setdefault(f, set())
-        deps.update(m.group(1).lower() for m in ENTITY_DEP_RE.finditer(text))
-        deps.update(m.group(1).lower() for m in USE_DEP_RE.finditer(text))
-
-    file_set = set(files)
-    visited: set[Path] = set()
-    visiting: set[Path] = set()
-    result: list[Path] = []
-
-    def visit(f: Path) -> None:
-        if f in visited or f in visiting:
-            return
-        visiting.add(f)
-        for dep_name in file_deps.get(f, set()):
-            dep_file = unit_file.get(dep_name)
-            if dep_file is not None and dep_file != f and dep_file in file_set:
-                visit(dep_file)
-        visiting.discard(f)
-        visited.add(f)
-        result.append(f)
-
-    for f in sorted(files):
-        visit(f)
-
-    return result
+    return _dependency_order(files, unit_file, file_deps)

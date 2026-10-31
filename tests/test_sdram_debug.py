@@ -1,4 +1,4 @@
-"""The SDRAM debug backend: the RAM target, the JTAG helpers, the sparse dump."""
+"""The SDRAM debug backend: RAM target, JTAG helpers, sparse dump."""
 
 from pathlib import Path
 from types import SimpleNamespace
@@ -21,7 +21,7 @@ LINK = JtagLink(hardware_name="cable", device_name="device")
 
 
 class FakeTcl:
-    """Stands for run_tcl: records the calls and answers a read from a Python dict."""
+    """Stands for run_tcl: records calls, answers reads from a dict."""
 
     def __init__(self, memory: dict[int, int] | None = None) -> None:
         self.calls: list[tuple[Any, ...]] = []
@@ -47,7 +47,10 @@ def fake(monkeypatch: pytest.MonkeyPatch) -> FakeTcl:
 
 
 def test_target_from_config() -> None:
-    assert ram_target.target_from_config({"quartus": {"ram_mem_instance": 2}}) == 2
+    assert (
+        ram_target.target_from_config({"quartus": {"ram_mem_instance": 2}})
+        == 2
+    )
     cfg = {"quartus": {"ram_backend": "ismce", "ram_mem_instance": 3}}
     assert ram_target.target_from_config(cfg) == 3
     cfg = {"quartus": {"ram_backend": "sdram_debug", "ram_mem_instance": None}}
@@ -82,7 +85,10 @@ def test_a_missing_reply_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_the_mailbox_and_the_go_flag_use_the_target(fake: FakeTcl) -> None:
     # byte address 0x40 above a RAM base of 0: word offset 0x10
-    assert mailbox.read_mailbox(LINK, SdramDebugRam(), 0x40000000, 0x40000040) == 7
+    assert (
+        mailbox.read_mailbox(LINK, SdramDebugRam(), 0x40000000, 0x40000040)
+        == 7
+    )
     mailbox.pulse_go_flag(LINK, SdramDebugRam(), 0x40000000, 0x40000080)
     assert fake.calls == [
         ("sdram_dbg.tcl", "read", 0x10, 1),
@@ -110,13 +116,20 @@ def test_a_sparse_dump_reads_runs_and_parses_back(
     fake: FakeTcl, tmp_path: Path
 ) -> None:
     out = tmp_path / "dump.mif"
-    ram_dump.dump_ram(LINK, SdramDebugRam(), out, [0x12, 0x10, 0x11, 0x40, 0x10])
+    ram_dump.dump_ram(
+        LINK, SdramDebugRam(), out, [0x12, 0x10, 0x11, 0x40, 0x10]
+    )
     # two runs: 0x10..0x12 and 0x40
     assert fake.calls == [
         ("sdram_dbg.tcl", "read", 0x10, 3),
         ("sdram_dbg.tcl", "read", 0x40, 1),
     ]
-    assert mem_validator.parse_mif_words(out) == {0x10: 7, 0x11: 8, 0x12: 9, 0x40: 1}
+    assert mem_validator.parse_mif_words(out) == {
+        0x10: 7,
+        0x11: 8,
+        0x12: 9,
+        0x40: 1,
+    }
 
 
 def test_the_golden_names_the_words_to_dump(tmp_path: Path) -> None:
@@ -127,7 +140,9 @@ def test_the_golden_names_the_words_to_dump(tmp_path: Path) -> None:
     assert mem_validator.golden_word_offsets(golden) == [4, 0x11]
 
 
-def test_a_sparse_dump_compares_with_a_golden(fake: FakeTcl, tmp_path: Path) -> None:
+def test_a_sparse_dump_compares_with_a_golden(
+    fake: FakeTcl, tmp_path: Path
+) -> None:
     fake.memory = {4: 0x04030201}
     golden = tmp_path / "golden.json"
     golden.write_text(

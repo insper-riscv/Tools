@@ -24,12 +24,16 @@ def test_extends_merges_over_the_base(tmp_path: Path) -> None:
 
 
 def test_extends_replaces_a_list_instead_of_appending(tmp_path: Path) -> None:
-    (tmp_path / "base.yaml").write_text("sim:\n  vhdl_sources: [a.vhd, b.vhd]\n")
+    (tmp_path / "base.yaml").write_text(
+        "sim:\n  vhdl_sources: [a.vhd, b.vhd]\n"
+    )
     (tmp_path / "variant.yaml").write_text(
         "extends: base.yaml\nsim:\n  vhdl_sources: [c.vhd]\n"
     )
 
-    assert load_config(tmp_path / "variant.yaml")["sim"]["vhdl_sources"] == ["c.vhd"]
+    assert load_config(tmp_path / "variant.yaml")["sim"]["vhdl_sources"] == [
+        "c.vhd"
+    ]
 
 
 def test_extends_is_relative_to_the_file_that_names_it(tmp_path: Path) -> None:

@@ -47,7 +47,9 @@ def read_words(bin_path: Path, pad_words: int = 0) -> list[int]:
     return [0] * pad_words + [w for (w,) in struct.iter_unpack("<I", data)]
 
 
-def bin_to_mif(bin_path: Path, mif_path: Path, depth: int, pad_words: int = 0) -> int:
+def bin_to_mif(
+    bin_path: Path, mif_path: Path, depth: int, pad_words: int = 0
+) -> int:
     """Convert a flat RV32 .bin into an Intel/Altera .mif.
 
     For a memory IP that Quartus reads at synthesis time or an
@@ -80,7 +82,8 @@ def bin_to_mif(bin_path: Path, mif_path: Path, depth: int, pad_words: int = 0) -
     words = read_words(bin_path, pad_words=pad_words)
     if len(words) > depth:
         raise ValueError(
-            f"{bin_path}: program is {len(words)} words, memory only holds {depth}"
+            f"{bin_path}: program is {len(words)} words, "
+            f"memory only holds {depth}"
         )
 
     lines = [
@@ -103,7 +106,7 @@ def bin_to_mif(bin_path: Path, mif_path: Path, depth: int, pad_words: int = 0) -
 
 
 def bin_to_hex(bin_path: Path, hex_path: Path, pad_words: int = 0) -> int:
-    """Convert a flat RV32 .bin into plain-text hex, one 32-bit word per line.
+    """Convert a flat RV32 .bin into plain hex, one word per line.
 
     The format a cocotb/GHDL sim testbench loads.
 

@@ -10,6 +10,7 @@ Skipped automatically if either tool isn't available.
 
 import importlib
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -75,7 +76,9 @@ def test_sim_runner_reports_fail(tmp_path: Path, dummy_hex: Path) -> None:
     assert passed is False
 
 
-def test_sim_runner_parameters_reach_ghdl(tmp_path: Path, dummy_hex: Path) -> None:
+def test_sim_runner_parameters_reach_ghdl(
+    tmp_path: Path, dummy_hex: Path
+) -> None:
     # dut.vhd's CYCLES generic defaults to 5 (test_pass passes well
     # within its own 20-cycle poll loop). Overriding it to 50 via
     # `parameters` must make the same otherwise-passing test fail —
@@ -107,7 +110,10 @@ def _run_lib_test(
     data.write_text("42\n")
     libraries_dir = tmp_path / "libraries"
     sim_runner.build_libraries(
-        {"helper": [str(FIXTURES_LIB / "helper.vhd")]}, "08", flags, libraries_dir
+        {"helper": [str(FIXTURES_LIB / "helper.vhd")]},
+        "08",
+        flags,
+        libraries_dir,
     )
     return sim_runner.run_test(
         toplevel="dut",
@@ -138,13 +144,14 @@ def test_sim_runner_env_reaches_the_test_module(
     tmp_path: Path, dummy_hex: Path
 ) -> None:
     assert (
-        _run_lib_test(tmp_path, dummy_hex, flags=["-fsynopsys"], expected=99) is False
+        _run_lib_test(tmp_path, dummy_hex, flags=["-fsynopsys"], expected=99)
+        is False
     )
 
 
-def test_build_libraries_needs_the_flags_the_library_needs(tmp_path: Path) -> None:
-    import subprocess  # noqa: PLC0415
-
+def test_build_libraries_needs_the_flags_the_library_needs(
+    tmp_path: Path,
+) -> None:
     with pytest.raises(subprocess.CalledProcessError):
         sim_runner.build_libraries(
             {"helper": [str(FIXTURES_LIB / "helper.vhd")]},
@@ -154,14 +161,18 @@ def test_build_libraries_needs_the_flags_the_library_needs(tmp_path: Path) -> No
         )
 
 
-def test_expand_env_replaces_variables(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_expand_env_replaces_variables(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("SIM_TEST_DIR", "/opt/quartus")
 
     assert sim_runner.expand_env("$SIM_TEST_DIR/eda") == "/opt/quartus/eda"
     assert sim_runner.expand_env("${SIM_TEST_DIR}/eda") == "/opt/quartus/eda"
 
 
-def test_expand_env_rejects_an_unset_variable(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_expand_env_rejects_an_unset_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.delenv("SIM_TEST_UNSET", raising=False)
 
     with pytest.raises(SystemExit, match="SIM_TEST_UNSET"):

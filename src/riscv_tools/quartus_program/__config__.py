@@ -16,6 +16,11 @@ DEFAULTS = {
         # megafunction's init_file is a string parameter, not a
         # tracked project source: changing it does NOT invalidate the
         # cache on its own.
-        "stale_cache_dirs": ["db", "incremental_db", "output_files", "simulation"],
+        "stale_cache_dirs": [
+            "db",
+            "incremental_db",
+            "output_files",
+            "simulation",
+        ],
     },
 }

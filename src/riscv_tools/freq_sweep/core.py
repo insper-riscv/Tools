@@ -16,6 +16,7 @@ job (see orchestrator.run_freq_sweep_at).
 """
 
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
 # 1 MHz's period, in picoseconds — the constant this module's period
@@ -48,16 +49,36 @@ def _phase_offset_ps(idx: int, period_ps: int, phase_count: int) -> int:
     return (idx * period_ps) // phase_count
 
 
-def set_pll_freq(  # noqa: PLR0913, PLR0917
-    pll_file: Path,
-    mhz: float,
-    phase_count: int,
-    freq_param_template: str,
-    phase_param_template: str,
-    freq_unit: str,
-    phase_unit: str,
-) -> None:
-    """Rewrite a PLL source's clock frequency (and phase offsets) in place.
+@dataclass(frozen=True)
+class PllParams:
+    """How a PLL source names and formats its clock parameters.
+
+    Attributes
+    ----------
+    phase_count : int
+        How many `.<freq_param>{idx}(...)`/`.<phase_param>{idx}(...)`
+        pairs the PLL source declares, idx = 0..phase_count-1 (see
+        freq_sweep.__config__.DEFAULTS).
+    freq_param_template : str
+        "{idx}"-templated parameter name, e.g.
+        "output_clock_frequency{idx}".
+    phase_param_template : str
+        "{idx}"-templated parameter name, e.g. "phase_shift{idx}".
+    freq_unit : str
+        Unit suffix written after the frequency value (e.g. "MHz").
+    phase_unit : str
+        Unit suffix written after the phase value (e.g. "ps").
+    """
+
+    phase_count: int
+    freq_param_template: str
+    phase_param_template: str
+    freq_unit: str
+    phase_unit: str
+
+
+def set_pll_freq(pll_file: Path, mhz: float, params: PllParams) -> None:
+    """Rewrite a PLL source's clock frequency and phase offsets.
 
     For each of `phase_count` clock outputs, replaces
     `.<freq_param>("...")`  with the new frequency and
@@ -74,19 +95,9 @@ def set_pll_freq(  # noqa: PLR0913, PLR0917
         Path to the PLL source file to rewrite.
     mhz : float
         New clock frequency, in MHz, for every phase output.
-    phase_count : int
-        How many `.<freq_param>{idx}(...)`/`.<phase_param>{idx}(...)`
-        pairs to rewrite, idx = 0..phase_count-1 (see
-        freq_sweep.__config__.DEFAULTS).
-    freq_param_template : str
-        "{idx}"-templated parameter name, e.g.
-        "output_clock_frequency{idx}".
-    phase_param_template : str
-        "{idx}"-templated parameter name, e.g. "phase_shift{idx}".
-    freq_unit : str
-        Unit suffix written after the frequency value (e.g. "MHz").
-    phase_unit : str
-        Unit suffix written after the phase value (e.g. "ps").
+    params : PllParams
+        The PLL source's parameter-name templates, unit suffixes and
+        number of phase outputs.
 
     Returns
     -------
@@ -99,12 +110,12 @@ def set_pll_freq(  # noqa: PLR0913, PLR0917
     """
     text = pll_file.read_text()
     period_ps = round(_PS_PER_MHZ_PERIOD / mhz)
-    freq_str = f"{mhz:.6f} {freq_unit}"
+    freq_str = f"{mhz:.6f} {params.freq_unit}"
 
-    for idx in range(phase_count):
-        phase_ps = _phase_offset_ps(idx, period_ps, phase_count)
-        freq_param_name = freq_param_template.format(idx=idx)
-        phase_param_name = phase_param_template.format(idx=idx)
+    for idx in range(params.phase_count):
+        phase_ps = _phase_offset_ps(idx, period_ps, params.phase_count)
+        freq_param_name = params.freq_param_template.format(idx=idx)
+        phase_param_name = params.phase_param_template.format(idx=idx)
 
         text = re.sub(
             rf'\.{re.escape(freq_param_name)}\("[^"]+"\)',
@@ -113,7 +124,7 @@ def set_pll_freq(  # noqa: PLR0913, PLR0917
         )
         text = re.sub(
             rf'\.{re.escape(phase_param_name)}\("[^"]+"\)',
-            f'.{phase_param_name}("{phase_ps} {phase_unit}")',
+            f'.{phase_param_name}("{phase_ps} {params.phase_unit}")',
             text,
         )
 

@@ -1,4 +1,4 @@
-"""Check that every hand-written copy of a platform's memory map agrees."""
+"""Check that every copy of a platform's memory map agrees."""
 
 from .core import (
     Mismatch,

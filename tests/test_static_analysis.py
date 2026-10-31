@@ -1,4 +1,4 @@
-"""Static code quality gate: ruff, pyright, and deptry must all be clean.
+"""Static quality gate: ruff, pyright and deptry must be clean.
 
 Runs the same checks CI/a human would run by hand, as real subprocess
 invocations against this repo's actual source (not a lint-rule unit

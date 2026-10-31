@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 
 from riscv_tools import cli
-from riscv_tools.freq_sweep import get_pll_freq, set_pll_freq
+from riscv_tools.freq_sweep import PllParams, get_pll_freq, set_pll_freq
 
 THREE_PHASE_PLL = """\
 altpll_component : altpll
@@ -25,13 +25,15 @@ def test_set_pll_freq_rewrites_frequency_and_phases(tmp_path: Path) -> None:
     pll_file.write_text(THREE_PHASE_PLL)
 
     set_pll_freq(
-        pll_file=pll_file,
-        mhz=20.0,
-        phase_count=3,
-        freq_param_template="output_clock_frequency{idx}",
-        phase_param_template="phase_shift{idx}",
-        freq_unit="MHz",
-        phase_unit="ps",
+        pll_file,
+        20.0,
+        PllParams(
+            phase_count=3,
+            freq_param_template="output_clock_frequency{idx}",
+            phase_param_template="phase_shift{idx}",
+            freq_unit="MHz",
+            phase_unit="ps",
+        ),
     )
 
     text = pll_file.read_text()
@@ -51,13 +53,15 @@ def test_set_pll_freq_single_phase_default(tmp_path: Path) -> None:
     pll_file.write_text('.output_clock_frequency0("10.000000 MHz");\n')
 
     set_pll_freq(
-        pll_file=pll_file,
-        mhz=50.0,
-        phase_count=1,
-        freq_param_template="output_clock_frequency{idx}",
-        phase_param_template="phase_shift{idx}",
-        freq_unit="MHz",
-        phase_unit="ps",
+        pll_file,
+        50.0,
+        PllParams(
+            phase_count=1,
+            freq_param_template="output_clock_frequency{idx}",
+            phase_param_template="phase_shift{idx}",
+            freq_unit="MHz",
+            phase_unit="ps",
+        ),
     )
 
     assert '.output_clock_frequency0("50.000000 MHz")' in pll_file.read_text()
@@ -67,17 +71,21 @@ def test_set_pll_freq_missing_param_left_unchanged(tmp_path: Path) -> None:
     # phase_count set higher than what the file actually declares —
     # the nonexistent pair should be silently skipped, not raise.
     pll_file = tmp_path / "pll.v"
-    original = '.output_clock_frequency0("10.000000 MHz");\n.phase_shift0("0 ps");\n'
+    original = (
+        '.output_clock_frequency0("10.000000 MHz");\n.phase_shift0("0 ps");\n'
+    )
     pll_file.write_text(original)
 
     set_pll_freq(
-        pll_file=pll_file,
-        mhz=15.0,
-        phase_count=3,
-        freq_param_template="output_clock_frequency{idx}",
-        phase_param_template="phase_shift{idx}",
-        freq_unit="MHz",
-        phase_unit="ps",
+        pll_file,
+        15.0,
+        PllParams(
+            phase_count=3,
+            freq_param_template="output_clock_frequency{idx}",
+            phase_param_template="phase_shift{idx}",
+            freq_unit="MHz",
+            phase_unit="ps",
+        ),
     )
 
     text = pll_file.read_text()
@@ -91,13 +99,15 @@ def test_set_pll_freq_custom_param_template(tmp_path: Path) -> None:
     pll_file.write_text('.clkout_freq0("100.000000 kHz");\n')
 
     set_pll_freq(
-        pll_file=pll_file,
-        mhz=200.0,
-        phase_count=1,
-        freq_param_template="clkout_freq{idx}",
-        phase_param_template="clkout_phase{idx}",
-        freq_unit="kHz",
-        phase_unit="fs",
+        pll_file,
+        200.0,
+        PllParams(
+            phase_count=1,
+            freq_param_template="clkout_freq{idx}",
+            phase_param_template="clkout_phase{idx}",
+            freq_unit="kHz",
+            phase_unit="fs",
+        ),
     )
 
     assert '.clkout_freq0("200.000000 kHz")' in pll_file.read_text()
@@ -122,13 +132,15 @@ def test_set_then_get_pll_freq_round_trips(tmp_path: Path) -> None:
     pll_file.write_text(THREE_PHASE_PLL)
 
     set_pll_freq(
-        pll_file=pll_file,
-        mhz=33.5,
-        phase_count=3,
-        freq_param_template="output_clock_frequency{idx}",
-        phase_param_template="phase_shift{idx}",
-        freq_unit="MHz",
-        phase_unit="ps",
+        pll_file,
+        33.5,
+        PllParams(
+            phase_count=3,
+            freq_param_template="output_clock_frequency{idx}",
+            phase_param_template="phase_shift{idx}",
+            freq_unit="MHz",
+            phase_unit="ps",
+        ),
     )
 
     assert get_pll_freq(pll_file, "output_clock_frequency{idx}", "MHz") == 33.5
@@ -139,8 +151,8 @@ def test_cmd_freq_sweep_resolves_pll_file_against_the_project_root(
 ) -> None:
     seen: dict[str, Any] = {}
 
-    def fake_linear(cfg: dict[str, Any], *_: Any) -> list[dict[str, Any]]:
-        seen["pll_file"] = cfg["freq_sweep"]["pll_file"]
+    def fake_linear(job: Any, *_: Any) -> list[dict[str, Any]]:
+        seen["pll_file"] = job.cfg["freq_sweep"]["pll_file"]
         return [{"freq_mhz": 10.0, "status": "pass"}]
 
     cfg = {

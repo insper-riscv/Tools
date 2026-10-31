@@ -16,18 +16,18 @@ def dump_ram(
     """Save the RAM content to a .mif over JTAG.
 
     Used for memory tests, where the PASS/FAIL mailbox alone isn't
-    enough. A RAM inside the FPGA is saved whole (words is not needed). A RAM in
-    the SDRAM is too big to read whole over JTAG, so only the given words are
-    saved.
+    enough. A RAM inside the FPGA is saved whole (words is not needed).
+    A RAM in the SDRAM is too big to read whole over JTAG, so only the
+    given words are saved.
 
     Parameters
     ----------
     link : JtagLink
         Which JTAG cable/chip to read from.
     ram_mem_instance : int or SdramDebugRam
-        How the RAM is reached: the In-System Memory Content Editor instance
-        index of the RAM, or SdramDebugRam for a RAM in the SDRAM (see
-        ram_target).
+        How the RAM is reached: the In-System Memory Content Editor
+        instance index of the RAM, or SdramDebugRam for a RAM in the
+        SDRAM (see ram_target).
     out_mif : Path
         Path to write the .mif to (overwritten if it already exists).
     words : sequence of int, optional

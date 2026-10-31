@@ -1,4 +1,4 @@
-"""Defaults for building/running the ACT4 architectural certification suite.
+"""Defaults to build and run the ACT4 architectural certification.
 
 Overridden under `act:` in a project's config.yaml.
 """

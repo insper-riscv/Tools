@@ -1,4 +1,4 @@
-"""PASS/FAIL mailbox read + restart "go flag" pulse, and rv32_test.h generation."""
+"""PASS/FAIL mailbox read, restart pulse and rv32_test.h output."""
 
 from .core import (
     FAIL,
