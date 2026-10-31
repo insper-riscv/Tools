@@ -60,6 +60,8 @@ def test_fail_flag_is_read_from_the_flag_line(
     """Fail flag is read from the flag line."""
 
     class Done:
+        """Stands for the CompletedProcess of the display script."""
+
         returncode = 0
         stdout = "Info: x\nFLAG=1\n"
         stderr = ""

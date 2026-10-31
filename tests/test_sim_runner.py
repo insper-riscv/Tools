@@ -232,7 +232,8 @@ def test_run_suite_isolates_work_directories_by_simulation_profile(
     sim_runner.run_suite(config(["-frelaxed"]), manifest, tmp_path, base)
     sim_runner.run_suite(config([]), manifest, tmp_path, base)
 
-    first, second, repeated = work_dirs
+    assert len(work_dirs) == 3
+    first, second, repeated = work_dirs[0], work_dirs[1], work_dirs[2]
     assert first == repeated
     assert first != second
     assert first.name == second.name == "same-test"

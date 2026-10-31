@@ -82,4 +82,4 @@ def write_header(mailbox_addr: int, out_path: Path) -> None:
     -------
     None
     """
-    Path(out_path).write_text(generate_header(mailbox_addr))
+    Path(out_path).write_text(generate_header(mailbox_addr), encoding="utf-8")

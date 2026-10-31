@@ -15,7 +15,7 @@ import sys
 import time
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 from riscv_tools import (
     bin_to_image,
@@ -69,6 +69,123 @@ def _link(cfg: dict[str, Any]) -> JtagLink:
         hardware_name=detect_jtag_hardware(),
         device_name=cfg["quartus"]["jtag_device"],
     )
+
+
+def _start_run(
+    args: argparse.Namespace, kind: str
+) -> tuple[dict[str, Any], Path]:
+    """Load the config, resolve the project root and open the run log.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed CLI arguments (uses args.config and args.root).
+    kind : str
+        Name of the log directory under run_log.logs_dir.
+
+    Returns
+    -------
+    tuple[dict[str, Any], Path]
+        The loaded config and the project root.
+    """
+    cfg = load_config(args.config)
+    root = _root(args)
+    run_log.start(root, kind, cfg["run_log"]["logs_dir"])
+    return cfg, root
+
+
+def _start_certification(
+    args: argparse.Namespace, kind: str
+) -> tuple[dict[str, Any], Path]:
+    """Start a certification run, applying the --extensions override.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed CLI arguments (uses args.extensions as well).
+    kind : str
+        Name of the log directory under run_log.logs_dir.
+
+    Returns
+    -------
+    tuple[dict[str, Any], Path]
+        The loaded config and the project root.
+    """
+    cfg, root = _start_run(args, kind)
+    if args.extensions is not None:
+        cfg["act"]["extensions"] = args.extensions
+    return cfg, root
+
+
+def _load_manifest(
+    args: argparse.Namespace, manifest_dir: Path, emit: str
+) -> tuple[Path, list[dict[str, Any]]]:
+    """Read the manifest.json of a run, or exit if it is missing.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed CLI arguments (uses args.manifest).
+    manifest_dir : Path
+        Directory holding the default manifest.json.
+    emit : str
+        Value of `compile --emit` that writes the manifest, for the
+        hint printed when the file is missing.
+
+    Returns
+    -------
+    tuple[Path, list[dict[str, Any]]]
+        The manifest path and its parsed entries.
+    """
+    manifest_path = (
+        Path(args.manifest)
+        if args.manifest
+        else manifest_dir / "manifest.json"
+    )
+    if not manifest_path.is_file():
+        print(
+            f"{manifest_path} not found; run "
+            f"`riscv-tools compile --emit {emit}` first",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    manifest: list[dict[str, Any]] = json.loads(
+        manifest_path.read_text(encoding="utf-8")
+    )
+    return manifest_path, manifest
+
+
+class _RealRun(NamedTuple):
+    """Everything a subcommand needs to run a real-hardware manifest."""
+
+    cfg: dict[str, Any]
+    root: Path
+    build_dir: Path
+    manifest_path: Path
+    manifest: list[dict[str, Any]]
+
+
+def _start_real_run(args: argparse.Namespace, kind: str) -> _RealRun:
+    """Start a run over the manifest compiled for the board.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed CLI arguments (uses args.config, args.root and
+        args.manifest).
+    kind : str
+        Name of the log directory under run_log.logs_dir.
+
+    Returns
+    -------
+    _RealRun
+        The config, project root, real build directory, manifest path
+        and manifest entries.
+    """
+    cfg, root = _start_run(args, kind)
+    build_dir = root / cfg["paths"]["build_dir"] / "real"
+    manifest_path, manifest = _load_manifest(args, build_dir, "mif")
+    return _RealRun(cfg, root, build_dir, manifest_path, manifest)
 
 
 def _root(args: argparse.Namespace) -> Path:
@@ -559,7 +676,7 @@ def cmd_compile(args: argparse.Namespace) -> None:
         Path(args.manifest) if args.manifest else build_dir / "manifest.json"
     )
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_path.write_text(json.dumps(manifest, indent=2))
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
     print(f"Wrote {manifest_path} ({len(manifest)} test(s))")
 
@@ -647,7 +764,7 @@ def _compile_one(
     if args.manifest_per_test:
         per_test_path = Path(args.manifest_per_test.format(name=name))
         per_test_path.parent.mkdir(parents=True, exist_ok=True)
-        per_test_path.write_text(json.dumps(entry, indent=2))
+        per_test_path.write_text(json.dumps(entry, indent=2), encoding="utf-8")
         print(f"Wrote {per_test_path}")
 
     return entry
@@ -1161,22 +1278,9 @@ def cmd_spike_run(args: argparse.Namespace) -> None:
         status 1 if the manifest is missing, a requested test isn't in
         it, or any test failed.
     """
-    cfg = load_config(args.config)
-    root = _root(args)
-    run_log.start(root, "spike", cfg["run_log"]["logs_dir"])
-    build_dir = root / cfg["paths"]["build_dir"] / "real"
-    manifest_path = (
-        Path(args.manifest) if args.manifest else build_dir / "manifest.json"
+    cfg, root, build_dir, manifest_path, manifest = _start_real_run(
+        args, "spike"
     )
-    if not manifest_path.is_file():
-        print(
-            f"{manifest_path} not found; run `riscv-tools compile --emit mif` "
-            "first",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    manifest: list[dict[str, Any]] = json.loads(manifest_path.read_text())
     by_name = {entry["name"]: entry for entry in manifest}
     wanted = _wanted_names(args.only, by_name, manifest_path)
 
@@ -1431,23 +1535,9 @@ def cmd_run(args: argparse.Namespace) -> None:
         so a re-run finds
         it).
     """
-    cfg = load_config(args.config)
-    root = _root(args)
-    run_log.start(root, "real", cfg["run_log"]["logs_dir"])
-    build_dir = root / cfg["paths"]["build_dir"] / "real"
-    manifest_path = (
-        Path(args.manifest) if args.manifest else build_dir / "manifest.json"
+    cfg, root, build_dir, manifest_path, manifest = _start_real_run(
+        args, "real"
     )
-
-    if not manifest_path.is_file():
-        print(
-            f"{manifest_path} not found — run `riscv-tools compile --emit "
-            "mif` first",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    manifest: list[dict[str, Any]] = json.loads(manifest_path.read_text())
     # Kept separate from `manifest` itself, which gets filtered down
     # below (by --only, then again by whatever's already in
     # results_so_far) — the summary at the end still needs every
@@ -1531,9 +1621,7 @@ def cmd_sim(args: argparse.Namespace) -> None:
         status 1 if the manifest file is missing, a filter names an
         unknown test, no tests remain selected, or any test failed.
     """
-    cfg = load_config(args.config)
-    root = _root(args)
-    run_log.start(root, "sim", cfg["run_log"]["logs_dir"])
+    cfg, root = _start_run(args, "sim")
     build_dir = root / cfg["paths"]["build_dir"] / "sim"
     # sim.image "mif" simulates the same images the hardware loads,
     # which `compile --emit mif` writes (and lists) under build/real.
@@ -1541,22 +1629,9 @@ def cmd_sim(args: argparse.Namespace) -> None:
     manifest_dir = (
         root / cfg["paths"]["build_dir"] / ("real" if use_mif else "sim")
     )
-    manifest_path = (
-        Path(args.manifest)
-        if args.manifest
-        else manifest_dir / "manifest.json"
+    manifest_path, manifest = _load_manifest(
+        args, manifest_dir, "mif" if use_mif else "hex"
     )
-
-    if not manifest_path.is_file():
-        print(
-            f"{manifest_path} not found — run "
-            f"`riscv-tools compile --emit {'mif' if use_mif else 'hex'}` "
-            "first",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    manifest: list[dict[str, Any]] = json.loads(manifest_path.read_text())
     manifest = filter_manifest(
         manifest,
         manifest_path,
@@ -1637,11 +1712,7 @@ def cmd_certify(args: argparse.Namespace) -> None:
         status 1 if any test failed (or if no ELFs were produced at
         all — see certify.run_suite).
     """
-    cfg = load_config(args.config)
-    if args.extensions is not None:
-        cfg["act"]["extensions"] = args.extensions
-    root = _root(args)
-    run_log.start(root, "certification", cfg["run_log"]["logs_dir"])
+    cfg, root = _start_certification(args, "certification")
     build_dir = root / cfg["paths"]["build_dir"] / "act"
 
     results = certify.run_suite(cfg, root, build_dir)
@@ -1677,11 +1748,7 @@ def cmd_certify_board(args: argparse.Namespace) -> None:
         Prints a result per ELF and a summary. Exits with status 1 if
         any ELF did not pass.
     """
-    cfg = load_config(args.config)
-    if args.extensions is not None:
-        cfg["act"]["extensions"] = args.extensions
-    root = _root(args)
-    run_log.start(root, "certification-board", cfg["run_log"]["logs_dir"])
+    cfg, root = _start_certification(args, "certification-board")
     only = [n for n in args.only.split(",") if n] if args.only else None
     results = certify.run_suite_on_board(
         cfg,
@@ -1904,7 +1971,7 @@ def cmd_timing_paths(args: argparse.Namespace) -> None:
     )
     table = timing_paths_mod.format_table(timing_paths_mod.group_paths(paths))
     if args.out:
-        Path(args.out).write_text(table)
+        Path(args.out).write_text(table, encoding="utf-8")
     print(table, end="")
 
 
@@ -1960,7 +2027,7 @@ def cmd_freq_sweep(args: argparse.Namespace) -> None:
     out_path = (
         Path(args.out) if args.out else build_dir / "freq_sweep_results.json"
     )
-    out_path.write_text(json.dumps(results, indent=2))
+    out_path.write_text(json.dumps(results, indent=2), encoding="utf-8")
     print(f"Wrote {out_path}")
 
     print("\n=== Summary ===")

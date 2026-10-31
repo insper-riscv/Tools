@@ -78,8 +78,8 @@ def run_streaming(
     # Statically Popen.stdout/.stderr are `IO[Any] | None`; both are
     # always real files here since stdout=PIPE/stderr=PIPE were just
     # passed above.
-    proc_stdout = cast("IO[str]", proc.stdout)
-    proc_stderr = cast("IO[str]", proc.stderr)
+    proc_stdout = cast(IO[str], proc.stdout)
+    proc_stderr = cast(IO[str], proc.stderr)
 
     stdout_chunks: list[str] = []
     stderr_chunks: list[str] = []

@@ -2,6 +2,7 @@
 
 import shutil
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -121,34 +122,16 @@ def test_prepared_elf_adds_fromhost_and_extra_symbols(tmp_path: Path) -> None:
 
 
 @needs_toolchain
-def test_prepared_elf_aliases_a_custom_tohost_symbol(tmp_path: Path) -> None:
+def test_prepared_elf_aliases_a_custom_tohost_symbol(
+    build_bare_elf: Callable[[str, str], Path],
+) -> None:
     """Prepared elf aliases a custom tohost symbol."""
-    src = tmp_path / "a.S"
-    src.write_text(
+    elf = build_bare_elf(
         ".globl _start\n_start: j _start\n"
-        ".section .bss\n.balign 8\n.globl my_tohost\nmy_tohost: .space 8\n"
-    )
-    ld = tmp_path / "a.ld"
-    ld.write_text(
+        ".section .bss\n.balign 8\n.globl my_tohost\nmy_tohost: .space 8\n",
         "ENTRY(_start)\n"
         "SECTIONS { . = 0x80000000; .text : { *(.text*) } "
-        ".bss : { *(.bss*) } }\n"
-    )
-    elf = tmp_path / "a.elf"
-    subprocess.run(
-        [
-            GCC,
-            "-march=rv32im",
-            "-mabi=ilp32",
-            "-nostdlib",
-            "-nostartfiles",
-            "-T",
-            str(ld),
-            str(src),
-            "-o",
-            str(elf),
-        ],
-        check=True,
+        ".bss : { *(.bss*) } }\n",
     )
 
     with prepared_elf(OBJCOPY, NM, elf, "my_tohost") as prepared:

@@ -101,7 +101,7 @@ def bin_to_mif(
         lines.append(f"    [{len(words):04X}..{depth - 1:04X}] : 00000000;")
     lines.append("END;")
 
-    Path(mif_path).write_text("\n".join(lines) + "\n")
+    Path(mif_path).write_text("\n".join(lines) + "\n", encoding="utf-8")
     return len(words)
 
 
@@ -126,5 +126,7 @@ def bin_to_hex(bin_path: Path, hex_path: Path, pad_words: int = 0) -> int:
         The number of words written.
     """
     words = read_words(bin_path, pad_words=pad_words)
-    Path(hex_path).write_text("\n".join(f"{w:08X}" for w in words) + "\n")
+    Path(hex_path).write_text(
+        "\n".join(f"{w:08X}" for w in words) + "\n", encoding="utf-8"
+    )
     return len(words)

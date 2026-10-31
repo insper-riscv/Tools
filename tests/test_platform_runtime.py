@@ -18,6 +18,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from support import write_rv32_header
 
 from riscv_tools import run_log
 from riscv_tools.cli import cmd_compile, cmd_spike_run
@@ -140,16 +141,7 @@ def _make_project(root: Path) -> None:
         "    j    rv32_wait_restart\n"
     )
 
-    include_dir = root / "include"
-    include_dir.mkdir()
-    (include_dir / "rv32_test.h").write_text(
-        "#define RV32_MAILBOX_ADDR ((volatile unsigned int *)0x0002FFFC)\n"
-        "extern void rv32_wait_restart(void) __attribute__((noreturn));\n"
-        "static inline void RV32_PASS(void) { *RV32_MAILBOX_ADDR = 1; "
-        "rv32_wait_restart(); }\n"
-        "static inline void RV32_FAIL(void) { *RV32_MAILBOX_ADDR = 2; "
-        "rv32_wait_restart(); }\n"
-    )
+    write_rv32_header(root, 0x0002FFFC)
 
     (root / "config.yaml").write_text(
         yaml.safe_dump(
