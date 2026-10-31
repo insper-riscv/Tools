@@ -30,6 +30,8 @@ jobs:
             run: uvx pycodestyle --max-line-length=79 --max-doc-length=72 --ignore=E203,W503 src tests
           - name: pydocstyle
             run: uvx pydocstyle --convention=pep257 src tests
+          - name: pylint
+            run: uv run pylint .
           - name: pyright
             run: uv run pyright
           - name: pyrefly

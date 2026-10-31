@@ -138,6 +138,7 @@ python-version = "3.14"
 
 [tool.pylint.main]
 ignore = [".venv"]
+fail-under = 10
 source-roots = ["src"]
 # The test modules import their helpers (support.py) as top-level modules.
 init-hook = "import sys; sys.path.append('tests')"

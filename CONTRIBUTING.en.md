@@ -64,7 +64,7 @@ def fetch_user(user_id: str, include_roles: bool = False) -> User:
 | Package manager | `uv` (`uv add`, `uv sync`, `uv run`); `pip`, `pip install`, and `python -m pip` are prohibited |
 | Tests | `pytest`; every new behavior comes with a test |
 | Typing | Complete annotations, checked by Pyright and Pyrefly, both in `strict` mode |
-| Style and quality | `ruff` for lint and formatting; `deptry` for declared and used dependencies |
+| Style and quality | `ruff` for lint and formatting; `pylint` with a minimum score of 10; `deptry` for declared and used dependencies |
 | Complexity and duplication | `complexipy` with a maximum of 10 per function; `codeclone` for duplicated code |
 | Security | `semgrep` for static analysis; `uv audit` for dependency vulnerabilities |
 
@@ -110,6 +110,7 @@ uv run ruff check .                  # Linting and style
 uv run ruff format . --check         # Formatting
 uvx pycodestyle --max-line-length=79 --max-doc-length=72 --ignore=E203,W503 src tests  # PEP 8 style (E203 and W503 contradict PEP 8 itself)
 uvx pydocstyle --convention=pep257 src tests  # PEP 257 docstrings
+uv run pylint .                      # Static analysis, minimum score 10
 uv run pyright                       # Strict type checking
 uvx pyrefly check                    # Second strict type checker
 uv run deptry .                      # Declared and used dependencies
