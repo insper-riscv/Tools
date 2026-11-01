@@ -13,7 +13,9 @@ permissions:
   contents: read
 
 jobs:
-  tests:
+  # The job id and name are the status check the default-branch ruleset requires, so they must not change.
+  unit-tests:
+    name: unit-tests
     # The image carries GHDL, the RISC-V GCC and a patched Spike, so the whole
     # suite (simulation and Spike tests included) runs on a hosted runner.
     runs-on: ubuntu-26.04
