@@ -97,6 +97,8 @@ A program linked at `0x800` starts at `@00000200` (word address), so it needs no
 | `tests/test_cli_compile.py::test_discover_tests_finds_c_and_asm_sorted_by_name` | C and assembly tests are found and sorted by name. |
 | `tests/test_cli_compile.py::test_discover_tests_empty_when_no_folders` | No test folders yields no tests. |
 | `tests/test_cli_compile.py::test_cmd_compile_mif_builds_every_kind` | A C test, a C memory test and an assembly test compile and land in the manifest. |
+| `tests/test_cli_compile.py::test_cmd_compile_only_builds_just_the_named_tests` | `--only` builds just the named tests and the manifest lists only them. |
+| `tests/test_cli_compile.py::test_cmd_compile_only_rejects_an_unknown_test` | `--only` with a name that does not exist exits with an error. |
 | `tests/test_cli_compile.py::test_cmd_compile_hex_builds_every_kind` | The same tests compile for simulation. |
 | `tests/test_cli_compile.py::test_cmd_compile_hex_uses_the_verilog_format_when_configured` | `sim.hex_format: verilog` writes the `objcopy` layout. |
 | `tests/test_compiler_hex.py::test_elf_to_verilog_hex_keeps_the_real_word_address` | An image linked at `0x800` starts at `@00000200` with no zero padding. |

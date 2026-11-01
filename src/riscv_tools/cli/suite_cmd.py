@@ -19,20 +19,8 @@ from riscv_tools.cli.common import (
     start_run,
 )
 from riscv_tools.cli.spike_cmd import print_run_summary
+from riscv_tools.cli.test_names import split_test_name_groups
 from riscv_tools.orchestrator.context import RunContext, SuiteOptions
-
-
-def _split_test_name_groups(groups: list[str] | None) -> list[str]:
-    """Expand repeatable comma-separated CLI values, deduplicated."""
-    names: list[str] = []
-    seen: set[str] = set()
-    for group in groups or []:
-        for raw_name in group.split(","):
-            name = raw_name.strip()
-            if name and name not in seen:
-                names.append(name)
-                seen.add(name)
-    return names
 
 
 def _check_filter_names(
@@ -96,8 +84,8 @@ def filter_manifest(
         The non-empty filtered manifest.
     """
     by_name = {entry["name"]: entry for entry in manifest}
-    only_names = _split_test_name_groups(only_groups)
-    exclude_names = _split_test_name_groups(exclude_groups)
+    only_names = split_test_name_groups(only_groups)
+    exclude_names = split_test_name_groups(exclude_groups)
 
     _check_filter_names(
         (

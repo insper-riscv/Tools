@@ -31,6 +31,15 @@ def add_build_commands(sub: Any) -> None:
         "(default: <build_dir>/manifest.json)",
     )
     p.add_argument(
+        "--only",
+        action="append",
+        default=None,
+        metavar="NAME[,NAME...]",
+        help="Only build these test(s) (by folder name), instead of every "
+        "test, repeatable, and/or comma-separated in one use. The "
+        "manifest.json written then lists just these tests.",
+    )
+    p.add_argument(
         "--manifest-per-test",
         default=None,
         help='Full path template containing "{name}" (e.g. '
