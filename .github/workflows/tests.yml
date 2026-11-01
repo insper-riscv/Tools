@@ -1,7 +1,9 @@
 name: tests
 
 on:
+  # Push só na main: em outra branch o pull_request já roda o mesmo workflow.
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
