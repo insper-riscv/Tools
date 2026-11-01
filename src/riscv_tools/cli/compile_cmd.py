@@ -14,6 +14,7 @@ from riscv_tools import compiler as compiler_mod
 from riscv_tools.cli.common import project_root
 from riscv_tools.cli.discovery import CTest, discover_tests
 from riscv_tools.cli.project import generate_c_golden, write_sim_hex
+from riscv_tools.cli.test_names import split_test_name_groups
 from riscv_tools.cli.toolchain import build_setup
 from riscv_tools.settings import load_config
 
@@ -33,14 +34,17 @@ def cmd_compile(args: argparse.Namespace) -> None:
     args : argparse.Namespace
         Parsed `compile` options: config, root, emit ("mif", "hex" or
         "asm"), manifest (path of the combined manifest.json, default
-        <build_dir>/manifest.json) and manifest_per_test (path template
-        with "{name}"; also writes one manifest per test).
+        <build_dir>/manifest.json), manifest_per_test (path template
+        with "{name}"; also writes one manifest per test) and the
+        optional only (repeatable, comma-separated test names; builds
+        just those tests, so the manifest lists only them).
 
     Returns
     -------
     None
-        Exits the process with status 1 if no tests are found, or if
-        a "memory"-kind .S test is missing its checked-in golden.json.
+        Exits the process with status 1 if no tests are found, if
+        --only names a test that does not exist, or if a "memory"-kind
+        .S test is missing its checked-in golden.json.
     """
     cfg = load_config(args.config)
     root = project_root(args)
@@ -53,6 +57,7 @@ def cmd_compile(args: argparse.Namespace) -> None:
             file=sys.stderr,
         )
         sys.exit(1)
+    sources = _select_sources(sources, getattr(args, "only", None))
 
     if args.emit == "asm":
         _compile_asm(cfg, root, sources)
@@ -74,6 +79,38 @@ def cmd_compile(args: argparse.Namespace) -> None:
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
     print(f"Wrote {manifest_path} ({len(manifest)} test(s))")
+
+
+def _select_sources(sources: list[Path], only: list[str] | None) -> list[Path]:
+    """Keep the sources of the tests `--only` asks for.
+
+    Parameters
+    ----------
+    sources : list of Path
+        Every discovered test source.
+    only : list of str, optional
+        The repeatable, comma-separated values of `--only`.
+
+    Returns
+    -------
+    list of Path
+        All the sources if `only` is not given, otherwise the named
+        ones in the order given. Exits the process with status 1 if
+        `--only` is empty or names a test that was not discovered.
+    """
+    if only is None:
+        return sources
+    names = split_test_name_groups(only)
+    by_name = {src.parent.name: src for src in sources}
+    missing = [name for name in names if name not in by_name]
+    if not names or missing:
+        print(
+            "--only needs existing tests"
+            + (f", not found: {', '.join(missing)}" if missing else ""),
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return [by_name[name] for name in names]
 
 
 def _compile_asm(cfg: dict[str, Any], root: Path, sources: list[Path]) -> None:

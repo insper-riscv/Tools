@@ -98,6 +98,8 @@ Um programa linkado em `0x800` começa em `@00000200` (endereço de palavra), en
 | `tests/test_cli_compile.py::test_discover_tests_finds_c_and_asm_sorted_by_name` | Testes em C e assembly são encontrados e ordenados por nome. |
 | `tests/test_cli_compile.py::test_discover_tests_empty_when_no_folders` | Nenhuma pasta de testes resulta em nenhum teste. |
 | `tests/test_cli_compile.py::test_cmd_compile_mif_builds_every_kind` | Um teste C, um teste C de memória e um teste assembly compilam e entram no manifest. |
+| `tests/test_cli_compile.py::test_cmd_compile_only_builds_just_the_named_tests` | `--only` compila só os testes nomeados e o manifest lista apenas eles. |
+| `tests/test_cli_compile.py::test_cmd_compile_only_rejects_an_unknown_test` | `--only` com um nome inexistente termina com erro. |
 | `tests/test_cli_compile.py::test_cmd_compile_hex_builds_every_kind` | Os mesmos testes compilam para simulação. |
 | `tests/test_cli_compile.py::test_cmd_compile_hex_uses_the_verilog_format_when_configured` | `sim.hex_format: verilog` escreve o layout do `objcopy`. |
 | `tests/test_compiler_hex.py::test_elf_to_verilog_hex_keeps_the_real_word_address` | Uma imagem linkada em `0x800` começa em `@00000200`, sem preenchimento de zeros. |

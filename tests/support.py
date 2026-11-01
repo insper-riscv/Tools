@@ -105,7 +105,7 @@ def write_config(root: Path, config: dict[str, Any]) -> None:
 
 
 def compile_args(
-    root: Path, emit: str, only: str | None = None
+    root: Path, emit: str, only: str | list[str] | None = None
 ) -> argparse.Namespace:
     """Build the parsed arguments of `riscv-tools compile`."""
     args = argparse.Namespace(

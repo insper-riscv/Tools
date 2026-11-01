@@ -152,6 +152,33 @@ def test_cmd_compile_mif_builds_every_kind(tmp_path: Path) -> None:
     shutil.which(GCC) is None or shutil.which(SPIKE) is None,
     reason=f"needs {GCC} and {SPIKE} on PATH",
 )
+def test_cmd_compile_only_builds_just_the_named_tests(
+    tmp_path: Path,
+) -> None:
+    """Cmd compile only builds just the named tests."""
+    _make_project(tmp_path)
+
+    cmd_compile(compile_args(tmp_path, "mif", only=["add", "raw"]))
+
+    manifest = json.loads(
+        (tmp_path / "build" / "real" / "manifest.json").read_text()
+    )
+    assert [e["name"] for e in manifest] == ["add", "raw"]
+    assert not (tmp_path / "build" / "real" / "mem.mif").exists()
+
+
+def test_cmd_compile_only_rejects_an_unknown_test(tmp_path: Path) -> None:
+    """Cmd compile only rejects an unknown test."""
+    _make_project(tmp_path)
+
+    with pytest.raises(SystemExit):
+        cmd_compile(compile_args(tmp_path, "mif", only=["add,nope"]))
+
+
+@pytest.mark.skipif(
+    shutil.which(GCC) is None or shutil.which(SPIKE) is None,
+    reason=f"needs {GCC} and {SPIKE} on PATH",
+)
 def test_cmd_compile_hex_builds_every_kind(tmp_path: Path) -> None:
     """Cmd compile hex builds every kind."""
     _make_project(tmp_path)

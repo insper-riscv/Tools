@@ -59,6 +59,7 @@ Ele foi projetado para rodar em uma workstation com todas as ferramentas instala
 ```bash
 uv sync
 uv run riscv-tools --config /path/to/project/config.yaml compile --emit mif
+uv run riscv-tools --config /path/to/project/config.yaml compile --emit mif --only test-a,test-b
 uv run riscv-tools --config /path/to/project/config.yaml compile --emit asm
 uv run riscv-tools --config /path/to/project/config.yaml run
 uv run riscv-tools --config /path/to/project/config.yaml run --exclude test-a,test-b
