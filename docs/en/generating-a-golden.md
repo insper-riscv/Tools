@@ -37,6 +37,7 @@ uv run riscv-tools --config <project>/config.yaml generate-golden \
 
 - `--march` should match the test's own march (the `RV32_EXT` header, resolved the same way `compile` resolves it: see [creating-a-c-test.md](creating-a-c-test.md#header-comments)).
 - `--start`/`--end` are byte addresses (hex or decimal both work): the half-open range `[start, end)` to snapshot, rounded up to whole 32-bit words.
+- `--word-bytes 4|8` (optional) writes one entry per word instead of one per byte: the key is the address of the word's first byte and the value joins its 4 (32 bits) or 8 (64 bits) bytes little-endian. `--start` must be a multiple of that size and the range goes up to whole words. `mem_validator` reads only the per-byte format.
 - `--out` is where the golden JSON gets written, in the exact format [`mem_validator`](modules/mem_validator.md) expects.
 
 The resulting file is a plain JSON `{hex byte address: int byte value}` map, safe to check in, and to hand-edit afterward if you need to (e.g. to intentionally relax a check).
