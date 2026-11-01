@@ -2,8 +2,16 @@
 
 from riscv_tools.golden_generator.core import (
     generate_golden,
+    group_words,
     symbol_range,
+    word_range,
     write_golden_json,
 )
 
-__all__ = ["generate_golden", "symbol_range", "write_golden_json"]
+__all__ = [
+    "generate_golden",
+    "group_words",
+    "symbol_range",
+    "word_range",
+    "write_golden_json",
+]

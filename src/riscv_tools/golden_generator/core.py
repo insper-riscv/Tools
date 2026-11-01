@@ -153,6 +153,71 @@ def generate_golden(
     return out
 
 
+def word_range(addr_range: tuple[int, int], size: int) -> tuple[int, int]:
+    """Round a byte range up to whole words of `size` bytes.
+
+    Parameters
+    ----------
+    addr_range : tuple of (int, int)
+        The (start, end) byte addresses, `end` exclusive.
+    size : int
+        The word size in bytes (4 or 8).
+
+    Returns
+    -------
+    tuple of (int, int)
+        The same start and an end that makes the length a multiple of
+        `size`.
+
+    Raises
+    ------
+    ValueError
+        The start is not a multiple of `size`.
+    """
+    start, end = addr_range
+    if start % size:
+        raise ValueError(f"start 0x{start:X} is not aligned to {size} bytes")
+    return start, start + -(-(end - start) // size) * size
+
+
+def group_words(golden: dict[int, int], size: int) -> dict[int, int]:
+    """Join the bytes of a golden into little-endian words.
+
+    Parameters
+    ----------
+    golden : dict of {int: int}
+        A {byte_address: byte_value} dict, e.g. from generate_golden.
+    size : int
+        The word size in bytes (4 for 32 bits, 8 for 64 bits).
+
+    Returns
+    -------
+    dict of {int: int}
+        A {word_address: word_value} dict, where the address is the one
+        of the word's first byte.
+
+    Raises
+    ------
+    ValueError
+        A word is not aligned to `size` or lacks some of its bytes.
+    """
+    words: dict[int, int] = {}
+    for addr in sorted(golden):
+        base = addr - addr % size
+        if base in words:
+            continue
+        parts = [golden.get(base + i) for i in range(size)]
+        if None in parts:
+            raise ValueError(
+                f"the word at 0x{base:X} does not have all of its "
+                f"{size} bytes in the golden"
+            )
+        words[base] = sum(
+            (part or 0) << (8 * i) for i, part in enumerate(parts)
+        )
+    return words
+
+
 def _signature_words(
     spike: SpikeTarget,
     elf_path: Path,
@@ -227,7 +292,8 @@ def write_golden_json(golden: dict[int, int], out_path: Path) -> None:
     Parameters
     ----------
     golden : dict of {int: int}
-        A {byte_address: byte_value} dict, e.g. from generate_golden.
+        A {address: value} dict: bytes from generate_golden, or words
+        from group_words.
     out_path : Path
         Path to write the JSON to (overwritten if it already exists).
         Keys are written as sorted, zero-padded 8-digit hex strings
