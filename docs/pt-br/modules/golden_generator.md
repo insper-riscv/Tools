@@ -27,6 +27,11 @@ Gera um golden JSON dinamicamente rodando o ELF de um teste compilado no Spike (
 | `tests/test_generate_golden.py::test_symbol_range_resolves_address_and_size` | Um símbolo com tamanho resolve para o seu endereço e tamanho. |
 | `tests/test_generate_golden.py::test_generate_golden_by_symbol_matches_explicit_start_end` | Um intervalo vindo de um símbolo é igual ao mesmo intervalo dado à mão. |
 | `tests/test_generate_golden.py::test_generate_golden_rounds_a_partial_word_range_up` | Um intervalo de 1 byte devolve os 4 bytes da sua palavra. |
+| `tests/test_golden_words.py::test_group_words_joins_32_bits_little_endian` | `--word-bytes 4` junta 4 bytes numa palavra little-endian. |
+| `tests/test_golden_words.py::test_group_words_joins_64_bits_little_endian` | `--word-bytes 8` junta 8 bytes numa palavra little-endian. |
+| `tests/test_golden_words.py::test_group_words_rejects_an_incomplete_word` | Uma palavra sem todos os seus bytes é recusada. |
+| `tests/test_golden_words.py::test_word_range_rounds_the_end_up` | O fim do intervalo sobe até palavras inteiras. |
+| `tests/test_golden_words.py::test_word_range_rejects_an_unaligned_start` | Um início que não é múltiplo do tamanho da palavra é recusado. |
 | `tests/test_cli_compile.py::test_cmd_compile_mif_builds_every_kind` | O `compile` gera o golden de um teste C de memória no Spike. |
 | `tests/test_cli_compile.py::test_cmd_compile_hex_builds_every_kind` | O mesmo para o build de simulação. |
 

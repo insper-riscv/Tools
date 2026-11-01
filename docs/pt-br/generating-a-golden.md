@@ -37,6 +37,7 @@ uv run riscv-tools --config <project>/config.yaml generate-golden \
 
 - `--march` deve combinar com o march do próprio teste (o cabeçalho `RV32_EXT`, resolvido do mesmo jeito que o `compile` o resolve: veja [creating-a-c-test.md](creating-a-c-test.md#comentários-de-cabeçalho)).
 - `--start`/`--end` são endereços de byte (hex ou decimal funcionam): o intervalo semiaberto `[start, end)` a capturar, arredondado para palavras inteiras de 32 bits.
+- `--word-bytes 4|8` (opcional) escreve uma entrada por palavra em vez de uma por byte: a chave é o endereço do primeiro byte da palavra e o valor junta os 4 (32 bits) ou 8 (64 bits) bytes em little-endian. O `--start` precisa ser múltiplo desse tamanho e o intervalo sobe até palavras inteiras. O `mem_validator` lê só o formato por byte.
 - `--out` é onde o golden JSON é escrito, no formato exato que o [`mem_validator`](modules/mem_validator.md) espera.
 
 O arquivo resultante é um mapa JSON simples `{endereço de byte em hex: valor de byte inteiro}`, seguro para versionar e para editar à mão depois, se precisar (por exemplo, para relaxar uma checagem de propósito).

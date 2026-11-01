@@ -52,14 +52,18 @@ def cmd_generate_golden(args: argparse.Namespace) -> None:
     ----------
     args : argparse.Namespace
         Parsed options: config, elf, march, out, and either symbol or
-        both start and end (parsed with base 0). Addresses are absolute
+        both start and end (parsed with base 0), and the optional
+        word_bytes (4 or 8; one entry per word instead of per byte).
+        Addresses are absolute
         ELF addresses; memory.ram_base is subtracted so the golden keys
         are RAM-relative.
 
     Returns
     -------
     None
-        Prints the number of bytes written to stdout.
+        Prints the number of entries written to stdout. Exits with
+        status 2 if --word-bytes is given with a start it does not
+        divide.
     """
     if bool(args.symbol) == bool(args.start or args.end):
         print(
@@ -85,6 +89,16 @@ def cmd_generate_golden(args: argparse.Namespace) -> None:
     else:
         addr_start, addr_end = int(args.start, 0), int(args.end, 0)
 
+    word_bytes = getattr(args, "word_bytes", None)
+    if word_bytes:
+        try:
+            addr_start, addr_end = golden_generator.word_range(
+                (addr_start, addr_end), word_bytes
+            )
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            sys.exit(2)
+
     golden = golden_generator.generate_golden(
         spike_target(cfg, args.march),
         elf_path,
@@ -93,7 +107,12 @@ def cmd_generate_golden(args: argparse.Namespace) -> None:
         timeout_s=cfg["emulator"]["timeout_s"],
     )
 
+    unit = "bytes"
+    if word_bytes:
+        golden = golden_generator.group_words(golden, word_bytes)
+        unit = f"{word_bytes * 8}-bit words"
+
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     golden_generator.write_golden_json(golden, out_path)
-    print(f"Wrote {out_path} ({len(golden)} bytes)")
+    print(f"Wrote {out_path} ({len(golden)} {unit})")

@@ -88,5 +88,15 @@ def add_build_commands(sub: Any) -> None:
         help="One past the last byte address to snapshot (hex or decimal)",
     )
     p.add_argument(
+        "--word-bytes",
+        type=int,
+        choices=[4, 8],
+        default=None,
+        help="Write one entry per word instead of one per byte: the "
+        "address of the word's first byte maps to its 4 (32 bits) or 8 "
+        "(64 bits) bytes joined little-endian. --start must be a "
+        "multiple of it and the range is rounded up to whole words.",
+    )
+    p.add_argument(
         "--out", required=True, help="Where to write the golden .json"
     )
