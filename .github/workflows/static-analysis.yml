@@ -1,7 +1,9 @@
 name: static-analysis
 
 on:
+  # Push só na main: em outra branch o pull_request já roda o mesmo workflow.
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -13,43 +15,15 @@ permissions:
   contents: read
 
 jobs:
-  check:
-    name: ${{ matrix.name }}
+  # The job id and name are the status check the default-branch ruleset requires, so they must not change.
+  python-static-analysis:
+    name: python-static-analysis
     runs-on: ubuntu-26.04
-    timeout-minutes: 15
+    timeout-minutes: 30
     # The tools that need no project environment come pinned in the image (ruff, pylint, pyright,
     # deptry and uv audit still run with `uv run` in the environment `uv sync` builds from uv.lock).
     container:
       image: ghcr.io/insper-riscv/ci-vhdl:latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: ruff lint
-            run: uv run ruff check . --output-format=github
-          - name: ruff format
-            run: uv run ruff format . --check
-          - name: pycodestyle
-            run: pycodestyle --max-line-length=79 --max-doc-length=72 --ignore=E203,W503 src tests
-          - name: pydocstyle
-            run: pydocstyle --convention=pep257 src tests
-          - name: pylint
-            run: uv run pylint .
-          - name: pyright
-            run: uv run pyright
-          - name: pyrefly
-            run: pyrefly check
-          - name: deptry
-            run: uv run deptry .
-          - name: complexipy
-            run: complexipy .
-          - name: codeclone
-            run: codeclone . --fail-on-new
-          - name: semgrep
-            run: semgrep scan --config p/python --error .
-          - name: uv audit
-            run: uv audit
 
     steps:
       - uses: actions/checkout@v7.0.1
@@ -57,5 +31,50 @@ jobs:
       - name: Install the project
         run: uv sync --locked
 
-      - name: ${{ matrix.name }}
-        run: ${{ matrix.run }}
+      - name: ruff lint
+        if: ${{ !cancelled() }}
+        run: uv run ruff check . --output-format=github
+
+      - name: ruff format
+        if: ${{ !cancelled() }}
+        run: uv run ruff format . --check
+
+      - name: pycodestyle
+        if: ${{ !cancelled() }}
+        run: pycodestyle --max-line-length=79 --max-doc-length=72 --ignore=E203,W503 src tests
+
+      - name: pydocstyle
+        if: ${{ !cancelled() }}
+        run: pydocstyle --convention=pep257 src tests
+
+      - name: pylint
+        if: ${{ !cancelled() }}
+        run: uv run pylint .
+
+      - name: pyright
+        if: ${{ !cancelled() }}
+        run: uv run pyright
+
+      - name: pyrefly
+        if: ${{ !cancelled() }}
+        run: pyrefly check
+
+      - name: deptry
+        if: ${{ !cancelled() }}
+        run: uv run deptry .
+
+      - name: complexipy
+        if: ${{ !cancelled() }}
+        run: complexipy .
+
+      - name: codeclone
+        if: ${{ !cancelled() }}
+        run: codeclone . --fail-on-new
+
+      - name: semgrep
+        if: ${{ !cancelled() }}
+        run: semgrep scan --config p/python --error .
+
+      - name: uv audit
+        if: ${{ !cancelled() }}
+        run: uv audit

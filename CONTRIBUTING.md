@@ -121,6 +121,8 @@ uv audit                             # Vulnerabilidades nas dependências
 uv run pytest                        # Suíte de testes
 ```
 
+O CI roda em todo pull request e em todo push na `main`, e executa esses comandos em dois jobs, `python-static-analysis` (todas as verificações de análise estática, uma por passo) e `unit-tests` (a suíte de testes). Os nomes dos dois jobs são os checks que o ruleset da branch padrão exige, então não os renomeie.
+
 Ao adicionar, renomear ou remover qualquer arquivo versionado, atualize imediatamente:
 - `docs/pt-br/` e `docs/en/`
 - `README.md`, `README.en.md` e a documentação afetada
