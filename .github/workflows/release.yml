@@ -1,12 +1,14 @@
 name: release
 
-# Publishes a release when the version in pyproject.toml has no release yet: a push to main that
-# changes pyproject.toml (or a manual run) reads the version, and if the tag v<version> does not
-# exist, builds the wheel and the sdist and creates the release with them and the generated notes.
+# Publishes a release when the version in pyproject.toml has no release yet, and only after the
+# workflow ci finished green on that push to main: it reads the version, and if the tag v<version>
+# does not exist, builds the wheel and the sdist and creates the release with them and the notes.
+# A manual run publishes the current main without waiting for ci.
 on:
-  push:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
     branches: [main]
-    paths: [pyproject.toml]
   workflow_dispatch:
 
 concurrency:
@@ -21,11 +23,15 @@ jobs:
     name: release
     runs-on: ubuntu-26.04
     timeout-minutes: 15
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success') }}
     permissions:
       contents: write
 
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          # The commit ci validated, not the tip of main at the time this run starts.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Read the version
         id: version
@@ -61,7 +67,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
+          TARGET: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: |
           ls dist
           gh release create "v$VERSION" dist/* \
-            --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes --latest
+            --target "$TARGET" --title "v$VERSION" --generate-notes --latest
