@@ -3,6 +3,7 @@
 from typing import Any
 
 from riscv_tools.cli.parser_util import add_command
+from riscv_tools.cli.platform_cmd import cmd_platform
 from riscv_tools.cli.tools_cmd import (
     cmd_check_memory_map,
     cmd_check_paths,
@@ -105,6 +106,39 @@ def add_tool_commands(sub: Any) -> None:
         help="Comma-separated rules to run (default: every rule of the "
         "kind); a repository that has not finished its reorganization "
         "names the rules it already meets",
+    )
+
+    p = add_command(
+        sub,
+        cmd_platform,
+        "platform",
+        description=(
+            "Write the config of a platform with its paths rebased onto the "
+            "project that consumes it"
+        ),
+    )
+    p.add_argument("action", choices=["sync"], help="What to do with it")
+    p.add_argument(
+        "--source",
+        required=True,
+        help="Platform config.yaml (relative to --root), its extends chain "
+        "is resolved",
+    )
+    p.add_argument(
+        "--prefix",
+        required=True,
+        help="Folder of the platform repository in the consumer, put in "
+        "front of the platform's paths",
+    )
+    p.add_argument(
+        "--output",
+        required=True,
+        help="File to write (relative to --root)",
+    )
+    p.add_argument(
+        "--check",
+        action="store_true",
+        help="Write nothing and fail when the file is missing or differs",
     )
 
     p = add_command(

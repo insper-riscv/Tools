@@ -112,6 +112,25 @@ def load_config(project_config_path: Path) -> dict[str, Any]:
     return deep_merge(cfg, _read_project_config(Path(project_config_path), ()))
 
 
+def read_config(path: Path) -> dict[str, Any]:
+    """Read one config file with its `extends:` chain resolved.
+
+    Unlike `load_config`, it layers no module defaults, so the result is
+    exactly what the files say.
+
+    Parameters
+    ----------
+    path : Path
+        The config file to read.
+
+    Returns
+    -------
+    dict of {str: Any}
+        The file's content merged over its bases.
+    """
+    return _read_project_config(Path(path), ())
+
+
 def _read_project_config(
     path: Path, chain: tuple[Path, ...]
 ) -> dict[str, Any]:
