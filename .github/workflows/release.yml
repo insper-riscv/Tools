@@ -1,0 +1,67 @@
+name: release
+
+# Publishes a release when the version in pyproject.toml has no release yet: a push to main that
+# changes pyproject.toml (or a manual run) reads the version, and if the tag v<version> does not
+# exist, builds the wheel and the sdist and creates the release with them and the generated notes.
+on:
+  push:
+    branches: [main]
+    paths: [pyproject.toml]
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: release
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Read the version
+        id: version
+        run: |
+          version=$(python3 -I -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::The version '$version' is not a valid release number."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Skip when the release exists
+        id: exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if gh release view "v$VERSION" > /dev/null 2>&1; then
+            echo "::notice::The release v$VERSION already exists; nothing to publish."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build the wheel and the sdist (uv of the ci-vhdl image)
+        if: steps.exists.outputs.exists == 'false'
+        run: >
+          docker run --rm -v "$PWD:/work" -w /work
+          ghcr.io/insper-riscv/ci-vhdl:latest uv build
+
+      - name: Create the release
+        if: steps.exists.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          ls dist
+          gh release create "v$VERSION" dist/* \
+            --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes --latest
