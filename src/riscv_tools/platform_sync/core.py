@@ -103,6 +103,31 @@ def _parent_of(
     return cast("dict[str, Any]", node) if isinstance(node, dict) else None
 
 
+def _rebased_value(prefix: str, value: Any) -> Any:
+    """Put the submodule folder in front of a path or a list of them.
+
+    Parameters
+    ----------
+    prefix : str
+        The folder of the platform repository in the consumer.
+    value : Any
+        What the config holds under a path key.
+
+    Returns
+    -------
+    Any
+        The path, or each path of the list, from the root of the
+        consumer; anything that is not a path is returned as it is.
+    """
+    if isinstance(value, str):
+        return _prefixed(prefix, value)
+    if isinstance(value, list):
+        return [
+            _rebased_value(prefix, item) for item in cast("list[Any]", value)
+        ]
+    return value
+
+
 def rebase(config: dict[str, Any], prefix: str) -> dict[str, Any]:
     """Put the folder of the submodule in front of the platform's paths.
 
@@ -122,17 +147,8 @@ def rebase(config: dict[str, Any], prefix: str) -> dict[str, Any]:
     result = copy.deepcopy(config)
     for keys in PATH_KEYS:
         parent = _parent_of(result, keys)
-        if parent is None or keys[-1] not in parent:
-            continue
-        node = parent
-        value = node[keys[-1]]
-        if isinstance(value, str):
-            node[keys[-1]] = _prefixed(prefix, value)
-        elif isinstance(value, list):
-            node[keys[-1]] = [
-                _prefixed(prefix, item) if isinstance(item, str) else item
-                for item in cast("list[Any]", value)
-            ]
+        if parent is not None and keys[-1] in parent:
+            parent[keys[-1]] = _rebased_value(prefix, parent[keys[-1]])
     return result
 
 

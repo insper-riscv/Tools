@@ -2,6 +2,7 @@
 
 import argparse
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -101,7 +102,10 @@ def test_rebase_leaves_the_consumers_paths_and_other_keys(
 
 def test_rebase_keeps_an_absolute_path_and_does_not_mutate() -> None:
     """An absolute path keeps its form and the input is intact."""
-    original = {"toolchain": {"specs": "/opt/x.specs"}, "paths": {}}
+    original: dict[str, Any] = {
+        "toolchain": {"specs": "/opt/x.specs"},
+        "memory": {"ram": 4},
+    }
     result = rebase(original, "Sub")
     assert result["toolchain"]["specs"] == "/opt/x.specs"
     original["toolchain"]["specs"] = "changed"
@@ -130,7 +134,7 @@ def test_check_output_reports_missing_and_different(tmp_path: Path) -> None:
     target = tmp_path / "config.yaml"
     assert "missing" in check_output(target, "a\n")[0]
     write_output(target, "a\n")
-    assert check_output(target, "a\n") == []
+    assert not check_output(target, "a\n")
     assert "differs" in check_output(target, "b\n")[0]
 
 
