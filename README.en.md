@@ -74,7 +74,7 @@ uv run riscv-tools --config /path/to/project/config.yaml sim --only test-a,test-
 
 See `riscv-tools --help` for the full subcommand list (`write-rom`,
 `zero-ram`, `dump-ram`, `program`, `htif read|restart`, `generate-header`,
-`generate-golden`, `spike-run`, `run`, `sim`, `vhdl-sort`, `check-tree`, `platform`, `freq-sweep`).
+`generate-golden`, `spike-run`, `run`, `sim`, `vhdl-sort`, `generate-memory-map`, `check-tree`, `platform`, `freq-sweep`).
 
 ```bash
 # vhdl-sort needs no --config; pure file-content analysis, e.g. wired
