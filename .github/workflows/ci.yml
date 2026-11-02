@@ -1,0 +1,146 @@
+name: ci
+
+on:
+  # Push só na main: em outra branch o pull_request já roda o mesmo workflow.
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Reuses the pull request result: a push to main whose merge commit joins a head that this same
+  # workflow already passed, over the very base the merge commit has as first parent, holds the tree
+  # that was tested, so the jobs below are skipped. Any doubt (no match, API error) runs everything.
+  reuse:
+    name: reuse
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      skip: ${{ steps.lookup.outputs.skip }}
+
+    steps:
+      - name: Look for a passed pull request run of the same tree
+        id: lookup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          EVENT: ${{ github.event_name }}
+          WORKFLOW: ${{ github.workflow }}
+        run: |
+          skip=false
+          if [ "$EVENT" = push ]; then
+            parents=$(gh api "repos/$REPO/commits/$SHA" --jq '[.parents[].sha] | join(" ")' || true)
+            read -r base head extra <<< "$parents"
+            if [ -n "${head:-}" ] && [ -z "${extra:-}" ]; then
+              export BASE="$base"
+              found=$(gh api "repos/$REPO/actions/runs?head_sha=$head&event=pull_request&status=success&per_page=100" \
+                --jq '[.workflow_runs[] | select(.name == $ENV.WORKFLOW and .pull_requests[0].base.sha == $ENV.BASE)] | length' || echo 0)
+              if [ "${found:-0}" -gt 0 ]; then
+                skip=true
+                echo "::notice::Reusing the passed pull request run of $head over base $base."
+              fi
+            fi
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+
+  # The job id and name are the status check the default-branch ruleset requires, so they must not change.
+  unit-tests:
+    name: unit-tests
+    needs: reuse
+    if: ${{ needs.reuse.outputs.skip != 'true' }}
+    # The image carries GHDL, the RISC-V GCC and a patched Spike, so the whole
+    # suite (simulation and Spike tests included) runs on a hosted runner.
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: docker/setup-buildx-action@v4.4.1
+
+      - name: Build the test image
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          load: true
+          tags: riscv-tools-tests:ci
+
+      - name: Run the test suite
+        run: docker run --rm -v "$PWD:/workspace" riscv-tools-tests:ci -v
+
+  # The job id and name are the status check the default-branch ruleset requires, so they must not change.
+  python-static-analysis:
+    name: python-static-analysis
+    needs: reuse
+    if: ${{ needs.reuse.outputs.skip != 'true' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    # The tools that need no project environment come pinned in the image (ruff, pylint, pyright,
+    # deptry and uv audit still run with `uv run` in the environment `uv sync` builds from uv.lock).
+    container:
+      image: ghcr.io/insper-riscv/ci-vhdl:latest
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Install the project
+        run: uv sync --locked
+
+      - name: ruff lint
+        if: ${{ !cancelled() }}
+        run: uv run ruff check . --output-format=github
+
+      - name: ruff format
+        if: ${{ !cancelled() }}
+        run: uv run ruff format . --check
+
+      - name: pycodestyle
+        if: ${{ !cancelled() }}
+        run: pycodestyle --max-line-length=79 --max-doc-length=72 --ignore=E203,W503 src tests
+
+      - name: pydocstyle
+        if: ${{ !cancelled() }}
+        run: pydocstyle --convention=pep257 src tests
+
+      - name: pylint
+        if: ${{ !cancelled() }}
+        run: uv run pylint .
+
+      - name: pyright
+        if: ${{ !cancelled() }}
+        run: uv run pyright
+
+      - name: pyrefly
+        if: ${{ !cancelled() }}
+        run: pyrefly check
+
+      - name: deptry
+        if: ${{ !cancelled() }}
+        run: uv run deptry .
+
+      - name: complexipy
+        if: ${{ !cancelled() }}
+        run: complexipy .
+
+      - name: codeclone
+        if: ${{ !cancelled() }}
+        run: codeclone . --fail-on-new
+
+      - name: semgrep
+        if: ${{ !cancelled() }}
+        run: semgrep scan --config p/python --error .
+
+      - name: uv audit
+        if: ${{ !cancelled() }}
+        run: uv audit
