@@ -7,7 +7,9 @@ Lists every valid core profile of a specification. A profile is a set of optiona
 No `config.yaml` section: a YAML file is passed with `--spec`.
 
 ```yaml
-base: rv32i                       # name of the profile with no extension
+bases:                            # name of the profile with no extension
+  - {name: rv32i, generics: {num_regs: 32}}
+  - {name: rv32e, generics: {num_regs: 16}}
 extensions:                       # the order is the order of the name's tokens
   - {name: Zicsr,    generic: has_zicsr}
   - {name: Zifencei, generic: has_zifencei}
@@ -26,6 +28,8 @@ requires_any:                     # at least one extension of each group
 | `base_letter` | Letter that goes into the base name (`rv32i` with `m` becomes `rv32im`) |
 | `absent_token` | The extension is on by default: its name stays out of the profile name while it is present, and the token is added when it is missing |
 
+Each base is combined with every valid set of extensions, and the generics of the base go into the profile before those of the extensions. A specification with a single base may write `base: rv32i` instead of `bases`. The profiles come base by base, in the order of the specification.
+
 An extension with neither `base_letter` nor `absent_token` adds `_<name in lowercase>` to the profile name. A rule that names an extension that is not listed, or a repeated name, fails when the specification is read.
 
 ## Usage
@@ -36,7 +40,7 @@ uv run riscv-tools profiles --spec profiles/matrix.yaml --format generics  # nam
 uv run riscv-tools profiles --spec profiles/matrix.yaml --format json      # name, extensions and generics
 ```
 
-Profiles come out ordered by their number of extensions and, on a tie, by the order of the extensions in the specification.
+Within each base, profiles come out ordered by their number of extensions and, on a tie, by the order of the extensions in the specification.
 
 ## Tests
 
@@ -47,3 +51,10 @@ Profiles come out ordered by their number of extensions and, on a tie, by the or
 | `tests/test_profiles.py::test_names_keep_the_twelve_profiles_and_mark_a_missing_zicclsm` | The names of the twelve original profiles stay, and a missing Zicclsm becomes `nozicclsm` |
 | `tests/test_profiles.py::test_generics_follow_the_extensions` | Each generic is `true` only when the extension is in the profile |
 | `tests/test_profiles.py::test_cli_prints_ghdl_generics` | The `generics` output has one line per profile with the `-g` flags |
+| `tests/test_profiles.py::test_two_bases_give_a_hundred_and_twenty_profiles` | Two bases take sixty combinations each, all with distinct names |
+| `tests/test_profiles.py::test_the_rv32e_names_follow_the_rv32i_names` | Only the base name changes from `rv32i` to `rv32e` |
+| `tests/test_profiles.py::test_the_base_sets_num_regs` | The generic of the base comes first in the profile |
+| `tests/test_profiles.py::test_the_profiles_come_base_by_base` | The profiles of the first base come before those of the second |
+| `tests/test_profiles.py::test_cli_prints_the_register_count_flag` | The `generics` output carries `-gnum_regs` with the number |
+| `tests/test_profiles.py::test_base_and_bases_together_fail` | A specification gives `base` or `bases`, not both |
+| `tests/test_profiles.py::test_a_repeated_base_fails` | A repeated base name fails |

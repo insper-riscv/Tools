@@ -233,3 +233,87 @@ def test_zicntr_and_zihpm_come_together_in_the_spec_order(
     assert "rv32im_zicclsm_zicntr_zihpm_zifencei" in names
     assert "rv32i_zihpm_zifencei_zmmul" in names
     assert not any("zihpm_zicntr" in n for n in names)
+
+
+# The same matrix with the two bases of the core: 32 registers (RV32I)
+# and 16 registers (RV32E).
+TWO_BASES_SPEC = HPM_SPEC.replace(
+    "base: rv32i\n",
+    "bases:\n"
+    "  - {name: rv32i, generics: {num_regs: 32}}\n"
+    "  - {name: rv32e, generics: {num_regs: 16}}\n",
+)
+
+
+def test_two_bases_give_a_hundred_and_twenty_profiles(
+    tmp_path: Path,
+) -> None:
+    """Each base takes the sixty combinations."""
+    profiles = expand(load_spec(_write(tmp_path, TWO_BASES_SPEC)))
+    assert len(profiles) == 120
+    assert len({p.name for p in profiles}) == 120
+    assert sum(p.base == "rv32e" for p in profiles) == 60
+
+
+def test_the_rv32e_names_follow_the_rv32i_names(tmp_path: Path) -> None:
+    """Only the base name changes from rv32i to rv32e."""
+    profiles = expand(load_spec(_write(tmp_path, TWO_BASES_SPEC)))
+    by_base = {
+        b: {p.name for p in profiles if p.base == b}
+        for b in ("rv32i", "rv32e")
+    }
+    assert {
+        n.replace("rv32e", "rv32i", 1) for n in by_base["rv32e"]
+    } == by_base["rv32i"]
+    assert "rv32em_zicclsm_zicntr_zihpm_zifencei" in by_base["rv32e"]
+    assert "rv32e" in by_base["rv32e"]
+
+
+def test_the_base_sets_num_regs(tmp_path: Path) -> None:
+    """The generic of the base comes first in the profile."""
+    by_name = {
+        p.name: p for p in expand(load_spec(_write(tmp_path, TWO_BASES_SPEC)))
+    }
+    assert by_name["rv32im"].generics["num_regs"] == 32
+    assert by_name["rv32em"].generics["num_regs"] == 16
+    assert next(iter(by_name["rv32e"].generics)) == "num_regs"
+
+
+def test_the_profiles_come_base_by_base(tmp_path: Path) -> None:
+    """Every rv32i profile comes before the first rv32e profile."""
+    bases = [
+        p.base for p in expand(load_spec(_write(tmp_path, TWO_BASES_SPEC)))
+    ]
+    assert bases == ["rv32i"] * 60 + ["rv32e"] * 60
+
+
+def test_cli_prints_the_register_count_flag(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The generics format carries -gnum_regs with the number."""
+    spec = _write(tmp_path, TWO_BASES_SPEC)
+    cli.cmd_profiles(argparse.Namespace(spec=str(spec), format="generics"))
+    lines = capsys.readouterr().out.splitlines()
+    assert len(lines) == 120
+    assert "rv32e -gnum_regs=16 -ghas_zicclsm=false" in lines[60]
+
+
+def test_base_and_bases_together_fail(tmp_path: Path) -> None:
+    """A specification gives `base` or `bases`, not both."""
+    text = TWO_BASES_SPEC + "base: rv32i\n"
+    with pytest.raises(ValueError, match="base"):
+        load_spec(_write(tmp_path, text))
+
+
+def test_a_repeated_base_fails(tmp_path: Path) -> None:
+    """A repeated base name fails."""
+    text = TWO_BASES_SPEC.replace("rv32e", "rv32i")
+    with pytest.raises(ValueError, match="repeated"):
+        load_spec(_write(tmp_path, text))
+
+
+def test_a_spec_without_a_base_fails(tmp_path: Path) -> None:
+    """A specification without base fails."""
+    text = CORE_SPEC.replace("base: rv32i\n", "")
+    with pytest.raises(ValueError, match="base"):
+        load_spec(_write(tmp_path, text))
