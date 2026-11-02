@@ -8,7 +8,14 @@ from riscv_tools.cli.parser_run import add_run_commands
 from riscv_tools.cli.parser_tools import add_tool_commands
 
 _COMMANDS_WITHOUT_CONFIG = frozenset(
-    {"vhdl-sort", "check-memory-map", "check-paths", "check-tree", "profiles"}
+    {
+        "vhdl-sort",
+        "check-memory-map",
+        "check-paths",
+        "check-tree",
+        "platform",
+        "profiles",
+    }
 )
 _DESCRIPTION = """Command-line entry point of ``riscv-tools``.
 
@@ -16,8 +23,8 @@ Usage: ``riscv-tools --config <config.yaml> <subcommand> ...``.
 
 Every subcommand takes --config, pointing at the CONSUMING project's
 own config.yaml (memory map, Quartus project paths, toolchain, etc.),
-except `vhdl-sort`, `check-memory-map`, `check-paths` and `check-tree`,
-which read only files and need no project config at all.
+except `vhdl-sort`, `check-memory-map`, `check-paths`, `check-tree` and
+`platform`, which read only files and need no project config at all.
 """
 
 
@@ -45,7 +52,7 @@ def main() -> None:
         default=None,
         help="Path to the consuming project's config.yaml "
         "(required for every subcommand except vhdl-sort, check-memory-map, "
-        "check-paths and check-tree)",
+        "check-paths, check-tree and platform)",
     )
     parser.add_argument(
         "--root",
