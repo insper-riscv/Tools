@@ -35,6 +35,7 @@ It is designed to run on a workstation with all the tools installed, or inside t
 | `sim_runner`         | Drives cocotb/GHDL simulation: the sim-side counterpart to `orchestrator` (needs the `sim` extra) | [docs/modules/sim_runner.md](docs/en/modules/sim_runner.md) |
 | `certify`            | Builds and runs the ACT4 architectural certification suite under cocotb/GHDL | [docs/modules/certify.md](docs/en/modules/certify.md) |
 | `vhdl_sort`          | Topologically sort VHDL sources by entity/package dependency, for GHDL `-a` | [docs/modules/vhdl_sort.md](docs/en/modules/vhdl_sort.md) |
+| `tree_check`         | Fails when the tree of a repository strays from the layout all of them share: standard files, language pairs, `.vhd` in `src/`, Common-Components at `src/common`, folder names | [docs/modules/tree_check.md](docs/en/modules/tree_check.md) |
 | `profiles`           | Lists the valid profiles of a core from its extensions and the rules between them (M and Zmmul never coexist, Zicsr or Zicclsm is required) | [docs/modules/profiles.md](docs/en/modules/profiles.md) |
 | `freq_sweep`         | Rewrite a PLL source's clock frequency/phase offsets: the mechanism `orchestrator`'s frequency sweep edits with | [docs/modules/freq_sweep.md](docs/en/modules/freq_sweep.md) |
 | `run_log`            | Rotates and tees a run's full console output into a persistent per-kind log history | [docs/modules/run_log.md](docs/en/modules/run_log.md) |
@@ -72,7 +73,7 @@ uv run riscv-tools --config /path/to/project/config.yaml sim --only test-a,test-
 
 See `riscv-tools --help` for the full subcommand list (`write-rom`,
 `zero-ram`, `dump-ram`, `program`, `htif read|restart`, `generate-header`,
-`generate-golden`, `spike-run`, `run`, `sim`, `vhdl-sort`, `freq-sweep`).
+`generate-golden`, `spike-run`, `run`, `sim`, `vhdl-sort`, `check-tree`, `freq-sweep`).
 
 ```bash
 # vhdl-sort needs no --config; pure file-content analysis, e.g. wired
