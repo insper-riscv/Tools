@@ -116,22 +116,18 @@ use ieee.std_logic_1164.all;
 
 package {package} is
 
-	-- Expoente do tamanho da BOOT_ROM, que ocupa [0, 2**BOOT_ROM_BITS).
-	constant BOOT_ROM_BITS  : natural := {boot_bits};
-	-- Fim exclusivo da ROM, em KiB, logo depois da BOOT_ROM.
-	constant ROM_END_KIB    : natural := {rom_end};
-	-- A ROM fica fora do núcleo.
-	constant ROM_EXTERNAL   : boolean := {rom_external};
-	-- Base da RAM, em KiB.
-	constant RAM_BASE_KIB   : natural := {ram_base};
-	-- Fim exclusivo da RAM, em KiB.
-	constant RAM_END_KIB    : natural := {ram_end};
-	-- A RAM fica fora do núcleo.
-	constant RAM_EXTERNAL   : boolean := {ram_external};
-	-- Base da janela externa, em KiB.
-	constant EXT_BASE_KIB   : natural := {ext_base};
-	-- Base da janela de periféricos, em KiB.
-	constant PERIPH_BASE_KIB : natural := {periph_base};
+\t-- Expoente do tamanho da BOOT_ROM, que ocupa [0, 2**BOOT_ROM_BITS).
+\tconstant BOOT_ROM_BITS  : natural := {boot_bits};
+\t-- Fim exclusivo da ROM, em KiB, logo depois da BOOT_ROM.
+\tconstant ROM_END_KIB    : natural := {rom_end};
+{rom_external}\t-- Base da RAM, em KiB.
+\tconstant RAM_BASE_KIB   : natural := {ram_base};
+\t-- Fim exclusivo da RAM, em KiB.
+\tconstant RAM_END_KIB    : natural := {ram_end};
+{ram_external}\t-- Base da janela externa, em KiB.
+\tconstant EXT_BASE_KIB   : natural := {ext_base};
+\t-- Base da janela de periféricos, em KiB.
+\tconstant PERIPH_BASE_KIB : natural := {periph_base};
 {peripherals}
 end package {package};
 """
@@ -266,6 +262,33 @@ def _peripheral_lines(platform: dict[str, Any]) -> str:
     return lines
 
 
+def _external_line(kind: str, spec: dict[str, Any]) -> str:
+    """Write the constant that says a memory is outside the core.
+
+    Parameters
+    ----------
+    kind : str
+        `ROM` or `RAM`.
+    spec : dict of {str: Any}
+        The `generate.vhdl` section.
+
+    Returns
+    -------
+    str
+        The commented constant, or an empty string when the platform
+        leaves the choice to each model (no `rom_external` or
+        `ram_external` key).
+    """
+    key = f"{kind.lower()}_external"
+    if key not in spec:
+        return ""
+    value = str(bool(spec[key])).lower()
+    return (
+        f"\t-- A {kind} fica fora do núcleo.\n"
+        f"\tconstant {kind}_EXTERNAL   : boolean := {value};\n"
+    )
+
+
 def render_vhdl(
     platform: dict[str, Any],
     spec: dict[str, Any],
@@ -280,8 +303,8 @@ def render_vhdl(
         The loaded platform.
     spec : dict of {str: Any}
         The `generate.vhdl` section: `package`, the `rom` and `ram`
-        regions, `rom_external`, `ram_external`, `ext_base` and
-        `periph_base`.
+        regions, `ext_base`, `periph_base` and, when the platform fixes
+        them, `rom_external` and `ram_external`.
     table : dict of {str: int}
         The symbols of the map.
     source : str
@@ -299,10 +322,10 @@ def render_vhdl(
         package=spec["package"],
         boot_bits=(table[f"{boot}.size"] - 1).bit_length(),
         rom_end=_kib(table[f"{rom}.end"], f"{rom} end"),
-        rom_external=str(bool(spec.get("rom_external", False))).lower(),
+        rom_external=_external_line("ROM", spec),
         ram_base=_kib(table[f"{ram}.base"], f"{ram} base"),
         ram_end=_kib(table[f"{ram}.end"], f"{ram} end"),
-        ram_external=str(bool(spec.get("ram_external", False))).lower(),
+        ram_external=_external_line("RAM", spec),
         ext_base=_kib(evaluate(spec["ext_base"]), "ext_base"),
         periph_base=_kib(evaluate(spec["periph_base"]), "periph_base"),
         peripherals=_peripheral_lines(platform),

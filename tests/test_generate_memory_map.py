@@ -76,7 +76,7 @@ def test_vhdl_package_has_the_generics_in_kib(tmp_path: Path) -> None:
         'constant UART_BASE : std_logic_vector(31 downto 0) := x"C0000000"'
         in text
     )
-    assert "ROM_EXTERNAL   : boolean := false;" in text
+    assert "EXTERNAL" not in text
 
 
 def test_write_then_check_passes_and_a_change_is_caught(
@@ -130,3 +130,15 @@ def test_the_command_writes_and_checks(
     with pytest.raises(SystemExit) as stop:
         cli.cmd_generate_memory_map(args)
     assert stop.value.code == 1
+
+
+def test_the_external_flags_appear_when_the_platform_fixes_them(
+    tmp_path: Path,
+) -> None:
+    """`rom_external` and `ram_external` become constants when given."""
+    fixed = yaml.safe_load(yaml.safe_dump(PLATFORM))
+    fixed["generate"]["vhdl"] |= {"rom_external": True, "ram_external": False}
+    files = render_all(_write(tmp_path, fixed), tmp_path)
+    text = files[tmp_path / "out/map_pkg.vhd"]
+    assert "constant ROM_EXTERNAL   : boolean := true;" in text
+    assert "constant RAM_EXTERNAL   : boolean := false;" in text
