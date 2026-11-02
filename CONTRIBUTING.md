@@ -119,7 +119,10 @@ uvx codeclone . --fail-on-new        # Código duplicado novo
 uvx semgrep scan --config p/python --error .  # Análise de segurança
 uv audit                             # Vulnerabilidades nas dependências
 uv run pytest                        # Suíte de testes
+uv run riscv-tools --root . check-tree --kind tools                                    # Árvore do repositório
 ```
+
+O job `tree`, de um workflow à parte, confere a árvore do repositório com `riscv-tools check-tree`.
 
 O CI roda em todo pull request e em todo push na `main`, e executa esses comandos em dois jobs, `python-static-analysis` (todas as verificações de análise estática, uma por passo) e `unit-tests` (a suíte de testes). Os nomes dos dois jobs são os checks que o ruleset da branch padrão exige, então não os renomeie.
 
