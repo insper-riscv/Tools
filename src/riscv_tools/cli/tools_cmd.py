@@ -191,6 +191,47 @@ def cmd_check_memory_map(args: argparse.Namespace) -> None:
     print(f"memory map OK: {count} checks against {platform.name}")
 
 
+def cmd_generate_memory_map(args: argparse.Namespace) -> None:
+    """Implement `riscv-tools generate-memory-map`.
+
+    Writes the files the platform YAML asks for under `generate` (the
+    linker flags, the linker script of the boot ROM and the VHDL
+    package of the map), or with `--check` only compares them with
+    what is on disk.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed CLI arguments: uses args.platform, args.check and
+        args.root.
+
+    Returns
+    -------
+    None
+        Prints the result; exits the process with status 1 when a file
+        is out of date in `--check` or the map is inconsistent.
+    """
+    root = project_root(args)
+    platform = Path(args.platform)
+    if not platform.is_absolute():
+        platform = root / platform
+    try:
+        if args.check:
+            count, problems = memory_map.check_all(platform, root)
+            if problems:
+                for problem in problems:
+                    print(f"MISMATCH {problem}", file=sys.stderr)
+                sys.exit(1)
+            print(f"generated files OK: {count} from {platform.name}")
+            return
+        written = memory_map.write_all(platform, root)
+    except ValueError as error:
+        print(f"ERROR {error}", file=sys.stderr)
+        sys.exit(1)
+    for path in written:
+        print(f"generated: {path.relative_to(root)}")
+
+
 def cmd_timing_paths(args: argparse.Namespace) -> None:
     """Implement `riscv-tools timing-paths`.
 

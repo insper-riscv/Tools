@@ -8,6 +8,7 @@ from riscv_tools.cli.tools_cmd import (
     cmd_check_memory_map,
     cmd_check_paths,
     cmd_freq_sweep,
+    cmd_generate_memory_map,
     cmd_profiles,
     cmd_timing_paths,
     cmd_vhdl_sort,
@@ -68,6 +69,26 @@ def add_tool_commands(sub: Any) -> None:
         "--platform",
         required=True,
         help="Platform YAML (relative to --root): the map and the checks",
+    )
+
+    p = add_command(
+        sub,
+        cmd_generate_memory_map,
+        "generate-memory-map",
+        description=(
+            "Write the linker flags, the boot ROM linker script and the "
+            "VHDL package of the map from the platform YAML"
+        ),
+    )
+    p.add_argument(
+        "--platform",
+        required=True,
+        help="Platform YAML (relative to --root): the map and `generate`",
+    )
+    p.add_argument(
+        "--check",
+        action="store_true",
+        help="Only compare the generated files with what is on disk",
     )
 
     p = add_command(

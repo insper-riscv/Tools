@@ -33,6 +33,38 @@ checks:                       # where each copy lives
 - A check whose pattern matches nothing **fails** ("the copy moved"); `optional: true` skips a file that is absent. A pattern with several matches must agree at every match.
 - Before the copies are read the map itself is validated: regions and reserved words do not overlap, reserved words sit inside a RAM region, `boot.entry` is in an executable region, `boot.wait_restart` is in the first region, each peripheral base matches its id.
 
+## Generating the files of the map
+
+The same YAML can say, in the `generate` section, which files come out of it, so no copy of the map has to be written by hand.
+
+| Key | Generated file | Content |
+| :--- | :--- | :--- |
+| `specs` | GCC specs file | The linker flags: `__flash`, `__flash_size`, `__ram`, `__ram_size` and `rv32_wait_restart`. The RAM of the linker ends where the reserved word `ram_limit` begins |
+| `boot_ld` | Boot ROM linker script | The `boot_rom` memory in the first region and the `RESET_RESERVED` from `boot.wait_restart` |
+| `vhdl` | VHDL package | The constants `BOOT_ROM_BITS`, `ROM_END_KIB`, `RAM_BASE_KIB`, `RAM_END_KIB`, `EXT_BASE_KIB` and `PERIPH_BASE_KIB`, the `ROM_EXTERNAL` and `RAM_EXTERNAL` flags and the base of each peripheral |
+
+```yaml
+generate:
+  specs: {path: runtime/rv32im-fpga.specs, rom: FLASH, ram: RAM, ram_limit: stdout}
+  boot_ld: {path: runtime/boot_rom.ld}
+  vhdl:
+    path: rtl/map_pkg.vhd
+    package: map_pkg
+    rom: FLASH
+    ram: RAM
+    ext_base: 0x40000000
+    periph_base: 0x80000000
+```
+
+The limits of the VHDL package are the generics of the `core`, in KiB, so an address that is not a multiple of 1 KiB is an error. The map is validated before generating, and an inconsistent map generates nothing.
+
+```bash
+uv run riscv-tools --root <project> generate-memory-map --platform src/platform/platform.yaml
+uv run riscv-tools --root <project> generate-memory-map --platform src/platform/platform.yaml --check
+```
+
+With `--check` nothing is written, and the command exits with status 1 when a file is missing or differs from what the map would generate. It needs no `--config`.
+
 ## Tests
 
 | Test | What it verifies |
@@ -51,6 +83,7 @@ checks:                       # where each copy lives
 | `tests/test_memory_map.py::test_check_stops_at_an_inconsistent_map` | No copy is read when the map itself is inconsistent. |
 | `tests/test_memory_map.py::test_load_platform_rejects_a_non_mapping` | A non-mapping file is rejected. |
 | `tests/test_memory_map.py::test_cmd_check_memory_map_exit_status` | The command prints OK, or exits 1 listing the mismatches. |
+| `tests/test_generate_memory_map.py` | The specs, the linker script and the VHDL package come out of the map; `--check` catches a missing or edited file; an address off the KiB grid and an inconsistent map are rejected; the command writes and checks. |
 
 ## Usage
 
