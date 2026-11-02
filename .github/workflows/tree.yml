@@ -1,0 +1,32 @@
+name: tree
+
+on:
+  # Push só na main: em outra branch o pull_request já roda o mesmo workflow.
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: tree-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Confere a árvore do repositório com as regras do Capstone (riscv-tools check-tree): arquivos padrão,
+  # espelho entre docs/pt-br e docs/en e, nos repositórios de VHDL, a posição dos arquivos.
+  tree:
+    name: tree
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    # O riscv-tools de insper-riscv/Infra.
+    container:
+      image: ghcr.io/insper-riscv/ci-vhdl:latest
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Check the tree
+        run: riscv-tools --root . check-tree --kind tools
