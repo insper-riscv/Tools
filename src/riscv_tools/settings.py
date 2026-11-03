@@ -20,6 +20,7 @@ from riscv_tools.golden_generator.__config__ import (
 )
 from riscv_tools.htif.__config__ import DEFAULTS as _HTIF_DEFAULTS
 from riscv_tools.jtag.__config__ import DEFAULTS as _JTAG_DEFAULTS
+from riscv_tools.memory_map.config_view import config_from_platform
 from riscv_tools.orchestrator.__config__ import (
     DEFAULTS as _ORCHESTRATOR_DEFAULTS,
 )
@@ -139,6 +140,8 @@ def _read_project_config(
     `extends: <path>` (relative to the file that names it) makes that
     file the base this one is merged over, with the same rules as
     `deep_merge`, so a variant config only has to say what differs.
+    `memory_map: <path>` names the platform map, whose addresses, sizes
+    and memory address widths replace the ones the file would give.
 
     Parameters
     ----------
@@ -165,6 +168,13 @@ def _read_project_config(
 
     data: dict[str, Any] = yaml.safe_load(path.read_text()) or {}
     base_ref = data.pop("extends", None)
+    map_ref = data.pop("memory_map", None)
+    if map_ref is not None:
+        # the platform map is the single source of the addresses and
+        # sizes, so it wins over what this file or its bases say
+        data = deep_merge(
+            data, config_from_platform(path.parent / str(map_ref))
+        )
     if base_ref is None:
         return data
 

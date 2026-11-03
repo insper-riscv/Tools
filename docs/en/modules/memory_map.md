@@ -31,7 +31,7 @@ checks:                       # where each copy lives
 - **Symbols** in `expect`: `<REGION>.base|size|end|words`, `<reserved>.base|size|end`, `boot.entry|wait_restart`, `<PERIPHERAL>.base|id`.
 - **Numbers** accept hexadecimal, decimal, VHDL-based (`16#800#`), suffixes (`30K`, `0x800u`) and `+ - * /` (exact division), plus `log2()` (exact) and `clog2()` (rounded up, for address widths).
 - A check whose pattern matches nothing **fails** ("the copy moved"); `optional: true` skips a file that is absent. A pattern with several matches must agree at every match.
-- Before the copies are read the map itself is validated: regions and reserved words do not overlap, reserved words sit inside a RAM region, `boot.entry` is in an executable region, `boot.wait_restart` is in the first region, each peripheral base matches its id.
+- Before the copies are read the map itself is validated: regions and reserved words do not overlap, reserved words sit inside a RAM region, `boot.entry` is in an executable region, `boot.wait_restart` is in the first region, each peripheral base matches its id, and every region ends at or below `0x80000000` (the lower 2 GiB belong to the BOOT_ROM, the ROM and the RAM, the upper 2 GiB to the peripherals).
 
 ## Generating the files of the map
 
@@ -41,7 +41,7 @@ The same YAML can say, in the `generate` section, which files come out of it, so
 | :--- | :--- | :--- |
 | `specs` | GCC specs file | The linker flags: `__flash`, `__flash_size`, `__ram`, `__ram_size` and `rv32_wait_restart`. The RAM of the linker ends where the reserved word `ram_limit` begins |
 | `boot_ld` | Boot ROM linker script | The `boot_rom` memory in the first region and the `RESET_RESERVED` from `boot.wait_restart` |
-| `vhdl` | VHDL package | The constants `BOOT_ROM_BITS`, `ROM_END_KIB`, `RAM_BASE_KIB`, `RAM_END_KIB`, `EXT_BASE_KIB` and `PERIPH_BASE_KIB`, the `ROM_EXTERNAL` and `RAM_EXTERNAL` flags and the base of each peripheral |
+| `vhdl` | VHDL package | The constants `BOOT_ROM_BITS`, `BOOT_ROM_SIZE_BYTES`, `ROM_BASE_KIB`, `ROM_END_KIB`, `ROM_STORAGE_BYTES`, `RAM_BASE_KIB`, `RAM_END_KIB`, `RAM_STORAGE_BYTES`, `RAM_LAST_PAGE`, `EXT_BASE_KIB` and `PERIPH_BASE_KIB`, the `ROM_EXTERNAL` and `RAM_EXTERNAL` flags and, for each peripheral, `<NAME>_BASE` and `<NAME>_ID` |
 
 ```yaml
 generate:
@@ -52,9 +52,9 @@ generate:
     package: map_pkg
     rom: FLASH
     ram: RAM
-    ext_base: 0x40000000
-    periph_base: 0x80000000
 ```
+
+`ext_base` and `periph_base` are optional and default to `0x80000000`, the peripheral window. `ROM_STORAGE_BYTES` and `RAM_STORAGE_BYTES` are the smallest power of two that covers the end of the ROM and the size of the RAM, and `RAM_LAST_PAGE` is bits 31:12 of the last 4 KiB page of the RAM.
 
 The limits of the VHDL package are the generics of the `core`, in KiB, so an address that is not a multiple of 1 KiB is an error. The map is validated before generating, and an inconsistent map generates nothing.
 
@@ -64,6 +64,19 @@ uv run riscv-tools --root <project> generate-memory-map --platform src/platform/
 ```
 
 With `--check` nothing is written, and the command exits with status 1 when a file is missing or differs from what the map would generate. It needs no `--config`.
+
+## Reading the configuration from the map
+
+A project `config.yaml` declares `memory_map: <path of the platform.yaml>`, and the configuration loader replaces the keys the map fixes with the map's own: `memory.boot_rom_base`, `boot_rom_words`, `rom_base`, `rom_words`, `ram_base`, `ram_words`, `tohost_addr`, `fromhost_addr` and, for the memories the `config.addr_widths` section of the map lists, `sim.parameters.<memory>_addr_width`. What the map fixes wins over what the file or its `extends` say, so no address or size is written twice.
+
+```yaml
+config:
+  rom: FLASH
+  ram: RAM
+  addr_widths: [boot_rom, rom, ram]
+```
+
+`platform sync` writes the values already replaced, so Tests and Certification do not need the `platform.yaml`.
 
 ## Tests
 
@@ -83,6 +96,7 @@ With `--check` nothing is written, and the command exits with status 1 when a fi
 | `tests/test_memory_map.py::test_check_stops_at_an_inconsistent_map` | No copy is read when the map itself is inconsistent. |
 | `tests/test_memory_map.py::test_load_platform_rejects_a_non_mapping` | A non-mapping file is rejected. |
 | `tests/test_memory_map.py::test_cmd_check_memory_map_exit_status` | The command prints OK, or exits 1 listing the mismatches. |
+| `tests/test_config_from_platform.py` | The `memory` keys and the address widths come from the map, and the map wins over the file and its `extends`. |
 | `tests/test_generate_memory_map.py` | The specs, the linker script and the VHDL package come out of the map; `--check` catches a missing or edited file; an address off the KiB grid and an inconsistent map are rejected; the command writes and checks. |
 
 ## Usage
