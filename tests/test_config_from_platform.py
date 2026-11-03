@@ -14,6 +14,7 @@ PLATFORM = {
         {"name": "RAM", "base": "0x8000", "size": "160K", "kind": "ram"},
     ],
     "reserved": {
+        "stdout": {"base": "0x2FBE0", "size": "1K+8"},
         "tohost": {"base": "0x2FFE8", "size": "8"},
         "fromhost": {"base": "0x2FFF0", "size": "8"},
     },
@@ -43,6 +44,10 @@ def test_memory_and_widths_come_from_the_map(tmp_path: Path) -> None:
         "ram_words": 40960,
         "tohost_addr": 0x2FFE8,
         "fromhost_addr": 0x2FFF0,
+    }
+    assert config["sim"]["env"] == {
+        "TOHOST_ADDR": "0x0002FFE8",
+        "STDOUT_ADDR": "0x0002FBE0",
     }
     assert config["sim"]["parameters"] == {
         "boot_rom_addr_width": "9",
