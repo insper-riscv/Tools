@@ -318,7 +318,8 @@ def render_runtime(
     str
         The file: `RV32_RAM_END`, and `RV32_TOHOST_ADDR`,
         `RV32_FROMHOST_ADDR` and `RV32_STDOUT_BASE` for each reserved
-        range the map has, and `RV32_<NAME>_BASE` for each peripheral.
+        range the map has, `RV32_BOOT_ENTRY` (where the boot ROM
+        jumps) and `RV32_<NAME>_BASE` for each peripheral.
     """
     values = {"RV32_RAM_END": table[f"{spec['ram']}.end"]}
     for name, macro in (
@@ -328,6 +329,8 @@ def render_runtime(
     ):
         if f"{name}.base" in table:
             values[macro] = table[f"{name}.base"]
+    if "boot.entry" in table:
+        values["RV32_BOOT_ENTRY"] = table["boot.entry"]
     for periph in platform_list(platform, "peripherals"):
         name = str(periph["name"]).upper()
         values[f"RV32_{name}_BASE"] = evaluate(periph["base"])
