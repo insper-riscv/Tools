@@ -294,12 +294,17 @@ def render_boot_ld(
 
 
 def render_runtime(
-    spec: dict[str, Any], table: dict[str, int], source: str
+    platform: dict[str, Any],
+    spec: dict[str, Any],
+    table: dict[str, int],
+    source: str,
 ) -> str:
     """Render the header with the addresses shared with the program.
 
     Parameters
     ----------
+    platform : dict of {str: Any}
+        The loaded platform, for its peripherals.
     spec : dict of {str: Any}
         The `generate.runtime` section: the `ram` region whose end is
         `RV32_RAM_END`.
@@ -313,7 +318,7 @@ def render_runtime(
     str
         The file: `RV32_RAM_END`, and `RV32_TOHOST_ADDR`,
         `RV32_FROMHOST_ADDR` and `RV32_STDOUT_BASE` for each reserved
-        range the map has.
+        range the map has, and `RV32_<NAME>_BASE` for each peripheral.
     """
     values = {"RV32_RAM_END": table[f"{spec['ram']}.end"]}
     for name, macro in (
@@ -323,6 +328,9 @@ def render_runtime(
     ):
         if f"{name}.base" in table:
             values[macro] = table[f"{name}.base"]
+    for periph in platform_list(platform, "peripherals"):
+        name = str(periph["name"]).upper()
+        values[f"RV32_{name}_BASE"] = evaluate(periph["base"])
     defines = "\n".join(
         f"#define {macro} RV32_ADDRESS(0x{value:08X})"
         for macro, value in values.items()
@@ -475,7 +483,9 @@ def render_all(platform_file: Path, root: Path) -> dict[Path, str]:
         out[root / spec["path"]] = render_boot_ld(platform, table, source)
     if "runtime" in wanted:
         spec = cast(dict[str, Any], wanted["runtime"])
-        out[root / spec["path"]] = render_runtime(spec, table, source)
+        out[root / spec["path"]] = render_runtime(
+            platform, spec, table, source
+        )
     if "vhdl" in wanted:
         spec = cast(dict[str, Any], wanted["vhdl"])
         out[root / spec["path"]] = render_vhdl(platform, spec, table, source)

@@ -186,4 +186,5 @@ def test_runtime_header_has_the_shared_addresses(tmp_path: Path) -> None:
     assert "#define RV32_TOHOST_ADDR RV32_ADDRESS(0x0002FFE8)" in text
     assert "#define RV32_FROMHOST_ADDR RV32_ADDRESS(0x0002FFF0)" in text
     assert "#define RV32_STDOUT_BASE RV32_ADDRESS(0x0002FBE0)" in text
+    assert "#define RV32_UART_BASE RV32_ADDRESS(0xC0000000)" in text
     assert "#ifdef __ASSEMBLER__" in text

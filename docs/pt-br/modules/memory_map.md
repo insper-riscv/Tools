@@ -41,7 +41,7 @@ O mesmo YAML pode dizer, na seção `generate`, quais arquivos saem dele, de mod
 | :--- | :--- | :--- |
 | `specs` | Arquivo de specs do GCC | As flags do linker: `__flash`, `__flash_size`, `__ram`, `__ram_size` e `rv32_wait_restart`. A RAM do linker termina onde começa a palavra reservada `ram_limit` |
 | `boot_ld` | Linker script da boot ROM | A memória `boot_rom` na primeira região e o `RESET_RESERVED` de `boot.wait_restart` |
-| `runtime` | Cabeçalho do runtime (`.h`, também incluído por `.S`) | `RV32_RAM_END` (fim da RAM `ram`), `RV32_TOHOST_ADDR`, `RV32_FROMHOST_ADDR` e `RV32_STDOUT_BASE`, das faixas `reserved` que o mapa tem; o runtime em C e em assembly (`_exit.c`, `stdio.c`, `boot_rom.S`, `spike_exit.S`) usa esses nomes no lugar de endereços escritos à mão |
+| `runtime` | Cabeçalho do runtime (`.h`, também incluído por `.S`) | `RV32_RAM_END` (fim da RAM `ram`), `RV32_TOHOST_ADDR`, `RV32_FROMHOST_ADDR` e `RV32_STDOUT_BASE`, das faixas `reserved` que o mapa tem, e `RV32_<NOME>_BASE` de cada periférico; o runtime em C e em assembly (`_exit.c`, `stdio.c`, `boot_rom.S`, `spike_exit.S`) usa esses nomes no lugar de endereços escritos à mão |
 | `vhdl` | Pacote VHDL | As constantes `BOOT_ROM_BITS`, `BOOT_ROM_SIZE_BYTES`, `ROM_BASE_KIB`, `ROM_END_KIB`, `ROM_STORAGE_BYTES`, `RAM_BASE_KIB`, `RAM_END_KIB`, `RAM_STORAGE_BYTES`, `RAM_LAST_PAGE`, `EXT_BASE_KIB` e `PERIPH_BASE_KIB`, as flags `ROM_EXTERNAL` e `RAM_EXTERNAL` e, de cada periférico, `<NOME>_BASE` e `<NOME>_ID` |
 
 ```yaml
