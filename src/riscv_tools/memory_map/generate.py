@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from riscv_tools.memory_map.core import (
+    PERIPHERAL_WINDOW_BASE,
     Mismatch,
     load_platform,
     platform_dict,
@@ -44,6 +45,7 @@ from riscv_tools.memory_map.expressions import evaluate
 from riscv_tools.memory_map.validation import validate_platform
 
 KIB = 1024
+PAGE = 4096
 
 _SPECS = "\n".join(
     [
@@ -117,17 +119,31 @@ use ieee.std_logic_1164.all;
 package {package} is
 
 \t-- Expoente do tamanho da BOOT_ROM, que ocupa [0, 2**BOOT_ROM_BITS).
-\tconstant BOOT_ROM_BITS  : natural := {boot_bits};
-\t-- Fim exclusivo da ROM, em KiB, logo depois da BOOT_ROM.
-\tconstant ROM_END_KIB    : natural := {rom_end};
+\tconstant BOOT_ROM_BITS       : natural  := {boot_bits};
+\t-- Tamanho da BOOT_ROM, em bytes.
+\tconstant BOOT_ROM_SIZE_BYTES : positive := {boot_bytes};
+\t-- Base da ROM, em KiB, logo depois da BOOT_ROM.
+\tconstant ROM_BASE_KIB        : natural  := {rom_base};
+\t-- Fim exclusivo da ROM, em KiB.
+\tconstant ROM_END_KIB         : natural  := {rom_end};
+\t-- Armazenamento da ROM, em bytes: a menor potência de dois que cobre
+\t-- [0, fim da ROM).
+\tconstant ROM_STORAGE_BYTES   : positive := {rom_storage};
 {rom_external}\t-- Base da RAM, em KiB.
-\tconstant RAM_BASE_KIB   : natural := {ram_base};
+\tconstant RAM_BASE_KIB        : natural  := {ram_base};
 \t-- Fim exclusivo da RAM, em KiB.
-\tconstant RAM_END_KIB    : natural := {ram_end};
-{ram_external}\t-- Base da janela externa, em KiB.
-\tconstant EXT_BASE_KIB   : natural := {ext_base};
-\t-- Base da janela de periféricos, em KiB.
-\tconstant PERIPH_BASE_KIB : natural := {periph_base};
+\tconstant RAM_END_KIB         : natural  := {ram_end};
+\t-- Armazenamento da RAM, em bytes: a menor potência de dois que cobre
+\t-- o tamanho da RAM.
+\tconstant RAM_STORAGE_BYTES   : positive := {ram_storage};
+\t-- Página de 4 KiB no topo da RAM (bits 31:12 do endereço), onde ficam as
+\t-- palavras que o hospedeiro compartilha com o programa.
+\tconstant RAM_LAST_PAGE       : std_logic_vector(19 downto 0) :=
+\t\tx"{last_page}";
+{ram_external}\t-- Base da janela externa, em KiB; dali em diante é externo.
+\tconstant EXT_BASE_KIB        : natural  := {ext_base};
+\t-- Base da janela de periféricos, em KiB: os 2 GiB superiores do espaço.
+\tconstant PERIPH_BASE_KIB     : natural  := {periph_base};
 {peripherals}
 end package {package};
 """
@@ -156,6 +172,22 @@ def _kib(value: int, what: str) -> int:
     if value % KIB:
         raise ValueError(f"{what} (0x{value:X}) is not a multiple of 1 KiB")
     return value // KIB
+
+
+def _power_of_two(value: int) -> int:
+    """Round a size up to the next power of two.
+
+    Parameters
+    ----------
+    value : int
+        The size in bytes.
+
+    Returns
+    -------
+    int
+        The smallest power of two that is at least `value`.
+    """
+    return 1 << (value - 1).bit_length()
 
 
 def _hex(value: int) -> str:
@@ -258,6 +290,9 @@ def _peripheral_lines(platform: dict[str, Any]) -> str:
             f"\n\t-- Endereço base do periférico {periph['name']}.\n"
             f"\tconstant {name}_BASE : "
             f'std_logic_vector(31 downto 0) := x"{base:08X}";\n'
+            f"\t-- Índice da janela de 256 MiB do periférico {periph['name']}"
+            f" (bits 30:28 do endereço).\n"
+            f"\tconstant {name}_ID   : natural := {int(periph['id'])};\n"
         )
     return lines
 
@@ -285,7 +320,7 @@ def _external_line(kind: str, spec: dict[str, Any]) -> str:
     value = str(bool(spec[key])).lower()
     return (
         f"\t-- A {kind} fica fora do núcleo.\n"
-        f"\tconstant {kind}_EXTERNAL   : boolean := {value};\n"
+        f"\tconstant {kind}_EXTERNAL       : boolean  := {value};\n"
     )
 
 
@@ -303,8 +338,9 @@ def render_vhdl(
         The loaded platform.
     spec : dict of {str: Any}
         The `generate.vhdl` section: `package`, the `rom` and `ram`
-        regions, `ext_base`, `periph_base` and, when the platform fixes
-        them, `rom_external` and `ram_external`.
+        regions, the optional `ext_base` and `periph_base` (both default
+        to the peripheral window, `0x80000000`) and, when the platform
+        fixes them, `rom_external` and `ram_external`.
     table : dict of {str: int}
         The symbols of the map.
     source : str
@@ -317,17 +353,23 @@ def render_vhdl(
     """
     boot = platform_list(platform, "regions")[0]["name"]
     rom, ram = spec["rom"], spec["ram"]
+    window = evaluate(spec.get("periph_base", PERIPHERAL_WINDOW_BASE))
     return _VHDL.format(
         source=source,
         package=spec["package"],
         boot_bits=(table[f"{boot}.size"] - 1).bit_length(),
+        boot_bytes=table[f"{boot}.size"],
+        rom_base=_kib(table[f"{rom}.base"], f"{rom} base"),
         rom_end=_kib(table[f"{rom}.end"], f"{rom} end"),
+        rom_storage=_power_of_two(table[f"{rom}.end"]),
         rom_external=_external_line("ROM", spec),
         ram_base=_kib(table[f"{ram}.base"], f"{ram} base"),
         ram_end=_kib(table[f"{ram}.end"], f"{ram} end"),
+        ram_storage=_power_of_two(table[f"{ram}.size"]),
+        last_page=f"{(table[f'{ram}.end'] - PAGE) >> 12:05X}",
         ram_external=_external_line("RAM", spec),
-        ext_base=_kib(evaluate(spec["ext_base"]), "ext_base"),
-        periph_base=_kib(evaluate(spec["periph_base"]), "periph_base"),
+        ext_base=_kib(evaluate(spec.get("ext_base", window)), "ext_base"),
+        periph_base=_kib(window, "periph_base"),
         peripherals=_peripheral_lines(platform),
     )
 

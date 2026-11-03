@@ -31,7 +31,7 @@ checks:                       # onde mora cada cópia
 - **Símbolos** em `expect`: `<REGIÃO>.base|size|end|words`, `<reservado>.base|size|end`, `boot.entry|wait_restart`, `<PERIFÉRICO>.base|id`.
 - **Números** aceitam hexadecimal, decimal, VHDL (`16#800#`), sufixos (`30K`, `0x800u`) e `+ - * /` (divisão exata), além de `log2()` (exato) e `clog2()` (arredonda para cima, para larguras de endereço).
 - Um check cujo padrão não casa nada **falha** ("a cópia mudou de lugar"); `optional: true` ignora um arquivo ausente. Um padrão com vários casamentos precisa concordar em todos.
-- Antes de ler as cópias, o próprio mapa é validado: regiões e palavras reservadas não se sobrepõem, as reservadas ficam dentro de uma região RAM, `boot.entry` está numa região executável, `boot.wait_restart` está na primeira região, e a base de cada periférico bate com o id.
+- Antes de ler as cópias, o próprio mapa é validado: regiões e palavras reservadas não se sobrepõem, as reservadas ficam dentro de uma região RAM, `boot.entry` está numa região executável, `boot.wait_restart` está na primeira região, e a base de cada periférico bate com o id, e toda região termina em `0x80000000` ou antes (os 2 GiB inferiores são da BOOT_ROM, da ROM e da RAM, e os superiores, dos periféricos).
 
 ## Gerar os arquivos do mapa
 
@@ -41,7 +41,7 @@ O mesmo YAML pode dizer, na seção `generate`, quais arquivos saem dele, de mod
 | :--- | :--- | :--- |
 | `specs` | Arquivo de specs do GCC | As flags do linker: `__flash`, `__flash_size`, `__ram`, `__ram_size` e `rv32_wait_restart`. A RAM do linker termina onde começa a palavra reservada `ram_limit` |
 | `boot_ld` | Linker script da boot ROM | A memória `boot_rom` na primeira região e o `RESET_RESERVED` de `boot.wait_restart` |
-| `vhdl` | Pacote VHDL | As constantes `BOOT_ROM_BITS`, `ROM_END_KIB`, `RAM_BASE_KIB`, `RAM_END_KIB`, `EXT_BASE_KIB` e `PERIPH_BASE_KIB`, as flags `ROM_EXTERNAL` e `RAM_EXTERNAL` e a base de cada periférico |
+| `vhdl` | Pacote VHDL | As constantes `BOOT_ROM_BITS`, `BOOT_ROM_SIZE_BYTES`, `ROM_BASE_KIB`, `ROM_END_KIB`, `ROM_STORAGE_BYTES`, `RAM_BASE_KIB`, `RAM_END_KIB`, `RAM_STORAGE_BYTES`, `RAM_LAST_PAGE`, `EXT_BASE_KIB` e `PERIPH_BASE_KIB`, as flags `ROM_EXTERNAL` e `RAM_EXTERNAL` e, de cada periférico, `<NOME>_BASE` e `<NOME>_ID` |
 
 ```yaml
 generate:
@@ -52,9 +52,9 @@ generate:
     package: map_pkg
     rom: FLASH
     ram: RAM
-    ext_base: 0x40000000
-    periph_base: 0x80000000
 ```
+
+`ext_base` e `periph_base` são opcionais e valem `0x80000000`, a janela dos periféricos. `ROM_STORAGE_BYTES` e `RAM_STORAGE_BYTES` são a menor potência de dois que cobre o fim da ROM e o tamanho da RAM, e `RAM_LAST_PAGE` são os bits 31:12 da última página de 4 KiB da RAM.
 
 Os limites do pacote VHDL são os genéricos do `core`, em KiB, então um endereço que não é múltiplo de 1 KiB é um erro. O mapa é validado antes de gerar, e um mapa inconsistente não gera nada.
 
@@ -64,6 +64,19 @@ uv run riscv-tools --root <projeto> generate-memory-map --platform src/platform/
 ```
 
 Com `--check` nada é escrito, e o comando sai com status 1 se um arquivo faltar ou estiver diferente do que o mapa geraria. Não precisa de `--config`.
+
+## Ler a configuração do mapa
+
+Um `config.yaml` do projeto declara `memory_map: <caminho do platform.yaml>`, e o carregador de configuração troca as chaves que o mapa fixa pelas dele: `memory.boot_rom_base`, `boot_rom_words`, `rom_base`, `rom_words`, `ram_base`, `ram_words`, `tohost_addr`, `fromhost_addr` e, para as memórias que a seção `config.addr_widths` do mapa lista, `sim.parameters.<memória>_addr_width`. O que o mapa fixa vale mais que o que o arquivo ou os seus `extends` dizem, então nenhum endereço nem tamanho é escrito duas vezes.
+
+```yaml
+config:
+  rom: FLASH
+  ram: RAM
+  addr_widths: [boot_rom, rom, ram]
+```
+
+O `platform sync` grava os valores já trocados, de modo que Tests e Certification não precisam do `platform.yaml`.
 
 ## Testes
 
@@ -83,7 +96,8 @@ Com `--check` nada é escrito, e o comando sai com status 1 se um arquivo faltar
 | `tests/test_memory_map.py::test_check_stops_at_an_inconsistent_map` | Nenhuma cópia é lida se o próprio mapa é inconsistente. |
 | `tests/test_memory_map.py::test_load_platform_rejects_a_non_mapping` | Um arquivo que não é mapeamento é rejeitado. |
 | `tests/test_memory_map.py::test_cmd_check_memory_map_exit_status` | O comando imprime OK, ou sai com 1 listando as divergências. |
-| `tests/test_generate_memory_map.py` | Specs, linker script e pacote VHDL saem do mapa; `--check` pega arquivo ausente ou editado; endereço fora de KiB e mapa inconsistente são rejeitados; o comando escreve e confere. |
+| `tests/test_generate_memory_map.py` | Specs, linker script e pacote VHDL saem do mapa; `--check` pega arquivo ausente ou editado; endereço fora de KiB, região acima da janela dos periféricos e mapa inconsistente são rejeitados; o comando escreve e confere. |
+| `tests/test_config_from_platform.py` | As chaves de `memory` e as larguras de endereço saem do mapa, e o mapa vale mais que o arquivo e os seus `extends`. |
 
 ## Uso
 

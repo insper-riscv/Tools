@@ -32,8 +32,6 @@ PLATFORM: dict[str, Any] = {
             "package": "map_pkg",
             "rom": "FLASH",
             "ram": "RAM",
-            "ext_base": "0x40000000",
-            "periph_base": "0x80000000",
         },
     },
 }
@@ -67,15 +65,23 @@ def test_vhdl_package_has_the_generics_in_kib(tmp_path: Path) -> None:
     """The VHDL package has the core generics and the peripherals."""
     files = render_all(_write(tmp_path), tmp_path)
     text = files[tmp_path / "out/map_pkg.vhd"]
-    assert "constant BOOT_ROM_BITS  : natural := 11;" in text
-    assert "constant ROM_END_KIB    : natural := 32;" in text
-    assert "constant RAM_BASE_KIB   : natural := 32;" in text
-    assert "constant RAM_END_KIB    : natural := 192;" in text
-    assert "constant EXT_BASE_KIB   : natural := 1048576;" in text
+    assert "constant BOOT_ROM_BITS       : natural  := 11;" in text
+    assert "constant BOOT_ROM_SIZE_BYTES : positive := 2048;" in text
+    assert "constant ROM_BASE_KIB        : natural  := 2;" in text
+    assert "constant ROM_END_KIB         : natural  := 32;" in text
+    assert "constant ROM_STORAGE_BYTES   : positive := 32768;" in text
+    assert "constant RAM_BASE_KIB        : natural  := 32;" in text
+    assert "constant RAM_END_KIB         : natural  := 192;" in text
+    assert "constant RAM_STORAGE_BYTES   : positive := 262144;" in text
+    assert "constant RAM_LAST_PAGE       :" in text
+    assert 'x"0002F"' in text
+    assert "constant EXT_BASE_KIB        : natural  := 2097152;" in text
+    assert "constant PERIPH_BASE_KIB     : natural  := 2097152;" in text
     assert (
         'constant UART_BASE : std_logic_vector(31 downto 0) := x"C0000000"'
         in text
     )
+    assert "constant UART_ID   : natural := 4;" in text
     assert "EXTERNAL" not in text
 
 
@@ -140,5 +146,28 @@ def test_the_external_flags_appear_when_the_platform_fixes_them(
     fixed["generate"]["vhdl"] |= {"rom_external": True, "ram_external": False}
     files = render_all(_write(tmp_path, fixed), tmp_path)
     text = files[tmp_path / "out/map_pkg.vhd"]
-    assert "constant ROM_EXTERNAL   : boolean := true;" in text
-    assert "constant RAM_EXTERNAL   : boolean := false;" in text
+    assert "constant ROM_EXTERNAL       : boolean  := true;" in text
+    assert "constant RAM_EXTERNAL       : boolean  := false;" in text
+
+
+def test_a_region_above_the_peripheral_window_is_rejected(
+    tmp_path: Path,
+) -> None:
+    """A RAM above the lower 2 GiB is an error."""
+    bad = yaml.safe_load(yaml.safe_dump(PLATFORM))
+    bad["regions"][2] |= {"base": "0x7FFF8000", "size": "64K"}
+    bad["reserved"] = {}
+    with pytest.raises(ValueError, match="peripheral window"):
+        render_all(_write(tmp_path, bad), tmp_path)
+
+
+def test_the_window_can_be_moved_by_the_platform(tmp_path: Path) -> None:
+    """A platform may name its own window bases in the VHDL section."""
+    moved = yaml.safe_load(yaml.safe_dump(PLATFORM))
+    moved["generate"]["vhdl"] |= {
+        "ext_base": "0x40000000",
+        "periph_base": "0x80000000",
+    }
+    files = render_all(_write(tmp_path, moved), tmp_path)
+    text = files[tmp_path / "out/map_pkg.vhd"]
+    assert "constant EXT_BASE_KIB        : natural  := 1048576;" in text

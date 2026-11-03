@@ -115,7 +115,10 @@ def validate_platform(platform: dict[str, Any]) -> list[Mismatch]:
     """Check the map's own consistency, before any copy is read.
 
     Regions must not overlap; reserved words must sit inside a RAM
-    region and not overlap each other; the boot entry must be inside an
+    region and not overlap each other; every region must end at or
+    below the peripheral window, since the lower 2 GiB belong to the
+    BOOT_ROM, the ROM and the RAM and the upper 2 GiB to the
+    peripherals; the boot entry must be inside an
     executable region and `wait_restart` inside the first one; a
     peripheral's base must be `0x80000000 | id << 28` (the L2IP window
     convention).
@@ -153,6 +156,16 @@ def validate_platform(platform: dict[str, Any]) -> list[Mismatch]:
         )
         for name, base, size in reserved
         if not any(b <= base and base + size <= b + s for _, b, s in rams)
+    ]
+    problems += [
+        Mismatch(
+            "platform",
+            "",
+            f"region {name} ({span(base, size)}) is not below the "
+            f"peripheral window 0x{PERIPHERAL_WINDOW_BASE:X}",
+        )
+        for name, base, size in spans
+        if base + size > PERIPHERAL_WINDOW_BASE
     ]
     problems += _boot_problems(platform_dict(platform, "boot"), spans, execs)
     return problems + _peripheral_problems(
