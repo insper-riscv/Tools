@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 import yaml
+from support import check, check_equal, check_in
 
 from riscv_tools import cli
 from riscv_tools.memory_map import (
@@ -96,22 +97,22 @@ def _project(root: Path, platform: dict[str, Any] | None = None) -> Path:
 
 def test_evaluate_number_notations() -> None:
     """Evaluate number notations."""
-    assert evaluate("0x800") == 0x800
-    assert evaluate("16#0800#") == 0x800
-    assert evaluate("30K") == 30 * 1024
-    assert evaluate("0x0002FFFCu") == 0x2FFFC
-    assert evaluate("160K-24-1032") == 160 * 1024 - 1056
+    check_equal(evaluate("0x800"), 0x800)
+    check_equal(evaluate("16#0800#"), 0x800)
+    check_equal(evaluate("30K"), 30 * 1024)
+    check_equal(evaluate("0x0002FFFCu"), 0x2FFFC)
+    check_equal(evaluate("160K-24-1032"), 160 * 1024 - 1056)
 
 
 def test_evaluate_symbols_and_log2() -> None:
     """Evaluate symbols and log2."""
     names = {"RAM.words": 40960, "FLASH.words": 7680, "BOOT_ROM.words": 512}
-    assert evaluate("RAM.words / 4", names) == 10240
-    assert evaluate("log2(BOOT_ROM.words)", names) == 9
+    check_equal(evaluate("RAM.words / 4", names), 10240)
+    check_equal(evaluate("log2(BOOT_ROM.words)", names), 9)
     with pytest.raises(ValueError, match="non power of two"):
         evaluate("log2(FLASH.words)", names)
-    assert evaluate("clog2(FLASH.words)", names) == 13
-    assert evaluate("clog2(BOOT_ROM.words)", names) == 9
+    check_equal(evaluate("clog2(FLASH.words)", names), 13)
+    check_equal(evaluate("clog2(BOOT_ROM.words)", names), 9)
 
 
 def test_evaluate_rejects_unknown_symbol_inexact_division_and_code() -> None:
@@ -127,16 +128,16 @@ def test_evaluate_rejects_unknown_symbol_inexact_division_and_code() -> None:
 def test_symbols_flattens_regions_reserved_boot_and_peripherals() -> None:
     """Symbols flattens regions reserved boot and peripherals."""
     table = symbols(PLATFORM)
-    assert table["RAM.end"] == 0x8000 + 160 * 1024
-    assert table["FLASH.words"] == 7680
-    assert table["stdout.size"] == 1032
-    assert table["boot.wait_restart"] == 0x100
-    assert table["GPIO.id"] == 2
+    check_equal(table["RAM.end"], 0x8000 + 160 * 1024)
+    check_equal(table["FLASH.words"], 7680)
+    check_equal(table["stdout.size"], 1032)
+    check_equal(table["boot.wait_restart"], 0x100)
+    check_equal(table["GPIO.id"], 2)
 
 
 def test_the_reference_platform_is_consistent() -> None:
     """The reference platform is consistent."""
-    assert validate_platform(PLATFORM) == []
+    check_equal(validate_platform(PLATFORM), [])
 
 
 def _with(**changes: Any) -> dict[str, Any]:
@@ -188,13 +189,14 @@ def test_validate_platform_reports_an_inconsistent_map(
 ) -> None:
     """Validate platform reports an inconsistent map."""
     problems = validate_platform(platform)
-    assert any(message in str(p) for p in problems), problems
+    check(any(message in str(p) for p in problems), str(problems))
 
 
 def test_check_passes_when_every_copy_agrees(tmp_path: Path) -> None:
     """Check passes when every copy agrees."""
     count, problems = check_memory_map(_project(tmp_path), tmp_path)
-    assert (count, problems) == (5, [])
+    check_equal(count, 5)
+    check_equal(problems, [])
 
 
 @pytest.mark.parametrize(
@@ -219,7 +221,7 @@ def test_check_fails_when_one_copy_diverges(
     path = _project(tmp_path)
     (tmp_path / file).write_text(COPIES[file].replace(old, new))
     _, problems = check_memory_map(path, tmp_path)
-    assert [p.check for p in problems] == [check]
+    check_equal([p.check for p in problems], [check])
 
 
 def test_check_reports_every_divergent_match_of_one_pattern(
@@ -231,7 +233,7 @@ def test_check_reports_every_divergent_match_of_one_pattern(
         "    li   t0, 0x00038000\n    li   t0, 0x00038000\n"
     )
     _, problems = check_memory_map(path, tmp_path)
-    assert len(problems) == 2
+    check_equal(len(problems), 2)
 
 
 def test_check_fails_when_a_copy_no_longer_matches_the_pattern(
@@ -241,7 +243,7 @@ def test_check_fails_when_a_copy_no_longer_matches_the_pattern(
     path = _project(tmp_path)
     (tmp_path / "ip.vhd").write_text("numwords_a=>40960\n")
     _, problems = check_memory_map(path, tmp_path)
-    assert "nothing matched" in str(problems[0])
+    check_in("nothing matched", str(problems[0]))
 
 
 def test_check_fails_on_a_missing_file_unless_optional(tmp_path: Path) -> None:
@@ -249,20 +251,20 @@ def test_check_fails_on_a_missing_file_unless_optional(tmp_path: Path) -> None:
     path = _project(tmp_path)
     (tmp_path / "ip.vhd").unlink()
     _, problems = check_memory_map(path, tmp_path)
-    assert "file not found" in str(problems[0])
+    check_in("file not found", str(problems[0]))
 
     platform = yaml.safe_load(path.read_text())
     platform["checks"][-1]["optional"] = True
     path.write_text(yaml.safe_dump(platform))
-    assert check_memory_map(path, tmp_path)[1] == []
+    check_equal(check_memory_map(path, tmp_path)[1], [])
 
 
 def test_check_stops_at_an_inconsistent_map(tmp_path: Path) -> None:
     """Check stops at an inconsistent map."""
     platform = _with(boot={"entry": "0x8000"})
     count, problems = check_memory_map(_project(tmp_path, platform), tmp_path)
-    assert count == 0
-    assert "boot.entry" in str(problems[0])
+    check_equal(count, 0)
+    check_in("boot.entry", str(problems[0]))
 
 
 def test_load_platform_rejects_a_non_mapping(tmp_path: Path) -> None:
@@ -280,13 +282,13 @@ def test_cmd_check_memory_map_exit_status(
     _project(tmp_path)
     args = argparse.Namespace(root=str(tmp_path), platform="platform.yaml")
     cli.cmd_check_memory_map(args)
-    assert "memory map OK: 5 checks" in capsys.readouterr().out
+    check_in("memory map OK: 5 checks", capsys.readouterr().out)
 
     (tmp_path / "ip.vhd").write_text("numwords_a => 1,\n")
     with pytest.raises(SystemExit) as exc:
         cli.cmd_check_memory_map(args)
-    assert exc.value.code == 1
-    assert "MISMATCH ip words" in capsys.readouterr().err
+    check_equal(exc.value.code, 1)
+    check_in("MISMATCH ip words", capsys.readouterr().err)
 
 
 def test_a_negative_offset_is_reported_with_its_sign(tmp_path: Path) -> None:
@@ -304,6 +306,7 @@ def test_a_negative_offset_is_reported_with_its_sign(tmp_path: Path) -> None:
     path = _project(tmp_path, platform)
     (tmp_path / "off.S").write_text("sw x0, -12(t0)\n")
     _, problems = check_memory_map(path, tmp_path)
-    assert "found -12 (-0xC), expected last_word.base - RAM.end (-0x4)" in str(
-        problems[0]
+    check_in(
+        "found -12 (-0xC), expected last_word.base - RAM.end (-0x4)",
+        str(problems[0]),
     )

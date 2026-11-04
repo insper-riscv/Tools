@@ -10,7 +10,7 @@ import shutil
 from pathlib import Path
 
 import pytest
-from support import link_bare
+from support import check, check_equal, check_is_not, link_bare, require_str
 
 from riscv_tools.golden_generator import (
     generate_golden,
@@ -53,9 +53,9 @@ def _compile(source: Path, tmp_path: Path) -> Path:
 
 
 def _target() -> SpikeTarget:
-    assert SPIKE_BIN is not None  # guaranteed by pytestmark's skipif above
+    # Presence is guaranteed by the skipif of pytestmark above.
     return SpikeTarget(
-        spike_bin=SPIKE_BIN,
+        spike_bin=require_str(SPIKE_BIN),
         nm_bin=NM,
         isa=ISA,
         mem_regions=[(0x80000000, 0x10000)],
@@ -68,7 +68,7 @@ def test_generate_golden_reads_back_expected_bytes(
     source_name: str, tmp_path: Path
 ) -> None:
     """Generate golden reads back expected bytes."""
-    assert SPIKE_BIN is not None  # guaranteed by pytestmark's skipif above
+    check_is_not(SPIKE_BIN, None)  # guaranteed by pytestmark's skipif above
     elf = _compile(FIXTURES / source_name, tmp_path)
 
     golden = generate_golden(
@@ -81,7 +81,7 @@ def test_generate_golden_reads_back_expected_bytes(
     expected_bytes = {
         ADDR + i: (expected_word >> (8 * i)) & 0xFF for i in range(4)
     }
-    assert golden == expected_bytes
+    check_equal(golden, expected_bytes)
 
 
 def test_generate_golden_json_round_trips_through_compare(
@@ -93,7 +93,7 @@ def test_generate_golden_json_round_trips_through_compare(
     back with json.loads the way a human/CI would, confirming the
     file itself (not just the in-memory dict) is correct.
     """
-    assert SPIKE_BIN is not None  # guaranteed by pytestmark's skipif above
+    check_is_not(SPIKE_BIN, None)  # guaranteed by pytestmark's skipif above
     elf = _compile(FIXTURES / "pass_c.c", tmp_path)
 
     golden = generate_golden(
@@ -104,11 +104,11 @@ def test_generate_golden_json_round_trips_through_compare(
     out_path = tmp_path / "golden.json"
     write_golden_json(golden, out_path)
 
-    assert out_path.is_file()
+    check(out_path.is_file())
     on_disk = json.loads(out_path.read_text())
-    assert {int(k, 16): v for k, v in on_disk.items()} == golden
-    assert (
-        on_disk[f"0x{ADDR:08X}"] == 0xDD
+    check_equal({int(k, 16): v for k, v in on_disk.items()}, golden)
+    check_equal(
+        on_disk[f"0x{ADDR:08X}"], 0xDD
     )  # low byte of 0xAABBCCDD, little-endian
 
 
@@ -122,7 +122,7 @@ def test_symbol_range_resolves_address_and_size(tmp_path: Path) -> None:
     """
     elf = _compile(FIXTURES / "pass_c_symbol.c", tmp_path)
     start, end = symbol_range(NM, elf, "results")
-    assert end - start == 8  # 2 * sizeof(unsigned int)
+    check_equal(end - start, 8)  # 2 * sizeof(unsigned int)
 
 
 def test_generate_golden_by_symbol_matches_explicit_start_end(
@@ -134,7 +134,7 @@ def test_generate_golden_by_symbol_matches_explicit_start_end(
     --start/--end path on the same fixture, rather than just trusting
     symbol_range's own address/size math in isolation.
     """
-    assert SPIKE_BIN is not None  # guaranteed by pytestmark's skipif above
+    check_is_not(SPIKE_BIN, None)  # guaranteed by pytestmark's skipif above
     elf = _compile(FIXTURES / "pass_c_symbol.c", tmp_path)
     start, end = symbol_range(NM, elf, "results")
 
@@ -150,14 +150,14 @@ def test_generate_golden_by_symbol_matches_explicit_start_end(
         for i, word in enumerate(expected_words)
         for b in range(4)
     }
-    assert golden == expected_bytes
+    check_equal(golden, expected_bytes)
 
 
 def test_generate_golden_rounds_a_partial_word_range_up(
     tmp_path: Path,
 ) -> None:
     """Generate golden rounds a partial word range up."""
-    assert SPIKE_BIN is not None  # guaranteed by pytestmark's skipif above
+    check_is_not(SPIKE_BIN, None)  # guaranteed by pytestmark's skipif above
     elf = _compile(FIXTURES / "pass_asm.S", tmp_path)
 
     golden = generate_golden(
@@ -166,6 +166,6 @@ def test_generate_golden_rounds_a_partial_word_range_up(
         (ADDR, ADDR + 1),
     )
 
-    assert golden == {
-        ADDR + i: (0x11223344 >> (8 * i)) & 0xFF for i in range(4)
-    }
+    check_equal(
+        golden, {ADDR + i: (0x11223344 >> (8 * i)) & 0xFF for i in range(4)}
+    )

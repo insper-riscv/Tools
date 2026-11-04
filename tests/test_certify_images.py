@@ -3,7 +3,7 @@
 from pathlib import Path
 
 import pytest
-from support import build_elf
+from support import build_elf, check_equal
 
 from riscv_tools.certify import images
 
@@ -13,9 +13,9 @@ SDRAM_BASE = 0x40000000
 def test_sdram_boot_words_jump_to_the_base():
     """Sdram boot words jump to the base."""
     nop, lui_x1, jalr_x0 = images.sdram_boot_words(SDRAM_BASE)
-    assert nop == 0x00000013
-    assert lui_x1 == 0x400000B7  # lui x1, 0x40000
-    assert jalr_x0 == 0x00008067  # jalr x0, 0(x1)
+    check_equal(nop, 0x00000013)
+    check_equal(lui_x1, 0x400000B7)  # lui x1, 0x40000
+    check_equal(jalr_x0, 0x00008067)  # jalr x0, 0(x1)
 
 
 def test_sdram_boot_words_reject_an_unaligned_base():
@@ -33,15 +33,15 @@ def test_write_sdram_images_joins_the_segments_from_the_base(
     elf = tmp_path / "t.elf"
     elf.write_bytes(build_elf([(SDRAM_BASE, code), (SDRAM_BASE + 0x20, data)]))
     paths = images.write_sdram_images(elf, tmp_path, "t", SDRAM_BASE)
-    assert set(paths) == {"boot_hex_path", "sdram_hex_path", "hex_path"}
+    check_equal(set(paths), {"boot_hex_path", "sdram_hex_path", "hex_path"})
     words = paths["sdram_hex_path"].read_text().lower().split()
-    assert len(words) == 9  # 0x24 bytes, the gap filled with zeros
-    assert words[0] == "03020100"
-    assert words[4:8] == ["00000000"] * 4
-    assert words[8] == "ddccbbaa"
+    check_equal(len(words), 9)  # 0x24 bytes, the gap filled with zeros
+    check_equal(words[0], "03020100")
+    check_equal(words[4:8], ["00000000"] * 4)
+    check_equal(words[8], "ddccbbaa")
     boot = paths["boot_hex_path"].read_text().lower().split()
-    assert boot == ["00000013", "400000b7", "00008067"]
-    assert paths["hex_path"] == paths["boot_hex_path"]
+    check_equal(boot, ["00000013", "400000b7", "00008067"])
+    check_equal(paths["hex_path"], paths["boot_hex_path"])
 
 
 def test_write_flash_images_split_the_flash_from_the_sdram(
@@ -56,12 +56,17 @@ def test_write_flash_images_split_the_flash_from_the_sdram(
     paths = images.write_flash_images(
         elf, tmp_path, "t", flash_base, SDRAM_BASE
     )
-    assert set(paths) == {"boot_hex_path", "hex_path", "sdram_hex_path"}
-    assert paths["hex_path"].read_text().lower().split() == [
-        "03020100",
-        "07060504",
-    ]
-    assert paths["sdram_hex_path"].read_text().lower().split() == ["ddccbbaa"]
+    check_equal(set(paths), {"boot_hex_path", "hex_path", "sdram_hex_path"})
+    check_equal(
+        paths["hex_path"].read_text().lower().split(),
+        [
+            "03020100",
+            "07060504",
+        ],
+    )
+    check_equal(
+        paths["sdram_hex_path"].read_text().lower().split(), ["ddccbbaa"]
+    )
     # the boot ROM jumps to the FLASH: lui x1, 0x20000
     boot = paths["boot_hex_path"].read_text().lower().split()
-    assert boot == ["00000013", "200000b7", "00008067"]
+    check_equal(boot, ["00000013", "200000b7", "00008067"])

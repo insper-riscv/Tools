@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 import yaml
+from support import check, check_equal, check_in
 
 from riscv_tools import cli
 from riscv_tools.path_check import check_paths, collect
@@ -74,26 +75,32 @@ def test_collect_reads_a_yaml_list_relative_to_base_and_skips_env_vars(
     """Collect reads a yaml list relative to base and skips env vars."""
     _tree(tmp_path)
     paths = collect(YAML_REF, tmp_path)
-    assert paths == [
-        tmp_path / "Tests" / "../src/a.vhd",
-        tmp_path / "Tests" / "../src/b.vhd",
-    ]
+    check_equal(
+        paths,
+        [
+            tmp_path / "Tests" / "../src/a.vhd",
+            tmp_path / "Tests" / "../src/b.vhd",
+        ],
+    )
 
 
 def test_collect_walks_a_wildcard_over_a_mapping(tmp_path: Path) -> None:
     """Collect walks a wildcard over a mapping."""
     _tree(tmp_path)
-    assert len(collect(JSON_REF, tmp_path)) == 2
+    check_equal(len(collect(JSON_REF, tmp_path)), 2)
 
 
 def test_collect_defaults_base_to_the_files_directory(tmp_path: Path) -> None:
     """Collect defaults base to the files directory."""
     _tree(tmp_path)
     paths = collect(QSF_REF, tmp_path)
-    assert paths == [
-        tmp_path / "q" / "../src/a.vhd",
-        tmp_path / "q" / "ip/x.qip",
-    ]
+    check_equal(
+        paths,
+        [
+            tmp_path / "q" / "../src/a.vhd",
+            tmp_path / "q" / "ip/x.qip",
+        ],
+    )
 
 
 def test_check_passes_when_every_path_exists(tmp_path: Path) -> None:
@@ -103,7 +110,9 @@ def test_check_passes_when_every_path_exists(tmp_path: Path) -> None:
         tmp_path,
         [YAML_REF, JSON_REF, QSF_REF, {"name": "dirs", "paths": ["src"]}],
     )
-    assert check_paths(manifest, tmp_path) == (2 + 2 + 2 + 1, [])
+    count, problems = check_paths(manifest, tmp_path)
+    check_equal(count, 2 + 2 + 2 + 1)
+    check_equal(problems, [])
 
 
 def test_check_reports_a_path_that_was_moved(tmp_path: Path) -> None:
@@ -112,10 +121,13 @@ def test_check_reports_a_path_that_was_moved(tmp_path: Path) -> None:
     (tmp_path / "src" / "b.vhd").rename(tmp_path / "src" / "moved.vhd")
     manifest = _manifest(tmp_path, [YAML_REF, JSON_REF])
     _, problems = check_paths(manifest, tmp_path)
-    assert problems == [
-        "sim: missing src/b.vhd",
-        "json: missing src/b.vhd",
-    ]
+    check_equal(
+        problems,
+        [
+            "sim: missing src/b.vhd",
+            "json: missing src/b.vhd",
+        ],
+    )
 
 
 def test_check_fails_when_a_reference_yields_nothing(tmp_path: Path) -> None:
@@ -123,7 +135,7 @@ def test_check_fails_when_a_reference_yields_nothing(tmp_path: Path) -> None:
     _tree(tmp_path)
     renamed = {**YAML_REF, "yaml": "sim.sources"}
     _, problems = check_paths(_manifest(tmp_path, [renamed]), tmp_path)
-    assert "no path found" in problems[0]
+    check_in("no path found", problems[0])
 
 
 def test_check_allows_an_optional_reference_to_yield_nothing(
@@ -132,7 +144,9 @@ def test_check_allows_an_optional_reference_to_yield_nothing(
     """Check allows an optional reference to yield nothing."""
     _tree(tmp_path)
     optional = {**YAML_REF, "yaml": "sim.sources", "optional": True}
-    assert check_paths(_manifest(tmp_path, [optional]), tmp_path) == (0, [])
+    count, problems = check_paths(_manifest(tmp_path, [optional]), tmp_path)
+    check_equal(count, 0)
+    check_equal(problems, [])
 
 
 def test_check_reports_an_unreadable_file_and_a_bad_entry(
@@ -143,8 +157,8 @@ def test_check_reports_an_unreadable_file_and_a_bad_entry(
     missing = {"name": "gone", "file": "nope.yaml", "yaml": "x"}
     bad = {"name": "bad", "file": "Tests/tests.json"}
     _, problems = check_paths(_manifest(tmp_path, [missing, bad]), tmp_path)
-    assert problems[0].startswith("gone:")
-    assert "needs `paths`, `yaml` or `pattern`" in problems[1]
+    check(problems[0].startswith("gone:"))
+    check_in("needs `paths`, `yaml` or `pattern`", problems[1])
 
 
 def test_cmd_check_paths_exit_status(
@@ -155,10 +169,10 @@ def test_cmd_check_paths_exit_status(
     _manifest(tmp_path, [YAML_REF])
     args = argparse.Namespace(root=str(tmp_path), manifest="paths.yaml")
     cli.cmd_check_paths(args)
-    assert "paths OK: 2 paths" in capsys.readouterr().out
+    check_in("paths OK: 2 paths", capsys.readouterr().out)
 
     (tmp_path / "src" / "a.vhd").unlink()
     with pytest.raises(SystemExit) as exc:
         cli.cmd_check_paths(args)
-    assert exc.value.code == 1
-    assert "PATH sim: missing src/a.vhd" in capsys.readouterr().err
+    check_equal(exc.value.code, 1)
+    check_in("PATH sim: missing src/a.vhd", capsys.readouterr().err)

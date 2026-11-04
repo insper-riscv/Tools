@@ -10,7 +10,12 @@ import yaml
 from support import (
     C_ADD_SOURCE,
     C_MEM_SOURCE,
+    check,
+    check_equal,
+    check_false,
+    check_in,
     compile_args,
+    read_manifest,
     toolchain_section,
     write_c_test,
     write_config,
@@ -107,9 +112,9 @@ def test_discover_tests_finds_c_and_asm_sorted_by_name(tmp_path: Path) -> None:
 
     sources = discover_tests(tmp_path, _cfg_dict(tmp_path))
 
-    assert [s.parent.name for s in sources] == ["add", "mem", "raw"]
-    assert sources[0].name == "src.c"
-    assert sources[2].name == "src.S"
+    check_equal([s.parent.name for s in sources], ["add", "mem", "raw"])
+    check_equal(sources[0].name, "src.c")
+    check_equal(sources[2].name, "src.S")
 
 
 def test_discover_tests_empty_when_no_folders(tmp_path: Path) -> None:
@@ -120,7 +125,7 @@ def test_discover_tests_empty_when_no_folders(tmp_path: Path) -> None:
         yaml.safe_dump({"paths": {"c_dir": "c", "asm_dir": "asm"}})
     )
 
-    assert discover_tests(tmp_path, _cfg_dict(tmp_path)) == []
+    check_equal(discover_tests(tmp_path, _cfg_dict(tmp_path)), [])
 
 
 @pytest.mark.skipif(
@@ -133,19 +138,20 @@ def test_cmd_compile_mif_builds_every_kind(tmp_path: Path) -> None:
 
     cmd_compile(compile_args(tmp_path, "mif"))
 
-    manifest = json.loads(
-        (tmp_path / "build" / "real" / "manifest.json").read_text()
-    )
-    assert {e["name"] for e in manifest} == {"add", "mem", "raw"}
+    manifest = read_manifest(tmp_path, "real")
+    check_equal({e["name"] for e in manifest}, {"add", "mem", "raw"})
     mem_entry = next(e for e in manifest if e["name"] == "mem")
-    assert mem_entry["kind"] == "memory"
+    check_equal(mem_entry["kind"], "memory")
     golden_path = tmp_path / mem_entry["golden"]
-    assert json.loads(golden_path.read_text()) == {
-        "0x00000000": 17,
-        "0x00000001": 17,
-        "0x00000002": 17,
-        "0x00000003": 17,
-    }
+    check_equal(
+        json.loads(golden_path.read_text()),
+        {
+            "0x00000000": 17,
+            "0x00000001": 17,
+            "0x00000002": 17,
+            "0x00000003": 17,
+        },
+    )
 
 
 @pytest.mark.skipif(
@@ -160,11 +166,9 @@ def test_cmd_compile_only_builds_just_the_named_tests(
 
     cmd_compile(compile_args(tmp_path, "mif", only=["add", "raw"]))
 
-    manifest = json.loads(
-        (tmp_path / "build" / "real" / "manifest.json").read_text()
-    )
-    assert [e["name"] for e in manifest] == ["add", "raw"]
-    assert not (tmp_path / "build" / "real" / "mem.mif").exists()
+    manifest = read_manifest(tmp_path, "real")
+    check_equal([e["name"] for e in manifest], ["add", "raw"])
+    check_false((tmp_path / "build" / "real" / "mem.mif").exists())
 
 
 def test_cmd_compile_only_rejects_an_unknown_test(tmp_path: Path) -> None:
@@ -185,14 +189,12 @@ def test_cmd_compile_hex_builds_every_kind(tmp_path: Path) -> None:
 
     cmd_compile(compile_args(tmp_path, "hex"))
 
-    manifest = json.loads(
-        (tmp_path / "build" / "sim" / "manifest.json").read_text()
-    )
-    assert {e["name"] for e in manifest} == {"add", "mem", "raw"}
+    manifest = read_manifest(tmp_path, "sim")
+    check_equal({e["name"] for e in manifest}, {"add", "mem", "raw"})
     mem_entry = next(e for e in manifest if e["name"] == "mem")
-    assert mem_entry["kind"] == "memory"
-    assert mem_entry["hex"].endswith("mem.hex")
-    assert (tmp_path / mem_entry["golden"]).is_file()
+    check_equal(mem_entry["kind"], "memory")
+    check(mem_entry["hex"].endswith("mem.hex"))
+    check((tmp_path / mem_entry["golden"]).is_file())
 
 
 @pytest.mark.skipif(
@@ -215,8 +217,8 @@ def test_cmd_spike_run_passes_compiled_tests(
     cmd_spike_run(args)
 
     out = capsys.readouterr().out
-    assert "PASS  add" in out
-    assert "PASS  mem" in out
+    check_in("PASS  add", out)
+    check_in("PASS  mem", out)
 
 
 @pytest.mark.skipif(
@@ -252,4 +254,4 @@ def test_cmd_compile_hex_uses_the_verilog_format_when_configured(
     cmd_compile(compile_args(tmp_path, "hex"))
 
     hex_text = (tmp_path / "build" / "sim" / "add.hex").read_text()
-    assert hex_text.startswith("@00000000\n")
+    check(hex_text.startswith("@00000000\n"))

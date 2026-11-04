@@ -1,10 +1,11 @@
 """Helpers shared by the test modules."""
 
 import argparse
+import json
 import shutil
 import struct
 import subprocess
-from collections.abc import Sequence
+from collections.abc import Container, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -221,3 +222,219 @@ def write_rv32_header(root: Path, tohost_addr: int) -> None:
     include_dir = root / "include"
     include_dir.mkdir()
     write_header(tohost_addr, include_dir / "rv32_test.h")
+
+
+def check(condition: object, message: str = "") -> None:
+    """Fail the test unless the condition is true.
+
+    Parameters
+    ----------
+    condition : object
+        The value that must be truthy.
+    message : str, optional
+        The failure message.
+
+    Raises
+    ------
+    AssertionError
+        If the condition is falsy.
+    """
+    if not condition:
+        raise AssertionError(
+            message or f"expected a true value: {condition!r}"
+        )
+
+
+def check_false(condition: object, message: str = "") -> None:
+    """Fail the test unless the condition is false.
+
+    Parameters
+    ----------
+    condition : object
+        The value that must be falsy.
+    message : str, optional
+        The failure message.
+
+    Raises
+    ------
+    AssertionError
+        If the condition is truthy.
+    """
+    if condition:
+        raise AssertionError(
+            message or f"expected a false value: {condition!r}"
+        )
+
+
+def check_equal(actual: object, expected: object, message: str = "") -> None:
+    """Fail the test unless the two values are equal.
+
+    Parameters
+    ----------
+    actual : object
+        The value the code under test produced.
+    expected : object
+        The value it must equal.
+    message : str, optional
+        The failure message.
+
+    Raises
+    ------
+    AssertionError
+        If the values differ.
+    """
+    if actual != expected:
+        raise AssertionError(message or f"{actual!r} != {expected!r}")
+
+
+def check_not_equal(actual: object, other: object, message: str = "") -> None:
+    """Fail the test unless the two values differ.
+
+    Parameters
+    ----------
+    actual : object
+        The value the code under test produced.
+    other : object
+        The value it must differ from.
+    message : str, optional
+        The failure message.
+
+    Raises
+    ------
+    AssertionError
+        If the values are equal.
+    """
+    if actual == other:
+        raise AssertionError(message or f"{actual!r} == {other!r}")
+
+
+def check_in(
+    item: object, container: Container[Any], message: str = ""
+) -> None:
+    """Fail the test unless the item is in the container.
+
+    Parameters
+    ----------
+    item : object
+        The member to look for.
+    container : Container of Any
+        The collection that must hold it.
+    message : str, optional
+        The failure message.
+
+    Raises
+    ------
+    AssertionError
+        If the item is missing.
+    """
+    if item not in container:
+        raise AssertionError(message or f"{item!r} not in {container!r}")
+
+
+def check_not_in(
+    item: object, container: Container[Any], message: str = ""
+) -> None:
+    """Fail the test unless the item is absent from the container.
+
+    Parameters
+    ----------
+    item : object
+        The member that must be absent.
+    container : Container of Any
+        The collection that must not hold it.
+    message : str, optional
+        The failure message.
+
+    Raises
+    ------
+    AssertionError
+        If the item is present.
+    """
+    if item in container:
+        raise AssertionError(message or f"{item!r} in {container!r}")
+
+
+def check_is(actual: object, expected: object, message: str = "") -> None:
+    """Fail the test unless the two names refer to the same object.
+
+    Parameters
+    ----------
+    actual : object
+        The value the code under test produced.
+    expected : object
+        The object it must be.
+    message : str, optional
+        The failure message.
+
+    Raises
+    ------
+    AssertionError
+        If they are different objects.
+    """
+    if actual is not expected:
+        raise AssertionError(message or f"{actual!r} is not {expected!r}")
+
+
+def check_is_not(actual: object, other: object, message: str = "") -> None:
+    """Fail the test unless the two names refer to different objects.
+
+    Parameters
+    ----------
+    actual : object
+        The value the code under test produced.
+    other : object
+        The object it must not be.
+    message : str, optional
+        The failure message.
+
+    Raises
+    ------
+    AssertionError
+        If they are the same object.
+    """
+    if actual is other:
+        raise AssertionError(message or f"{actual!r} is {other!r}")
+
+
+def require_str(value: str | None, message: str = "") -> str:
+    """Return the string after failing the test if it is None.
+
+    Parameters
+    ----------
+    value : str or None
+        The string that must be present.
+    message : str, optional
+        The failure message.
+
+    Returns
+    -------
+    str
+        The string, narrowed to not None.
+
+    Raises
+    ------
+    AssertionError
+        If the value is None.
+    """
+    if value is None:
+        raise AssertionError(message or "expected a value, got None")
+    return value
+
+
+def read_manifest(project: Path, flavor: str) -> list[dict[str, Any]]:
+    """Read the manifest a compile wrote under the build folder.
+
+    Parameters
+    ----------
+    project : Path
+        The project root.
+    flavor : str
+        The build subfolder, such as `real` or `sim`.
+
+    Returns
+    -------
+    list of dict of str to Any
+        The manifest entries.
+    """
+    path = project / "build" / flavor / "manifest.json"
+    return json.loads(path.read_text())

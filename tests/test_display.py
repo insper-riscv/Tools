@@ -3,6 +3,7 @@
 from typing import cast
 
 import pytest
+from support import check_equal, check_is
 
 from riscv_tools import display
 from riscv_tools.jtag import JtagLink
@@ -10,16 +11,16 @@ from riscv_tools.jtag import JtagLink
 
 def test_act_number_is_ac_then_four_decimal_digits():
     """Act number is ac then four decimal digits."""
-    assert display.encode_act(1) == 0xAC0001
-    assert display.encode_act(59) == 0xAC0059
-    assert display.encode_act(9999) == 0xAC9999
+    check_equal(display.encode_act(1), 0xAC0001)
+    check_equal(display.encode_act(59), 0xAC0059)
+    check_equal(display.encode_act(9999), 0xAC9999)
 
 
 def test_own_test_number_uses_the_six_digits_in_decimal():
     """Own test number uses the six digits in decimal."""
-    assert display.encode_test(1) == 0x000001
-    assert display.encode_test(10) == 0x000010
-    assert display.encode_test(999999) == 0x999999
+    check_equal(display.encode_test(1), 0x000001)
+    check_equal(display.encode_test(10), 0x000010)
+    check_equal(display.encode_test(999999), 0x999999)
 
 
 @pytest.mark.parametrize("number", [0, -1, 10000])
@@ -39,7 +40,7 @@ def test_own_test_number_rejects_what_does_not_fit(number: int) -> None:
 def test_value_is_the_last_value_line():
     """Value is the last value line."""
     out = "Info: x\nVALUE=000001\nInfo: y\nVALUE=2a000f\n"
-    assert display.decode_value(out) == 0x2A000F
+    check_equal(display.decode_value(out), 0x2A000F)
 
 
 def test_output_without_a_value_is_an_error():
@@ -73,6 +74,6 @@ def test_fail_flag_is_read_from_the_flag_line(
     link = cast(
         JtagLink, type("L", (), {"hardware_name": "h", "device_name": "d"})()
     )
-    assert (
-        display.write_fail(link, False) is True
+    check_is(
+        display.write_fail(link, False), True
     )  # the stub always answers FLAG=1

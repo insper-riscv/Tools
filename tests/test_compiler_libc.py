@@ -4,7 +4,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from support import GCC, ISA, has_picolibc
+from support import GCC, ISA, check, check_equal, has_picolibc
 
 from riscv_tools.compiler import (
     BuildSetup,
@@ -23,17 +23,20 @@ needs_picolibc = pytest.mark.skipif(
 
 def test_libc_flags_defaults_to_no_libc() -> None:
     """Libc flags defaults to no libc."""
-    assert libc_flags({}) == ["-nostdlib"]
+    check_equal(libc_flags({}), ["-nostdlib"])
 
 
 def test_libc_flags_picolibc_keeps_sections_the_script_does_not_reach() -> (
     None
 ):
     """Libc flags picolibc keeps sections the script does not reach."""
-    assert libc_flags({"libc": "picolibc"}) == [
-        "--specs=picolibc.specs",
-        "-Wl,--no-gc-sections",
-    ]
+    check_equal(
+        libc_flags({"libc": "picolibc"}),
+        [
+            "--specs=picolibc.specs",
+            "-Wl,--no-gc-sections",
+        ],
+    )
 
 
 def test_libc_flags_rejects_an_unknown_library() -> None:
@@ -73,7 +76,7 @@ def _compile(tmp_path: Path, libc: str) -> Path:
 @needs_picolibc
 def test_picolibc_provides_libc_functions(tmp_path: Path) -> None:
     """Picolibc provides libc functions."""
-    assert _compile(tmp_path, "picolibc").is_file()
+    check(_compile(tmp_path, "picolibc").is_file())
 
 
 @needs_picolibc

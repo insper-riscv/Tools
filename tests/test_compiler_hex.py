@@ -5,6 +5,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+from support import check_equal
 
 from riscv_tools.compiler import elf_to_verilog_hex
 
@@ -31,10 +32,13 @@ def test_elf_to_verilog_hex_keeps_the_real_word_address(
         {"objcopy": "riscv32-unknown-elf-objcopy"}, elf, hex_path
     )
 
-    assert hex_path.read_text().split("\n") == [
-        "@00000200",
-        "00100293 00200313 FF9FF06F",
-        "@00000203",
-        "DEADBEEF",
-        "",
-    ]
+    check_equal(
+        hex_path.read_text().split("\n"),
+        [
+            "@00000200",
+            "00100293 00200313 FF9FF06F",
+            "@00000203",
+            "DEADBEEF",
+            "",
+        ],
+    )

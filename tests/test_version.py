@@ -3,6 +3,8 @@
 import tomllib
 from pathlib import Path
 
+from support import check_equal
+
 import riscv_tools
 
 PYPROJECT = Path(__file__).resolve().parents[1] / "pyproject.toml"
@@ -15,4 +17,4 @@ def test_package_version_matches_pyproject() -> None:
     drift apart.
     """
     project = tomllib.loads(PYPROJECT.read_text())["project"]
-    assert riscv_tools.__version__ == project["version"]
+    check_equal(riscv_tools.__version__, project["version"])
