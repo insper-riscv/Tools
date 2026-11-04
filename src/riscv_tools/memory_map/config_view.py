@@ -13,7 +13,8 @@ config:
 
 The values come out as the `memory` keys the tools read
 (`boot_rom_base`, `boot_rom_words`, `rom_base`, `rom_words`, `ram_base`,
-`ram_words`, `tohost_addr` and `fromhost_addr`) and as the
+`ram_words`, `tohost_addr` and `fromhost_addr`), as the `TOHOST_ADDR`
+and `STDOUT_ADDR` environment of the simulation and as the
 `sim.parameters.*_addr_width`, so no address or size is typed twice.
 """
 
@@ -80,10 +81,23 @@ def config_from_platform(platform_file: Path) -> dict[str, Any]:
         "ram": memory["ram_words"],
     }
     config: dict[str, Any] = {"memory": memory}
+    sim: dict[str, Any] = {}
+    env = {
+        key: f"0x{table[symbol]:08X}"
+        for key, symbol in (
+            ("TOHOST_ADDR", "tohost.base"),
+            ("STDOUT_ADDR", "stdout.base"),
+        )
+        if symbol in table
+    }
+    if env:
+        sim["env"] = env
     widths = {
         f"{name}_addr_width": _width(words[name])
         for name in spec.get("addr_widths", [])
     }
     if widths:
-        config["sim"] = {"parameters": widths}
+        sim["parameters"] = widths
+    if sim:
+        config["sim"] = sim
     return config

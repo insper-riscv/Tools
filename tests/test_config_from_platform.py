@@ -3,20 +3,14 @@
 from pathlib import Path
 
 import yaml
+from support import MAP_REGIONS, MAP_RESERVED
 
 from riscv_tools.memory_map import config_from_platform
 from riscv_tools.settings import read_config
 
 PLATFORM = {
-    "regions": [
-        {"name": "BOOT_ROM", "base": "0x0", "size": "2K", "exec": True},
-        {"name": "FLASH", "base": "0x800", "size": "30K", "exec": True},
-        {"name": "RAM", "base": "0x8000", "size": "160K", "kind": "ram"},
-    ],
-    "reserved": {
-        "tohost": {"base": "0x2FFE8", "size": "8"},
-        "fromhost": {"base": "0x2FFF0", "size": "8"},
-    },
+    "regions": MAP_REGIONS,
+    "reserved": MAP_RESERVED,
     "config": {
         "rom": "FLASH",
         "ram": "RAM",
@@ -43,6 +37,10 @@ def test_memory_and_widths_come_from_the_map(tmp_path: Path) -> None:
         "ram_words": 40960,
         "tohost_addr": 0x2FFE8,
         "fromhost_addr": 0x2FFF0,
+    }
+    assert config["sim"]["env"] == {
+        "TOHOST_ADDR": "0x0002FFE8",
+        "STDOUT_ADDR": "0x0002FBE0",
     }
     assert config["sim"]["parameters"] == {
         "boot_rom_addr_width": "9",

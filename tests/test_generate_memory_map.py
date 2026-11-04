@@ -6,17 +6,14 @@ from typing import Any
 
 import pytest
 import yaml
+from support import MAP_REGIONS, MAP_RESERVED
 
 from riscv_tools import cli
 from riscv_tools.memory_map import check_all, render_all, write_all
 
 PLATFORM: dict[str, Any] = {
-    "regions": [
-        {"name": "BOOT_ROM", "base": "0x0", "size": "2K", "exec": True},
-        {"name": "FLASH", "base": "0x800", "size": "30K", "exec": True},
-        {"name": "RAM", "base": "0x8000", "size": "160K", "kind": "ram"},
-    ],
-    "reserved": {"stdout": {"base": "0x2FBE0", "size": "1K+8"}},
+    "regions": MAP_REGIONS,
+    "reserved": MAP_RESERVED,
     "boot": {"entry": "0x800", "wait_restart": "0x100"},
     "peripherals": [{"name": "UART", "base": "0xC0000000", "id": 4}],
     "generate": {
@@ -27,6 +24,7 @@ PLATFORM: dict[str, Any] = {
             "ram_limit": "stdout",
         },
         "boot_ld": {"path": "out/boot.ld"},
+        "runtime": {"path": "out/memory_map.h", "ram": "RAM"},
         "vhdl": {
             "path": "out/map_pkg.vhd",
             "package": "map_pkg",
@@ -91,9 +89,9 @@ def test_write_then_check_passes_and_a_change_is_caught(
     """A written set checks clean, and an edited file is reported."""
     platform = _write(tmp_path)
     written = write_all(platform, tmp_path)
-    assert len(written) == 3
+    assert len(written) == 4
     count, problems = check_all(platform, tmp_path)
-    assert (count, problems) == (3, [])
+    assert (count, problems) == (4, [])
     (tmp_path / "out/boot.ld").write_text("hand edited\n")
     (tmp_path / "out/x.specs").unlink()
     _, problems = check_all(platform, tmp_path)
@@ -131,7 +129,7 @@ def test_the_command_writes_and_checks(
     assert "generated: out/x.specs" in capsys.readouterr().out
     args.check = True
     cli.cmd_generate_memory_map(args)
-    assert "generated files OK: 3" in capsys.readouterr().out
+    assert "generated files OK: 4" in capsys.readouterr().out
     (tmp_path / "out/map_pkg.vhd").write_text("old\n")
     with pytest.raises(SystemExit) as stop:
         cli.cmd_generate_memory_map(args)
@@ -146,8 +144,8 @@ def test_the_external_flags_appear_when_the_platform_fixes_them(
     fixed["generate"]["vhdl"] |= {"rom_external": True, "ram_external": False}
     files = render_all(_write(tmp_path, fixed), tmp_path)
     text = files[tmp_path / "out/map_pkg.vhd"]
-    assert "constant ROM_EXTERNAL       : boolean  := true;" in text
-    assert "constant RAM_EXTERNAL       : boolean  := false;" in text
+    assert "constant ROM_EXTERNAL        : boolean  := true;" in text
+    assert "constant RAM_EXTERNAL        : boolean  := false;" in text
 
 
 def test_a_region_above_the_peripheral_window_is_rejected(
@@ -171,3 +169,16 @@ def test_the_window_can_be_moved_by_the_platform(tmp_path: Path) -> None:
     files = render_all(_write(tmp_path, moved), tmp_path)
     text = files[tmp_path / "out/map_pkg.vhd"]
     assert "constant EXT_BASE_KIB        : natural  := 1048576;" in text
+
+
+def test_runtime_header_has_the_shared_addresses(tmp_path: Path) -> None:
+    """The header has the RAM end, tohost, fromhost and stdout."""
+    files = render_all(_write(tmp_path), tmp_path)
+    text = files[tmp_path / "out/memory_map.h"]
+    assert "#define RV32_RAM_END RV32_ADDRESS(0x00030000)" in text
+    assert "#define RV32_TOHOST_ADDR RV32_ADDRESS(0x0002FFE8)" in text
+    assert "#define RV32_FROMHOST_ADDR RV32_ADDRESS(0x0002FFF0)" in text
+    assert "#define RV32_STDOUT_BASE RV32_ADDRESS(0x0002FBE0)" in text
+    assert "#define RV32_BOOT_ENTRY RV32_ADDRESS(0x00000800)" in text
+    assert "#define RV32_UART_BASE RV32_ADDRESS(0xC0000000)" in text
+    assert "#ifdef __ASSEMBLER__" in text
