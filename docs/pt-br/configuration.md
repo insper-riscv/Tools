@@ -58,6 +58,8 @@ Não há divisão `tests_real_dir`/`tests_sim_dir`/`golden_dir`: todo teste em `
 | `stale_cache_dirs` | `[db, incremental_db, output_files, simulation]` | `quartus_program`: diretórios (relativos a `project_dir`) apagados antes de toda compilação, já que o `init_file` de uma ROM não é um fonte rastreado do projeto |
 | `rom_mem_instances` | `[0]` | `rom_writer`: índice(s) da instância do In-System Memory Content Editor da ROM (uma lista; um projeto com mais de uma cópia física da ROM, por exemplo uma por porta de leitura quando uma memória dual-port verdadeira não está disponível, lista todas, mantidas em sincronia a cada escrita) |
 | `ram_mem_instance` | `1` | `ram_zero`, `ram_dump`, `htif`: o mesmo, para a RAM |
+| `rom_mem_names` | ausente | `rom_writer`: nomes (`INSTANCE_NAME` do IP, por exemplo `[FLASH, FLASH_MEM]`) das instâncias da ROM; o host consulta a placa e converte cada nome no índice atual. Vale mais que `rom_mem_instances` quando as duas aparecem |
+| `ram_mem_name` | ausente | `ram_zero`, `ram_dump`, `htif`: o mesmo, para a RAM (por exemplo `RAM`); vale mais que `ram_mem_instance` |
 | `poll_interval_seconds` | `0.5` | `htif` / `orchestrator`: de quanto em quanto tempo consultar o `tohost` enquanto espera um teste |
 | `program_wait_seconds` | `15` | `orchestrator`: quanto esperar após uma reconfiguração completa (só no caminho de fallback) antes de ler o `tohost` |
 | `default_timeout_s` | `15` | `compiler` / `orchestrator`: timeout padrão por teste se o teste não tem o cabeçalho `RV32_TIMEOUT_S` |
@@ -178,7 +180,7 @@ quartus:
   rom_mif_target: init.mif
 ```
 
-Todo o resto (`isa.*`, `quartus.rom_mem_instances`/`ram_mem_instance`/`poll_interval_seconds`/`program_wait_seconds`/`default_timeout_s`, `emulator.*`) é opcional: sobrescreva só o que não combina com o seu setup.
+Todo o resto (`isa.*`, `quartus.rom_mem_names`/`ram_mem_name`/`rom_mem_instances`/`ram_mem_instance`/`poll_interval_seconds`/`program_wait_seconds`/`default_timeout_s`, `emulator.*`) é opcional: sobrescreva só o que não combina com o seu setup.
 
 A `sim:` nem aparece neste exemplo mínimo: os caminhos de hardware real e de geração de goldens nunca a tocam, então ela só é necessária quando você passa a usar o `sim_runner`/`riscv-tools sim`, e nesse momento `toplevel`/`vhdl_sources`/`test_module` passam a ser obrigatórias (veja a Referência de configuração acima).
 

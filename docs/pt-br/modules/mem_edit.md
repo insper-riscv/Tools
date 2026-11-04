@@ -11,10 +11,27 @@ Primitivas genéricas do In-System Memory Content Editor, compartilhadas por [`r
 | `write_word` | Sobrescreve uma única palavra num dado offset. |
 | `read_words` | Lê de volta um intervalo de palavras. |
 | `dump` | Salva o conteúdo inteiro de uma instância num `.mif`. |
+| `instances` | Lista as instâncias da placa programada (índice, profundidade, largura e nome), consultando a placa uma vez por cabo e guardando a lista. |
+| `invalidate` | Esquece as listas guardadas; roda sempre que a placa é programada de novo, porque os índices podem mudar. |
+| `rom_instances` | Devolve os índices da ROM: converte `quartus.rom_mem_names` ou, sem nomes, usa `quartus.rom_mem_instances`. |
+| `ram_instance` | Devolve o índice da RAM: converte `quartus.ram_mem_name` ou, sem nome, usa `quartus.ram_mem_instance`. |
+
+## Resolução por nome
+
+O índice de uma instância muda quando o design ganha ou perde uma memória com `ENABLE_RUNTIME_MOD`, e o `INSTANCE_NAME` do IP continua o mesmo; por isso o `config.yaml` nomeia as memórias e o host acha os índices na placa.
+
+| Situação | Resultado |
+| :--- | :--- |
+| Nome e índice no mesmo `config.yaml` | O nome vale mais. |
+| Só índices | Valem como antes, sem consultar a placa. |
+| Nome ausente na placa | Erro que lista os nomes e os índices encontrados. |
+| Nome da RAM que serve a mais de uma instância | Erro, porque a RAM não se distingue. |
+
+O editor guarda só os quatro primeiros caracteres de um `INSTANCE_NAME`: `FLASH` aparece como `FLAS`. Um nome listado com quatro caracteres vale para todo nome pedido que começa por ele, então `FLASH` e `FLASH_MEM` apontam para as instâncias listadas como `FLAS`, e a ROM escreve a mesma imagem em todas. Para a RAM, o nome precisa diferir dos outros já nos quatro primeiros caracteres.
 
 ## Configuração
 
-Nenhuma: recebe um `JtagLink` (veja [`jtag`](jtag.md)), um índice de instância e caminhos/endereços como argumentos diretos; não tem seção própria no `config.yaml`. Quem o chama decide qual índice de instância e profundidade se aplicam ao próprio caso de uso.
+Recebe um `JtagLink` (veja [`jtag`](jtag.md)), um índice de instância e caminhos/endereços como argumentos diretos; as chaves `quartus.rom_mem_names`, `quartus.ram_mem_name`, `quartus.rom_mem_instances` e `quartus.ram_mem_instance` são lidas por `rom_instances` e `ram_instance`. Quem o chama decide qual índice de instância e profundidade se aplicam ao próprio caso de uso.
 
 ## Pré-requisitos
 

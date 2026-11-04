@@ -6,6 +6,7 @@ Saves a RAM instance's entire content to a `.mif` over JTAG. Used for `RV32_TEST
 
 | Key | Meaning |
 | :--- | :--- |
+| `quartus.ram_mem_name` | Name (the IP's `INSTANCE_NAME`, e.g. `RAM`) of the RAM instance; it wins over `quartus.ram_mem_instance`. |
 | `quartus.ram_mem_instance` | Instance index Quartus' In-System Memory Content Editor assigns to the RAM debug tap. `1` is the common case. |
 
 ## Prerequisites

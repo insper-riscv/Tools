@@ -58,6 +58,8 @@ No `tests_real_dir`/`tests_sim_dir`/`golden_dir` split: every test under `c_dir`
 | `stale_cache_dirs` | `[db, incremental_db, output_files, simulation]` | `quartus_program`: directories (relative to `project_dir`) deleted before every compile, since a ROM `init_file` isn't a tracked project source |
 | `rom_mem_instances` | `[0]` | `rom_writer`: In-System Memory Content Editor instance index/indices of the ROM (a list; a project with more than one physical ROM copy, e.g. one per read port if a true dual-port memory isn't available, lists every one, all kept in sync on every write) |
 | `ram_mem_instance` | `1` | `ram_zero`, `ram_dump`, `htif`: same, for RAM |
+| `rom_mem_names` | unset | `rom_writer`: names (the IP's `INSTANCE_NAME`, e.g. `[FLASH, FLASH_MEM]`) of the ROM instances; the host asks the board and turns each name into its current index. It wins over `rom_mem_instances` when both are set |
+| `ram_mem_name` | unset | `ram_zero`, `ram_dump`, `htif`: same, for RAM (e.g. `RAM`); it wins over `ram_mem_instance` |
 | `poll_interval_seconds` | `0.5` | `htif` / `orchestrator`: how often to poll `tohost` while waiting on a test |
 | `program_wait_seconds` | `15` | `orchestrator`: how long to wait after a full reconfigure (fallback path only) before reading `tohost` |
 | `default_timeout_s` | `15` | `compiler` / `orchestrator`: default per-test timeout if a test has no `RV32_TIMEOUT_S` header |
@@ -178,7 +180,7 @@ quartus:
   rom_mif_target: init.mif
 ```
 
-Everything else (`isa.*`, `quartus.rom_mem_instances`/`ram_mem_instance`/`poll_interval_seconds`/`program_wait_seconds`/`default_timeout_s`, `emulator.*`) is optional: override only what doesn't match your setup.
+Everything else (`isa.*`, `quartus.rom_mem_names`/`ram_mem_name`/`rom_mem_instances`/`ram_mem_instance`/`poll_interval_seconds`/`program_wait_seconds`/`default_timeout_s`, `emulator.*`) is optional: override only what doesn't match your setup.
 
 `sim:` isn't in this minimal example at all: the real-hardware and golden-generation paths never touch it, so it's only needed once you actually use `sim_runner`/`riscv-tools sim`, at which point `toplevel`/`vhdl_sources`/`test_module` become required (see the Configuration reference above).
 

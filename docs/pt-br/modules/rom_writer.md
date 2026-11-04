@@ -8,6 +8,7 @@ Um projeto com mais de uma cópia física do mesmo conteúdo de ROM (veja o `rom
 
 | Chave | Significado |
 | :--- | :--- |
+| `quartus.rom_mem_names` | Nomes (`INSTANCE_NAME` do IP, por exemplo `[FLASH, FLASH_MEM]`) das instâncias da ROM; o host os converte nos índices da placa uma vez por sessão. Vale mais que `quartus.rom_mem_instances`. |
 | `quartus.rom_mem_instances` | Índice(s) de instância que o In-System Memory Content Editor do Quartus atribui ao(s) tap(s) de debug da ROM, na ordem de declaração no projeto. `[0]` é o caso comum (uma única ROM instanciada primeiro). |
 | `memory.rom_words` | Profundidade da ROM em palavras, específica do projeto. Usada para validar/formatar o `.mif` de um programa antes de escrevê-lo. |
 

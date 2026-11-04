@@ -7,7 +7,7 @@ Where a project's RAM lives, and how the host reaches it over JTAG. `htif`, `ram
 | an `int` | a memory instance inside the FPGA | [`mem_edit`](mem_edit.md), by the instance index |
 | `SdramDebugRam` | the SDRAM | [`sdram_debug`](sdram_debug.md) |
 
-`target_from_config(cfg)` picks one from `quartus.ram_backend` (`ismce`, the default, with `quartus.ram_mem_instance`, or `sdram_debug`).
+`target_from_config(cfg, link)` picks one from `quartus.ram_backend` (`ismce`, the default, with `quartus.ram_mem_name` or, without a name, `quartus.ram_mem_instance`, or `sdram_debug`).
 
 A RAM of 64 MB cannot be dumped whole over JTAG, and a golden only checks a few words. For the SDRAM, `ram_dump` saves a sparse `.mif` with just the words the golden names (`mem_validator.golden_word_offsets`), which `mem_validator` reads like any other dump. `riscv-tools dump-ram --start-word N --words M` does the same by hand.
 

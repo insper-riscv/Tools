@@ -6,6 +6,7 @@ Clears every word of a RAM instance over JTAG, without reprogramming the board. 
 
 | Key | Meaning |
 | :--- | :--- |
+| `quartus.ram_mem_name` | Name (the IP's `INSTANCE_NAME`, e.g. `RAM`) of the RAM instance; it wins over `quartus.ram_mem_instance`. |
 | `quartus.ram_mem_instance` | Instance index Quartus' In-System Memory Content Editor assigns to the RAM debug tap. `1` is the common case (RAM instantiated right after ROM). |
 | `memory.ram_words` | RAM depth in words, project-specific. |
 

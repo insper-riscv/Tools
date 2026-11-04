@@ -8,6 +8,7 @@ from riscv_tools import (
     bin_to_image,
     boot_rom,
     htif,
+    mem_edit,
     quartus_program,
     ram_dump,
     ram_target,
@@ -38,7 +39,7 @@ def cmd_write_rom(args: argparse.Namespace) -> None:
     cfg = load_config(args.config)
     link = jtag_link(cfg)
     rom_writer.write_rom(
-        link, cfg["quartus"]["rom_mem_instances"], Path(args.mif)
+        link, mem_edit.rom_instances(link, cfg), Path(args.mif)
     )
 
 
@@ -60,7 +61,9 @@ def cmd_zero_ram(args: argparse.Namespace) -> None:
     cfg = load_config(args.config)
     link = jtag_link(cfg)
     ram_zero.zero_ram(
-        link, ram_target.target_from_config(cfg), cfg["memory"]["ram_words"]
+        link,
+        ram_target.target_from_config(cfg, link),
+        cfg["memory"]["ram_words"],
     )
 
 
@@ -150,7 +153,7 @@ def cmd_dump_ram(args: argparse.Namespace) -> None:
     if args.words is not None:
         words = list(range(args.start_word, args.start_word + args.words))
     ram_dump.dump_ram(
-        link, ram_target.target_from_config(cfg), Path(args.out), words
+        link, ram_target.target_from_config(cfg, link), Path(args.out), words
     )
 
 

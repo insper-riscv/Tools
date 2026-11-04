@@ -113,7 +113,7 @@ def _check_ram(ctx: RunContext, entry: dict[str, Any]) -> bool:
         dump_path = ctx.build_dir / f"{name}_ram.mif"
         ram_dump.dump_ram(
             ctx.link,
-            ram_target.target_from_config(ctx.cfg),
+            ram_target.target_from_config(ctx.cfg, ctx.link),
             dump_path,
             mem_validator.golden_word_offsets(golden),
         )

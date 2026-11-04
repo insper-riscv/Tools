@@ -6,6 +6,7 @@ from typing import Any
 
 from riscv_tools import (
     htif,
+    mem_edit,
     quartus_program,
     rom_writer,
 )
@@ -48,7 +49,7 @@ def run_test_via_jtag(
     # one's.
     htif.clear_tohost_configured(link, cfg)
     rom_writer.write_rom(
-        link, cfg["quartus"]["rom_mem_instances"], root / entry["mif"]
+        link, mem_edit.rom_instances(link, cfg), root / entry["mif"]
     )
     htif.pulse_fromhost_configured(link, cfg)
 
