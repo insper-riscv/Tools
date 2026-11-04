@@ -133,6 +133,22 @@ class BuildSetup:
     link: LinkSetup = field(default_factory=LinkSetup)
 
 
+def abi_for(march: str) -> str:
+    """Pick the ABI that goes with a `-march` value.
+
+    Parameters
+    ----------
+    march : str
+        The `-march` value (see headers.canonical_march).
+
+    Returns
+    -------
+    str
+        `ilp32e` for the RV32E base (16 registers), `ilp32` otherwise.
+    """
+    return "ilp32e" if march.startswith("rv32e") else "ilp32"
+
+
 def optimize_flags(march: str) -> list[str]:
     """Return the gcc flags that pick the ISA, the ABI and -Os.
 
@@ -146,7 +162,7 @@ def optimize_flags(march: str) -> list[str]:
     list of str
         The flags shared by every compile of a test source.
     """
-    return [f"-march={march}", "-mabi=ilp32", "-Os"]
+    return [f"-march={march}", f"-mabi={abi_for(march)}", "-Os"]
 
 
 def run_gcc(toolchain_cfg: dict[str, Any], args: list[str]) -> None:

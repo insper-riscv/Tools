@@ -26,6 +26,7 @@ import yaml
 from riscv_tools.memory_map.expressions import evaluate
 
 PERIPHERAL_ID_SHIFT = 28
+NUM_REGS = {"i": 32, "e": 16}
 
 
 PERIPHERAL_WINDOW_BASE = 0x80000000
@@ -84,6 +85,34 @@ def load_platform(path: Path) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError(f"{path}: not a YAML mapping")
     return cast(dict[str, Any], data)
+
+
+def profile_base(platform: dict[str, Any]) -> str:
+    """Read the base ISA letter of the platform's profile.
+
+    The platform picks its profile in `profile:` (`rv32im`, `rv32em`,
+    ...): `rv32` followed by the base letter, `i` for RV32I (32
+    registers) or `e` for RV32E (16 registers).
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+
+    Returns
+    -------
+    str
+        `i` or `e`; `i` when the platform names no profile.
+
+    Raises
+    ------
+    ValueError
+        If the profile does not start with `rv32i` or `rv32e`.
+    """
+    profile = str(platform.get("profile", "rv32i")).lower()
+    if profile[:5] not in ("rv32i", "rv32e"):
+        raise ValueError(f"profile {profile!r} must start with rv32i or rv32e")
+    return profile[4]
 
 
 def platform_list(platform: dict[str, Any], key: str) -> list[dict[str, Any]]:

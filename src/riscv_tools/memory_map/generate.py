@@ -39,11 +39,13 @@ from pathlib import Path
 from typing import Any, cast
 
 from riscv_tools.memory_map.core import (
+    NUM_REGS,
     PERIPHERAL_WINDOW_BASE,
     Mismatch,
     load_platform,
     platform_dict,
     platform_list,
+    profile_base,
     symbols,
 )
 from riscv_tools.memory_map.expressions import evaluate
@@ -143,6 +145,8 @@ use ieee.std_logic_1164.all;
 
 package {package} is
 
+\t-- Registradores do perfil: 32 no RV32I e 16 no RV32E.
+\tconstant NUM_REGS            : positive := {num_regs};
 \t-- Expoente do tamanho da BOOT_ROM, que ocupa [0, 2**BOOT_ROM_BITS).
 \tconstant BOOT_ROM_BITS       : natural  := {boot_bits};
 \t-- Tamanho da BOOT_ROM, em bytes.
@@ -430,6 +434,7 @@ def render_vhdl(
     return _VHDL.format(
         source=source,
         package=spec["package"],
+        num_regs=NUM_REGS[profile_base(platform)],
         boot_bits=(table[f"{boot}.size"] - 1).bit_length(),
         boot_bytes=table[f"{boot}.size"],
         rom_base=_kib(table[f"{rom}.base"], f"{rom} base"),

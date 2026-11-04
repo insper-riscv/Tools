@@ -63,6 +63,7 @@ def test_vhdl_package_has_the_generics_in_kib(tmp_path: Path) -> None:
     """The VHDL package has the core generics and the peripherals."""
     files = render_all(_write(tmp_path), tmp_path)
     text = files[tmp_path / "out/map_pkg.vhd"]
+    assert "constant NUM_REGS            : positive := 32;" in text
     assert "constant BOOT_ROM_BITS       : natural  := 11;" in text
     assert "constant BOOT_ROM_SIZE_BYTES : positive := 2048;" in text
     assert "constant ROM_BASE_KIB        : natural  := 2;" in text
@@ -182,3 +183,12 @@ def test_runtime_header_has_the_shared_addresses(tmp_path: Path) -> None:
     assert "#define RV32_BOOT_ENTRY RV32_ADDRESS(0x00000800)" in text
     assert "#define RV32_UART_BASE RV32_ADDRESS(0xC0000000)" in text
     assert "#ifdef __ASSEMBLER__" in text
+
+
+def test_an_rv32e_profile_gives_sixteen_registers(tmp_path: Path) -> None:
+    """The package carries the register count of the profile."""
+    small = yaml.safe_load(yaml.safe_dump(PLATFORM))
+    small["profile"] = "rv32em"
+    files = render_all(_write(tmp_path, small), tmp_path)
+    text = files[tmp_path / "out/map_pkg.vhd"]
+    assert "constant NUM_REGS            : positive := 16;" in text

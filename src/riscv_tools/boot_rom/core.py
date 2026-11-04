@@ -5,6 +5,7 @@ once per invocation instead of once per test, and the caller reuses its
 image.
 """
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -16,12 +17,30 @@ from riscv_tools.compiler.build import (
 )
 
 
+@dataclass(frozen=True)
+class BootRomOptions:
+    """What varies between boot ROM builds.
+
+    Parameters
+    ----------
+    hex_format : str
+        "words" for one 32-bit word per line, "verilog" for the
+        `objcopy -O verilog` layout (see compiler.elf_to_verilog_hex).
+    base : str
+        The base ISA letter of the platform: `i` for RV32I (`ilp32`) or
+        `e` for RV32E (`ilp32e`).
+    """
+
+    hex_format: str = "words"
+    base: str = "i"
+
+
 def build_boot_rom(
     toolchain_cfg: dict[str, Any],
     paths_cfg: dict[str, Any],
     root: Path,
     build_dir: Path,
-    hex_format: str = "words",
+    options: BootRomOptions | None = None,
 ) -> Path:
     """Compile boot_rom.S/boot_rom.ld into a flat .bin, then a .hex.
 
@@ -39,15 +58,17 @@ def build_boot_rom(
     build_dir : Path
         Directory to write boot_rom.elf/.bin/.hex into (created if
         missing).
-    hex_format : str, optional
-        "words" for one 32-bit word per line, "verilog" for the
-        `objcopy -O verilog` layout (see compiler.elf_to_verilog_hex).
+    options : BootRomOptions, optional
+        The hex layout and the base ISA; the defaults are one word per
+        line and RV32I.
 
     Returns
     -------
     Path
         Path to the compiled boot_rom.hex.
     """
+    options = options or BootRomOptions()
+    base = options.base
     boot_rom_src = root / paths_cfg["boot_rom"]
     linker = root / paths_cfg["boot_rom_linker_script"]
 
@@ -59,8 +80,8 @@ def build_boot_rom(
     run_gcc(
         toolchain_cfg,
         [
-            "-march=rv32i",
-            "-mabi=ilp32",
+            f"-march=rv32{base}",
+            f"-mabi={'ilp32e' if base == 'e' else 'ilp32'}",
             "-O0",
             "-ffreestanding",
             "-nostdlib",
@@ -73,7 +94,7 @@ def build_boot_rom(
         ],
     )
     elf_to_bin(toolchain_cfg, elf, bin_)
-    if hex_format == "verilog":
+    if options.hex_format == "verilog":
         elf_to_verilog_hex(toolchain_cfg, elf, hex_)
     else:
         bin_to_hex(bin_, hex_)

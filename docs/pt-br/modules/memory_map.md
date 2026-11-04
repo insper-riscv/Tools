@@ -67,9 +67,13 @@ uv run riscv-tools --root <projeto> generate-memory-map --platform src/platform/
 
 Com `--check` nada é escrito, e o comando sai com status 1 se um arquivo faltar ou estiver diferente do que o mapa geraria. Não precisa de `--config`.
 
+## O perfil da plataforma
+
+A plataforma escolhe o seu perfil em `profile:` (`rv32im`, `rv32em`, ...), que começa por `rv32i` (32 registradores) ou `rv32e` (16). Dele saem a constante `NUM_REGS` do pacote VHDL, que os topos passam ao genérico `num_regs` do núcleo, e o `isa.base` do `config.yaml`, que escolhe o `-march` e o `-mabi` dos programas e da boot ROM (`rv32e` com `ilp32e`, os demais com `ilp32`). Um perfil que não comece por `rv32i` nem `rv32e` é rejeitado.
+
 ## Ler a configuração do mapa
 
-Um `config.yaml` do projeto declara `memory_map: <caminho do platform.yaml>`, e o carregador de configuração troca as chaves que o mapa fixa pelas dele: `memory.boot_rom_base`, `boot_rom_words`, `rom_base`, `rom_words`, `ram_base`, `ram_words`, `tohost_addr`, `fromhost_addr` `sim.env.TOHOST_ADDR` e `sim.env.STDOUT_ADDR` (o testbench lê o endereço do ambiente) e, para as memórias que a seção `config.addr_widths` do mapa lista, `sim.parameters.<memória>_addr_width`. O que o mapa fixa vale mais que o que o arquivo ou os seus `extends` dizem, então nenhum endereço nem tamanho é escrito duas vezes.
+Um `config.yaml` do projeto declara `memory_map: <caminho do platform.yaml>`, e o carregador de configuração troca as chaves que o mapa fixa pelas dele: `isa.base`, `memory.boot_rom_base`, `boot_rom_words`, `rom_base`, `rom_words`, `ram_base`, `ram_words`, `tohost_addr`, `fromhost_addr` `sim.env.TOHOST_ADDR` e `sim.env.STDOUT_ADDR` (o testbench lê o endereço do ambiente) e, para as memórias que a seção `config.addr_widths` do mapa lista, `sim.parameters.<memória>_addr_width`. O que o mapa fixa vale mais que o que o arquivo ou os seus `extends` dizem, então nenhum endereço nem tamanho é escrito duas vezes.
 
 ```yaml
 config:

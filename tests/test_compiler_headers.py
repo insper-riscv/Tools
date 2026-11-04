@@ -3,6 +3,7 @@
 import pytest
 
 from riscv_tools.compiler.__config__ import DEFAULTS
+from riscv_tools.compiler.build import abi_for, optimize_flags
 from riscv_tools.compiler.headers import canonical_march, parse_header
 
 ISA = DEFAULTS["isa"]
@@ -59,3 +60,11 @@ def test_parse_header_all_fields():
     assert march == "rv32im"
     assert kind == "memory"
     assert timeout_s == 30.0
+
+
+def test_abi_follows_the_base_isa():
+    """RV32E programs use the `ilp32e` ABI and the others `ilp32`."""
+    assert abi_for("rv32e") == "ilp32e"
+    assert abi_for("rv32em_zicsr") == "ilp32e"
+    assert abi_for("rv32im") == "ilp32"
+    assert optimize_flags("rv32e") == ["-march=rv32e", "-mabi=ilp32e", "-Os"]

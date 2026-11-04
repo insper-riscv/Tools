@@ -336,7 +336,9 @@ def cmd_sim(args: argparse.Namespace) -> None:
             cfg["paths"],
             root,
             boot_rom_dir,
-            hex_format=cfg["sim"]["hex_format"],
+            boot_rom.BootRomOptions(
+                hex_format=cfg["sim"]["hex_format"], base=cfg["isa"]["base"]
+            ),
         )
         if use_mif:
             boot_rom_mif_path = boot_rom_dir / "boot_rom.mif"

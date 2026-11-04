@@ -11,6 +11,9 @@ config:
   addr_widths: [boot_rom, rom, ram]
 ```
 
+The base ISA of the platform's `profile` (`i` or `e`) becomes
+`isa.base`, which picks `-march` and `-mabi` of the programs and of the
+boot ROM.
 The values come out as the `memory` keys the tools read
 (`boot_rom_base`, `boot_rom_words`, `rom_base`, `rom_words`, `ram_base`,
 `ram_words`, `tohost_addr` and `fromhost_addr`), as the `TOHOST_ADDR`
@@ -25,6 +28,7 @@ from riscv_tools.memory_map.core import (
     load_platform,
     platform_dict,
     platform_list,
+    profile_base,
     symbols,
 )
 
@@ -80,7 +84,10 @@ def config_from_platform(platform_file: Path) -> dict[str, Any]:
         "rom": memory["rom_words"],
         "ram": memory["ram_words"],
     }
-    config: dict[str, Any] = {"memory": memory}
+    config: dict[str, Any] = {
+        "memory": memory,
+        "isa": {"base": profile_base(platform)},
+    }
     sim: dict[str, Any] = {}
     env = {
         key: f"0x{table[symbol]:08X}"

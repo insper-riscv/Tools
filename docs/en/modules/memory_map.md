@@ -67,9 +67,13 @@ uv run riscv-tools --root <project> generate-memory-map --platform src/platform/
 
 With `--check` nothing is written, and the command exits with status 1 when a file is missing or differs from what the map would generate. It needs no `--config`.
 
+## The profile of the platform
+
+The platform picks its profile in `profile:` (`rv32im`, `rv32em`, ...), which starts with `rv32i` (32 registers) or `rv32e` (16). It gives the `NUM_REGS` constant of the VHDL package, which the tops pass to the `num_regs` generic of the core, and the `isa.base` of the `config.yaml`, which picks `-march` and `-mabi` of the programs and of the boot ROM (`rv32e` with `ilp32e`, the others with `ilp32`). A profile that starts with neither `rv32i` nor `rv32e` is rejected.
+
 ## Reading the configuration from the map
 
-A project `config.yaml` declares `memory_map: <path of the platform.yaml>`, and the configuration loader replaces the keys the map fixes with the map's own: `memory.boot_rom_base`, `boot_rom_words`, `rom_base`, `rom_words`, `ram_base`, `ram_words`, `tohost_addr`, `fromhost_addr` `sim.env.TOHOST_ADDR` and `sim.env.STDOUT_ADDR` (the testbench reads the address from the environment) and, for the memories the `config.addr_widths` section of the map lists, `sim.parameters.<memory>_addr_width`. What the map fixes wins over what the file or its `extends` say, so no address or size is written twice.
+A project `config.yaml` declares `memory_map: <path of the platform.yaml>`, and the configuration loader replaces the keys the map fixes with the map's own: `isa.base`, `memory.boot_rom_base`, `boot_rom_words`, `rom_base`, `rom_words`, `ram_base`, `ram_words`, `tohost_addr`, `fromhost_addr` `sim.env.TOHOST_ADDR` and `sim.env.STDOUT_ADDR` (the testbench reads the address from the environment) and, for the memories the `config.addr_widths` section of the map lists, `sim.parameters.<memory>_addr_width`. What the map fixes wins over what the file or its `extends` say, so no address or size is written twice.
 
 ```yaml
 config:

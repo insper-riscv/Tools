@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import pytest
 import yaml
 from support import MAP_REGIONS, MAP_RESERVED
 
@@ -38,6 +39,7 @@ def test_memory_and_widths_come_from_the_map(tmp_path: Path) -> None:
         "tohost_addr": 0x2FFE8,
         "fromhost_addr": 0x2FFF0,
     }
+    assert config["isa"] == {"base": "i"}
     assert config["sim"]["env"] == {
         "TOHOST_ADDR": "0x0002FFE8",
         "STDOUT_ADDR": "0x0002FBE0",
@@ -68,3 +70,14 @@ def test_the_map_wins_over_what_the_config_says(tmp_path: Path) -> None:
     assert merged["memory"]["ram_words"] == 40960
     assert merged["memory"]["other"] == 7
     assert "memory_map" not in merged
+
+
+def test_the_profile_picks_the_base_isa(tmp_path: Path) -> None:
+    """An RV32E profile gives the `e` base, a bad one is rejected."""
+    path = _platform(tmp_path)
+    platform = yaml.safe_load(path.read_text())
+    path.write_text(yaml.safe_dump({**platform, "profile": "rv32em"}))
+    assert config_from_platform(path)["isa"] == {"base": "e"}
+    path.write_text(yaml.safe_dump({**platform, "profile": "rv64g"}))
+    with pytest.raises(ValueError, match="must start with"):
+        config_from_platform(path)
