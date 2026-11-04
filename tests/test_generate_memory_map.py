@@ -1,6 +1,7 @@
 """Tests for the files generated from the memory map."""
 
 import argparse
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -9,7 +10,12 @@ import yaml
 from support import MAP_REGIONS, MAP_RESERVED
 
 from riscv_tools import cli
-from riscv_tools.memory_map import check_all, render_all, write_all
+from riscv_tools.memory_map import (
+    check_all,
+    render_all,
+    set_override,
+    write_all,
+)
 
 PLATFORM: dict[str, Any] = {
     "regions": MAP_REGIONS,
@@ -185,10 +191,63 @@ def test_runtime_header_has_the_shared_addresses(tmp_path: Path) -> None:
     assert "#ifdef __ASSEMBLER__" in text
 
 
-def test_an_rv32e_profile_gives_sixteen_registers(tmp_path: Path) -> None:
-    """The package carries the register count of the profile."""
+def _matrix(root: Path) -> None:
+    """Write a profile spec with both bases and the M extension."""
+    spec = {
+        "bases": [
+            {"name": "rv32i", "generics": {"num_regs": 32}},
+            {"name": "rv32e", "generics": {"num_regs": 16}},
+        ],
+        "extensions": [{"name": "M", "generic": "has_m", "base_letter": "m"}],
+    }
+    (root / "matrix.yaml").write_text(yaml.safe_dump(spec))
+
+
+def test_the_profile_gives_the_registers_and_the_switches(
+    tmp_path: Path,
+) -> None:
+    """The package has `NUM_REGS` and one `HAS_*` per extension."""
+    _matrix(tmp_path)
     small = yaml.safe_load(yaml.safe_dump(PLATFORM))
-    small["profile"] = "rv32em"
+    small |= {"profile": "rv32em", "profiles": "matrix.yaml"}
+    set_override(None)
     files = render_all(_write(tmp_path, small), tmp_path)
     text = files[tmp_path / "out/map_pkg.vhd"]
+    assert "constant NUM_REGS            : positive := 16;" in text
+    assert "constant HAS_M               : boolean  := true;" in text
+    set_override("rv32i")
+    files = render_all(_write(tmp_path, small), tmp_path)
+    set_override(None)
+    text = files[tmp_path / "out/map_pkg.vhd"]
+    assert "constant NUM_REGS            : positive := 32;" in text
+    assert "constant HAS_M               : boolean  := false;" in text
+
+
+def test_the_profile_flag_reaches_the_generated_package(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`--profile` on the command line picks the profile of the run."""
+    _matrix(tmp_path)
+    small = yaml.safe_load(yaml.safe_dump(PLATFORM))
+    small |= {"profile": "rv32i", "profiles": "matrix.yaml"}
+    _write(tmp_path, small)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "riscv-tools",
+            "--root",
+            str(tmp_path),
+            "--profile",
+            "rv32e",
+            "generate-memory-map",
+            "--platform",
+            "platform.yaml",
+        ],
+    )
+    try:
+        cli.main()
+    finally:
+        set_override(None)
+    text = (tmp_path / "out/map_pkg.vhd").read_text()
     assert "constant NUM_REGS            : positive := 16;" in text

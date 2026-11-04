@@ -69,11 +69,22 @@ Com `--check` nada é escrito, e o comando sai com status 1 se um arquivo faltar
 
 ## O perfil da plataforma
 
-A plataforma escolhe o seu perfil em `profile:` (`rv32im`, `rv32em`, ...), que começa por `rv32i` (32 registradores) ou `rv32e` (16). Dele saem a constante `NUM_REGS` do pacote VHDL, que os topos passam ao genérico `num_regs` do núcleo, e o `isa.base` do `config.yaml`, que escolhe o `-march` e o `-mabi` dos programas e da boot ROM (`rv32e` com `ilp32e`, os demais com `ilp32`). Um perfil que não comece por `rv32i` nem `rv32e` é rejeitado.
+A plataforma escolhe o seu perfil em `profile:` (`rv32im`, `rv32em_zicsr`, ...) e diz onde está a especificação dos perfis em `profiles:`, um caminho relativo ao `platform.yaml` (o `profiles/matrix.yaml` do Core). O nome começa por `rv32i` (32 registradores) ou `rv32e` (16) e precisa ser um dos perfis da especificação. Dele saem:
+
+| Saída | Conteúdo |
+| :--- | :--- |
+| Pacote VHDL | `NUM_REGS` e um `HAS_<EXTENSÃO>` booleano por extensão do núcleo (`HAS_M`, `HAS_ZMMUL`, `HAS_ZICSR`, `HAS_ZICNTR`, `HAS_ZIHPM`, `HAS_ZIFENCEI`, `HAS_ZICCLSM`) |
+| `config.yaml` | `isa.base`, que escolhe o `-march` e o `-mabi` dos programas e da boot ROM (`rv32e` com `ilp32e`, os demais com `ilp32`), e os `sim.parameters` `NUM_REGS` e `HAS_*` que o runner passa ao GHDL |
+
+`--profile NOME`, opção global do `riscv-tools`, troca o `profile:` da plataforma sem editá-la, para rodar a mesma plataforma sobre vários perfis numa matriz de testes. Vale para o `generate-memory-map` (escreve o pacote daquele perfil), para o `platform sync` e para todo comando que lê a configuração. Um nome que a especificação não lista é rejeitado antes de qualquer coisa rodar.
+
+```bash
+uv run riscv-tools --root <projeto> --profile rv32em_zicsr generate-memory-map --platform src/platform/platform.yaml
+```
 
 ## Ler a configuração do mapa
 
-Um `config.yaml` do projeto declara `memory_map: <caminho do platform.yaml>`, e o carregador de configuração troca as chaves que o mapa fixa pelas dele: `isa.base`, `memory.boot_rom_base`, `boot_rom_words`, `rom_base`, `rom_words`, `ram_base`, `ram_words`, `tohost_addr`, `fromhost_addr` `sim.env.TOHOST_ADDR` e `sim.env.STDOUT_ADDR` (o testbench lê o endereço do ambiente) e, para as memórias que a seção `config.addr_widths` do mapa lista, `sim.parameters.<memória>_addr_width`. O que o mapa fixa vale mais que o que o arquivo ou os seus `extends` dizem, então nenhum endereço nem tamanho é escrito duas vezes.
+Um `config.yaml` do projeto declara `memory_map: <caminho do platform.yaml>`, e o carregador de configuração troca as chaves que o mapa fixa pelas dele: `isa.base`, `memory.boot_rom_base`, `boot_rom_words`, `rom_base`, `rom_words`, `ram_base`, `ram_words`, `tohost_addr`, `fromhost_addr` `sim.env.TOHOST_ADDR`, `sim.env.STDOUT_ADDR` (o testbench lê o endereço do ambiente) e, para as memórias que a seção `config.addr_widths` do mapa lista, `sim.parameters.<memória>_addr_width`. O que o mapa fixa vale mais que o que o arquivo ou os seus `extends` dizem, então nenhum endereço nem tamanho é escrito duas vezes.
 
 ```yaml
 config:
