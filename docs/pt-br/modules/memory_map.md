@@ -42,7 +42,7 @@ O mesmo YAML pode dizer, na seção `generate`, quais arquivos saem dele, de mod
 | `specs` | Arquivo de specs do GCC | As flags do linker: `__flash`, `__flash_size`, `__ram`, `__ram_size` e `rv32_wait_restart`. A RAM do linker termina onde começa a palavra reservada `ram_limit` |
 | `boot_ld` | Linker script da boot ROM | A memória `boot_rom` na primeira região e o `RESET_RESERVED` de `boot.wait_restart` |
 | `runtime` | Cabeçalho do runtime (`.h`, também incluído por `.S`) | `RV32_RAM_END` (fim da RAM `ram`), `RV32_TOHOST_ADDR`, `RV32_FROMHOST_ADDR` e `RV32_STDOUT_BASE`, das faixas `reserved` que o mapa tem, `RV32_BOOT_ENTRY` (para onde a boot ROM salta) e `RV32_<NOME>_BASE` de cada periférico; o runtime em C e em assembly (`_exit.c`, `stdio.c`, `boot_rom.S`, `spike_exit.S`) usa esses nomes no lugar de endereços escritos à mão |
-| `vhdl` | Pacote VHDL | As constantes `BOOT_ROM_BITS`, `BOOT_ROM_SIZE_BYTES`, `ROM_BASE_KIB`, `ROM_END_KIB`, `ROM_STORAGE_BYTES`, `RAM_BASE_KIB`, `RAM_END_KIB`, `RAM_STORAGE_BYTES`, `RAM_LAST_PAGE`, `EXT_BASE_KIB` e `PERIPH_BASE_KIB`, as flags `ROM_EXTERNAL` e `RAM_EXTERNAL` e, de cada periférico, `<NOME>_BASE` e `<NOME>_ID` |
+| `vhdl` | Pacote VHDL | As constantes `BOOT_ROM_BITS`, `BOOT_ROM_SIZE_BYTES`, `ROM_BASE_KIB`, `ROM_END_KIB`, `ROM_STORAGE_BYTES`, `RAM_BASE_KIB`, `RAM_END_KIB`, `RAM_STORAGE_BYTES`, `RAM_LAST_PAGE`, `EXT_BASE_KIB` e `PERIPH_BASE_KIB`, as flags `ROM_EXTERNAL` e `RAM_EXTERNAL` (de `generate.vhdl` ou da seção `memory`), as constantes das caches da seção `memory` e, de cada periférico, `<NOME>_BASE` e `<NOME>_ID` |
 
 ```yaml
 generate:
@@ -82,6 +82,77 @@ A plataforma escolhe o seu perfil em `profile:` (`rv32im`, `rv32em_zicsr`, ...) 
 uv run riscv-tools --root <projeto> --profile rv32em_zicsr generate-memory-map --platform src/platform/platform.yaml
 ```
 
+## As memórias e as caches da plataforma
+
+A seção `memory` do `platform.yaml` escolhe, por plataforma, quatro coisas independentes, e delas saem as 16 combinações. Nenhum campo tem valor padrão, então esquecer um deles é um erro e a plataforma nunca monta uma combinação diferente da que o autor escreveu. Uma plataforma sem a seção continua gerando o pacote de antes.
+
+```yaml
+memory:
+  rom:    {external: true}
+  ram:    {external: true}
+  icache: {enabled: true, size_bits: 4096}
+  dcache: {enabled: true, size_bits: 4096}
+```
+
+| Campo | Tipo | Significado |
+| :--- | :--- | :--- |
+| `rom.external` | booleano | A FLASH fica fora do chip |
+| `ram.external` | booleano | A RAM fica fora do chip |
+| `icache.enabled` | booleano | Existe cache de instruções |
+| `icache.size_bits` | potência de dois, no mínimo 256 | Tamanho da cache de instruções em bits; obrigatório só com `enabled: true` |
+| `dcache.enabled` | booleano | Existe cache de dados |
+| `dcache.size_bits` | potência de dois, no mínimo 256 | Tamanho da cache de dados em bits; obrigatório só com `enabled: true` |
+
+Os campos `rom_external` e `ram_external` de `generate.vhdl` saem da seção `memory`, e os dois juntos com ela são um erro.
+
+### Constantes geradas
+
+O pacote VHDL ganha as constantes abaixo. `ROM_VIA_PORT` e `RAM_VIA_PORT` são os valores dos genéricos `rom_external` e `ram_external` do núcleo, porque uma cache só existe do lado do protocolo da porta do núcleo.
+
+| Constante | Tipo | Valor |
+| :--- | :--- | :--- |
+| `ROM_EXTERNAL` | boolean | `memory.rom.external` |
+| `RAM_EXTERNAL` | boolean | `memory.ram.external` |
+| `HAS_ICACHE` | boolean | `memory.icache.enabled` |
+| `HAS_DCACHE` | boolean | `memory.dcache.enabled` |
+| `ICACHE_SIZE_BITS` | positive | `memory.icache.size_bits`, ou 256 sem a cache |
+| `DCACHE_SIZE_BITS` | positive | `memory.dcache.size_bits`, ou 256 sem a cache |
+| `ROM_VIA_PORT` | boolean | `ROM_EXTERNAL or HAS_ICACHE` |
+| `RAM_VIA_PORT` | boolean | `RAM_EXTERNAL or HAS_DCACHE` |
+
+No `config.yaml` os mesmos valores chegam como `sim.parameters` com os mesmos nomes (`ROM_EXTERNAL`, `RAM_EXTERNAL`, `HAS_ICACHE`, `HAS_DCACHE`, `ICACHE_SIZE_BITS` e `DCACHE_SIZE_BITS`), e o topo de simulação precisa declarar os genéricos correspondentes. Sem `config.addr_widths` na plataforma, as larguras de endereço vêm da escolha, e saem a `boot_rom` e cada memória interna, já que uma memória externa é um chip dimensionado pelo próprio topo. Com `config.addr_widths` listado, a lista vale.
+
+### Validação
+
+| Regra | Condição | Resultado |
+| :--- | :--- | :--- |
+| V1 | Os quatro booleanos existem e não há chave desconhecida | Erro |
+| V2 | `size_bits` é potência de dois e vale pelo menos 256 | Erro |
+| V3 | Com alguma cache, a ROM e a RAM cabem cada uma numa janela de 64 MiB alinhada | Erro |
+| V4 | Com a ROM pela porta do núcleo, o tamanho dela cabe na janela de 1024 KiB do roteador | Erro |
+| V5 | Região `exec` na RAM exige RAM externa e ROM pela porta (ROM externa ou cache de instruções) | Erro |
+| V7 | Região `exec` na RAM atrás da cache de instruções exige Zifencei no perfil | Erro |
+| V8 | Cache de instruções sobre ROM interna ou cache de dados sobre RAM interna | Aviso |
+| V9 | Plataforma com periféricos | Nota |
+| V10 | Com alguma cache, `reserved.fromhost` existe e está na última página de 4 KiB da RAM, a que a cache ignora | Erro |
+
+ROM externa sem cache de instruções é válida. O aviso e a nota saem em `NOTE` no erro padrão do `generate-memory-map`, e os erros impedem a geração.
+
+### A opção `--memory`
+
+`--memory`, opção global do `riscv-tools`, troca campos da seção `memory` sem editar a plataforma, para rodar a mesma plataforma sobre as 16 combinações. O valor é uma lista de pares `chave=valor` separados por vírgula.
+
+| Chave | Valores |
+| :--- | :--- |
+| `rom`, `ram` | `int` ou `ext` |
+| `icache`, `dcache` | `on`, `off` ou um tamanho em bits, que liga a cache |
+
+Uma chave que não aparece mantém a escolha da plataforma, e uma plataforma sem a seção `memory` exige as quatro chaves. O `on` sem tamanho usa o `size_bits` da plataforma, ou 4096 se ela não tem. Um valor mal formado é rejeitado antes de qualquer coisa rodar.
+
+```bash
+uv run riscv-tools --root <projeto> --memory rom=ext,ram=int,icache=on,dcache=off generate-memory-map --platform src/platform/platform.yaml
+```
+
 ## Ler a configuração do mapa
 
 Um `config.yaml` do projeto declara `memory_map: <caminho do platform.yaml>`, e o carregador de configuração troca as chaves que o mapa fixa pelas dele: `isa.base`, `memory.boot_rom_base`, `boot_rom_words`, `rom_base`, `rom_words`, `ram_base`, `ram_words`, `tohost_addr`, `fromhost_addr` `sim.env.TOHOST_ADDR`, `sim.env.STDOUT_ADDR` (o testbench lê o endereço do ambiente) e, para as memórias que a seção `config.addr_widths` do mapa lista, `sim.parameters.<memória>_addr_width`. O que o mapa fixa vale mais que o que o arquivo ou os seus `extends` dizem, então nenhum endereço nem tamanho é escrito duas vezes.
@@ -114,6 +185,7 @@ O `platform sync` grava os valores já trocados, de modo que Tests e Certificati
 | `tests/test_memory_map.py::test_load_platform_rejects_a_non_mapping` | Um arquivo que não é mapeamento é rejeitado. |
 | `tests/test_memory_map.py::test_cmd_check_memory_map_exit_status` | O comando imprime OK, ou sai com 1 listando as divergências. |
 | `tests/test_generate_memory_map.py` | Specs, linker script e pacote VHDL saem do mapa; `--check` pega arquivo ausente ou editado; endereço fora de KiB, região acima da janela dos periféricos e mapa inconsistente são rejeitados; o comando escreve e confere. |
+| `tests/test_memory_choice.py` | A seção `memory` e a opção `--memory` geram as 16 combinações como 16 pacotes diferentes, as constantes e os parâmetros da simulação saem da escolha, e as regras V1 a V5, V7 e V10 falham com mensagem clara. |
 | `tests/test_config_from_platform.py` | As chaves de `memory`, o ambiente do `tohost` e do `stdout` e as larguras de endereço saem do mapa, e o mapa vale mais que o arquivo e os seus `extends`. |
 
 ## Uso

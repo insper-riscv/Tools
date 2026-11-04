@@ -216,6 +216,10 @@ def cmd_generate_memory_map(args: argparse.Namespace) -> None:
     if not platform.is_absolute():
         platform = root / platform
     try:
+        for note in memory_map.memory_notes(
+            memory_map.load_platform(platform)
+        ):
+            print(f"NOTE {note}", file=sys.stderr)
         if args.check:
             count, problems = memory_map.check_all(platform, root)
             if problems:

@@ -6,6 +6,7 @@ from riscv_tools.cli.parser_board import add_board_commands
 from riscv_tools.cli.parser_build import add_build_commands
 from riscv_tools.cli.parser_run import add_run_commands
 from riscv_tools.cli.parser_tools import add_tool_commands
+from riscv_tools.memory_map.memory import set_override as set_memory_override
 from riscv_tools.memory_map.profile import set_override as set_profile_override
 
 _COMMANDS_WITHOUT_CONFIG = frozenset(
@@ -69,6 +70,14 @@ def main() -> None:
         "of the `profile:` of its platform.yaml; it sets the base ISA, "
         "the generics of the simulation and the generated VHDL package",
     )
+    parser.add_argument(
+        "--memory",
+        default=None,
+        help="Memories and caches of the platform, in place of fields of "
+        "its `memory:` section: a comma list such as "
+        "rom=ext,ram=int,icache=on,dcache=4096 (rom and ram take int or "
+        "ext; icache and dcache take on, off or a size in bits)",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
     add_build_commands(sub)
     add_board_commands(sub)
@@ -77,6 +86,10 @@ def main() -> None:
 
     args = parser.parse_args()
     set_profile_override(args.profile)
+    try:
+        set_memory_override(args.memory)
+    except ValueError as error:
+        parser.error(str(error))
     if args.command not in _COMMANDS_WITHOUT_CONFIG and args.config is None:
         parser.error("--config is required for this subcommand")
     args.func(args)

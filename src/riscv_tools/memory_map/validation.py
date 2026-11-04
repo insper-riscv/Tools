@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from riscv_tools.memory_map import memory
 from riscv_tools.memory_map.core import (
     PERIPHERAL_ID_SHIFT,
     PERIPHERAL_WINDOW_BASE,
@@ -111,7 +112,10 @@ def _boot_problems(
     return problems
 
 
-def validate_platform(platform: dict[str, Any]) -> list[Mismatch]:
+def validate_platform(
+    platform: dict[str, Any],
+    generics: dict[str, bool | int] | None = None,
+) -> list[Mismatch]:
     """Check the map's own consistency, before any copy is read.
 
     Regions must not overlap; reserved words must sit inside a RAM
@@ -121,12 +125,16 @@ def validate_platform(platform: dict[str, Any]) -> list[Mismatch]:
     peripherals; the boot entry must be inside an
     executable region and `wait_restart` inside the first one; a
     peripheral's base must be `0x80000000 | id << 28` (the L2IP window
-    convention).
+    convention; and the `memory` choice, when there is one, must be
+    well formed and fit the map (see `memory.problems`).
 
     Parameters
     ----------
     platform : dict of {str: Any}
         The loaded platform.
+    generics : dict of {str: bool or int}, optional
+        The generics of the profile, to check Zifencei under an
+        instruction cache; without them that check is skipped.
 
     Returns
     -------
@@ -168,6 +176,7 @@ def validate_platform(platform: dict[str, Any]) -> list[Mismatch]:
         if base + size > PERIPHERAL_WINDOW_BASE
     ]
     problems += _boot_problems(platform_dict(platform, "boot"), spans, execs)
+    problems += memory.problems(platform, generics)
     return problems + _peripheral_problems(
         platform_list(platform, "peripherals")
     )

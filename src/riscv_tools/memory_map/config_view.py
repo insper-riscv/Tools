@@ -19,11 +19,15 @@ The values come out as the `memory` keys the tools read
 `ram_words`, `tohost_addr` and `fromhost_addr`), as the `TOHOST_ADDR`
 and `STDOUT_ADDR` environment of the simulation and as the
 `sim.parameters.*_addr_width`, so no address or size is typed twice.
+With a `memory` section (see `memory`) the parameters also carry the
+choice of memories and caches, and `addr_widths` may be left out: it
+then lists the boot ROM and each internal memory.
 """
 
 from pathlib import Path
 from typing import Any
 
+from riscv_tools.memory_map import memory as memory_choice
 from riscv_tools.memory_map.core import (
     load_platform,
     platform_dict,
@@ -110,12 +114,13 @@ def _parameters(
     }
     parameters: dict[str, str | bool] = {
         f"{name}_addr_width": _width(words[name])
-        for name in platform_dict(platform, "config").get("addr_widths", [])
+        for name in memory_choice.addr_width_names(platform)
     }
     parameters["NUM_REGS"] = str(generics["num_regs"])
     for key in SWITCHES:
         if key in generics:
             parameters[key.upper()] = bool(generics[key])
+    parameters |= memory_choice.parameters(platform)
     return parameters
 
 

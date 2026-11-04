@@ -38,6 +38,7 @@ change of the map without a new generation fails.
 from pathlib import Path
 from typing import Any, cast
 
+from riscv_tools.memory_map import memory as memory_choice
 from riscv_tools.memory_map.core import (
     PERIPHERAL_WINDOW_BASE,
     Mismatch,
@@ -170,7 +171,7 @@ package {package} is
 \tconstant EXT_BASE_KIB        : natural  := {ext_base};
 \t-- Base da janela de periféricos, em KiB: os 2 GiB superiores do espaço.
 \tconstant PERIPH_BASE_KIB     : natural  := {periph_base};
-{peripherals}
+{memory}{peripherals}
 end package {package};
 """
 
@@ -371,30 +372,56 @@ def _peripheral_lines(platform: dict[str, Any]) -> str:
     return lines
 
 
-def _external_line(kind: str, spec: dict[str, Any]) -> str:
+def _external_line(kind: str, value: bool | None) -> str:
     """Write the constant that says a memory is outside the core.
 
     Parameters
     ----------
     kind : str
         `ROM` or `RAM`.
-    spec : dict of {str: Any}
-        The `generate.vhdl` section.
+    value : bool or None
+        Whether the memory is external; None when the platform leaves
+        the choice to each model.
 
     Returns
     -------
     str
-        The commented constant, or an empty string when the platform
-        leaves the choice to each model (no `rom_external` or
-        `ram_external` key).
+        The commented constant, or an empty string for None.
     """
-    key = f"{kind.lower()}_external"
-    if key not in spec:
+    if value is None:
         return ""
-    value = str(bool(spec[key])).lower()
     return (
         f"\t-- A {kind} fica fora do núcleo.\n"
-        f"\tconstant {kind}_EXTERNAL        : boolean  := {value};\n"
+        f"\tconstant {kind}_EXTERNAL        : boolean  := "
+        f"{str(value).lower()};\n"
+    )
+
+
+def _externals(
+    spec: dict[str, Any], memory: memory_choice.Memory | None
+) -> tuple[bool | None, bool | None]:
+    """Find whether the ROM and the RAM are external.
+
+    Parameters
+    ----------
+    spec : dict of {str: Any}
+        The `generate.vhdl` section, which may fix `rom_external` and
+        `ram_external` when the platform has no `memory`.
+    memory : Memory or None
+        The memory choice, which takes over when there is one.
+
+    Returns
+    -------
+    tuple of (bool or None, bool or None)
+        The ROM and the RAM; None where nothing fixes the choice.
+    """
+    if memory is not None:
+        return memory.rom_external, memory.ram_external
+    rom = spec.get("rom_external")
+    ram = spec.get("ram_external")
+    return (
+        None if rom is None else bool(rom),
+        None if ram is None else bool(ram),
     )
 
 
@@ -447,7 +474,8 @@ def render_vhdl(
         The `generate.vhdl` section: `package`, the `rom` and `ram`
         regions, the optional `ext_base` and `periph_base` (both default
         to the peripheral window, `0x80000000`) and, when the platform
-        fixes them, `rom_external` and `ram_external`.
+        fixes them and has no `memory`, `rom_external` and
+        `ram_external`.
     table : dict of {str: int}
         The symbols of the map.
     source : str
@@ -463,6 +491,8 @@ def render_vhdl(
     boot = platform_list(platform, "regions")[0]["name"]
     rom, ram = spec["rom"], spec["ram"]
     window = evaluate(spec.get("periph_base", PERIPHERAL_WINDOW_BASE))
+    choice = memory_choice.resolve(platform)
+    rom_external, ram_external = _externals(spec, choice)
     return _VHDL.format(
         source=source,
         package=spec["package"],
@@ -472,14 +502,15 @@ def render_vhdl(
         rom_base=_kib(table[f"{rom}.base"], f"{rom} base"),
         rom_end=_kib(table[f"{rom}.end"], f"{rom} end"),
         rom_storage=_power_of_two(table[f"{rom}.end"]),
-        rom_external=_external_line("ROM", spec),
+        rom_external=_external_line("ROM", rom_external),
         ram_base=_kib(table[f"{ram}.base"], f"{ram} base"),
         ram_end=_kib(table[f"{ram}.end"], f"{ram} end"),
         ram_storage=_power_of_two(table[f"{ram}.size"]),
         last_page=f"{(table[f'{ram}.end'] - PAGE) >> 12:05X}",
-        ram_external=_external_line("RAM", spec),
+        ram_external=_external_line("RAM", ram_external),
         ext_base=_kib(evaluate(spec.get("ext_base", window)), "ext_base"),
         periph_base=_kib(window, "periph_base"),
+        memory="" if choice is None else memory_choice.vhdl_lines(choice),
         peripherals=_peripheral_lines(platform),
     )
 
@@ -505,7 +536,10 @@ def render_all(platform_file: Path, root: Path) -> dict[Path, str]:
         If the map is inconsistent or an address is not a whole KiB.
     """
     platform = load_platform(platform_file)
-    problems = validate_platform(platform)
+    generics = None
+    if memory_choice.declared(platform):
+        _, generics = resolve(platform, platform_file)
+    problems = validate_platform(platform, generics)
     if problems:
         raise ValueError("; ".join(str(p) for p in problems))
     table = symbols(platform)
