@@ -73,8 +73,8 @@ A plataforma escolhe o seu perfil em `profile:` (`rv32im`, `rv32em_zicsr`, ...) 
 
 | Saída | Conteúdo |
 | :--- | :--- |
-| Pacote VHDL | `NUM_REGS` e um `HAS_<EXTENSÃO>` booleano por extensão do núcleo (`HAS_M`, `HAS_ZMMUL`, `HAS_ZICSR`, `HAS_ZICNTR`, `HAS_ZIHPM`, `HAS_ZIFENCEI`, `HAS_ZICCLSM`) |
-| `config.yaml` | `isa.base`, que escolhe o `-march` e o `-mabi` dos programas e da boot ROM (`rv32e` com `ilp32e`, os demais com `ilp32`), e os `sim.parameters` `NUM_REGS` e `HAS_*` que o runner passa ao GHDL |
+| Pacote VHDL | `HAS_E` (verdadeiro no RV32E) e um `HAS_<EXTENSÃO>` booleano por extensão do núcleo (`HAS_M`, `HAS_ZMMUL`, `HAS_ZICSR`, `HAS_ZICNTR`, `HAS_ZIHPM`, `HAS_ZIFENCEI`, `HAS_ZICCLSM`) |
+| `config.yaml` | `isa.base`, que escolhe o `-march` e o `-mabi` dos programas e da boot ROM (`rv32e` com `ilp32e`, os demais com `ilp32`), e os `sim.parameters` `HAS_E` e `HAS_*` que o runner passa ao GHDL |
 
 `--profile NOME`, opção global do `riscv-tools`, troca o `profile:` da plataforma sem editá-la, para rodar a mesma plataforma sobre vários perfis numa matriz de testes. Vale para o `generate-memory-map` (escreve o pacote daquele perfil), para o `platform sync` e para todo comando que lê a configuração. Um nome que a especificação não lista é rejeitado antes de qualquer coisa rodar.
 

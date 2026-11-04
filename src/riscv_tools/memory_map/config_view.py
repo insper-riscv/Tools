@@ -85,6 +85,7 @@ def _memory(platform: dict[str, Any], table: dict[str, int]) -> dict[str, int]:
 def _parameters(
     platform: dict[str, Any],
     memory: dict[str, int],
+    base: str,
     generics: dict[str, bool | int],
 ) -> dict[str, str | bool]:
     """Read the generics of the simulation top off the map and profile.
@@ -95,13 +96,15 @@ def _parameters(
         The loaded platform: `config.addr_widths` lists the memories.
     memory : dict of {str: int}
         The `memory` keys (see `_memory`).
+    base : str
+        The base letter of the profile, `i` or `e`.
     generics : dict of {str: bool or int}
         The generics of the profile.
 
     Returns
     -------
     dict of {str: str or bool}
-        The address widths, `NUM_REGS` and one `HAS_*` per extension.
+        The address widths, `HAS_E` and one `HAS_*` per extension.
     """
     words = {
         "boot_rom": memory["boot_rom_words"],
@@ -112,7 +115,7 @@ def _parameters(
         f"{name}_addr_width": _width(words[name])
         for name in platform_dict(platform, "config").get("addr_widths", [])
     }
-    parameters["NUM_REGS"] = str(generics["num_regs"])
+    parameters["HAS_E"] = base == "e"
     for key in SWITCHES:
         if key in generics:
             parameters[key.upper()] = bool(generics[key])
@@ -146,7 +149,7 @@ def config_from_platform(platform_file: Path) -> dict[str, Any]:
         if symbol in table
     }
     sim: dict[str, Any] = {
-        "parameters": _parameters(platform, memory, generics)
+        "parameters": _parameters(platform, memory, base, generics)
     }
     if env:
         sim["env"] = env

@@ -411,14 +411,15 @@ def _profile_lines(platform: dict[str, Any], platform_file: Path) -> str:
     Returns
     -------
     str
-        `NUM_REGS` and, when the platform names the profile
-        specification, one `HAS_*` switch per extension of the core.
+        `HAS_E` (true for the RV32E) and, when the platform names the
+        profile specification, one `HAS_*` switch per extension of the
+        core.
     """
-    _, generics = resolve(platform, platform_file)
+    base, generics = resolve(platform, platform_file)
     lines = (
-        "\t-- Registradores do perfil: 32 no RV32I e 16 no RV32E.\n"
-        f"\tconstant NUM_REGS            : positive := "
-        f"{generics['num_regs']};\n"
+        "\t-- O perfil é o RV32E (16 registradores); falso é o RV32I (32).\n"
+        f"\tconstant HAS_E               : boolean  := "
+        f"{str(base == 'e').lower()};\n"
     )
     for key in SWITCHES:
         if key in generics:
