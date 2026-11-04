@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from support import check, check_equal, check_false
 
 from riscv_tools import (
     htif,
@@ -51,30 +52,32 @@ def fake(monkeypatch: pytest.MonkeyPatch) -> FakeTcl:
 
 def test_target_from_config() -> None:
     """Target from config."""
-    assert (
-        ram_target.target_from_config({"quartus": {"ram_mem_instance": 2}})
-        == 2
+    check_equal(
+        ram_target.target_from_config({"quartus": {"ram_mem_instance": 2}}), 2
     )
     cfg = {"quartus": {"ram_backend": "ismce", "ram_mem_instance": 3}}
-    assert ram_target.target_from_config(cfg) == 3
+    check_equal(ram_target.target_from_config(cfg), 3)
     cfg = {"quartus": {"ram_backend": "sdram_debug", "ram_mem_instance": None}}
-    assert ram_target.target_from_config(cfg) == SdramDebugRam()
+    check_equal(ram_target.target_from_config(cfg), SdramDebugRam())
     with pytest.raises(ValueError):
         ram_target.target_from_config({"quartus": {"ram_backend": "usb"}})
 
 
 def test_reads_and_writes_go_to_the_debug_port(fake: FakeTcl) -> None:
     """Reads and writes go to the debug port."""
-    assert sdram_debug.read_words(LINK, 0x10, 3) == [7, 8, 9]
+    check_equal(sdram_debug.read_words(LINK, 0x10, 3), [7, 8, 9])
     sdram_debug.write_word(LINK, 0x20, 5)
     sdram_debug.write_word(LINK, 0x21, 6, 0b0101)
     sdram_debug.fill(LINK, 0x100, 64, 0)
-    assert fake.calls == [
-        ("sdram_dbg.tcl", "read", 0x10, 3),
-        ("sdram_dbg.tcl", "write", 0x20, 5, 0xF),
-        ("sdram_dbg.tcl", "write", 0x21, 6, 0b0101),
-        ("sdram_dbg.tcl", "fill", 0x100, 64, 0),
-    ]
+    check_equal(
+        fake.calls,
+        [
+            ("sdram_dbg.tcl", "read", 0x10, 3),
+            ("sdram_dbg.tcl", "write", 0x20, 5, 0xF),
+            ("sdram_dbg.tcl", "write", 0x21, 6, 0b0101),
+            ("sdram_dbg.tcl", "fill", 0x100, 64, 0),
+        ],
+    )
 
 
 def test_a_missing_reply_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -92,27 +95,35 @@ def test_a_missing_reply_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_tohost_and_fromhost_use_the_target(fake: FakeTcl) -> None:
     # byte address 0x40 above a RAM base of 0: word offset 0x10
     """Tohost and fromhost use the target."""
-    assert htif.read_tohost(LINK, SdramDebugRam(), 0x40000000, 0x40000040) == 7
+    check_equal(
+        htif.read_tohost(LINK, SdramDebugRam(), 0x40000000, 0x40000040), 7
+    )
     htif.pulse_fromhost(LINK, SdramDebugRam(), 0x40000000, 0x40000080)
-    assert fake.calls == [
-        ("sdram_dbg.tcl", "read", 0x10, 1),
-        ("sdram_dbg.tcl", "write", 0x20, 1, 0xF),
-    ]
+    check_equal(
+        fake.calls,
+        [
+            ("sdram_dbg.tcl", "read", 0x10, 1),
+            ("sdram_dbg.tcl", "write", 0x20, 1, 0xF),
+        ],
+    )
 
 
 def test_tohost_is_cleared_before_a_test(fake: FakeTcl) -> None:
     """Both words of tohost are cleared before a test."""
     htif.clear_tohost(LINK, SdramDebugRam(), 0x40000000, 0x40000040)
-    assert fake.calls == [
-        ("sdram_dbg.tcl", "write", 0x10, 0, 0xF),
-        ("sdram_dbg.tcl", "write", 0x11, 0, 0xF),
-    ]
+    check_equal(
+        fake.calls,
+        [
+            ("sdram_dbg.tcl", "write", 0x10, 0, 0xF),
+            ("sdram_dbg.tcl", "write", 0x11, 0, 0xF),
+        ],
+    )
 
 
 def test_zero_ram_fills_the_sdram(fake: FakeTcl) -> None:
     """Zero ram fills the sdram."""
     ram_zero.zero_ram(LINK, SdramDebugRam(), 1 << 24)
-    assert fake.calls == [("sdram_dbg.tcl", "fill", 0, 1 << 24, 0)]
+    check_equal(fake.calls, [("sdram_dbg.tcl", "fill", 0, 1 << 24, 0)])
 
 
 @pytest.mark.usefixtures("fake")
@@ -131,16 +142,22 @@ def test_a_sparse_dump_reads_runs_and_parses_back(
         LINK, SdramDebugRam(), out, [0x12, 0x10, 0x11, 0x40, 0x10]
     )
     # two runs: 0x10..0x12 and 0x40
-    assert fake.calls == [
-        ("sdram_dbg.tcl", "read", 0x10, 3),
-        ("sdram_dbg.tcl", "read", 0x40, 1),
-    ]
-    assert mem_validator.parse_mif_words(out) == {
-        0x10: 7,
-        0x11: 8,
-        0x12: 9,
-        0x40: 1,
-    }
+    check_equal(
+        fake.calls,
+        [
+            ("sdram_dbg.tcl", "read", 0x10, 3),
+            ("sdram_dbg.tcl", "read", 0x40, 1),
+        ],
+    )
+    check_equal(
+        mem_validator.parse_mif_words(out),
+        {
+            0x10: 7,
+            0x11: 8,
+            0x12: 9,
+            0x40: 1,
+        },
+    )
 
 
 def test_the_golden_names_the_words_to_dump(tmp_path: Path) -> None:
@@ -149,7 +166,7 @@ def test_the_golden_names_the_words_to_dump(tmp_path: Path) -> None:
     golden.write_text(
         '{"0x00000010": 1, "0x00000011": 2, "0x00000044": 3, "0x00000045": 4}'
     )
-    assert mem_validator.golden_word_offsets(golden) == [4, 0x11]
+    check_equal(mem_validator.golden_word_offsets(golden), [4, 0x11])
 
 
 def test_a_sparse_dump_compares_with_a_golden(
@@ -165,6 +182,6 @@ def test_a_sparse_dump_compares_with_a_golden(
     ram_dump.dump_ram(
         LINK, SdramDebugRam(), out, mem_validator.golden_word_offsets(golden)
     )
-    assert mem_validator.compare(out, golden)
+    check(mem_validator.compare(out, golden))
     golden.write_text('{"0x00000010": 9}')
-    assert not mem_validator.compare(out, golden)
+    check_false(mem_validator.compare(out, golden))

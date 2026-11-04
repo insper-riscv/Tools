@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from support import check_equal
 
 from riscv_tools.certify import core
 
@@ -34,7 +35,7 @@ def test_without_ram_tests_the_target_alone_runs(tmp_path: Path) -> None:
     """Without ram_tests the run takes every ELF of the target."""
     _target(tmp_path, "flash", ["a", "fence"])
     elfs = core.suite_elfs(_cfg(), tmp_path, build=False)
-    assert [e.stem for e in elfs] == ["a", "fence"]
+    check_equal([e.stem for e in elfs], ["a", "fence"])
 
 
 def test_a_ram_test_comes_from_the_variant(tmp_path: Path) -> None:
@@ -43,9 +44,9 @@ def test_a_ram_test_comes_from_the_variant(tmp_path: Path) -> None:
     _target(tmp_path, "flash-ram", ["a", "fence"])
     cfg = _cfg(ram_tests=["fence"], ram_target_config="flash-ram.yaml")
     elfs = core.suite_elfs(cfg, tmp_path, build=False)
-    assert [e.stem for e in elfs] == ["a", "fence"]
-    assert elfs[0].parent.parent.name == "flash"
-    assert elfs[1].parent.parent.name == "flash-ram"
+    check_equal([e.stem for e in elfs], ["a", "fence"])
+    check_equal(elfs[0].parent.parent.name, "flash")
+    check_equal(elfs[1].parent.parent.name, "flash-ram")
 
 
 def test_a_missing_variant_elf_is_reported(tmp_path: Path) -> None:

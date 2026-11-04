@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from support import check_equal, check_in, check_not_in
 
 from riscv_tools import cli, htif, mem_validator, orchestrator, ram_dump
 from riscv_tools.cli import tools_cmd
@@ -44,14 +45,14 @@ def test_set_pll_freq_rewrites_frequency_and_phases(tmp_path: Path) -> None:
 
     text = pll_file.read_text()
     period_ps = round(1_000_000 / 20.0)
-    assert '.output_clock_frequency0("20.000000 MHz")' in text
-    assert '.output_clock_frequency1("20.000000 MHz")' in text
-    assert '.output_clock_frequency2("20.000000 MHz")' in text
-    assert '.phase_shift0("0 ps")' in text
-    assert f'.phase_shift1("{period_ps // 3} ps")' in text
-    assert f'.phase_shift2("{(2 * period_ps) // 3} ps")' in text
+    check_in('.output_clock_frequency0("20.000000 MHz")', text)
+    check_in('.output_clock_frequency1("20.000000 MHz")', text)
+    check_in('.output_clock_frequency2("20.000000 MHz")', text)
+    check_in('.phase_shift0("0 ps")', text)
+    check_in(f'.phase_shift1("{period_ps // 3} ps")', text)
+    check_in(f'.phase_shift2("{(2 * period_ps) // 3} ps")', text)
     # Unrelated lines must be left untouched.
-    assert "altpll_component : altpll" in text
+    check_in("altpll_component : altpll", text)
 
 
 def test_set_pll_freq_single_phase_default(tmp_path: Path) -> None:
@@ -71,7 +72,7 @@ def test_set_pll_freq_single_phase_default(tmp_path: Path) -> None:
         ),
     )
 
-    assert '.output_clock_frequency0("50.000000 MHz")' in pll_file.read_text()
+    check_in('.output_clock_frequency0("50.000000 MHz")', pll_file.read_text())
 
 
 def test_set_pll_freq_missing_param_left_unchanged(tmp_path: Path) -> None:
@@ -97,9 +98,9 @@ def test_set_pll_freq_missing_param_left_unchanged(tmp_path: Path) -> None:
     )
 
     text = pll_file.read_text()
-    assert '.output_clock_frequency0("15.000000 MHz")' in text
-    assert "output_clock_frequency1" not in text
-    assert "output_clock_frequency2" not in text
+    check_in('.output_clock_frequency0("15.000000 MHz")', text)
+    check_not_in("output_clock_frequency1", text)
+    check_not_in("output_clock_frequency2", text)
 
 
 def test_set_pll_freq_custom_param_template(tmp_path: Path) -> None:
@@ -119,7 +120,7 @@ def test_set_pll_freq_custom_param_template(tmp_path: Path) -> None:
         ),
     )
 
-    assert '.clkout_freq0("200.000000 kHz")' in pll_file.read_text()
+    check_in('.clkout_freq0("200.000000 kHz")', pll_file.read_text())
 
 
 def test_cmd_freq_sweep_resolves_pll_file_against_the_project_root(
@@ -161,7 +162,7 @@ def test_cmd_freq_sweep_resolves_pll_file_against_the_project_root(
     )
     cli.cmd_freq_sweep(args)
 
-    assert seen["pll_file"] == str(tmp_path / "../src/pll.v")
+    check_equal(seen["pll_file"], str(tmp_path / "../src/pll.v"))
 
 
 SWEEP_CFG: dict[str, Any] = {
@@ -243,6 +244,6 @@ def test_sweep_step_needs_tohost_pass_and_matching_ram(
     expected: str,
 ) -> None:
     """Pass needs tohost PASS and a RAM that matches the golden."""
-    assert (
-        _status_at(tmp_path, monkeypatch, tohost, golden_matches) == expected
+    check_equal(
+        _status_at(tmp_path, monkeypatch, tohost, golden_matches), expected
     )

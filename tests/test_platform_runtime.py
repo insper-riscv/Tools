@@ -12,6 +12,7 @@ import json
 import shutil
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -20,8 +21,13 @@ from support import (
     C_MEM_SOURCE,
     GCC,
     ISA,
+    check,
+    check_equal,
+    check_in,
+    check_not_equal,
     compile_args,
     has_picolibc,
+    read_manifest,
     toolchain_section,
     write_c_test,
     write_config,
@@ -184,66 +190,76 @@ def test_compile_needs_no_crt0_or_linker_script(tmp_path: Path) -> None:
     )
 
     syms = _symbols(tmp_path / "build" / "strlen.elf")
-    assert bin_.is_file()
+    check(bin_.is_file())
     # The toolchain's crt0 starts at the flash base the specs file
     # gives.
-    assert syms["_start"] == 0x800
+    check_equal(syms["_start"], 0x800)
     # The boot ROM's routine is at its fixed address, from the specs
     # file.
-    assert syms["rv32_wait_restart"] == 0x100
+    check_equal(syms["rv32_wait_restart"], 0x100)
+
+
+def _compiled_manifest(root: Path) -> list[dict[str, Any]]:
+    """Build the project in mif format and return its manifest."""
+    _make_project(root)
+    cmd_compile(compile_args(root, "mif"))
+    return read_manifest(root, "real")
 
 
 def test_cmd_compile_builds_every_kind_and_the_goldens(tmp_path: Path) -> None:
     """Cmd compile builds every kind and the goldens."""
-    _make_project(tmp_path)
-
-    cmd_compile(compile_args(tmp_path, "mif"))
-
-    manifest = json.loads(
-        (tmp_path / "build" / "real" / "manifest.json").read_text()
+    manifest = _compiled_manifest(tmp_path)
+    check_equal(
+        {e["name"] for e in manifest},
+        {
+            "add",
+            "data",
+            "declared",
+            "mem",
+            "raw",
+            "returns",
+            "wide",
+        },
     )
-    assert {e["name"] for e in manifest} == {
-        "add",
-        "data",
-        "declared",
-        "mem",
-        "raw",
-        "returns",
-        "wide",
-    }
     mem_entry = next(e for e in manifest if e["name"] == "mem")
     # Golden addresses are relative to the start of RAM.
-    assert json.loads((tmp_path / mem_entry["golden"]).read_text()) == {
-        "0x00000000": 17,
-        "0x00000001": 17,
-        "0x00000002": 17,
-        "0x00000003": 17,
-    }
+    check_equal(
+        json.loads((tmp_path / mem_entry["golden"]).read_text()),
+        {
+            "0x00000000": 17,
+            "0x00000001": 17,
+            "0x00000002": 17,
+            "0x00000003": 17,
+        },
+    )
     # `results` is kept by the linker even though the test never touches
     # it.
     declared_entry = next(e for e in manifest if e["name"] == "declared")
-    assert json.loads((tmp_path / declared_entry["golden"]).read_text()) == {
-        "0x00000000": 0,
-        "0x00000001": 0,
-        "0x00000002": 0,
-        "0x00000003": 0,
-    }
+    check_equal(
+        json.loads((tmp_path / declared_entry["golden"]).read_text()),
+        {
+            "0x00000000": 0,
+            "0x00000001": 0,
+            "0x00000002": 0,
+            "0x00000003": 0,
+        },
+    )
     # The image Spike runs is the test's own program with the Spike
     # stand-in; the image the hardware loads has the routine's fixed
     # address.
-    assert (
-        _symbols(tmp_path / "build" / "real" / "mem.elf")["rv32_wait_restart"]
-        == 0x100
+    check_equal(
+        _symbols(tmp_path / "build" / "real" / "mem.elf")["rv32_wait_restart"],
+        0x100,
     )
     spike_elf = _symbols(tmp_path / "build" / "real" / "mem.golden.elf")
-    assert spike_elf["rv32_wait_restart"] != 0x100
-    assert "tohost" in spike_elf
+    check_not_equal(spike_elf["rv32_wait_restart"], 0x100)
+    check_in("tohost", spike_elf)
     # The stand-in takes no space: a variable has the same address in
     # both images, so the golden's addresses are the hardware image's.
     for name in ("mem", "wide", "declared"):
         hardware = _symbols(tmp_path / "build" / "real" / f"{name}.elf")
         spike = _symbols(tmp_path / "build" / "real" / f"{name}.golden.elf")
-        assert hardware["results"] == spike["results"], name
+        check_equal(hardware["results"], spike["results"], name)
 
 
 def test_cmd_spike_run_passes_programs_that_return_from_main(
@@ -263,7 +279,7 @@ def test_cmd_spike_run_passes_programs_that_return_from_main(
 
     out = capsys.readouterr().out
     for name in ("add", "data", "declared", "mem", "raw", "returns", "wide"):
-        assert f"PASS  {name}" in out
+        check_in(f"PASS  {name}", out)
 
 
 def test_cmd_compile_hex_places_the_image_at_the_flash_base(
@@ -280,4 +296,4 @@ def test_cmd_compile_hex_places_the_image_at_the_flash_base(
     # The first line of an `objcopy -O verilog` file is the address of
     # the first word: the flash base, where the boot ROM jumps to.
     hex_text = (tmp_path / "build" / "sim" / "returns.hex").read_text()
-    assert hex_text.startswith("@00000200\n")
+    check(hex_text.startswith("@00000200\n"))

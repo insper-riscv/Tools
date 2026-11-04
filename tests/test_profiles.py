@@ -4,6 +4,14 @@ import argparse
 from pathlib import Path
 
 import pytest
+from support import (
+    check,
+    check_equal,
+    check_false,
+    check_in,
+    check_is,
+    check_not_in,
+)
 
 from riscv_tools import cli
 from riscv_tools.profiles import expand, load_spec
@@ -72,28 +80,28 @@ def _write(tmp_path: Path, text: str) -> Path:
 def test_core_spec_has_thirty_six_profiles(tmp_path: Path) -> None:
     """Zicclsm x2, CSRs x3, Zifencei x2 and multiplier x3."""
     profiles = expand(load_spec(_write(tmp_path, CORE_SPEC)))
-    assert len(profiles) == 36
-    assert len({p.name for p in profiles}) == 36
+    check_equal(len(profiles), 36)
+    check_equal(len({p.name for p in profiles}), 36)
 
 
 def test_the_names_are_exactly_the_table_of_the_plan(tmp_path: Path) -> None:
     """The names are exactly the table of the plan."""
     names = {p.name for p in expand(load_spec(_write(tmp_path, CORE_SPEC)))}
-    assert names == set(PROFILE_NAMES)
+    check_equal(names, set(PROFILE_NAMES))
 
 
 def test_no_profile_breaks_a_rule(tmp_path: Path) -> None:
     """No profile breaks a rule."""
     for p in expand(load_spec(_write(tmp_path, CORE_SPEC))):
-        assert not ({"M", "Zmmul"} <= set(p.extensions))
-        assert not ({"Zicsr", "Zicntr"} <= set(p.extensions))
+        check_false({"M", "Zmmul"} <= set(p.extensions))
+        check_false({"Zicsr", "Zicntr"} <= set(p.extensions))
 
 
 def test_a_name_never_cites_zicsr_next_to_zicntr(tmp_path: Path) -> None:
     """A name never cites zicsr next to zicntr."""
     for p in expand(load_spec(_write(tmp_path, CORE_SPEC))):
         if "Zicntr" in p.extensions:
-            assert "zicsr" not in p.name
+            check_not_in("zicsr", p.name)
 
 
 def test_zicntr_turns_zicsr_on(tmp_path: Path) -> None:
@@ -102,12 +110,12 @@ def test_zicntr_turns_zicsr_on(tmp_path: Path) -> None:
         p.name: p for p in expand(load_spec(_write(tmp_path, CORE_SPEC)))
     }
     p = by_name["rv32im_zicclsm_zicntr_zifencei"]
-    assert p.generics["has_zicntr"] is True
-    assert p.generics["has_zicsr"] is True
-    assert p.generics["has_m"] is True
-    assert p.generics["has_zmmul"] is False
+    check_is(p.generics["has_zicntr"], True)
+    check_is(p.generics["has_zicsr"], True)
+    check_is(p.generics["has_m"], True)
+    check_is(p.generics["has_zmmul"], False)
     q = by_name["rv32i_zicsr"]
-    assert (
+    check(
         q.generics["has_zicntr"] is False and q.generics["has_zicsr"] is True
     )
 
@@ -120,8 +128,8 @@ def test_the_core_without_csrs_and_without_zicclsm_is_valid(
         p.name: p for p in expand(load_spec(_write(tmp_path, CORE_SPEC)))
     }
     p = by_name["rv32i"]
-    assert p.generics["has_zicsr"] is False
-    assert p.generics["has_zicclsm"] is False
+    check_is(p.generics["has_zicsr"], False)
+    check_is(p.generics["has_zicclsm"], False)
 
 
 def test_the_order_of_the_specification_orders_the_profiles(
@@ -129,8 +137,9 @@ def test_the_order_of_the_specification_orders_the_profiles(
 ) -> None:
     """The order of the specification orders the profiles."""
     profiles = expand(load_spec(_write(tmp_path, CORE_SPEC)))
-    assert [len(p.extensions) for p in profiles] == sorted(
-        len(p.extensions) for p in profiles
+    check_equal(
+        [len(p.extensions) for p in profiles],
+        sorted(len(p.extensions) for p in profiles),
     )
 
 
@@ -143,8 +152,8 @@ def test_an_absent_token_still_marks_a_missing_extension(
         "{name: Zicclsm,  generic: has_zicclsm, absent_token: nozicclsm}",
     )
     names = {p.name for p in expand(load_spec(_write(tmp_path, text)))}
-    assert "rv32i_nozicclsm" in names
-    assert "rv32i" in names, "the plain name is the one with Zicclsm"
+    check_in("rv32i_nozicclsm", names)
+    check_in("rv32i", names, "the plain name is the one with Zicclsm")
 
 
 def test_a_rule_naming_an_unknown_extension_fails(tmp_path: Path) -> None:
@@ -178,13 +187,13 @@ def test_cli_prints_ghdl_generics(
     args = argparse.Namespace(spec=str(spec), format="generics")
     cli.cmd_profiles(args)
     lines = capsys.readouterr().out.splitlines()
-    assert len(lines) == 36
+    check_equal(len(lines), 36)
     expected = (
         "rv32im_zicclsm_zicntr -ghas_zicclsm=true -ghas_zicsr=true"
         " -ghas_zicntr=true"
         " -ghas_zifencei=false -ghas_zmmul=false -ghas_m=true"
     )
-    assert expected in lines
+    check_in(expected, lines)
 
 
 def test_the_command_needs_no_config(
@@ -198,7 +207,7 @@ def test_the_command_needs_no_config(
         "sys.argv", ["riscv-tools", "profiles", "--spec", str(spec)]
     )
     cli.main()
-    assert len(capsys.readouterr().out.splitlines()) == 36
+    check_equal(len(capsys.readouterr().out.splitlines()), 36)
 
 
 # The matrix of the core with the event counters: Zihpm joins Zicntr and
@@ -213,16 +222,16 @@ HPM_SPEC = CORE_SPEC.replace(
 def test_the_matrix_with_zihpm_has_sixty_profiles(tmp_path: Path) -> None:
     """Five states of CSR block give sixty profiles."""
     profiles = expand(load_spec(_write(tmp_path, HPM_SPEC)))
-    assert len(profiles) == 60
-    assert len({p.name for p in profiles}) == 60
+    check_equal(len(profiles), 60)
+    check_equal(len({p.name for p in profiles}), 60)
 
 
 def test_zihpm_turns_zicsr_on_and_never_cites_it(tmp_path: Path) -> None:
     """A profile with Zihpm has Zicsr on and no zicsr in its name."""
     for p in expand(load_spec(_write(tmp_path, HPM_SPEC))):
         if "Zihpm" in p.extensions:
-            assert p.generics["has_zicsr"] is True
-            assert "zicsr" not in p.name
+            check_is(p.generics["has_zicsr"], True)
+            check_not_in("zicsr", p.name)
 
 
 def test_zicntr_and_zihpm_come_together_in_the_spec_order(
@@ -230,9 +239,9 @@ def test_zicntr_and_zihpm_come_together_in_the_spec_order(
 ) -> None:
     """Zicntr and Zihpm together are named zicntr_zihpm."""
     names = {p.name for p in expand(load_spec(_write(tmp_path, HPM_SPEC)))}
-    assert "rv32im_zicclsm_zicntr_zihpm_zifencei" in names
-    assert "rv32i_zihpm_zifencei_zmmul" in names
-    assert not any("zihpm_zicntr" in n for n in names)
+    check_in("rv32im_zicclsm_zicntr_zihpm_zifencei", names)
+    check_in("rv32i_zihpm_zifencei_zmmul", names)
+    check_false(any("zihpm_zicntr" in n for n in names))
 
 
 # The same matrix with the two bases of the core: 32 registers (RV32I)
@@ -250,9 +259,9 @@ def test_two_bases_give_a_hundred_and_twenty_profiles(
 ) -> None:
     """Each base takes the sixty combinations."""
     profiles = expand(load_spec(_write(tmp_path, TWO_BASES_SPEC)))
-    assert len(profiles) == 120
-    assert len({p.name for p in profiles}) == 120
-    assert sum(p.base == "rv32e" for p in profiles) == 60
+    check_equal(len(profiles), 120)
+    check_equal(len({p.name for p in profiles}), 120)
+    check_equal(sum(p.base == "rv32e" for p in profiles), 60)
 
 
 def test_the_rv32e_names_follow_the_rv32i_names(tmp_path: Path) -> None:
@@ -262,11 +271,12 @@ def test_the_rv32e_names_follow_the_rv32i_names(tmp_path: Path) -> None:
         b: {p.name for p in profiles if p.base == b}
         for b in ("rv32i", "rv32e")
     }
-    assert {
-        n.replace("rv32e", "rv32i", 1) for n in by_base["rv32e"]
-    } == by_base["rv32i"]
-    assert "rv32em_zicclsm_zicntr_zihpm_zifencei" in by_base["rv32e"]
-    assert "rv32e" in by_base["rv32e"]
+    check_equal(
+        {n.replace("rv32e", "rv32i", 1) for n in by_base["rv32e"]},
+        by_base["rv32i"],
+    )
+    check_in("rv32em_zicclsm_zicntr_zihpm_zifencei", by_base["rv32e"])
+    check_in("rv32e", by_base["rv32e"])
 
 
 def test_the_base_sets_num_regs(tmp_path: Path) -> None:
@@ -274,9 +284,9 @@ def test_the_base_sets_num_regs(tmp_path: Path) -> None:
     by_name = {
         p.name: p for p in expand(load_spec(_write(tmp_path, TWO_BASES_SPEC)))
     }
-    assert by_name["rv32im"].generics["num_regs"] == 32
-    assert by_name["rv32em"].generics["num_regs"] == 16
-    assert next(iter(by_name["rv32e"].generics)) == "num_regs"
+    check_equal(by_name["rv32im"].generics["num_regs"], 32)
+    check_equal(by_name["rv32em"].generics["num_regs"], 16)
+    check_equal(next(iter(by_name["rv32e"].generics)), "num_regs")
 
 
 def test_the_profiles_come_base_by_base(tmp_path: Path) -> None:
@@ -284,7 +294,7 @@ def test_the_profiles_come_base_by_base(tmp_path: Path) -> None:
     bases = [
         p.base for p in expand(load_spec(_write(tmp_path, TWO_BASES_SPEC)))
     ]
-    assert bases == ["rv32i"] * 60 + ["rv32e"] * 60
+    check_equal(bases, ["rv32i"] * 60 + ["rv32e"] * 60)
 
 
 def test_cli_prints_the_register_count_flag(
@@ -294,8 +304,8 @@ def test_cli_prints_the_register_count_flag(
     spec = _write(tmp_path, TWO_BASES_SPEC)
     cli.cmd_profiles(argparse.Namespace(spec=str(spec), format="generics"))
     lines = capsys.readouterr().out.splitlines()
-    assert len(lines) == 120
-    assert "rv32e -gnum_regs=16 -ghas_zicclsm=false" in lines[60]
+    check_equal(len(lines), 120)
+    check_in("rv32e -gnum_regs=16 -ghas_zicclsm=false", lines[60])
 
 
 def test_base_and_bases_together_fail(tmp_path: Path) -> None:

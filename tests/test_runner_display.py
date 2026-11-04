@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
+from support import check_equal
 
 from riscv_tools import display
 from riscv_tools.jtag import JtagLink
@@ -53,6 +54,6 @@ def test_display_shows_the_number_of_each_program(
         cfg, cast(JtagLink, None), tmp_path, tmp_path, tmp_path
     )
     suite.run_suite(ctx, manifest, context.SuiteOptions(reconfigure=False))
-    assert writes == expected
+    check_equal(writes, expected)
     # cleared at the start, then set by the one program that fails
-    assert flags == ([False, True] if enabled else [])
+    check_equal(flags, [False, True] if enabled else [])

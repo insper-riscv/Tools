@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 
 import pytest
+from support import check, check_equal, check_false, check_in, check_not_in
 
 from riscv_tools import cli
 from riscv_tools.cli.tree_cmd import cmd_check_tree
@@ -51,7 +52,7 @@ def _conforming(root: Path) -> None:
 def test_a_conforming_tree_has_no_problem(tmp_path: Path) -> None:
     """A repository that meets every rule passes."""
     _conforming(tmp_path)
-    assert not check_tree(tmp_path, "core")
+    check_false(check_tree(tmp_path, "core"))
 
 
 def test_standard_files_reports_each_missing_file(tmp_path: Path) -> None:
@@ -60,17 +61,20 @@ def test_standard_files_reports_each_missing_file(tmp_path: Path) -> None:
     (tmp_path / "CITATION.cff").unlink()
     (tmp_path / "formal" / "run.sh").unlink()
     problems = check_tree(tmp_path, "core", ["standard-files"])
-    assert problems == [
-        "standard-files missing CITATION.cff",
-        "standard-files missing formal/run.sh",
-    ]
+    check_equal(
+        problems,
+        [
+            "standard-files missing CITATION.cff",
+            "standard-files missing formal/run.sh",
+        ],
+    )
 
 
 def test_common_components_needs_no_formal_folder(tmp_path: Path) -> None:
     """The kind without proofs is not asked for `formal/run.sh`."""
     _conforming(tmp_path)
     (tmp_path / "formal" / "run.sh").unlink()
-    assert not check_tree(tmp_path, "common-components")
+    check_false(check_tree(tmp_path, "common-components"))
 
 
 def test_language_pairs_reports_a_missing_half(tmp_path: Path) -> None:
@@ -78,9 +82,10 @@ def test_language_pairs_reports_a_missing_half(tmp_path: Path) -> None:
     _conforming(tmp_path)
     (tmp_path / "README.en.md").unlink()
     problems = check_tree(tmp_path, "core", ["language-pairs"])
-    assert problems == [
-        "language-pairs missing README.en.md, the pair of its other half"
-    ]
+    check_equal(
+        problems,
+        ["language-pairs missing README.en.md, the pair of its other half"],
+    )
 
 
 def test_language_pairs_reports_a_document_without_its_mirror(
@@ -91,10 +96,14 @@ def test_language_pairs_reports_a_document_without_its_mirror(
     _write(tmp_path / "docs" / "pt-br" / "ISA" / "I" / "alu.md")
     _write(tmp_path / "docs" / "en" / "pipeline" / "extra.md")
     problems = check_tree(tmp_path, "core", ["language-pairs"])
-    assert problems == [
-        "language-pairs missing docs/en/ISA/I/alu.md, mirror of pt-br",
-        "language-pairs missing docs/pt-br/pipeline/extra.md, mirror of en",
-    ]
+    check_equal(
+        problems,
+        [
+            "language-pairs missing docs/en/ISA/I/alu.md, mirror of pt-br",
+            "language-pairs missing docs/pt-br/pipeline/extra.md,"
+            " mirror of en",
+        ],
+    )
 
 
 def test_vhdl_location_reports_a_file_outside_src(tmp_path: Path) -> None:
@@ -103,10 +112,13 @@ def test_vhdl_location_reports_a_file_outside_src(tmp_path: Path) -> None:
     _write(tmp_path / "common" / "adder.vhd")
     _write(tmp_path / "top.vhd")
     problems = check_tree(tmp_path, "core", ["vhdl-location"])
-    assert problems == [
-        "vhdl-location top.vhd is outside src/ and tests/vhdl/",
-        "vhdl-location common/adder.vhd is outside src/ and tests/vhdl/",
-    ]
+    check_equal(
+        problems,
+        [
+            "vhdl-location top.vhd is outside src/ and tests/vhdl/",
+            "vhdl-location common/adder.vhd is outside src/ and tests/vhdl/",
+        ],
+    )
 
 
 def test_vhdl_location_leaves_out_build_output_and_submodules(
@@ -117,7 +129,7 @@ def test_vhdl_location_leaves_out_build_output_and_submodules(
     _write(tmp_path / "build" / "work" / "gen.vhd")
     _write(tmp_path / "other" / "x.vhd")
     _write(tmp_path / "other" / ".git")
-    assert not check_tree(tmp_path, "core", ["vhdl-location"])
+    check_false(check_tree(tmp_path, "core", ["vhdl-location"]))
 
 
 def test_common_submodule_requires_the_mount_at_src_common(
@@ -129,9 +141,10 @@ def test_common_submodule_requires_the_mount_at_src_common(
         GITMODULES.replace("src/common", "Common-Components")
     )
     problems = check_tree(tmp_path, "core", ["common-submodule"])
-    assert problems == [
-        "common-submodule src/common is not declared in .gitmodules"
-    ]
+    check_equal(
+        problems,
+        ["common-submodule src/common is not declared in .gitmodules"],
+    )
 
 
 def test_common_submodule_requires_the_right_repository(
@@ -143,8 +156,8 @@ def test_common_submodule_requires_the_right_repository(
         GITMODULES.replace("Common-Components.git", "Memory.git")
     )
     problems = check_tree(tmp_path, "core", ["common-submodule"])
-    assert len(problems) == 1
-    assert "not Common-Components" in problems[0]
+    check_equal(len(problems), 1)
+    check_in("not Common-Components", problems[0])
 
 
 def test_common_submodule_is_reported_without_gitmodules(
@@ -153,9 +166,10 @@ def test_common_submodule_is_reported_without_gitmodules(
     """A repository with no `.gitmodules` does not mount it."""
     _conforming(tmp_path)
     (tmp_path / ".gitmodules").unlink()
-    assert check_tree(tmp_path, "core", ["common-submodule"]) == [
-        "common-submodule src/common is not declared in .gitmodules"
-    ]
+    check_equal(
+        check_tree(tmp_path, "core", ["common-submodule"]),
+        ["common-submodule src/common is not declared in .gitmodules"],
+    )
 
 
 def test_folder_names_reject_space_accent_and_capitals(
@@ -167,11 +181,14 @@ def test_folder_names_reject_space_accent_and_capitals(
     (tmp_path / "docs" / "pt-br" / "memória").mkdir()
     (tmp_path / "src" / "Cache").mkdir()
     problems = check_tree(tmp_path, "core", ["folder-names"])
-    assert [line.split(":")[0] for line in problems] == [
-        "folder-names docs/pt-br/memória",
-        "folder-names docs/pt-br/meu doc",
-        "folder-names src/Cache",
-    ]
+    check_equal(
+        [line.split(":")[0] for line in problems],
+        [
+            "folder-names docs/pt-br/memória",
+            "folder-names docs/pt-br/meu doc",
+            "folder-names src/Cache",
+        ],
+    )
 
 
 def test_folder_names_accept_the_identifiers_listed_in_paths_yaml(
@@ -180,35 +197,42 @@ def test_folder_names_accept_the_identifiers_listed_in_paths_yaml(
     """Identifiers named in `paths.yaml` keep their capitals."""
     _conforming(tmp_path)
     (tmp_path / "src" / "Zicsr").mkdir()
-    assert check_tree(tmp_path, "core", ["folder-names"]) == [
-        "folder-names src/Zicsr: use lowercase letters, digits and hyphens,"
-        " with no space or accent"
-    ]
+    problems = check_tree(tmp_path, "core", ["folder-names"])
+    check_equal(
+        problems,
+        [
+            "folder-names src/Zicsr: use lowercase letters, digits and"
+            " hyphens, with no space or accent"
+        ],
+    )
     (tmp_path / "paths.yaml").write_text(
         "tree:\n  identifier_folders: [I, Zicsr]\n"
     )
-    assert not check_tree(tmp_path, "core", ["folder-names"])
+    check_false(check_tree(tmp_path, "core", ["folder-names"]))
 
 
 def test_folder_names_leave_out_vendor_code(tmp_path: Path) -> None:
     """Third-party code keeps the names it came with."""
     _conforming(tmp_path)
     (tmp_path / "src" / "vendor" / "OpenCores_Uart").mkdir(parents=True)
-    assert not check_tree(tmp_path, "core", ["folder-names"])
+    check_false(check_tree(tmp_path, "core", ["folder-names"]))
 
 
 def test_rules_depend_on_the_kind() -> None:
     """The layout rules of VHDL do not apply to the other kinds."""
-    assert rule_names("tools") == ["standard-files", "language-pairs"]
-    assert rule_names("core") == [
-        "standard-files",
-        "language-pairs",
-        "vhdl-location",
-        "common-submodule",
-        "folder-names",
-    ]
-    assert "common-submodule" not in rule_names("common-components")
-    assert set(KINDS) >= {"top", "tests", "certification", "infra"}
+    check_equal(rule_names("tools"), ["standard-files", "language-pairs"])
+    check_equal(
+        rule_names("core"),
+        [
+            "standard-files",
+            "language-pairs",
+            "vhdl-location",
+            "common-submodule",
+            "folder-names",
+        ],
+    )
+    check_not_in("common-submodule", rule_names("common-components"))
+    check(set(KINDS) >= {"top", "tests", "certification", "infra"})
 
 
 def test_an_unknown_kind_or_rule_is_an_error(tmp_path: Path) -> None:
@@ -228,18 +252,18 @@ def test_cmd_check_tree_exit_status(
         kind="core", only=None, root=str(tmp_path), config=None
     )
     cmd_check_tree(args)
-    assert "tree OK: core" in capsys.readouterr().out
+    check_in("tree OK: core", capsys.readouterr().out)
     (tmp_path / "LICENSE").unlink()
     with pytest.raises(SystemExit) as failed:
         cmd_check_tree(args)
-    assert failed.value.code == 1
-    assert "TREE standard-files missing LICENSE" in capsys.readouterr().err
+    check_equal(failed.value.code, 1)
+    check_in("TREE standard-files missing LICENSE", capsys.readouterr().err)
     bad = argparse.Namespace(
         kind="core", only="nothing", root=str(tmp_path), config=None
     )
     with pytest.raises(SystemExit) as unknown:
         cmd_check_tree(bad)
-    assert unknown.value.code == 2
+    check_equal(unknown.value.code, 2)
 
 
 def test_the_subcommand_is_registered_without_a_config(
@@ -263,4 +287,4 @@ def test_the_subcommand_is_registered_without_a_config(
         ],
     )
     cli.main()
-    assert "rules standard-files, language-pairs" in capsys.readouterr().out
+    check_in("rules standard-files, language-pairs", capsys.readouterr().out)

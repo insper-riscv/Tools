@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+from support import check, check_equal
+
 from riscv_tools.vhdl_sort import topo_sort
 
 
@@ -18,7 +20,7 @@ def test_topo_sort_orders_entity_dependency(tmp_path: Path) -> None:
     )
 
     ordered = topo_sort([top, sub])
-    assert ordered.index(sub) < ordered.index(top)
+    check(ordered.index(sub) < ordered.index(top))
 
 
 def test_topo_sort_orders_package_dependency(tmp_path: Path) -> None:
@@ -31,7 +33,7 @@ def test_topo_sort_orders_package_dependency(tmp_path: Path) -> None:
     )
 
     ordered = topo_sort([consumer, pkg])
-    assert ordered.index(pkg) < ordered.index(consumer)
+    check(ordered.index(pkg) < ordered.index(consumer))
 
 
 def test_topo_sort_ignores_package_body(tmp_path: Path) -> None:
@@ -44,7 +46,7 @@ def test_topo_sort_ignores_package_body(tmp_path: Path) -> None:
     )
 
     ordered = topo_sort([pkg])
-    assert ordered == [pkg]
+    check_equal(ordered, [pkg])
 
 
 def test_topo_sort_is_deterministic_for_unrelated_files(
@@ -56,7 +58,7 @@ def test_topo_sort_is_deterministic_for_unrelated_files(
     b = tmp_path / "b.vhd"
     b.write_text("entity b is\nend entity;\n")
 
-    assert topo_sort([b, a]) == topo_sort([a, b]) == sorted([a, b])
+    check(topo_sort([b, a]) == topo_sort([a, b]) == sorted([a, b]))
 
 
 def test_topo_sort_breaks_cycles_without_raising(tmp_path: Path) -> None:
@@ -75,7 +77,7 @@ def test_topo_sort_breaks_cycles_without_raising(tmp_path: Path) -> None:
     )
 
     ordered = topo_sort([a, b])
-    assert set(ordered) == {a, b}
+    check_equal(set(ordered), {a, b})
 
 
 def test_topo_sort_skips_unreadable_file(tmp_path: Path) -> None:
@@ -85,7 +87,7 @@ def test_topo_sort_skips_unreadable_file(tmp_path: Path) -> None:
     present.write_text("entity present is\nend entity;\n")
 
     ordered = topo_sort([missing, present])
-    assert set(ordered) == {missing, present}
+    check_equal(set(ordered), {missing, present})
 
 
 def test_topo_sort_ignores_dependency_outside_input_set(
@@ -102,4 +104,4 @@ def test_topo_sort_ignores_dependency_outside_input_set(
         "end architecture;\n"
     )
 
-    assert topo_sort([only_file]) == [only_file]
+    check_equal(topo_sort([only_file]), [only_file])

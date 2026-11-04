@@ -4,7 +4,14 @@ import shutil
 from pathlib import Path
 
 import pytest
-from support import link_bare
+from support import (
+    check,
+    check_equal,
+    check_false,
+    check_in,
+    check_is,
+    link_bare,
+)
 
 from riscv_tools.spike_exec import SpikeTarget
 from riscv_tools.spike_run import SpikeRunResult, run_elf
@@ -43,8 +50,8 @@ def test_run_elf_reports_pass_when_tohost_is_1(tmp_path: Path) -> None:
     """Run elf reports pass when tohost is 1."""
     result = _run(_build(tmp_path, FIXTURES / "crt0.S", "pass"))
 
-    assert result.passed
-    assert result.exit_code == 0
+    check(result.passed)
+    check_equal(result.exit_code, 0)
 
 
 def test_run_elf_reports_fail_when_tohost_is_3(tmp_path: Path) -> None:
@@ -56,9 +63,9 @@ def test_run_elf_reports_fail_when_tohost_is_3(tmp_path: Path) -> None:
 
     result = _run(_build(tmp_path, crt0, "fail"))
 
-    assert not result.passed
-    assert result.exit_code == 1
-    assert "FAILED" in result.output
+    check_false(result.passed)
+    check_equal(result.exit_code, 1)
+    check_in("FAILED", result.output)
 
 
 def test_run_elf_times_out_when_tohost_is_never_written(
@@ -72,6 +79,6 @@ def test_run_elf_times_out_when_tohost_is_never_written(
 
     result = _run(_build(tmp_path, crt0, "hang"), timeout_s=1.0)
 
-    assert not result.passed
-    assert result.exit_code is None
-    assert "timed out" in result.output
+    check_false(result.passed)
+    check_is(result.exit_code, None)
+    check_in("timed out", result.output)

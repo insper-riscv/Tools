@@ -4,7 +4,13 @@ from pathlib import Path
 
 import pytest
 import yaml
-from support import MAP_REGIONS, MAP_RESERVED
+from support import (
+    MAP_REGIONS,
+    MAP_RESERVED,
+    check_equal,
+    check_is,
+    check_not_in,
+)
 
 from riscv_tools.memory_map import config_from_platform, set_override
 from riscv_tools.settings import read_config
@@ -54,30 +60,39 @@ def _platform(root: Path) -> Path:
 def test_memory_and_widths_come_from_the_map(tmp_path: Path) -> None:
     """The words, bases, HTIF words and widths are derived."""
     config = config_from_platform(_platform(tmp_path))
-    assert config["memory"] == {
-        "boot_rom_base": 0,
-        "boot_rom_words": 512,
-        "rom_base": 0x800,
-        "rom_words": 7680,
-        "ram_base": 0x8000,
-        "ram_words": 40960,
-        "tohost_addr": 0x2FFE8,
-        "fromhost_addr": 0x2FFF0,
-    }
-    assert config["isa"] == {"base": "i"}
-    assert config["sim"]["env"] == {
-        "TOHOST_ADDR": "0x0002FFE8",
-        "STDOUT_ADDR": "0x0002FBE0",
-    }
-    assert config["sim"]["parameters"] == {
-        "boot_rom_addr_width": "9",
-        "rom_addr_width": "13",
-        "ram_addr_width": "16",
-        "NUM_REGS": "32",
-        "HAS_ZICSR": True,
-        "HAS_ZICNTR": True,
-        "HAS_M": True,
-    }
+    check_equal(
+        config["memory"],
+        {
+            "boot_rom_base": 0,
+            "boot_rom_words": 512,
+            "rom_base": 0x800,
+            "rom_words": 7680,
+            "ram_base": 0x8000,
+            "ram_words": 40960,
+            "tohost_addr": 0x2FFE8,
+            "fromhost_addr": 0x2FFF0,
+        },
+    )
+    check_equal(config["isa"], {"base": "i"})
+    check_equal(
+        config["sim"]["env"],
+        {
+            "TOHOST_ADDR": "0x0002FFE8",
+            "STDOUT_ADDR": "0x0002FBE0",
+        },
+    )
+    check_equal(
+        config["sim"]["parameters"],
+        {
+            "boot_rom_addr_width": "9",
+            "rom_addr_width": "13",
+            "ram_addr_width": "16",
+            "NUM_REGS": "32",
+            "HAS_ZICSR": True,
+            "HAS_ZICNTR": True,
+            "HAS_M": True,
+        },
+    )
 
 
 def test_the_map_wins_over_what_the_config_says(tmp_path: Path) -> None:
@@ -96,9 +111,9 @@ def test_the_map_wins_over_what_the_config_says(tmp_path: Path) -> None:
         )
     )
     merged = read_config(tmp_path / "config.yaml")
-    assert merged["memory"]["ram_words"] == 40960
-    assert merged["memory"]["other"] == 7
-    assert "memory_map" not in merged
+    check_equal(merged["memory"]["ram_words"], 40960)
+    check_equal(merged["memory"]["other"], 7)
+    check_not_in("memory_map", merged)
 
 
 def test_the_override_replaces_the_profile_of_the_platform(
@@ -108,9 +123,9 @@ def test_the_override_replaces_the_profile_of_the_platform(
     path = _platform(tmp_path)
     set_override("rv32e")
     config = config_from_platform(path)
-    assert config["isa"] == {"base": "e"}
-    assert config["sim"]["parameters"]["NUM_REGS"] == "16"
-    assert config["sim"]["parameters"]["HAS_M"] is False
+    check_equal(config["isa"], {"base": "e"})
+    check_equal(config["sim"]["parameters"]["NUM_REGS"], "16")
+    check_is(config["sim"]["parameters"]["HAS_M"], False)
 
 
 def test_a_name_outside_the_specification_is_rejected(

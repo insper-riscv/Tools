@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from support import check, check_equal, check_is, check_not_equal
 
 from riscv_tools import sim_runner
 
@@ -59,7 +60,7 @@ def test_sim_runner_reports_pass(tmp_path: Path, dummy_hex: Path) -> None:
         test_name="test_pass",
         build_dir=tmp_path / "pass_build",
     )
-    assert passed is True
+    check_is(passed, True)
 
 
 def test_sim_runner_reports_fail(tmp_path: Path, dummy_hex: Path) -> None:
@@ -73,7 +74,7 @@ def test_sim_runner_reports_fail(tmp_path: Path, dummy_hex: Path) -> None:
         test_name="test_fail",
         build_dir=tmp_path / "fail_build",
     )
-    assert passed is False
+    check_is(passed, False)
 
 
 def test_sim_runner_parameters_reach_ghdl(
@@ -96,7 +97,7 @@ def test_sim_runner_parameters_reach_ghdl(
         build_dir=tmp_path / "params_build",
         parameters={"CYCLES": "50"},
     )
-    assert passed is False
+    check_is(passed, False)
 
 
 def _run_lib_test(
@@ -139,16 +140,16 @@ def test_sim_runner_libraries_flags_run_files_and_env(
     # the library only analyzes with -fsynopsys; EXPECTED reaches the
     # cocotb module as an environment variable.
     """Sim runner libraries flags run files and env."""
-    assert _run_lib_test(tmp_path, dummy_hex, flags=["-fsynopsys"]) is True
+    check_is(_run_lib_test(tmp_path, dummy_hex, flags=["-fsynopsys"]), True)
 
 
 def test_sim_runner_env_reaches_the_test_module(
     tmp_path: Path, dummy_hex: Path
 ) -> None:
     """Sim runner env reaches the test module."""
-    assert (
-        _run_lib_test(tmp_path, dummy_hex, flags=["-fsynopsys"], expected=99)
-        is False
+    check_is(
+        _run_lib_test(tmp_path, dummy_hex, flags=["-fsynopsys"], expected=99),
+        False,
     )
 
 
@@ -171,8 +172,10 @@ def test_expand_env_replaces_variables(
     """Expand env replaces variables."""
     monkeypatch.setenv("SIM_TEST_DIR", "/opt/quartus")
 
-    assert sim_runner.expand_env("$SIM_TEST_DIR/eda") == "/opt/quartus/eda"
-    assert sim_runner.expand_env("${SIM_TEST_DIR}/eda") == "/opt/quartus/eda"
+    check_equal(sim_runner.expand_env("$SIM_TEST_DIR/eda"), "/opt/quartus/eda")
+    check_equal(
+        sim_runner.expand_env("${SIM_TEST_DIR}/eda"), "/opt/quartus/eda"
+    )
 
 
 def test_expand_env_rejects_an_unset_variable(
@@ -229,11 +232,11 @@ def test_run_suite_isolates_work_directories_by_simulation_profile(
     sim_runner.run_suite(config(["-frelaxed"]), manifest, tmp_path, base)
     sim_runner.run_suite(config([]), manifest, tmp_path, base)
 
-    assert len(work_dirs) == 3
+    check_equal(len(work_dirs), 3)
     first, second, repeated = work_dirs[0], work_dirs[1], work_dirs[2]
-    assert first == repeated
-    assert first != second
-    assert first.name == second.name == "same-test"
-    assert first.parent.parent == second.parent.parent == base
-    assert first.parent.name.startswith("core-sim-")
-    assert second.parent.name.startswith("core-sim-")
+    check_equal(first, repeated)
+    check_not_equal(first, second)
+    check(first.name == second.name == "same-test")
+    check(first.parent.parent == second.parent.parent == base)
+    check(first.parent.name.startswith("core-sim-"))
+    check(second.parent.name.startswith("core-sim-"))

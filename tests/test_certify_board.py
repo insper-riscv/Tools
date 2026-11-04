@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
-from support import build_elf
+from support import build_elf, check_equal
 
 from riscv_tools import rom_writer
 from riscv_tools.certify import board, flash
@@ -18,9 +18,9 @@ SDRAM_BASE = 0x40000000
 def test_flash_stub_words() -> None:
     """Flash stub words."""
     fence_i, lui_t0, jr_t0 = flash.flash_stub_words(SDRAM_BASE)
-    assert fence_i == 0x0000100F
-    assert lui_t0 == 0x400002B7  # lui t0, 0x40000
-    assert jr_t0 == 0x00028067  # jalr x0, 0(t0)
+    check_equal(fence_i, 0x0000100F)
+    check_equal(lui_t0, 0x400002B7)  # lui t0, 0x40000
+    check_equal(jr_t0, 0x00028067)  # jalr x0, 0(t0)
 
 
 def test_flash_stub_rejects_an_unaligned_base() -> None:
@@ -34,8 +34,8 @@ def test_elf_symbol(tmp_path: Path) -> None:
     elf = tmp_path / "t.elf"
     symbols = {"tohost": 0x400FFFE0, "main": 0x40000010}
     elf.write_bytes(build_elf([(SDRAM_BASE, bytes(8))], symbols))
-    assert elf_symbol(elf, "tohost") == 0x400FFFE0
-    assert elf_symbol(elf, "main") == 0x40000010
+    check_equal(elf_symbol(elf, "tohost"), 0x400FFFE0)
+    check_equal(elf_symbol(elf, "main"), 0x40000010)
     with pytest.raises(KeyError):
         elf_symbol(elf, "absent")
 
@@ -48,7 +48,7 @@ def test_image_words_stop_before_tohost(tmp_path: Path) -> None:
     segments = [(SDRAM_BASE, code), (SDRAM_BASE + 0x20, htif)]
     elf.write_bytes(build_elf(segments, {"tohost": SDRAM_BASE + 0x20}))
     # the HTIF segment starts at tohost and stays out of the image
-    assert flash.image_words(elf, SDRAM_BASE) == [0x03020100, 0x07060504]
+    check_equal(flash.image_words(elf, SDRAM_BASE), [0x03020100, 0x07060504])
 
 
 def test_display_follows_each_elf(
@@ -102,11 +102,11 @@ def test_display_follows_each_elf(
     result = board.run_suite_on_board(
         cfg, tmp_path, tmp_path / "b", cast(JtagLink, None), build=False
     )
-    assert result == {"a": True, "b": False, "c": None}
-    assert writes == [0xAC0001, 0xAC0002, 0xAC0003]
+    check_equal(result, {"a": True, "b": False, "c": None})
+    check_equal(writes, [0xAC0001, 0xAC0002, 0xAC0003])
     # cleared at the start, then set by the failed ELF and by the
     # timed-out one
-    assert flags == [False, True, True]
+    check_equal(flags, [False, True, True])
 
 
 def test_flash_stub_sits_at_rom_base(
@@ -134,5 +134,5 @@ def test_flash_stub_sits_at_rom_base(
         )
     }
     first = flash.flash_stub_words(SDRAM_BASE)[0]
-    assert data[0x800 // 4] == first
-    assert data.get(0, 0) == 0
+    check_equal(data[0x800 // 4], first)
+    check_equal(data.get(0, 0), 0)

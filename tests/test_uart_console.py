@@ -5,6 +5,7 @@ import time
 from typing import Any, override
 
 import pytest
+from support import check_equal, check_is
 
 from riscv_tools import uart_console
 from riscv_tools.jtag import JtagLink
@@ -52,10 +53,10 @@ def _popen(fake: FakeProcess, monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_decode_line_reads_data_lines_only() -> None:
     """Decode line reads data lines only."""
-    assert uart_console.decode_line("BYTES=68656c6c6f") == b"hello"
-    assert uart_console.decode_line("  BYTES=0a\n") == b"\n"
-    assert uart_console.decode_line("info: Quartus Prime") is None
-    assert uart_console.decode_line("") is None
+    check_equal(uart_console.decode_line("BYTES=68656c6c6f"), b"hello")
+    check_equal(uart_console.decode_line("  BYTES=0a\n"), b"\n")
+    check_is(uart_console.decode_line("info: Quartus Prime"), None)
+    check_is(uart_console.decode_line(""), None)
 
 
 def test_read_console_delivers_the_chunks_in_order(
@@ -66,9 +67,9 @@ def test_read_console_delivers_the_chunks_in_order(
     _popen(fake, monkeypatch)
     chunks: list[bytes] = []
     got = uart_console.read_console(LINK, chunks.append, seconds=5)
-    assert chunks == [b"he", b"llo\n"]
-    assert got == b"hello\n"
-    assert fake.cmd[-3:] == ["cable", "device", "5"]
+    check_equal(chunks, [b"he", b"llo\n"])
+    check_equal(got, b"hello\n")
+    check_equal(fake.cmd[-3:], ["cable", "device", "5"])
 
 
 def test_read_console_passes_the_bytes_to_send(
@@ -78,7 +79,7 @@ def test_read_console_passes_the_bytes_to_send(
     fake = FakeProcess([])
     _popen(fake, monkeypatch)
     uart_console.read_console(LINK, lambda _c: None, send=b"hi")
-    assert fake.cmd[-1] == "6869"
+    check_equal(fake.cmd[-1], "6869")
 
 
 def test_read_console_reports_a_failed_script(
@@ -105,15 +106,16 @@ def test_interactive_console_gives_the_typed_lines_to_the_script(
 
     got = uart_console.read_console(LINK, received.append, typed=typed)
 
-    assert fake.cmd[-1] == "-"
-    assert got == b"ok\n"
+    check_equal(fake.cmd[-1], "-")
+    check_equal(got, b"ok\n")
     # the lines are forwarded by a thread: give it the time it needs
     for _ in range(100):
         if fake.stdin.closed_with is not None:
             break
         time.sleep(0.01)
-    assert fake.stdin.closed_with == (
-        b"peek 40000000\n".hex() + "\n" + b"quit\n".hex() + "\n"
+    check_equal(
+        fake.stdin.closed_with,
+        b"peek 40000000\n".hex() + "\n" + b"quit\n".hex() + "\n",
     )
 
 

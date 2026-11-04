@@ -1,6 +1,7 @@
 """timing_paths: reading, naming and grouping paths, no Quartus."""
 
 import pytest
+from support import check, check_equal, check_in
 
 from riscv_tools import timing_paths
 
@@ -22,8 +23,8 @@ OUTPUT = "\n".join(
 def test_paths_are_read_from_the_marked_lines() -> None:
     """Paths are read from the marked lines."""
     paths = timing_paths.parse_paths(OUTPUT)
-    assert [p.slack for p in paths] == [-2.016, -1.885, -0.205]
-    assert paths[0].source == SRC and paths[0].clock == "clkA"
+    check_equal([p.slack for p in paths], [-2.016, -1.885, -0.205])
+    check(paths[0].source == SRC and paths[0].clock == "clkA")
 
 
 def test_a_malformed_line_is_an_error() -> None:
@@ -45,17 +46,20 @@ def test_register_names_drop_the_bit_and_name_the_stage(
     node: str, expected: str
 ) -> None:
     """Register names drop the bit and name the stage."""
-    assert timing_paths.register_of(node) == expected
+    check_equal(timing_paths.register_of(node), expected)
 
 
 def test_bits_of_a_register_pair_fold_into_one_group_worst_first() -> None:
     """Bits of a register pair fold into one group worst first."""
     groups = timing_paths.group_paths(timing_paths.parse_paths(OUTPUT))
-    assert [(g.source, g.destination, g.paths) for g in groups] == [
-        ("MEM/WB r_ext_ram_op", "EX/MEM r_alu_out", 2),
-        ("S|st.ST_ACT", "S|ack_i", 1),
-    ]
-    assert groups[0].slack == -2.016 and groups[0].delay == 21.772
+    check_equal(
+        [(g.source, g.destination, g.paths) for g in groups],
+        [
+            ("MEM/WB r_ext_ram_op", "EX/MEM r_alu_out", 2),
+            ("S|st.ST_ACT", "S|ack_i", 1),
+        ],
+    )
+    check_equal((groups[0].slack, groups[0].delay), (-2.016, 21.772))
 
 
 def test_table_has_one_row_per_group() -> None:
@@ -63,8 +67,9 @@ def test_table_has_one_row_per_group() -> None:
     table = timing_paths.format_table(
         timing_paths.group_paths(timing_paths.parse_paths(OUTPUT))
     )
-    assert table.count("\n") == 4
-    assert (
+    check_equal(table.count("\n"), 4)
+    check_in(
         "| `clkA` | `MEM/WB r_ext_ram_op` | `EX/MEM r_alu_out` | 2 "
-        "| -2.016 | 21.772 |" in table
+        "| -2.016 | 21.772 |",
+        table,
     )

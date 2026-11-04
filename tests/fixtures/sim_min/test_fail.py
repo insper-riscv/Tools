@@ -14,4 +14,4 @@ import cocotb
 @cocotb.test()
 async def test_program(_dut: Any) -> None:
     """Fail on purpose so the runner reports a failed test."""
-    assert False, "deliberately fails, see tests/test_sim_runner.py"
+    raise AssertionError("deliberately fails, see tests/test_sim_runner.py")

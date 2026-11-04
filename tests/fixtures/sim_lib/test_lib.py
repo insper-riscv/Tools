@@ -18,6 +18,6 @@ async def test_program(dut: Any) -> None:
     """Check the DUT tohost against the EXPECTED variable."""
     await Timer(1, unit="ns")
     expected = int(os.environ["EXPECTED"])
-    assert int(dut.tohost.value) == expected, (
-        f"tohost {int(dut.tohost.value)}, expected {expected}"
-    )
+    actual = int(dut.tohost.value)
+    if actual != expected:
+        raise AssertionError(f"tohost {actual}, expected {expected}")

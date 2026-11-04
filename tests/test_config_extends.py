@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+from support import check_equal, check_not_in
 
 from riscv_tools.settings import load_config
 
@@ -18,10 +19,10 @@ def test_extends_merges_over_the_base(tmp_path: Path) -> None:
 
     cfg = load_config(tmp_path / "variant.yaml")
 
-    assert cfg["sim"]["toplevel"] == "core_fpga"
-    assert cfg["sim"]["image"] == "mif"
-    assert cfg["sim"]["vhdl_sources"] == ["a.vhd", "b.vhd"]
-    assert "extends" not in cfg
+    check_equal(cfg["sim"]["toplevel"], "core_fpga")
+    check_equal(cfg["sim"]["image"], "mif")
+    check_equal(cfg["sim"]["vhdl_sources"], ["a.vhd", "b.vhd"])
+    check_not_in("extends", cfg)
 
 
 def test_extends_replaces_a_list_instead_of_appending(tmp_path: Path) -> None:
@@ -33,9 +34,10 @@ def test_extends_replaces_a_list_instead_of_appending(tmp_path: Path) -> None:
         "extends: base.yaml\nsim:\n  vhdl_sources: [c.vhd]\n"
     )
 
-    assert load_config(tmp_path / "variant.yaml")["sim"]["vhdl_sources"] == [
-        "c.vhd"
-    ]
+    check_equal(
+        load_config(tmp_path / "variant.yaml")["sim"]["vhdl_sources"],
+        ["c.vhd"],
+    )
 
 
 def test_extends_is_relative_to_the_file_that_names_it(tmp_path: Path) -> None:
@@ -49,8 +51,8 @@ def test_extends_is_relative_to_the_file_that_names_it(tmp_path: Path) -> None:
 
     cfg = load_config(tmp_path / "leaf.yaml")
 
-    assert cfg["sim"]["toplevel"] == "top"
-    assert cfg["sim"]["ghdl_std"] == "93"
+    check_equal(cfg["sim"]["toplevel"], "top")
+    check_equal(cfg["sim"]["ghdl_std"], "93")
 
 
 def test_extends_loop_is_rejected(tmp_path: Path) -> None:
@@ -68,5 +70,5 @@ def test_config_without_extends_is_unchanged(tmp_path: Path) -> None:
 
     cfg = load_config(tmp_path / "only.yaml")
 
-    assert cfg["sim"]["toplevel"] == "top"
-    assert cfg["sim"]["image"] == "hex"
+    check_equal(cfg["sim"]["toplevel"], "top")
+    check_equal(cfg["sim"]["image"], "hex")

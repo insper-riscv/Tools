@@ -5,7 +5,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from support import link_bare
+from support import check_equal, check_false, link_bare
 
 from riscv_tools.spike_exec import (
     SpikeTarget,
@@ -58,7 +58,7 @@ def test_require_spike_accepts_a_binary_without_the_overlap(
     """Require spike accepts a binary without the overlap."""
     fake = _fake_spike(tmp_path, "spike_patched", "some other error")
 
-    assert require_spike(str(fake)) == str(fake)
+    check_equal(require_spike(str(fake)), str(fake))
 
 
 def test_spike_command_lists_every_region_and_the_entry_point() -> None:
@@ -77,15 +77,18 @@ def test_spike_command_lists_every_region_and_the_entry_point() -> None:
         ("+signature=s.txt",),
     )
 
-    assert cmd == [
-        "spike",
-        "--isa=rv32im",
-        "-m0x0:0x8000,0x8000:0x1000",
-        "--disable-dtb",
-        "--pc=0x40",
-        "+signature=s.txt",
-        "t.elf",
-    ]
+    check_equal(
+        cmd,
+        [
+            "spike",
+            "--isa=rv32im",
+            "-m0x0:0x8000,0x8000:0x1000",
+            "--disable-dtb",
+            "--pc=0x40",
+            "+signature=s.txt",
+            "t.elf",
+        ],
+    )
 
 
 @needs_toolchain
@@ -102,10 +105,12 @@ def test_prepared_elf_adds_fromhost_and_extra_symbols(tmp_path: Path) -> None:
     with prepared_elf(
         OBJCOPY, NM, elf, "tohost", {"begin_signature": 0x80000100}
     ) as prepared:
-        assert symbol_address(NM, prepared, "fromhost") == tohost + 8
-        assert symbol_address(NM, prepared, "begin_signature") == 0x80000100
+        check_equal(symbol_address(NM, prepared, "fromhost"), tohost + 8)
+        check_equal(
+            symbol_address(NM, prepared, "begin_signature"), 0x80000100
+        )
 
-    assert not prepared.exists()
+    check_false(prepared.exists())
     with pytest.raises(RuntimeError, match="fromhost"):
         symbol_address(NM, elf, "fromhost")
 
@@ -124,6 +129,7 @@ def test_prepared_elf_aliases_a_custom_tohost_symbol(
     )
 
     with prepared_elf(OBJCOPY, NM, elf, "my_tohost") as prepared:
-        assert symbol_address(NM, prepared, "tohost") == symbol_address(
-            NM, elf, "my_tohost"
+        check_equal(
+            symbol_address(NM, prepared, "tohost"),
+            symbol_address(NM, elf, "my_tohost"),
         )
