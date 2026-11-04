@@ -6,6 +6,7 @@ from riscv_tools.cli.parser_board import add_board_commands
 from riscv_tools.cli.parser_build import add_build_commands
 from riscv_tools.cli.parser_run import add_run_commands
 from riscv_tools.cli.parser_tools import add_tool_commands
+from riscv_tools.memory_map.profile import set_override as set_profile_override
 
 _COMMANDS_WITHOUT_CONFIG = frozenset(
     {
@@ -61,6 +62,13 @@ def main() -> None:
         default=None,
         help="Consuming project's root dir (default: cwd)",
     )
+    parser.add_argument(
+        "--profile",
+        default=None,
+        help="Profile of the platform (rv32im, rv32em_zicsr, ...) in place "
+        "of the `profile:` of its platform.yaml; it sets the base ISA, "
+        "the generics of the simulation and the generated VHDL package",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
     add_build_commands(sub)
     add_board_commands(sub)
@@ -68,6 +76,7 @@ def main() -> None:
     add_tool_commands(sub)
 
     args = parser.parse_args()
+    set_profile_override(args.profile)
     if args.command not in _COMMANDS_WITHOUT_CONFIG and args.config is None:
         parser.error("--config is required for this subcommand")
     args.func(args)

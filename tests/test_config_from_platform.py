@@ -2,15 +2,18 @@
 
 from pathlib import Path
 
+import pytest
 import yaml
 from support import MAP_REGIONS, MAP_RESERVED
 
-from riscv_tools.memory_map import config_from_platform
+from riscv_tools.memory_map import config_from_platform, set_override
 from riscv_tools.settings import read_config
 
 PLATFORM = {
     "regions": MAP_REGIONS,
     "reserved": MAP_RESERVED,
+    "profile": "rv32im_zicntr",
+    "profiles": "matrix.yaml",
     "config": {
         "rom": "FLASH",
         "ram": "RAM",
@@ -19,7 +22,30 @@ PLATFORM = {
 }
 
 
+MATRIX = {
+    "bases": [
+        {"name": "rv32i", "generics": {"num_regs": 32}},
+        {"name": "rv32e", "generics": {"num_regs": 16}},
+    ],
+    "extensions": [
+        {"name": "Zicsr", "generic": "has_zicsr"},
+        {"name": "Zicntr", "generic": "has_zicntr", "implies": ["has_zicsr"]},
+        {"name": "M", "generic": "has_m", "base_letter": "m"},
+    ],
+    "mutually_exclusive": [["Zicsr", "Zicntr"]],
+}
+
+
+@pytest.fixture(autouse=True)
+def _no_override():
+    """Start each test with the profile of the platform."""
+    set_override(None)
+    yield
+    set_override(None)
+
+
 def _platform(root: Path) -> Path:
+    (root / "matrix.yaml").write_text(yaml.safe_dump(MATRIX))
     path = root / "platform.yaml"
     path.write_text(yaml.safe_dump(PLATFORM, sort_keys=False))
     return path
@@ -38,6 +64,7 @@ def test_memory_and_widths_come_from_the_map(tmp_path: Path) -> None:
         "tohost_addr": 0x2FFE8,
         "fromhost_addr": 0x2FFF0,
     }
+    assert config["isa"] == {"base": "i"}
     assert config["sim"]["env"] == {
         "TOHOST_ADDR": "0x0002FFE8",
         "STDOUT_ADDR": "0x0002FBE0",
@@ -46,6 +73,10 @@ def test_memory_and_widths_come_from_the_map(tmp_path: Path) -> None:
         "boot_rom_addr_width": "9",
         "rom_addr_width": "13",
         "ram_addr_width": "16",
+        "NUM_REGS": "32",
+        "HAS_ZICSR": True,
+        "HAS_ZICNTR": True,
+        "HAS_M": True,
     }
 
 
@@ -68,3 +99,25 @@ def test_the_map_wins_over_what_the_config_says(tmp_path: Path) -> None:
     assert merged["memory"]["ram_words"] == 40960
     assert merged["memory"]["other"] == 7
     assert "memory_map" not in merged
+
+
+def test_the_override_replaces_the_profile_of_the_platform(
+    tmp_path: Path,
+) -> None:
+    """`--profile` picks the base, the registers and the extensions."""
+    path = _platform(tmp_path)
+    set_override("rv32e")
+    config = config_from_platform(path)
+    assert config["isa"] == {"base": "e"}
+    assert config["sim"]["parameters"]["NUM_REGS"] == "16"
+    assert config["sim"]["parameters"]["HAS_M"] is False
+
+
+def test_a_name_outside_the_specification_is_rejected(
+    tmp_path: Path,
+) -> None:
+    """A profile that the specification does not list fails."""
+    path = _platform(tmp_path)
+    set_override("rv32im_zicsr_zicntr")
+    with pytest.raises(ValueError, match="is not a profile"):
+        config_from_platform(path)

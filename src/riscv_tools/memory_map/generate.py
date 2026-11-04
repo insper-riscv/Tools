@@ -47,6 +47,7 @@ from riscv_tools.memory_map.core import (
     symbols,
 )
 from riscv_tools.memory_map.expressions import evaluate
+from riscv_tools.memory_map.profile import SWITCHES, resolve
 from riscv_tools.memory_map.validation import validate_platform
 
 KIB = 1024
@@ -143,7 +144,7 @@ use ieee.std_logic_1164.all;
 
 package {package} is
 
-\t-- Expoente do tamanho da BOOT_ROM, que ocupa [0, 2**BOOT_ROM_BITS).
+{profile}\t-- Expoente do tamanho da BOOT_ROM, que ocupa [0, 2**BOOT_ROM_BITS).
 \tconstant BOOT_ROM_BITS       : natural  := {boot_bits};
 \t-- Tamanho da BOOT_ROM, em bytes.
 \tconstant BOOT_ROM_SIZE_BYTES : positive := {boot_bytes};
@@ -397,11 +398,44 @@ def _external_line(kind: str, spec: dict[str, Any]) -> str:
     )
 
 
+def _profile_lines(platform: dict[str, Any], platform_file: Path) -> str:
+    """Write the VHDL constants of the platform profile.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+    platform_file : Path
+        The platform YAML, which locates the profile specification.
+
+    Returns
+    -------
+    str
+        `NUM_REGS` and, when the platform names the profile
+        specification, one `HAS_*` switch per extension of the core.
+    """
+    _, generics = resolve(platform, platform_file)
+    lines = (
+        "\t-- Registradores do perfil: 32 no RV32I e 16 no RV32E.\n"
+        f"\tconstant NUM_REGS            : positive := "
+        f"{generics['num_regs']};\n"
+    )
+    for key in SWITCHES:
+        if key in generics:
+            lines += (
+                f"\t-- A extensão {key[4:].capitalize()} está no perfil.\n"
+                f"\tconstant {key.upper():<19} : boolean  := "
+                f"{str(bool(generics[key])).lower()};\n"
+            )
+    return lines
+
+
 def render_vhdl(
     platform: dict[str, Any],
     spec: dict[str, Any],
     table: dict[str, int],
     source: str,
+    platform_file: Path,
 ) -> str:
     """Render the VHDL package with the generics of the core.
 
@@ -418,6 +452,8 @@ def render_vhdl(
         The symbols of the map.
     source : str
         The platform file, for the header.
+    platform_file : Path
+        The platform YAML, which locates the profile specification.
 
     Returns
     -------
@@ -430,6 +466,7 @@ def render_vhdl(
     return _VHDL.format(
         source=source,
         package=spec["package"],
+        profile=_profile_lines(platform, platform_file),
         boot_bits=(table[f"{boot}.size"] - 1).bit_length(),
         boot_bytes=table[f"{boot}.size"],
         rom_base=_kib(table[f"{rom}.base"], f"{rom} base"),
@@ -491,7 +528,9 @@ def render_all(platform_file: Path, root: Path) -> dict[Path, str]:
         )
     if "vhdl" in wanted:
         spec = cast(dict[str, Any], wanted["vhdl"])
-        out[root / spec["path"]] = render_vhdl(platform, spec, table, source)
+        out[root / spec["path"]] = render_vhdl(
+            platform, spec, table, source, platform_file
+        )
     return out
 
 

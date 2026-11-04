@@ -5,6 +5,7 @@ from riscv_tools.memory_map.config_view import config_from_platform
 from riscv_tools.memory_map.core import Mismatch, load_platform, symbols
 from riscv_tools.memory_map.expressions import evaluate
 from riscv_tools.memory_map.generate import check_all, render_all, write_all
+from riscv_tools.memory_map.profile import resolve, set_override
 from riscv_tools.memory_map.validation import validate_platform
 
 __all__ = [
@@ -15,6 +16,8 @@ __all__ = [
     "evaluate",
     "load_platform",
     "render_all",
+    "resolve",
+    "set_override",
     "symbols",
     "validate_platform",
     "write_all",

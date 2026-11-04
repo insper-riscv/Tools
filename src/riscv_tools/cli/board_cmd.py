@@ -184,7 +184,11 @@ def cmd_program(args: argparse.Namespace) -> None:
     ):
         build_dir = root / cfg["paths"]["build_dir"] / "boot_rom"
         boot_rom.build_boot_rom(
-            cfg["toolchain"], cfg["paths"], root, build_dir
+            cfg["toolchain"],
+            cfg["paths"],
+            root,
+            build_dir,
+            boot_rom.BootRomOptions(base=cfg["isa"]["base"]),
         )
         boot_rom_mif_path = build_dir / "boot_rom.mif"
         bin_to_image.bin_to_mif(
