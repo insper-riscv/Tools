@@ -6,21 +6,14 @@ from typing import Any
 
 import pytest
 import yaml
+from support import MAP_REGIONS, MAP_RESERVED
 
 from riscv_tools import cli
 from riscv_tools.memory_map import check_all, render_all, write_all
 
 PLATFORM: dict[str, Any] = {
-    "regions": [
-        {"name": "BOOT_ROM", "base": "0x0", "size": "2K", "exec": True},
-        {"name": "FLASH", "base": "0x800", "size": "30K", "exec": True},
-        {"name": "RAM", "base": "0x8000", "size": "160K", "kind": "ram"},
-    ],
-    "reserved": {
-        "stdout": {"base": "0x2FBE0", "size": "1K+8"},
-        "tohost": {"base": "0x2FFE8", "size": "8"},
-        "fromhost": {"base": "0x2FFF0", "size": "8"},
-    },
+    "regions": MAP_REGIONS,
+    "reserved": MAP_RESERVED,
     "boot": {"entry": "0x800", "wait_restart": "0x100"},
     "peripherals": [{"name": "UART", "base": "0xC0000000", "id": 4}],
     "generate": {

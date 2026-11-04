@@ -3,21 +3,14 @@
 from pathlib import Path
 
 import yaml
+from support import MAP_REGIONS, MAP_RESERVED
 
 from riscv_tools.memory_map import config_from_platform
 from riscv_tools.settings import read_config
 
 PLATFORM = {
-    "regions": [
-        {"name": "BOOT_ROM", "base": "0x0", "size": "2K", "exec": True},
-        {"name": "FLASH", "base": "0x800", "size": "30K", "exec": True},
-        {"name": "RAM", "base": "0x8000", "size": "160K", "kind": "ram"},
-    ],
-    "reserved": {
-        "stdout": {"base": "0x2FBE0", "size": "1K+8"},
-        "tohost": {"base": "0x2FFE8", "size": "8"},
-        "fromhost": {"base": "0x2FFF0", "size": "8"},
-    },
+    "regions": MAP_REGIONS,
+    "reserved": MAP_RESERVED,
     "config": {
         "rom": "FLASH",
         "ram": "RAM",
