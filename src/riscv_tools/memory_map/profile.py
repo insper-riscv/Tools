@@ -6,10 +6,16 @@ in `profiles:`, a path relative to the platform file (the
 `profiles/matrix.yaml` of the Core). `--profile NAME` of the command
 line replaces the `profile:` of the platform, so a matrix of tests can
 run the same platform over many profiles without editing it.
+
+Zimop and Zicond are not in the specification of the Core (its matrix
+has only the extensions that combine freely), so the platform turns
+them on with `extras: [Zimop, Zicond]`, which also survives
+`--profile`. Every switch the profile and the extras do not turn on
+comes out false.
 """
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from riscv_tools import profiles
 
@@ -20,6 +26,8 @@ SWITCHES = (
     "has_zicsr",
     "has_zicntr",
     "has_zihpm",
+    "has_zimop",
+    "has_zicond",
     "has_zifencei",
     "has_zicclsm",
 )
@@ -103,4 +111,11 @@ def resolve(
     if name not in found:
         raise ValueError(f"{name!r} is not a profile of {spec_ref}")
     chosen = found[name]
-    return _base_of(name), dict(chosen.generics)
+    generics = dict.fromkeys(SWITCHES, False) | dict(chosen.generics)
+    extras = cast("list[Any]", platform.get("extras") or [])
+    for extra in extras:
+        key = f"has_{str(extra).lower()}"
+        if key not in SWITCHES:
+            raise ValueError(f"extra {extra!r} is not one of {SWITCHES}")
+        generics[key] = True
+    return _base_of(name), generics
