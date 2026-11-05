@@ -20,6 +20,7 @@ It is designed to run on a workstation with all the tools installed, or inside t
 | `boot_rom`           | Builds the fixed, shared bootloader, once, reused across every test | [docs/modules/boot_rom.md](docs/en/modules/boot_rom.md) |
 | `jtag`               | Live JTAG cable detection, generic `.tcl` runner            | [docs/modules/jtag.md](docs/en/modules/jtag.md) |
 | `mem_edit`           | Generic In-System Memory Content Editor primitives (read/write word, write-full, dump) | [docs/modules/mem_edit.md](docs/en/modules/mem_edit.md) |
+| `flash_loader`       | Write the one-copy internal FLASH through the JTAG loader   | [docs/modules/flash_loader.md](docs/en/modules/flash_loader.md) |
 | `rom_writer`         | JTAG-write a ROM image without reprogramming                | [docs/modules/rom_writer.md](docs/en/modules/rom_writer.md) |
 | `ram_zero`           | JTAG-zero the whole RAM without reprogramming                | [docs/modules/ram_zero.md](docs/en/modules/ram_zero.md) |
 | `ram_target`         | Where the RAM lives (FPGA instance or SDRAM debug port)      | [docs/modules/ram_target.md](docs/en/modules/ram_target.md) |

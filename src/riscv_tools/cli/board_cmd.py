@@ -23,8 +23,9 @@ from riscv_tools.settings import load_config
 def cmd_write_rom(args: argparse.Namespace) -> None:
     """Implement `riscv-tools write-rom`.
 
-    JTAG-writes a .mif into every ROM instance of the already-programmed
-    board.
+    JTAG-writes a .mif into the ROM of the already-programmed board:
+    into every instance listed, or through the FLASH loader, which also
+    restarts the core (quartus.rom_write_method).
 
     Parameters
     ----------
@@ -37,9 +38,7 @@ def cmd_write_rom(args: argparse.Namespace) -> None:
     """
     cfg = load_config(args.config)
     link = jtag_link(cfg)
-    rom_writer.write_rom(
-        link, cfg["quartus"]["rom_mem_instances"], Path(args.mif)
-    )
+    rom_writer.write_rom_configured(link, cfg, Path(args.mif))
 
 
 def cmd_zero_ram(args: argparse.Namespace) -> None:

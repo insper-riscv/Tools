@@ -15,9 +15,11 @@ from riscv_tools.jtag import JtagLink
 def run_test_via_jtag(
     cfg: dict[str, Any], link: JtagLink, entry: dict[str, Any], root: Path
 ) -> int | None:
-    """Load the ROM of entry, pulse the restart flag, poll tohost.
+    """Load the ROM of entry, restart the core, poll tohost.
 
-    It works on the already-programmed board and polls up to entry's
+    The restart is the pulse of the restart flag or, with the FLASH
+    loader (quartus.rom_write_method), the release of the core. It
+    works on the already-programmed board and polls up to entry's
     timeout_s.
 
     Parameters
@@ -47,10 +49,10 @@ def run_test_via_jtag(
     # first, so the host never mistakes that test's result for this
     # one's.
     htif.clear_tohost_configured(link, cfg)
-    rom_writer.write_rom(
-        link, cfg["quartus"]["rom_mem_instances"], root / entry["mif"]
-    )
-    htif.pulse_fromhost_configured(link, cfg)
+    # The FLASH loader restarts the core by itself (from the boot ROM,
+    # which clears tohost again); the other method needs the pulse.
+    if not rom_writer.write_rom_configured(link, cfg, root / entry["mif"]):
+        htif.pulse_fromhost_configured(link, cfg)
 
     poll_s = cfg["quartus"]["poll_interval_seconds"]
     deadline = time.monotonic() + entry["timeout_s"]

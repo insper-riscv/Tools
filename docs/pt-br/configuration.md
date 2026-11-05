@@ -57,6 +57,7 @@ Não há divisão `tests_real_dir`/`tests_sim_dir`/`golden_dir`: todo teste em `
 | `rom_mif_target` | **obrigatória** | `quartus_program`: caminho (relativo a `project_dir`) de onde a megafunção da ROM lê o `init_file` na compilação |
 | `stale_cache_dirs` | `[db, incremental_db, output_files, simulation]` | `quartus_program`: diretórios (relativos a `project_dir`) apagados antes de toda compilação, já que o `init_file` de uma ROM não é um fonte rastreado do projeto |
 | `rom_mem_instances` | `[0]` | `rom_writer`: índice(s) da instância do In-System Memory Content Editor da ROM (uma lista; um projeto com mais de uma cópia física da ROM, por exemplo uma por porta de leitura quando uma memória dual-port verdadeira não está disponível, lista todas, mantidas em sincronia a cada escrita) |
+| `rom_write_method` | `mem_edit` | `rom_writer`: `mem_edit` grava cada instância pelo In-System Memory Content Editor e exige o pulso do `fromhost` depois; `jtag_loader` grava a única cópia da FLASH pelo [carregador JTAG](modules/flash_loader.md) com o núcleo parado e o reinicia sozinho |
 | `ram_mem_instance` | `1` | `ram_zero`, `ram_dump`, `htif`: o mesmo, para a RAM |
 | `poll_interval_seconds` | `0.5` | `htif` / `orchestrator`: de quanto em quanto tempo consultar o `tohost` enquanto espera um teste |
 | `program_wait_seconds` | `15` | `orchestrator`: quanto esperar após uma reconfiguração completa (só no caminho de fallback) antes de ler o `tohost` |
