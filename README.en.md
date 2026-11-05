@@ -36,7 +36,8 @@ It is designed to run on a workstation with all the tools installed, or inside t
 | `sim_runner`         | Drives cocotb/GHDL simulation: the sim-side counterpart to `orchestrator` (needs the `sim` extra) | [docs/modules/sim_runner.md](docs/en/modules/sim_runner.md) |
 | `certify`            | Builds and runs the ACT4 architectural certification suite under cocotb/GHDL | [docs/modules/certify.md](docs/en/modules/certify.md) |
 | `vhdl_sort`          | Topologically sort VHDL sources by entity/package dependency, for GHDL `-a` | [docs/modules/vhdl_sort.md](docs/en/modules/vhdl_sort.md) |
-| `tree_check`         | Fails when the tree of a repository strays from the layout all of them share: standard files, language pairs, `.vhd` in `src/`, Common-Components at `src/common`, folder names | [docs/modules/tree_check.md](docs/en/modules/tree_check.md) |
+| `tree_check`         | Fails when the tree of a repository strays from the layout all of them share: standard files, language pairs, `.vhd` in `src/`, Common-Components at `src/common`, folder names, the `provides` manifest and the coverage of tests and proofs | [docs/modules/tree_check.md](docs/en/modules/tree_check.md) |
+| `sources`            | Prints the ordered list of the files of a target, read from the `provides` manifests of the repositories | [docs/modules/sources.md](docs/en/modules/sources.md) |
 | `vhdl_style`         | Fails when a `.vhd` breaks the style guide of the project (header, `i_`/`o_` prefixes, a docstring per declaration, no `component`, `port map` by name); leaves out `vendor/` and the Quartus IPs | [docs/modules/vhdl_style.md](docs/en/modules/vhdl_style.md) |
 | `platform_sync`      | Writes the `config.yaml` of a platform for the project that consumes it, with the submodule folder in front of each of its paths | [docs/modules/platform_sync.md](docs/en/modules/platform_sync.md) |
 | `profiles`           | Lists the valid profiles of a core from its extensions and the rules between them (M and Zmmul never coexist, Zicsr or Zicclsm is required) | [docs/modules/profiles.md](docs/en/modules/profiles.md) |
@@ -76,7 +77,7 @@ uv run riscv-tools --config /path/to/project/config.yaml sim --only test-a,test-
 
 See `riscv-tools --help` for the full subcommand list (`write-rom`,
 `zero-ram`, `dump-ram`, `program`, `htif read|restart`, `generate-header`,
-`generate-golden`, `spike-run`, `run`, `sim`, `vhdl-sort`, `generate-memory-map`, `check-tree`, `platform`, `freq-sweep`).
+`generate-golden`, `spike-run`, `run`, `sim`, `vhdl-sort`, `generate-memory-map`, `check-tree`, `sources`, `platform`, `freq-sweep`).
 
 ```bash
 # vhdl-sort needs no --config; pure file-content analysis, e.g. wired

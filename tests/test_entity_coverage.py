@@ -34,11 +34,11 @@ def _coverage(root: Path) -> list[str]:
     return check_tree(root, "memory", ["entity-coverage"])
 
 
-def test_the_new_rules_are_opt_in() -> None:
-    """They exist for the VHDL kinds but do not run by default."""
-    check_in("entity-coverage", opt_in_rules("memory"))
+def test_coverage_runs_by_default_and_style_is_opt_in() -> None:
+    """Coverage runs by default; the style check does not."""
+    check_in("entity-coverage", rule_names("memory"))
+    check_in("manifest", rule_names("memory"))
     check_in("vhdl-style", opt_in_rules("core"))
-    check_not_in("entity-coverage", rule_names("memory"))
     check_not_in("vhdl-style", rule_names("memory"))
     check_false(opt_in_rules("tools"))
 
@@ -126,13 +126,54 @@ def test_a_named_proof_needs_its_file(tmp_path: Path) -> None:
     )
     problems = _coverage(tmp_path)
     check_in(
-        "entity-coverage missing formal/synchronizer.sv, the proof of "
-        "synchronizer",
+        "entity-coverage missing formal/synchronizer.sv or "
+        "formal/synchronizer_props.sv or formal/synchronizer/props.sv, "
+        "the proof of synchronizer",
         problems,
     )
     check_in("entity-coverage formal ghost names no entity of src/", problems)
     _write(tmp_path, "formal/synchronizer.sv")
     check_equal(len(_coverage(tmp_path)), 1)
+
+
+def test_a_proof_may_follow_the_other_names_or_be_named(
+    tmp_path: Path,
+) -> None:
+    """`<name>_props.sv`, `<name>/props.sv` and a named file count."""
+    for name in ("a", "b", "c"):
+        _entity(tmp_path, name)
+    _tests_json(
+        tmp_path,
+        {k: (k, [f"src/{k}.vhd"]) for k in ("a", "b", "c")},
+    )
+    _write(
+        tmp_path,
+        "paths.yaml",
+        "tree:\n  coverage:\n    formal:\n      a: []\n      b: []\n"
+        "      c: [formal/other/c.sv]\n",
+    )
+    _write(tmp_path, "formal/a_props.sv")
+    _write(tmp_path, "formal/b/props.sv")
+    check_equal(
+        _coverage(tmp_path),
+        ["entity-coverage missing formal/other/c.sv, the proof of c"],
+    )
+
+
+def test_an_exception_excuses_the_test_but_not_the_proof(
+    tmp_path: Path,
+) -> None:
+    """A proof is still required for an entity without entity test."""
+    _entity(tmp_path, "a")
+    _write(
+        tmp_path,
+        "paths.yaml",
+        "tree:\n  coverage:\n    exceptions:\n      a: tested by system\n"
+        "    formal: [a]\n",
+    )
+    check_equal(len(_coverage(tmp_path)), 1)
+    _write(tmp_path, "formal/a.sv")
+    check_false(_coverage(tmp_path))
 
 
 def test_vhdl_style_runs_through_check_tree(tmp_path: Path) -> None:

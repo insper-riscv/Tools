@@ -4,6 +4,7 @@ from typing import Any
 
 from riscv_tools.cli.parser_util import add_command
 from riscv_tools.cli.platform_cmd import cmd_platform
+from riscv_tools.cli.sources_cmd import cmd_sources
 from riscv_tools.cli.tools_cmd import (
     cmd_check_memory_map,
     cmd_check_paths,
@@ -128,6 +129,23 @@ def add_tool_commands(sub: Any) -> None:
         help="Comma-separated rules to run (default: every rule of the "
         "kind); a repository that has not finished its reorganization "
         "names the rules it already meets",
+    )
+
+    p = add_command(
+        sub,
+        cmd_sources,
+        "sources",
+        description=(
+            "Print the source files of a target in analysis order, read "
+            "from the `provides` manifests of the repository and of the "
+            "ones mounted below it"
+        ),
+    )
+    p.add_argument(
+        "target",
+        nargs="+",
+        help="Component to build, as <repository>/<component>; a bare "
+        "name is a component of the repository at --root",
     )
 
     p = add_command(

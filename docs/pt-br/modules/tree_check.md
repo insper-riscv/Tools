@@ -13,15 +13,16 @@ Cada regra olha um aspecto da árvore e vale para alguns tipos de repositório. 
 | `vhdl-location` | Nenhum `.vhd` fora de `src/` e `tests/vhdl/` | VHDL |
 | `common-submodule` | O Common-Components está montado em `src/common` | `core`, `memory`, `peripherals` |
 | `folder-names` | Nomes de pasta em minúsculas, dígitos, hífen, ponto e sublinhado, sem espaço nem acento | VHDL |
+| `entity-coverage` | Toda entidade de RTL de `src/` tem uma entrada em `tests/python/tests.json` com ela (ou o testbench `<nome>_tb`) como `toplevel` e o arquivo dela em `sources`; toda entidade da tabela `formal` tem a prova em `formal/` | VHDL |
+| `manifest` | A seção `provides` do `paths.yaml` lista cada `.vhd` de `src/` uma única vez, só arquivos que existem e dependências sem ciclo; sem a seção, a regra não confere nada | VHDL |
 
-Duas regras são opcionais e só rodam quando o `--only` as nomeia, para que cada repositório as adote quando as cumprir.
+A regra `vhdl-style` é opcional e só roda quando o `--only` a nomeia, porque o CI tem um passo próprio para o estilo.
 
 | Regra | O que confere | Tipos |
 | :--- | :--- | :--- |
 | `vhdl-style` | Os arquivos VHDL seguem o guia de estilo, como o `check-vhdl-style` confere (ver [vhdl_style](vhdl_style.md)) | VHDL |
-| `entity-coverage` | Toda entidade de RTL de `src/` tem uma entrada em `tests/python/tests.json` com ela (ou o testbench `<nome>_tb`) como `toplevel` e o arquivo dela em `sources`; toda entidade da lista `formal` tem `formal/<nome>.sv` | VHDL |
 
-A regra de cobertura deixa de fora os modelos de simulação (pastas `sim` e `tests`), o código de `vendor/` e os IPs do Quartus.
+A regra de cobertura deixa de fora os modelos de simulação (pastas `sim` e `tests`), o código de `vendor/` e os IPs do Quartus. A prova de uma entidade é `formal/<nome>.sv`, `formal/<nome>_props.sv` ou `formal/<nome>/props.sv`, ou os arquivos que a tabela `formal` nomeia para ela. Uma exceção dispensa só o teste de entidade, nunca a prova.
 
 Os tipos são `common-components`, `core`, `memory`, `peripherals`, `top`, `tests`, `certification`, `infra` e `tools`. Os cinco primeiros são os de VHDL. Só o `common-components` não tem `formal/`.
 
@@ -36,14 +37,26 @@ tree:
   identifier_folders: [I, M, Zicsr, Zicntr, Zihpm, Zifencei, Zicclsm, ISA]
 ```
 
-A regra de cobertura lê a subseção `coverage`. As exceções (por exemplo, um invólucro que só instancia um IP) levam sempre a justificativa, e uma exceção sem texto ou para uma entidade que não existe é um problema.
+A regra de cobertura lê a subseção `coverage`. A tabela `formal` é uma lista de entidades ou um mapa da entidade para os arquivos da prova. As exceções (por exemplo, um invólucro que só instancia um IP) levam sempre a justificativa, e uma exceção sem texto ou para uma entidade que não existe é um problema.
 
 ```yaml
 tree:
   coverage:
-    formal: [sdram_arbiter, axi_master_bridge]
+    formal:
+      sdram_arbiter: []
+      axi_master_bridge: [formal/axi_master/props.sv]
     exceptions:
       boot_rom_shell: instancia só o IP, coberto pela síntese e pela placa
+```
+
+A regra `manifest` lê a seção `provides` da raiz do `paths.yaml`. Cada componente lista em `sources` os arquivos na ordem de análise do GHDL e em `requires` os componentes de que precisa: um nome sem prefixo é do mesmo repositório e `<repositório>/<componente>` é de outro. O nome do repositório vem da chave `repository` da raiz, ou da pasta quando ela falta.
+
+```yaml
+repository: Core
+provides:
+  Zicntr:
+    requires: [constants]
+    sources: [src/Zicntr/counter64.vhd, src/Zicntr/tick_divider.vhd]
 ```
 
 ## Adoção por etapas
@@ -71,14 +84,20 @@ Um repositório que ainda não terminou a reorganização escolhe com `--only` a
 | `tests/test_tree_check.py::test_an_unknown_kind_or_rule_is_an_error` | Um tipo ou uma regra que não existe ou não vale falha. |
 | `tests/test_tree_check.py::test_cmd_check_tree_exit_status` | O comando imprime OK, ou sai com 1 listando os problemas, ou com 2 numa regra desconhecida. |
 | `tests/test_tree_check.py::test_the_subcommand_is_registered_without_a_config` | O subcomando roda sem `--config`. |
-| `tests/test_entity_coverage.py::test_the_new_rules_are_opt_in` | `vhdl-style` e `entity-coverage` existem para os tipos de VHDL e não rodam sem o `--only`. |
+| `tests/test_entity_coverage.py::test_coverage_runs_by_default_and_style_is_opt_in` | `entity-coverage` e `manifest` rodam por padrão nos tipos de VHDL, e `vhdl-style` só com o `--only`. |
 | `tests/test_entity_coverage.py::test_an_entity_with_its_test_passes` | Um teste com a entidade como `toplevel` e o arquivo dela em `sources` a cobre. |
 | `tests/test_entity_coverage.py::test_a_testbench_named_after_the_entity_covers_it` | O `toplevel` `<nome>_tb` conta como a entidade. |
 | `tests/test_entity_coverage.py::test_an_entity_without_a_test_is_reported` | Um teste de sistema que só lista o arquivo não cobre a entidade. |
 | `tests/test_entity_coverage.py::test_a_test_must_list_the_file_of_the_entity` | O `toplevel` sem o arquivo em `sources` falha. |
 | `tests/test_entity_coverage.py::test_models_ips_and_vendor_are_not_rtl` | Modelos de simulação, IPs e `vendor/` não pedem teste. |
 | `tests/test_entity_coverage.py::test_an_exception_needs_a_justification` | A exceção exige justificativa e uma exceção velha falha. |
-| `tests/test_entity_coverage.py::test_a_named_proof_needs_its_file` | Cada entidade da lista `formal` exige `formal/<nome>.sv`. |
+| `tests/test_entity_coverage.py::test_a_named_proof_needs_its_file` | Cada entidade da tabela `formal` exige o arquivo da prova. |
+| `tests/test_entity_coverage.py::test_a_proof_may_follow_the_other_names_or_be_named` | `<nome>_props.sv`, `<nome>/props.sv` e um arquivo nomeado na tabela valem como prova. |
+| `tests/test_entity_coverage.py::test_an_exception_excuses_the_test_but_not_the_proof` | Uma exceção dispensa o teste de entidade e mantém a exigência da prova. |
+| `tests/test_manifest_sources.py::test_without_provides_the_rule_is_silent` | Sem a seção `provides`, a regra `manifest` não confere nada. |
+| `tests/test_manifest_sources.py::test_a_complete_manifest_passes` | Cada arquivo listado uma vez e existente passa. |
+| `tests/test_manifest_sources.py::test_unlisted_missing_duplicate_and_unknown` | Arquivo inexistente, listado duas vezes, sem componente, requisito desconhecido e ciclo são reportados. |
+| `tests/test_manifest_sources.py::test_a_malformed_manifest_is_reported` | Um componente sem `sources` é reportado. |
 | `tests/test_entity_coverage.py::test_vhdl_style_runs_through_check_tree` | Nomear `vhdl-style` no `--only` reporta os desvios do guia. |
 
 ## Uso
