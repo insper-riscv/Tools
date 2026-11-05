@@ -67,16 +67,43 @@ uv run riscv-tools --root <project> generate-memory-map --platform src/platform/
 
 With `--check` nothing is written, and the command exits with status 1 when a file is missing or differs from what the map would generate. It needs no `--config`.
 
+## The FLASH banks
+
+The `flash` section of the `platform.yaml` splits the FLASH into banks, each holding an image in the format of [`flash_image`](flash_image.md), for the program update in the field.
+
+```yaml
+flash:
+  region: FLASH
+  banks:
+    - {name: A, base: 0x1000,  size: 124K}
+    - {name: B, base: 0x20000, size: 128K}
+generate:
+  bank_specs:
+    - {path: runtime/bank-b.specs, rom: BANK_B_PAYLOAD, ram: RAM, ram_limit: stdout}
+  banks_h: {path: runtime/flash_banks.h}
+```
+
+Each bank starts with a 256-byte header page, so its program is linked from `base + 256`. For the bank `A` the map gains the symbols `BANK_A.base|size|end|words` and `BANK_A_PAYLOAD.base|size|end|words` (the part after the header), which serve as `expect` in the checks and as `rom` in the specs sections.
+
+| Key | Generated file | Content |
+| :--- | :--- | :--- |
+| `bank_specs` | List of GCC specs files, one per entry | Like `specs`, with `__flash` and `__flash_size` of the region chosen in `rom`, usually `BANK_<name>_PAYLOAD` |
+| `banks_h` | Header (`.h`, also included by `.S`) | `RV32_IMAGE_MAGIC`, `RV32_IMAGE_HEADER_SIZE` and, for each bank, `RV32_BANK_<NAME>_BASE`, `_SIZE` and `_ENTRY` (where the program starts) |
+
+The map refuses banks that are not aligned to the 4 KiB sector, that leave no room for a program after the header, that leave the region named in `flash.region`, that overlap or that repeat a name.
+
 ## The profile of the platform
 
 The platform picks its profile in `profile:` (`rv32im`, `rv32em_zicsr`, ...) and says where the specification of the profiles is in `profiles:`, a path relative to the `platform.yaml` (the `profiles/matrix.yaml` of the Core). The name starts with `rv32i` (32 registers) or `rv32e` (16) and must be one of the profiles of the specification. It gives:
 
 | Output | Content |
 | :--- | :--- |
-| VHDL package | `HAS_E` (true on the RV32E) and one boolean `HAS_<EXTENSION>` per extension of the core (`HAS_M`, `HAS_ZMMUL`, `HAS_ZICSR`, `HAS_ZICNTR`, `HAS_ZIHPM`, `HAS_ZIFENCEI`, `HAS_ZICCLSM`) |
+| VHDL package | `HAS_E` (true on the RV32E) and one boolean `HAS_<EXTENSION>` per extension of the core (`HAS_M`, `HAS_ZMMUL`, `HAS_ZICSR`, `HAS_ZICNTR`, `HAS_ZIHPM`, `HAS_ZIMOP`, `HAS_ZICOND`, `HAS_ZIHINTNTL`, `HAS_ZIHINTPAUSE`, `HAS_ZIFENCEI`, `HAS_ZICCLSM`) |
 | `config.yaml` | `isa.base`, which picks `-march` and `-mabi` of the programs and of the boot ROM (`rv32e` with `ilp32e`, the others with `ilp32`), and the `sim.parameters` `HAS_E` and `HAS_*` that the runner passes to GHDL |
 
 `--profile NAME`, a global option of `riscv-tools`, replaces the `profile:` of the platform without editing it, to run the same platform over many profiles in a test matrix. It applies to `generate-memory-map` (writes the package of that profile), to `platform sync` and to every command that reads the configuration. A name that the specification does not list is rejected before anything runs.
+
+`extras:` turns on what the matrix of the Core does not list, by extension name (`extras: [Zimop, Zicond, Zihintntl, Zihintpause]`), and it also holds with `--profile`. Every switch that neither the profile nor the extras turn on comes out `false` in the package.
 
 ```bash
 uv run riscv-tools --root <project> --profile rv32em_zicsr generate-memory-map --platform src/platform/platform.yaml

@@ -2,8 +2,10 @@
 
 from typing import Any
 
+from riscv_tools.cli.flash_image_cmd import cmd_flash_image
 from riscv_tools.cli.parser_util import add_command
 from riscv_tools.cli.platform_cmd import cmd_platform
+from riscv_tools.cli.sources_cmd import cmd_sources
 from riscv_tools.cli.tools_cmd import (
     cmd_check_memory_map,
     cmd_check_paths,
@@ -132,6 +134,23 @@ def add_tool_commands(sub: Any) -> None:
 
     p = add_command(
         sub,
+        cmd_sources,
+        "sources",
+        description=(
+            "Print the source files of a target in analysis order, read "
+            "from the `provides` manifests of the repository and of the "
+            "ones mounted below it"
+        ),
+    )
+    p.add_argument(
+        "target",
+        nargs="+",
+        help="Component to build, as <repository>/<component>; a bare "
+        "name is a component of the repository at --root",
+    )
+
+    p = add_command(
+        sub,
         cmd_check_vhdl_style,
         "check-vhdl-style",
         description=(
@@ -175,6 +194,40 @@ def add_tool_commands(sub: Any) -> None:
         "--check",
         action="store_true",
         help="Write nothing and fail when the file is missing or differs",
+    )
+
+    p = add_command(
+        sub,
+        cmd_flash_image,
+        "flash-image",
+        description="Pack a program into the image of a FLASH bank, check "
+        "an image or send it over the JTAG UART",
+    )
+    p.add_argument(
+        "action",
+        choices=["pack", "verify", "send"],
+        help="pack: header and payload into an image; verify: check an "
+        "image; send: give an image to the program that updates the FLASH "
+        "(needs --config)",
+    )
+    p.add_argument(
+        "input",
+        help="pack: the program (.bin); verify and send: the image",
+    )
+    p.add_argument("--output", help="pack: the image to write")
+    p.add_argument(
+        "--version",
+        type=int,
+        default=0,
+        help="pack: version of the image (default 0)",
+    )
+    p.add_argument(
+        "--platform",
+        help="pack: platform YAML (relative to --root) with the bank",
+    )
+    p.add_argument(
+        "--bank",
+        help="pack: name of the bank of the platform the image must fit",
     )
 
     p = add_command(

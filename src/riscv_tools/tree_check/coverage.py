@@ -4,7 +4,8 @@ The coverage rule of the target tree (section 4.2 of the reorganization
 plan): each entity of the RTL has an entry in `tests/python/tests.json`
 whose top level is that entity (or its testbench, `<name>_tb`) and
 whose sources include its file, and each entity named in the table of
-proofs has `formal/<name>.sv`.
+proofs has its proof in `formal/`: `<name>.sv`, `<name>_props.sv` or
+`<name>/props.sv`, or the files the table names for it.
 
 The repository's `paths.yaml` carries the data in a `coverage` section
 of `tree`:
@@ -12,12 +13,15 @@ of `tree`:
 ```yaml
 tree:
   coverage:
-    formal: [sdram_arbiter, axi_master_bridge]
+    formal:
+      sdram_arbiter: []
+      axi_master_bridge: [formal/axi_master/props.sv]
     exceptions:
       boot_rom_shell: wraps a Quartus IP, covered by the synthesis
 ```
 
-An exception is never accepted without its justification.
+An exception excuses the test only, never the proof, and is never
+accepted without its justification.
 """
 
 import json
@@ -92,12 +96,16 @@ def _test_entries(root: Path) -> list[dict[str, Any]]:
     Returns
     -------
     list of dict of str to Any
-        The entries; empty when the file is absent or malformed.
+        The entries; empty when the file is absent, empty or malformed
+        (`check-paths` and the test run report a broken file).
     """
     manifest = root / _TESTS
     if not manifest.is_file():
         return []
-    data = json.loads(manifest.read_text())
+    try:
+        data = json.loads(manifest.read_text())
+    except json.JSONDecodeError:
+        return []
     if not isinstance(data, dict):
         return []
     return [
@@ -175,23 +183,109 @@ def _exceptions(section: dict[str, Any]) -> dict[str, str]:
     }
 
 
-def _formal_names(section: dict[str, Any]) -> list[str]:
+def _proof_files(files: Any) -> list[str]:
+    """Read the proof files named for one entity.
+
+    Parameters
+    ----------
+    files : Any
+        A file name or a list of them.
+
+    Returns
+    -------
+    list of str
+        The names, or an empty list when `files` is neither.
+    """
+    named = [files] if isinstance(files, str) else files
+    if not isinstance(named, list):
+        return []
+    return [str(item) for item in cast("list[Any]", named)]
+
+
+def _formal(section: dict[str, Any]) -> dict[str, list[str]]:
     """Read the entities that must have a proof.
 
     Parameters
     ----------
     section : dict of str to Any
-        The `coverage` section.
+        The `coverage` section: a list of entity names, or a mapping
+        from the name to the proof files when they do not follow the
+        naming of `_candidates`.
+
+    Returns
+    -------
+    dict of str to list of str
+        The proof files named for each entity (empty for the default
+        names), keyed by lowercase entity name.
+    """
+    listed = section.get("formal", [])
+    if isinstance(listed, list):
+        return {str(name).lower(): [] for name in cast("list[Any]", listed)}
+    if not isinstance(listed, dict):
+        return {}
+    found: dict[str, list[str]] = {}
+    for name, files in cast("dict[Any, Any]", listed).items():
+        found[str(name).lower()] = _proof_files(files)
+    return found
+
+
+def _candidates(name: str) -> list[str]:
+    """List the default places of the proof of an entity.
+
+    Parameters
+    ----------
+    name : str
+        The entity name in lowercase.
 
     Returns
     -------
     list of str
-        The entity names in lowercase.
+        The paths relative to the root.
     """
-    listed = section.get("formal", [])
-    if not isinstance(listed, list):
-        return []
-    return [str(name).lower() for name in cast("list[Any]", listed)]
+    return [
+        f"formal/{name}.sv",
+        f"formal/{name}_props.sv",
+        f"formal/{name}/props.sv",
+    ]
+
+
+def _formal_problems(
+    root: Path,
+    proofs: dict[str, list[str]],
+    entities: dict[str, str],
+) -> list[str]:
+    """Report the proofs that are missing.
+
+    Parameters
+    ----------
+    root : Path
+        The repository root.
+    proofs : dict of str to list of str
+        The table of proofs.
+    entities : dict of str to str
+        The RTL entities.
+
+    Returns
+    -------
+    list of str
+        One problem for each proof that names no entity or has no file.
+    """
+    problems: list[str] = []
+    for name, files in proofs.items():
+        if name not in entities:
+            problems.append(f"formal {name} names no entity of src/")
+        elif files:
+            problems.extend(
+                f"missing {path}, the proof of {name}"
+                for path in files
+                if not (root / path).is_file()
+            )
+        elif not any((root / path).is_file() for path in _candidates(name)):
+            problems.append(
+                f"missing {' or '.join(_candidates(name))}, "
+                f"the proof of {name}"
+            )
+    return problems
 
 
 def _test_problems(
@@ -266,12 +360,5 @@ def rule_entity_coverage(
         for name in sorted(excused)
         if name not in entities
     )
-    for name in _formal_names(section):
-        if name not in entities:
-            problems.append(f"formal {name} names no entity of src/")
-        elif (
-            name not in excused
-            and not (root / "formal" / f"{name}.sv").is_file()
-        ):
-            problems.append(f"missing formal/{name}.sv, the proof of {name}")
+    problems.extend(_formal_problems(root, _formal(section), entities))
     return problems

@@ -21,6 +21,7 @@ Ele foi projetado para rodar em uma workstation com todas as ferramentas instala
 | `jtag`               | Detecção do cabo JTAG em tempo real, executor genérico de `.tcl` | [docs/modules/jtag.md](docs/pt-br/modules/jtag.md) |
 | `mem_edit`           | Primitivas genéricas do In-System Memory Content Editor (ler/escrever palavra, escrita completa, dump) | [docs/modules/mem_edit.md](docs/pt-br/modules/mem_edit.md) |
 | `flash_loader`       | Grava a FLASH interna de uma só cópia pelo carregador JTAG   | [docs/modules/flash_loader.md](docs/pt-br/modules/flash_loader.md) |
+| `flash_image`        | Empacota um programa na imagem de uma banca da FLASH (cabeçalho, CRC, versão), confere a imagem e a envia pela UART JTAG | [docs/modules/flash_image.md](docs/pt-br/modules/flash_image.md) |
 | `rom_writer`         | Grava uma imagem de ROM via JTAG sem reprogramar            | [docs/modules/rom_writer.md](docs/pt-br/modules/rom_writer.md) |
 | `ram_zero`           | Zera a RAM inteira via JTAG sem reprogramar                 | [docs/modules/ram_zero.md](docs/pt-br/modules/ram_zero.md) |
 | `ram_target`         | Onde fica a RAM (instância da FPGA ou porta de debug da SDRAM) | [docs/modules/ram_target.md](docs/pt-br/modules/ram_target.md) |
@@ -39,7 +40,8 @@ Ele foi projetado para rodar em uma workstation com todas as ferramentas instala
 | `vhdl_sort`          | Ordena topologicamente fontes VHDL por dependência de entidade/pacote, para o `-a` do GHDL | [docs/modules/vhdl_sort.md](docs/pt-br/modules/vhdl_sort.md) |
 | `memory_map`         | Confere que todas as cópias escritas à mão do mapa de memória concordam com o YAML da plataforma | [docs/modules/memory_map.md](docs/pt-br/modules/memory_map.md) |
 | `path_check`         | Falha quando um caminho de arquivo listado na configuração do projeto não existe (antes e depois de mover arquivos) | [docs/modules/path_check.md](docs/pt-br/modules/path_check.md) |
-| `tree_check`         | Falha quando a árvore de um repositório sai do layout que todos compartilham: arquivos padrão, pares de idioma, `.vhd` em `src/`, Common-Components em `src/common`, nomes de pasta | [docs/modules/tree_check.md](docs/pt-br/modules/tree_check.md) |
+| `tree_check`         | Falha quando a árvore de um repositório sai do layout que todos compartilham: arquivos padrão, pares de idioma, `.vhd` em `src/`, Common-Components em `src/common`, nomes de pasta, o manifesto `provides` e a cobertura de testes e provas | [docs/modules/tree_check.md](docs/pt-br/modules/tree_check.md) |
+| `sources`            | Emite a lista ordenada dos arquivos de um alvo, lida dos manifestos `provides` dos repositórios | [docs/modules/sources.md](docs/pt-br/modules/sources.md) |
 | `vhdl_style`         | Falha quando um `.vhd` desrespeita o guia de estilo do projeto (cabeçalho, prefixos `i_`/`o_`, docstring por declaração, sem `component`, `port map` por nome); deixa de fora `vendor/` e os IPs do Quartus | [docs/modules/vhdl_style.md](docs/pt-br/modules/vhdl_style.md) |
 | `platform_sync`      | Escreve o `config.yaml` de uma plataforma para o projeto que a consome, com a pasta do submódulo na frente de cada caminho dela | [docs/modules/platform_sync.md](docs/pt-br/modules/platform_sync.md) |
 | `profiles`           | Lista os perfis válidos de um core a partir das extensões e das regras entre elas (M e Zmmul não coexistem, Zicsr ou Zicclsm é obrigatório) | [docs/modules/profiles.md](docs/pt-br/modules/profiles.md) |
@@ -79,7 +81,7 @@ uv run riscv-tools --config /path/to/project/config.yaml sim --only test-a,test-
 
 Veja `riscv-tools --help` para a lista completa de subcomandos (`write-rom`,
 `zero-ram`, `dump-ram`, `program`, `htif read|restart`, `generate-header`,
-`generate-golden`, `spike-run`, `run`, `sim`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `check-paths`, `check-tree`, `platform`, `freq-sweep`).
+`generate-golden`, `spike-run`, `run`, `sim`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `check-paths`, `check-tree`, `sources`, `platform`, `freq-sweep`).
 
 ```bash
 # vhdl-sort não precisa de --config; é só análise do conteúdo dos arquivos,

@@ -229,6 +229,8 @@ def test_rules_depend_on_the_kind() -> None:
             "vhdl-location",
             "common-submodule",
             "folder-names",
+            "entity-coverage",
+            "manifest",
         ],
     )
     check_not_in("common-submodule", rule_names("common-components"))
