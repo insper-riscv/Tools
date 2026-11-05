@@ -73,7 +73,7 @@ def rtl_entities(root: Path) -> dict[str, str]:
         entity name in lowercase.
     """
     found: dict[str, str] = {}
-    for path in list_files(root / "src", ".vhd"):
+    for path in list_files(root, ".vhd", "src"):
         relative = path.relative_to(root).as_posix()
         text = path.read_text(encoding="utf-8", errors="replace")
         if _MODEL_FOLDERS & set(relative.split("/")[:-1]):

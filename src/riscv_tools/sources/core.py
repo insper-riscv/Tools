@@ -7,10 +7,10 @@ the root itself and the ones of the repositories mounted below it (the
 submodules of `.gitmodules`, and `src/common`).
 """
 
-import configparser
 import os
 from pathlib import Path
 
+from riscv_tools.repo_walk import submodule_paths
 from riscv_tools.tree_check.manifest import (
     Component,
     Provides,
@@ -35,16 +35,7 @@ def _mounts(root: Path) -> list[Path]:
     list of Path
         The submodule paths of `.gitmodules`, then `src/common`.
     """
-    found: list[Path] = []
-    gitmodules = root / ".gitmodules"
-    if gitmodules.is_file():
-        parser = configparser.ConfigParser(interpolation=None)
-        parser.read_string(gitmodules.read_text())
-        found.extend(
-            root / parser.get(section, "path")
-            for section in parser.sections()
-            if parser.has_option(section, "path")
-        )
+    found = [root / path for path in sorted(submodule_paths(root))]
     found.append(root / "src" / "common")
     return found
 

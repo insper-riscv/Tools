@@ -296,7 +296,7 @@ def rule_manifest(
     problems.extend(file_problems)
     problems.extend(
         f"{path.relative_to(root).as_posix()} is listed by no component"
-        for path in list_files(root / "src", ".vhd")
+        for path in list_files(root, ".vhd", "src")
         if path.relative_to(root).as_posix() not in listed
     )
     prefix = f"{provides.repository}/"
