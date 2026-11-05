@@ -11,7 +11,11 @@ import configparser
 import os
 from pathlib import Path
 
-from riscv_tools.tree_check.manifest import Provides, load_provides
+from riscv_tools.tree_check.manifest import (
+    Component,
+    Provides,
+    load_provides,
+)
 
 
 class SourcesError(ValueError):
@@ -99,6 +103,94 @@ def _split(name: str, current: str) -> tuple[str, str]:
     return (repository or current), component
 
 
+def _lookup(
+    repositories: dict[str, tuple[Path, Provides]],
+    repository: str,
+    component: str,
+) -> tuple[Path, Component]:
+    """Find a component in the loaded repositories.
+
+    Parameters
+    ----------
+    repositories : dict of str to tuple of (Path, Provides)
+        The folder and the manifest of each repository.
+    repository : str
+        The repository the component is expected in.
+    component : str
+        The component name.
+
+    Returns
+    -------
+    tuple of (Path, Component)
+        The folder of the repository and the component.
+
+    Raises
+    ------
+    SourcesError
+        If the repository is not loaded or does not declare the
+        component.
+    """
+    if repository not in repositories:
+        raise SourcesError(f"repository {repository} not found")
+    folder, provides = repositories[repository]
+    if component not in provides.components:
+        raise SourcesError(f"{repository}/{component} not declared")
+    return folder, provides.components[component]
+
+
+class _Walk:
+    """The depth-first walk over the components of the manifests."""
+
+    def __init__(
+        self, repositories: dict[str, tuple[Path, Provides]], root: Path
+    ) -> None:
+        """Start a walk with nothing visited.
+
+        Parameters
+        ----------
+        repositories : dict of str to tuple of (Path, Provides)
+            The folder and the manifest of each repository.
+        root : Path
+            The workspace root, which the paths are relative to.
+        """
+        self.repositories = repositories
+        self.root = root
+        self.result: list[str] = []
+        self.done: set[tuple[str, str]] = set()
+        self.active: list[tuple[str, str]] = []
+
+    def visit(self, repository: str, component: str) -> None:
+        """Add a component after its dependencies.
+
+        Parameters
+        ----------
+        repository : str
+            The repository of the component.
+        component : str
+            The component name.
+
+        Raises
+        ------
+        SourcesError
+            If the component is missing or part of a cycle.
+        """
+        key = (repository, component)
+        if key in self.done:
+            return
+        if key in self.active:
+            raise SourcesError(f"cycle at {repository}/{component}")
+        folder, item = _lookup(self.repositories, repository, component)
+        self.active.append(key)
+        for dep in item.requires:
+            self.visit(*_split(dep, repository))
+        self.active.pop()
+        self.done.add(key)
+        for path in item.sources:
+            relative = Path(os.path.relpath(folder / path, self.root))
+            if relative.as_posix() not in self.result:
+                self.result.append(relative.as_posix())
+
+
 def ordered_sources(root: Path, targets: list[str]) -> list[str]:
     """List the files of the targets, dependencies first.
 
@@ -124,32 +216,7 @@ def ordered_sources(root: Path, targets: list[str]) -> list[str]:
     if not repositories:
         raise SourcesError(f"no provides manifest found under {root}")
     own = next(iter(repositories))
-    result: list[str] = []
-    done: set[tuple[str, str]] = set()
-    active: list[tuple[str, str]] = []
-
-    def visit(repository: str, component: str) -> None:
-        key = (repository, component)
-        if key in done:
-            return
-        if key in active:
-            raise SourcesError(f"cycle at {repository}/{component}")
-        if repository not in repositories:
-            raise SourcesError(f"repository {repository} not found")
-        folder, provides = repositories[repository]
-        if component not in provides.components:
-            raise SourcesError(f"{repository}/{component} not declared")
-        active.append(key)
-        item = provides.components[component]
-        for dep in item.requires:
-            visit(*_split(dep, repository))
-        active.pop()
-        done.add(key)
-        for path in item.sources:
-            relative = Path(os.path.relpath(folder / path, root)).as_posix()
-            if relative not in result:
-                result.append(relative)
-
+    walk = _Walk(repositories, root)
     for target in targets:
-        visit(*_split(target, own))
-    return result
+        walk.visit(*_split(target, own))
+    return walk.result

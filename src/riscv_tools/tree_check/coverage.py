@@ -183,6 +183,25 @@ def _exceptions(section: dict[str, Any]) -> dict[str, str]:
     }
 
 
+def _proof_files(files: Any) -> list[str]:
+    """Read the proof files named for one entity.
+
+    Parameters
+    ----------
+    files : Any
+        A file name or a list of them.
+
+    Returns
+    -------
+    list of str
+        The names, or an empty list when `files` is neither.
+    """
+    named = [files] if isinstance(files, str) else files
+    if not isinstance(named, list):
+        return []
+    return [str(item) for item in cast("list[Any]", named)]
+
+
 def _formal(section: dict[str, Any]) -> dict[str, list[str]]:
     """Read the entities that must have a proof.
 
@@ -206,12 +225,7 @@ def _formal(section: dict[str, Any]) -> dict[str, list[str]]:
         return {}
     found: dict[str, list[str]] = {}
     for name, files in cast("dict[Any, Any]", listed).items():
-        named = [files] if isinstance(files, str) else files
-        found[str(name).lower()] = (
-            [str(item) for item in cast("list[Any]", named)]
-            if isinstance(named, list)
-            else []
-        )
+        found[str(name).lower()] = _proof_files(files)
     return found
 
 

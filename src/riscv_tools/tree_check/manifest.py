@@ -177,6 +177,40 @@ def load_provides(
     return Provides(name or root.name, components), []
 
 
+def _reaches_itself(
+    components: dict[str, Component], start: str, prefix: str
+) -> bool:
+    """Tell whether a component requires itself, directly or not.
+
+    Parameters
+    ----------
+    components : dict of str to Component
+        The components of the repository.
+    start : str
+        The component to follow from.
+    prefix : str
+        The repository prefix removed from the dependency names.
+
+    Returns
+    -------
+    bool
+        True when the requirements lead back to `start`.
+    """
+    stack = [dep.removeprefix(prefix) for dep in components[start].requires]
+    seen: set[str] = set()
+    while stack:
+        name = stack.pop()
+        if name == start:
+            return True
+        if name in seen or name not in components:
+            continue
+        seen.add(name)
+        stack.extend(
+            dep.removeprefix(prefix) for dep in components[name].requires
+        )
+    return False
+
+
 def _cycle(components: dict[str, Component], own: str) -> list[str]:
     """Find the dependency cycles among the components of a repository.
 
@@ -194,24 +228,11 @@ def _cycle(components: dict[str, Component], own: str) -> list[str]:
         or through others.
     """
     prefix = f"{own}/"
-
-    def local(dep: str) -> str:
-        return dep.removeprefix(prefix)
-
-    problems: list[str] = []
-    for start in sorted(components):
-        stack = [local(dep) for dep in components[start].requires]
-        seen: set[str] = set()
-        while stack:
-            name = stack.pop()
-            if name == start:
-                problems.append(f"{start}: is part of a requires cycle")
-                break
-            if name in seen or name not in components:
-                continue
-            seen.add(name)
-            stack.extend(local(dep) for dep in components[name].requires)
-    return problems
+    return [
+        f"{start}: is part of a requires cycle"
+        for start in sorted(components)
+        if _reaches_itself(components, start, prefix)
+    ]
 
 
 def _file_problems(
