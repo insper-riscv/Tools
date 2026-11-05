@@ -42,7 +42,7 @@ The same YAML can say, in the `generate` section, which files come out of it, so
 | `specs` | GCC specs file | The linker flags: `__flash`, `__flash_size`, `__ram`, `__ram_size` and `rv32_wait_restart`. The RAM of the linker ends where the reserved word `ram_limit` begins |
 | `boot_ld` | Boot ROM linker script | The `boot_rom` memory in the first region and the `RESET_RESERVED` from `boot.wait_restart` |
 | `runtime` | Runtime header (`.h`, also included by `.S`) | `RV32_RAM_END` (end of the `ram` region), `RV32_TOHOST_ADDR`, `RV32_FROMHOST_ADDR` and `RV32_STDOUT_BASE`, from the `reserved` ranges the map has, `RV32_BOOT_ENTRY` (where the boot ROM jumps) and `RV32_<NAME>_BASE` for each peripheral; the runtime in C and assembly (`_exit.c`, `stdio.c`, `boot_rom.S`, `spike_exit.S`) uses these names instead of hand-written addresses |
-| `vhdl` | VHDL package | The constants `BOOT_ROM_BITS`, `BOOT_ROM_SIZE_BYTES`, `ROM_BASE_KIB`, `ROM_END_KIB`, `ROM_STORAGE_BYTES`, `RAM_BASE_KIB`, `RAM_END_KIB`, `RAM_STORAGE_BYTES`, `RAM_LAST_PAGE`, `EXT_BASE_KIB` and `PERIPH_BASE_KIB`, the `ROM_EXTERNAL` and `RAM_EXTERNAL` flags and, for each peripheral, `<NAME>_BASE` and `<NAME>_ID` |
+| `vhdl` | VHDL package | The constants `BOOT_ROM_BITS`, `BOOT_ROM_SIZE_BYTES`, `ROM_BASE_KIB`, `ROM_END_KIB`, `ROM_STORAGE_BYTES`, `RAM_BASE_KIB`, `RAM_END_KIB`, `RAM_STORAGE_BYTES`, `RAM_LAST_PAGE`, `EXT_BASE_KIB` and `PERIPH_BASE_KIB`, the `ROM_EXTERNAL` and `RAM_EXTERNAL` flags (from `generate.vhdl` or from the `memory` section), the cache constants of the `memory` section and, for each peripheral, `<NAME>_BASE` and `<NAME>_ID` |
 
 ```yaml
 generate:
@@ -73,13 +73,84 @@ The platform picks its profile in `profile:` (`rv32im`, `rv32em_zicsr`, ...) and
 
 | Output | Content |
 | :--- | :--- |
-| VHDL package | `NUM_REGS` and one boolean `HAS_<EXTENSION>` per extension of the core (`HAS_M`, `HAS_ZMMUL`, `HAS_ZICSR`, `HAS_ZICNTR`, `HAS_ZIHPM`, `HAS_ZIFENCEI`, `HAS_ZICCLSM`) |
-| `config.yaml` | `isa.base`, which picks `-march` and `-mabi` of the programs and of the boot ROM (`rv32e` with `ilp32e`, the others with `ilp32`), and the `sim.parameters` `NUM_REGS` and `HAS_*` that the runner passes to GHDL |
+| VHDL package | `HAS_E` (true on the RV32E) and one boolean `HAS_<EXTENSION>` per extension of the core (`HAS_M`, `HAS_ZMMUL`, `HAS_ZICSR`, `HAS_ZICNTR`, `HAS_ZIHPM`, `HAS_ZIFENCEI`, `HAS_ZICCLSM`) |
+| `config.yaml` | `isa.base`, which picks `-march` and `-mabi` of the programs and of the boot ROM (`rv32e` with `ilp32e`, the others with `ilp32`), and the `sim.parameters` `HAS_E` and `HAS_*` that the runner passes to GHDL |
 
 `--profile NAME`, a global option of `riscv-tools`, replaces the `profile:` of the platform without editing it, to run the same platform over many profiles in a test matrix. It applies to `generate-memory-map` (writes the package of that profile), to `platform sync` and to every command that reads the configuration. A name that the specification does not list is rejected before anything runs.
 
 ```bash
 uv run riscv-tools --root <project> --profile rv32em_zicsr generate-memory-map --platform src/platform/platform.yaml
+```
+
+## The memories and caches of the platform
+
+The `memory` section of the `platform.yaml` picks four independent things per platform, and the 16 combinations come out of them. No field has a default, so forgetting one is an error and the platform never builds a combination other than the one its author wrote. A platform without the section keeps generating the package it generated before.
+
+```yaml
+memory:
+  rom:    {external: true}
+  ram:    {external: true}
+  icache: {enabled: true, size_bits: 4096}
+  dcache: {enabled: true, size_bits: 4096}
+```
+
+| Field | Type | Meaning |
+| :--- | :--- | :--- |
+| `rom.external` | boolean | The FLASH sits outside the chip |
+| `ram.external` | boolean | The RAM sits outside the chip |
+| `icache.enabled` | boolean | An instruction cache exists |
+| `icache.size_bits` | power of two, at least 256 | Size of the instruction cache in bits; required only with `enabled: true` |
+| `dcache.enabled` | boolean | A data cache exists |
+| `dcache.size_bits` | power of two, at least 256 | Size of the data cache in bits; required only with `enabled: true` |
+
+The `rom_external` and `ram_external` fields of `generate.vhdl` are derived from the `memory` section, and having both together is an error.
+
+### Generated constants
+
+The VHDL package gains the constants below. `ROM_VIA_PORT` and `RAM_VIA_PORT` are the values of the `rom_external` and `ram_external` generics of the core, because a cache can only exist on the side of the core port protocol.
+
+| Constant | Type | Value |
+| :--- | :--- | :--- |
+| `ROM_EXTERNAL` | boolean | `memory.rom.external` |
+| `RAM_EXTERNAL` | boolean | `memory.ram.external` |
+| `HAS_ICACHE` | boolean | `memory.icache.enabled` |
+| `HAS_DCACHE` | boolean | `memory.dcache.enabled` |
+| `ICACHE_SIZE_BITS` | positive | `memory.icache.size_bits`, or 256 without the cache |
+| `DCACHE_SIZE_BITS` | positive | `memory.dcache.size_bits`, or 256 without the cache |
+| `ROM_VIA_PORT` | boolean | `ROM_EXTERNAL or HAS_ICACHE` |
+| `RAM_VIA_PORT` | boolean | `RAM_EXTERNAL or HAS_DCACHE` |
+
+In the `config.yaml` the same values arrive as `sim.parameters` with the same names (`ROM_EXTERNAL`, `RAM_EXTERNAL`, `HAS_ICACHE`, `HAS_DCACHE`, `ICACHE_SIZE_BITS` and `DCACHE_SIZE_BITS`), and the simulation top must declare the matching generics. Without `config.addr_widths` in the platform, the address widths come from the choice, and the `boot_rom` and each internal memory are listed, since an external memory is a chip sized by the top itself. With `config.addr_widths` listed, the list wins.
+
+### Validation
+
+| Rule | Condition | Result |
+| :--- | :--- | :--- |
+| V1 | The four booleans exist and there is no unknown key | Error |
+| V2 | `size_bits` is a power of two and at least 256 | Error |
+| V3 | With any cache, the ROM and the RAM each fit one aligned 64 MiB window | Error |
+| V4 | With the ROM through the core port, its size fits the 1024 KiB window of the router | Error |
+| V5 | An `exec` region in the RAM needs an external RAM and the ROM through the port (external ROM or instruction cache) | Error |
+| V7 | An `exec` region in the RAM behind the instruction cache needs Zifencei in the profile | Error |
+| V8 | Instruction cache over an internal ROM or data cache over an internal RAM | Warning |
+| V9 | Platform with peripherals | Note |
+| V10 | With any cache, `reserved.fromhost` exists and sits in the last 4 KiB page of the RAM, the one the cache skips | Error |
+
+An external ROM without an instruction cache is valid. The warning and the note are printed as `NOTE` on the standard error of `generate-memory-map`, and errors stop the generation.
+
+### The `--memory` option
+
+`--memory`, a global option of `riscv-tools`, replaces fields of the `memory` section without editing the platform, to run the same platform over the 16 combinations. The value is a comma list of `key=value` pairs.
+
+| Key | Values |
+| :--- | :--- |
+| `rom`, `ram` | `int` or `ext` |
+| `icache`, `dcache` | `on`, `off` or a size in bits, which turns the cache on |
+
+A key that is not named keeps the choice of the platform, and a platform without the `memory` section needs the four keys. `on` without a size uses the `size_bits` of the platform, or 4096 if it has none. A malformed value is rejected before anything runs.
+
+```bash
+uv run riscv-tools --root <project> --memory rom=ext,ram=int,icache=on,dcache=off generate-memory-map --platform src/platform/platform.yaml
 ```
 
 ## Reading the configuration from the map
@@ -113,6 +184,7 @@ config:
 | `tests/test_memory_map.py::test_check_stops_at_an_inconsistent_map` | No copy is read when the map itself is inconsistent. |
 | `tests/test_memory_map.py::test_load_platform_rejects_a_non_mapping` | A non-mapping file is rejected. |
 | `tests/test_memory_map.py::test_cmd_check_memory_map_exit_status` | The command prints OK, or exits 1 listing the mismatches. |
+| `tests/test_memory_choice.py` | The `memory` section and the `--memory` option make the 16 combinations 16 different packages, the constants and the simulation parameters come from the choice, and rules V1 to V5, V7 and V10 fail with a clear message. |
 | `tests/test_config_from_platform.py` | The `memory` keys, the `tohost` and `stdout` environment and the address widths come from the map, and the map wins over the file and its `extends`. |
 | `tests/test_generate_memory_map.py` | The specs, the linker script and the VHDL package come out of the map; `--check` catches a missing or edited file; an address off the KiB grid and an inconsistent map are rejected; the command writes and checks. |
 

@@ -20,6 +20,7 @@ It is designed to run on a workstation with all the tools installed, or inside t
 | `boot_rom`           | Builds the fixed, shared bootloader, once, reused across every test | [docs/modules/boot_rom.md](docs/en/modules/boot_rom.md) |
 | `jtag`               | Live JTAG cable detection, generic `.tcl` runner            | [docs/modules/jtag.md](docs/en/modules/jtag.md) |
 | `mem_edit`           | Generic In-System Memory Content Editor primitives (read/write word, write-full, dump) | [docs/modules/mem_edit.md](docs/en/modules/mem_edit.md) |
+| `flash_loader`       | Write the one-copy internal FLASH through the JTAG loader   | [docs/modules/flash_loader.md](docs/en/modules/flash_loader.md) |
 | `rom_writer`         | JTAG-write a ROM image without reprogramming                | [docs/modules/rom_writer.md](docs/en/modules/rom_writer.md) |
 | `ram_zero`           | JTAG-zero the whole RAM without reprogramming                | [docs/modules/ram_zero.md](docs/en/modules/ram_zero.md) |
 | `ram_target`         | Where the RAM lives (FPGA instance or SDRAM debug port)      | [docs/modules/ram_target.md](docs/en/modules/ram_target.md) |
@@ -36,6 +37,7 @@ It is designed to run on a workstation with all the tools installed, or inside t
 | `certify`            | Builds and runs the ACT4 architectural certification suite under cocotb/GHDL | [docs/modules/certify.md](docs/en/modules/certify.md) |
 | `vhdl_sort`          | Topologically sort VHDL sources by entity/package dependency, for GHDL `-a` | [docs/modules/vhdl_sort.md](docs/en/modules/vhdl_sort.md) |
 | `tree_check`         | Fails when the tree of a repository strays from the layout all of them share: standard files, language pairs, `.vhd` in `src/`, Common-Components at `src/common`, folder names | [docs/modules/tree_check.md](docs/en/modules/tree_check.md) |
+| `vhdl_style`         | Fails when a `.vhd` breaks the style guide of the project (header, `i_`/`o_` prefixes, a docstring per declaration, no `component`, `port map` by name); leaves out `vendor/` and the Quartus IPs | [docs/modules/vhdl_style.md](docs/en/modules/vhdl_style.md) |
 | `platform_sync`      | Writes the `config.yaml` of a platform for the project that consumes it, with the submodule folder in front of each of its paths | [docs/modules/platform_sync.md](docs/en/modules/platform_sync.md) |
 | `profiles`           | Lists the valid profiles of a core from its extensions and the rules between them (M and Zmmul never coexist, Zicsr or Zicclsm is required) | [docs/modules/profiles.md](docs/en/modules/profiles.md) |
 | `freq_sweep`         | Rewrite a PLL source's clock frequency/phase offsets: the mechanism `orchestrator`'s frequency sweep edits with | [docs/modules/freq_sweep.md](docs/en/modules/freq_sweep.md) |

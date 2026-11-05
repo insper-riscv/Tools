@@ -182,7 +182,7 @@ def read_tohost_configured(link: JtagLink, cfg: dict[str, Any]) -> int:
     memory = cfg["memory"]
     return read_tohost(
         link,
-        ram_target.target_from_config(cfg),
+        ram_target.target_from_config(cfg, link),
         memory["ram_base"],
         memory["tohost_addr"],
     )
@@ -201,7 +201,7 @@ def clear_tohost_configured(link: JtagLink, cfg: dict[str, Any]) -> None:
     memory = cfg["memory"]
     clear_tohost(
         link,
-        ram_target.target_from_config(cfg),
+        ram_target.target_from_config(cfg, link),
         memory["ram_base"],
         memory["tohost_addr"],
     )
@@ -220,7 +220,7 @@ def pulse_fromhost_configured(link: JtagLink, cfg: dict[str, Any]) -> None:
     memory = cfg["memory"]
     pulse_fromhost(
         link,
-        ram_target.target_from_config(cfg),
+        ram_target.target_from_config(cfg, link),
         memory["ram_base"],
         memory["fromhost_addr"],
     )

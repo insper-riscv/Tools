@@ -10,7 +10,7 @@ offsets count from the RAM base (memory.ram_base).
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from riscv_tools import mem_edit, sdram_debug
 from riscv_tools.jtag import JtagLink
@@ -24,7 +24,9 @@ class SdramDebugRam:
 RamTarget = int | SdramDebugRam
 
 
-def target_from_config(cfg: dict[str, Any]) -> RamTarget:
+def target_from_config(
+    cfg: dict[str, Any], link: JtagLink | None = None
+) -> RamTarget:
     """Pick how to reach the RAM from a project's merged config.
 
     Parameters
@@ -32,7 +34,11 @@ def target_from_config(cfg: dict[str, Any]) -> RamTarget:
     cfg : dict of {str: Any}
         The merged project config; quartus.ram_backend is "ismce" (the
         default, a memory instance of the FPGA given by
-        quartus.ram_mem_instance) or "sdram_debug".
+        quartus.ram_mem_name, or by quartus.ram_mem_instance when no
+        name is set) or "sdram_debug".
+    link : JtagLink, optional
+        Which JTAG cable/chip to ask for the instances; needed only
+        when the RAM is given by name.
 
     Returns
     -------
@@ -42,14 +48,19 @@ def target_from_config(cfg: dict[str, Any]) -> RamTarget:
     Raises
     ------
     ValueError
-        quartus.ram_backend is not one of the two backends.
+        quartus.ram_backend is not one of the two backends, or the RAM
+        is given by name and no link was passed.
+    mem_edit.MemNameError
+        The name of the RAM is not on the board.
     """
     quartus = cfg["quartus"]
     backend = quartus.get("ram_backend", "ismce")
     if backend == "sdram_debug":
         return SdramDebugRam()
     if backend == "ismce":
-        return int(quartus["ram_mem_instance"])
+        if quartus.get("ram_mem_name") and link is None:
+            raise ValueError("quartus.ram_mem_name needs the JTAG link")
+        return mem_edit.ram_instance(cast(JtagLink, link), cfg)
     raise ValueError(
         "quartus.ram_backend must be 'ismce' or 'sdram_debug', "
         f"not {backend!r}"

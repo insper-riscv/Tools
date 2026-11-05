@@ -4,10 +4,14 @@ Carrega uma nova imagem de ROM numa placa já programada por JTAG, sem uma recom
 
 Um projeto com mais de uma cópia física do mesmo conteúdo de ROM (veja o `rom_mif_target`/`rom_mem_instances` do [`quartus_program`](quartus_program.md)) escreve em todas as instâncias listadas numa só chamada, mantendo todas as cópias em sincronia.
 
+Com `quartus.rom_write_method` igual a `jtag_loader`, a imagem vai para a única cópia da FLASH pelo [`flash_loader`](flash_loader.md), com o núcleo parado, e o próprio carregador reinicia o núcleo pela BOOT_ROM. Nesse método o chamador não escreve o `fromhost`.
+
 ## Configuração
 
 | Chave | Significado |
 | :--- | :--- |
+| `quartus.rom_write_method` | `mem_edit` (padrão) grava cada instância listada pelo In-System Memory Content Editor; `jtag_loader` usa o carregador JTAG da FLASH. |
+| `quartus.rom_mem_names` | Nomes (`INSTANCE_NAME` do IP, por exemplo `[FLASH, FLASH_MEM]`) das instâncias da ROM; o host os converte nos índices da placa uma vez por sessão. Vale mais que `quartus.rom_mem_instances`. |
 | `quartus.rom_mem_instances` | Índice(s) de instância que o In-System Memory Content Editor do Quartus atribui ao(s) tap(s) de debug da ROM, na ordem de declaração no projeto. `[0]` é o caso comum (uma única ROM instanciada primeiro). |
 | `memory.rom_words` | Profundidade da ROM em palavras, específica do projeto. Usada para validar/formatar o `.mif` de um programa antes de escrevê-lo. |
 
@@ -17,7 +21,7 @@ Um projeto com mais de uma cópia física do mesmo conteúdo de ROM (veja o `rom
 
 ## Testes
 
-Não há teste automatizado neste repositório. Um runner self-hosted preparado como no `RUNNER_SETUP.md` do Infra roda a suíte de hardware real de um projeto consumidor (`riscv-tools run`), que é o único lugar onde este módulo é exercitado.
+`tests/test_flash_loader.py` cobre a escolha do método contra um substituto do script. Um runner self-hosted preparado como no `RUNNER_SETUP.md` do Infra roda a suíte de hardware real de um projeto consumidor (`riscv-tools run`), que exercita o módulo na placa.
 
 ## Uso
 
@@ -26,6 +30,8 @@ uv run riscv-tools --config /path/to/project/config.yaml write-rom <path-to.mif>
 ```
 
 Também é chamado internamente pelo laço de recarga por JTAG por teste do [`orchestrator`](orchestrator.md), o caminho rápido usado em vez de uma recompilação completa entre testes.
+
+Uma lista `quartus.rom_mem_instances` vazia é válida: a FLASH de uma só cópia não é instância do editor de conteúdo (só a RAM é). Nesse caso só o método `jtag_loader` grava a ROM, e o `mem_edit` falha com um erro explicando isso.
 
 ---
 

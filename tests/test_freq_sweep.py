@@ -201,7 +201,7 @@ def _status_at(
     def fake_dump(*_: Any) -> None:
         return None
 
-    def fake_target(_cfg: dict[str, Any]) -> None:
+    def fake_target(_cfg: dict[str, Any], _link: object) -> None:
         return None
 
     def fake_offsets(_path: Path) -> list[int]:

@@ -16,6 +16,11 @@ problems. A rule applies to some kinds of repository.
 |                    | `src/common`                            |
 | `folder-names`     | Lowercase folder names without spaces   |
 |                    | or accents                              |
+| `vhdl-style`       | Opt-in: the VHDL style guide, as        |
+|                    | `check-vhdl-style` checks it            |
+| `entity-coverage`  | Opt-in: a test for every entity of      |
+|                    | `src/` and a proof for the ones named   |
+|                    | in `paths.yaml`                         |
 
 The repository's `paths.yaml` may carry a `tree` section to name the
 folders that are identifiers of the ISA or of a peripheral and so keep
@@ -25,16 +30,20 @@ their capitals (`I`, `Zicsr`, `UART`):
 tree:
   identifier_folders: [I, M, Zicsr, ISA]
 ```
+
+The two opt-in rules run only when `only` names them, so a repository
+adopts each one when it meets it.
 """
 
 import configparser
-import os
 import re
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any, cast
 
-import yaml
+from riscv_tools.repo_walk import directories, list_files, tree_config
+from riscv_tools.tree_check.coverage import rule_entity_coverage
+from riscv_tools.vhdl_style import check_vhdl_style
 
 KINDS = (
     "common-components",
@@ -84,97 +93,8 @@ _COMMON_PATH = "src/common"
 _COMMON_REPOSITORY = "Common-Components"
 _VHDL_ROOTS = ("src", "tests/vhdl")
 _FOLDER_NAME = re.compile(r"[a-z0-9][a-z0-9_.-]*")
-_NOT_SOURCES = frozenset(
-    {
-        "build",
-        "sim_build",
-        "__pycache__",
-        "node_modules",
-        "output_files",
-        "db",
-        "incremental_db",
-    }
-)
 
 Rule = Callable[[Path, str, dict[str, Any]], list[str]]
-
-
-def _tree_config(root: Path) -> dict[str, Any]:
-    """Read the `tree` section of the repository's `paths.yaml`.
-
-    Parameters
-    ----------
-    root : Path
-        The repository root.
-
-    Returns
-    -------
-    dict of str to Any
-        The section, or an empty mapping when the file or the section
-        is absent.
-    """
-    manifest = root / "paths.yaml"
-    if not manifest.is_file():
-        return {}
-    data = yaml.safe_load(manifest.read_text())
-    if not isinstance(data, dict):
-        return {}
-    section = cast("dict[str, Any]", data).get("tree")
-    if not isinstance(section, dict):
-        return {}
-    return cast("dict[str, Any]", section)
-
-
-def _directories(root: Path) -> Iterator[Path]:
-    """Walk the folders of the repository that belong to it.
-
-    The walk leaves out hidden folders, build output, third-party code
-    in `vendor` and any folder that is a repository of its own (a
-    submodule), whose layout is checked in its own repository.
-
-    Parameters
-    ----------
-    root : Path
-        The repository root.
-
-    Yields
-    ------
-    Path
-        Each folder, below the root.
-    """
-    for current, names, _ in os.walk(root):
-        here = Path(current)
-        names[:] = sorted(
-            name
-            for name in names
-            if not name.startswith(".")
-            and name not in _NOT_SOURCES
-            and name != "vendor"
-            and not (here / name / ".git").exists()
-        )
-        for name in names:
-            yield here / name
-
-
-def _files(root: Path, suffix: str) -> Iterator[Path]:
-    """List the files with a suffix in the folders of the repository.
-
-    Parameters
-    ----------
-    root : Path
-        The repository root.
-    suffix : str
-        The file name ending, such as `.vhd`.
-
-    Yields
-    ------
-    Path
-        Each file found, including the ones in the root itself.
-    """
-    for folder in (root, *_directories(root)):
-        for entry in sorted(folder.iterdir()):
-            if entry.is_file() and entry.name.endswith(suffix):
-                yield entry
 
 
 def _rule_standard_files(
@@ -286,7 +206,7 @@ def _rule_vhdl_location(
         One problem for each `.vhd` outside `src/` and `tests/vhdl/`.
     """
     problems: list[str] = []
-    for path in _files(root, ".vhd"):
+    for path in list_files(root, ".vhd"):
         relative = path.relative_to(root).as_posix()
         if not any(relative.startswith(f"{base}/") for base in _VHDL_ROOTS):
             problems.append(f"{relative} is outside src/ and tests/vhdl/")
@@ -380,10 +300,32 @@ def _rule_folder_names(
     return [
         f"{directory.relative_to(root).as_posix()}: use lowercase letters,"
         " digits and hyphens, with no space or accent"
-        for directory in _directories(root)
+        for directory in directories(root)
         if directory.name not in identifiers
         and not _FOLDER_NAME.fullmatch(directory.name)
     ]
+
+
+def _rule_vhdl_style(
+    root: Path, _kind: str, _config: dict[str, Any]
+) -> list[str]:
+    """Report the violations of the VHDL style guide.
+
+    Parameters
+    ----------
+    root : Path
+        The repository root.
+    _kind : str
+        The kind of repository; unused by this rule.
+    _config : dict of str to Any
+        The `tree` section; the style check reads its own part.
+
+    Returns
+    -------
+    list of str
+        One problem for each violation, as `check-vhdl-style` reports.
+    """
+    return check_vhdl_style(root)
 
 
 _RULES: dict[str, tuple[Rule, frozenset[str]]] = {
@@ -392,7 +334,12 @@ _RULES: dict[str, tuple[Rule, frozenset[str]]] = {
     "vhdl-location": (_rule_vhdl_location, _VHDL_KINDS),
     "common-submodule": (_rule_common_submodule, _COMMON_MOUNT_KINDS),
     "folder-names": (_rule_folder_names, _VHDL_KINDS),
+    "vhdl-style": (_rule_vhdl_style, _VHDL_KINDS),
+    "entity-coverage": (rule_entity_coverage, _VHDL_KINDS),
 }
+# Rules that run only when `--only` names them, so a repository adopts
+# each one when it meets it (the default run stays what it was).
+_OPT_IN = frozenset({"vhdl-style", "entity-coverage"})
 
 
 def rule_names(kind: str) -> list[str]:
@@ -406,7 +353,8 @@ def rule_names(kind: str) -> list[str]:
     Returns
     -------
     list of str
-        The rule names, in the order they run.
+        The rule names, in the order they run, without the opt-in
+        ones (see `opt_in_rules`).
 
     Raises
     ------
@@ -417,7 +365,32 @@ def rule_names(kind: str) -> list[str]:
         raise ValueError(
             f"unknown kind {kind!r}; use one of {', '.join(KINDS)}"
         )
-    return [name for name, (_, kinds) in _RULES.items() if kind in kinds]
+    return [
+        name
+        for name, (_, kinds) in _RULES.items()
+        if kind in kinds and name not in _OPT_IN
+    ]
+
+
+def opt_in_rules(kind: str) -> list[str]:
+    """List the rules that run only when `--only` names them.
+
+    Parameters
+    ----------
+    kind : str
+        One of `KINDS`.
+
+    Returns
+    -------
+    list of str
+        The opt-in rules that apply to the kind, which a repository
+        names when it is ready for them.
+    """
+    return [
+        name
+        for name, (_, kinds) in _RULES.items()
+        if kind in kinds and name in _OPT_IN
+    ]
 
 
 def check_tree(
@@ -450,13 +423,14 @@ def check_tree(
     """
     available = rule_names(kind)
     selected = available if only is None else list(only)
+    available = [*available, *opt_in_rules(kind)]
     for name in selected:
         if name not in available:
             raise ValueError(
                 f"rule {name!r} does not apply to {kind}; "
                 f"use one of {', '.join(available)}"
             )
-    config = _tree_config(root)
+    config = tree_config(root)
     problems: list[str] = []
     for name in selected:
         rule, _ = _RULES[name]

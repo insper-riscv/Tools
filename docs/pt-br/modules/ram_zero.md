@@ -6,6 +6,7 @@ Zera todas as palavras de uma instância de RAM por JTAG, sem reprogramar a plac
 
 | Chave | Significado |
 | :--- | :--- |
+| `quartus.ram_mem_name` | Nome (`INSTANCE_NAME` do IP, por exemplo `RAM`) da instância da RAM; vale mais que `quartus.ram_mem_instance`. |
 | `quartus.ram_mem_instance` | Índice de instância que o In-System Memory Content Editor do Quartus atribui ao tap de debug da RAM. `1` é o caso comum (RAM instanciada logo depois da ROM). |
 | `memory.ram_words` | Profundidade da RAM em palavras, específica do projeto. |
 

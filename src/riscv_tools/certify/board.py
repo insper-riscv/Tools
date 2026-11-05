@@ -25,6 +25,7 @@ from riscv_tools import (
     bin_to_image,
     display,
     htif,
+    mem_edit,
     rom_writer,
     sdram_debug,
 )
@@ -155,7 +156,7 @@ def run_elf_flash(
     tohost_word = (elf_symbol(elf, "tohost") - region.base) // 4
     sdram_debug.fill(link, 0, region.words, 0)
     sdram_debug.load_words(link, 0, image_words(elf, region.base))
-    rom_writer.write_rom(link, cfg["quartus"]["rom_mem_instances"], mif_path)
+    rom_writer.write_rom(link, mem_edit.rom_instances(link, cfg), mif_path)
 
     htif.pulse_fromhost_configured(link, cfg)
     started = time.monotonic()

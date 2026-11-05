@@ -19,6 +19,7 @@ A byte address can be converted to a word offset two different, non-interchangea
 
 | Key | Meaning |
 | :--- | :--- |
+| `quartus.ram_mem_name` | Name (the IP's `INSTANCE_NAME`, e.g. `RAM`) of the RAM instance; it wins over `quartus.ram_mem_instance`. |
 | `quartus.ram_mem_instance` | Instance index for the RAM debug tap (default `1`). |
 | `quartus.poll_interval_seconds` | How often to re-read `tohost` while waiting for a result (default `0.5`). |
 | `memory.ram_base` | RAM's base byte address. No default; project-specific. |

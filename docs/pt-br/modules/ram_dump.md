@@ -6,6 +6,7 @@ Salva o conteúdo inteiro de uma instância de RAM num `.mif` por JTAG. Usado no
 
 | Chave | Significado |
 | :--- | :--- |
+| `quartus.ram_mem_name` | Nome (`INSTANCE_NAME` do IP, por exemplo `RAM`) da instância da RAM; vale mais que `quartus.ram_mem_instance`. |
 | `quartus.ram_mem_instance` | Índice de instância que o In-System Memory Content Editor do Quartus atribui ao tap de debug da RAM. `1` é o caso comum. |
 
 ## Pré-requisitos

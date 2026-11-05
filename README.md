@@ -20,6 +20,7 @@ Ele foi projetado para rodar em uma workstation com todas as ferramentas instala
 | `boot_rom`           | Compila o bootloader fixo e compartilhado, uma vez, reutilizado em todos os testes | [docs/modules/boot_rom.md](docs/pt-br/modules/boot_rom.md) |
 | `jtag`               | Detecção do cabo JTAG em tempo real, executor genérico de `.tcl` | [docs/modules/jtag.md](docs/pt-br/modules/jtag.md) |
 | `mem_edit`           | Primitivas genéricas do In-System Memory Content Editor (ler/escrever palavra, escrita completa, dump) | [docs/modules/mem_edit.md](docs/pt-br/modules/mem_edit.md) |
+| `flash_loader`       | Grava a FLASH interna de uma só cópia pelo carregador JTAG   | [docs/modules/flash_loader.md](docs/pt-br/modules/flash_loader.md) |
 | `rom_writer`         | Grava uma imagem de ROM via JTAG sem reprogramar            | [docs/modules/rom_writer.md](docs/pt-br/modules/rom_writer.md) |
 | `ram_zero`           | Zera a RAM inteira via JTAG sem reprogramar                 | [docs/modules/ram_zero.md](docs/pt-br/modules/ram_zero.md) |
 | `ram_target`         | Onde fica a RAM (instância da FPGA ou porta de debug da SDRAM) | [docs/modules/ram_target.md](docs/pt-br/modules/ram_target.md) |
@@ -39,6 +40,7 @@ Ele foi projetado para rodar em uma workstation com todas as ferramentas instala
 | `memory_map`         | Confere que todas as cópias escritas à mão do mapa de memória concordam com o YAML da plataforma | [docs/modules/memory_map.md](docs/pt-br/modules/memory_map.md) |
 | `path_check`         | Falha quando um caminho de arquivo listado na configuração do projeto não existe (antes e depois de mover arquivos) | [docs/modules/path_check.md](docs/pt-br/modules/path_check.md) |
 | `tree_check`         | Falha quando a árvore de um repositório sai do layout que todos compartilham: arquivos padrão, pares de idioma, `.vhd` em `src/`, Common-Components em `src/common`, nomes de pasta | [docs/modules/tree_check.md](docs/pt-br/modules/tree_check.md) |
+| `vhdl_style`         | Falha quando um `.vhd` desrespeita o guia de estilo do projeto (cabeçalho, prefixos `i_`/`o_`, docstring por declaração, sem `component`, `port map` por nome); deixa de fora `vendor/` e os IPs do Quartus | [docs/modules/vhdl_style.md](docs/pt-br/modules/vhdl_style.md) |
 | `platform_sync`      | Escreve o `config.yaml` de uma plataforma para o projeto que a consome, com a pasta do submódulo na frente de cada caminho dela | [docs/modules/platform_sync.md](docs/pt-br/modules/platform_sync.md) |
 | `profiles`           | Lista os perfis válidos de um core a partir das extensões e das regras entre elas (M e Zmmul não coexistem, Zicsr ou Zicclsm é obrigatório) | [docs/modules/profiles.md](docs/pt-br/modules/profiles.md) |
 | `freq_sweep`         | Reescreve a frequência de clock e as defasagens de um fonte de PLL: o mecanismo com que o sweep de frequência do `orchestrator` edita | [docs/modules/freq_sweep.md](docs/pt-br/modules/freq_sweep.md) |

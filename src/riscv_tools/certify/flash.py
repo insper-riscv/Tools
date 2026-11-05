@@ -5,6 +5,7 @@ from typing import Any
 
 from riscv_tools import (
     bin_to_image,
+    mem_edit,
     rom_writer,
 )
 from riscv_tools.certify.segments import load_segments, region_image
@@ -107,4 +108,4 @@ def write_flash_stub(
         depth=pad_words + int(cfg["memory"]["rom_words"]),
         pad_words=pad_words,
     )
-    rom_writer.write_rom(link, cfg["quartus"]["rom_mem_instances"], mif_path)
+    rom_writer.write_rom(link, mem_edit.rom_instances(link, cfg), mif_path)

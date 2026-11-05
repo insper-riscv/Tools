@@ -6,6 +6,7 @@ from riscv_tools.tree_check.core import (
     STANDARD_FILES,
     VHDL_FILES,
     check_tree,
+    opt_in_rules,
     rule_names,
 )
 
@@ -15,5 +16,6 @@ __all__ = [
     "STANDARD_FILES",
     "VHDL_FILES",
     "check_tree",
+    "opt_in_rules",
     "rule_names",
 ]

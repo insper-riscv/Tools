@@ -11,6 +11,12 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         # ROM copy (see rom_writer.write_rom's docstring) lists every
         # one here, in the order they must all be kept in sync.
         "rom_mem_instances": [0],
+        # How the ROM image is written: "mem_edit" (the In-System Memory
+        # Content Editor, one write per instance above) or "jtag_loader"
+        # (the FLASH loader of the Memory repository: a single copy,
+        # written with the core halted, which restarts from the boot ROM
+        # by itself).
+        "rom_write_method": "mem_edit",
     },
     "memory": {
         # ROM depth (in words), project-specific.

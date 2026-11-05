@@ -14,6 +14,15 @@ Cada regra olha um aspecto da árvore e vale para alguns tipos de repositório. 
 | `common-submodule` | O Common-Components está montado em `src/common` | `core`, `memory`, `peripherals` |
 | `folder-names` | Nomes de pasta em minúsculas, dígitos, hífen, ponto e sublinhado, sem espaço nem acento | VHDL |
 
+Duas regras são opcionais e só rodam quando o `--only` as nomeia, para que cada repositório as adote quando as cumprir.
+
+| Regra | O que confere | Tipos |
+| :--- | :--- | :--- |
+| `vhdl-style` | Os arquivos VHDL seguem o guia de estilo, como o `check-vhdl-style` confere (ver [vhdl_style](vhdl_style.md)) | VHDL |
+| `entity-coverage` | Toda entidade de RTL de `src/` tem uma entrada em `tests/python/tests.json` com ela (ou o testbench `<nome>_tb`) como `toplevel` e o arquivo dela em `sources`; toda entidade da lista `formal` tem `formal/<nome>.sv` | VHDL |
+
+A regra de cobertura deixa de fora os modelos de simulação (pastas `sim` e `tests`), o código de `vendor/` e os IPs do Quartus.
+
 Os tipos são `common-components`, `core`, `memory`, `peripherals`, `top`, `tests`, `certification`, `infra` e `tools`. Os cinco primeiros são os de VHDL. Só o `common-components` não tem `formal/`.
 
 A varredura deixa de fora as pastas ocultas, a saída de build (`build`, `sim_build`, `output_files`, `db`, `incremental_db`), o código de terceiros em `vendor/` e qualquer pasta que seja um repositório próprio, como um submódulo, cujo layout se confere no repositório dele.
@@ -25,6 +34,16 @@ Sem seção no `config.yaml`. O `paths.yaml` do repositório pode ter uma seçã
 ```yaml
 tree:
   identifier_folders: [I, M, Zicsr, Zicntr, Zihpm, Zifencei, Zicclsm, ISA]
+```
+
+A regra de cobertura lê a subseção `coverage`. As exceções (por exemplo, um invólucro que só instancia um IP) levam sempre a justificativa, e uma exceção sem texto ou para uma entidade que não existe é um problema.
+
+```yaml
+tree:
+  coverage:
+    formal: [sdram_arbiter, axi_master_bridge]
+    exceptions:
+      boot_rom_shell: instancia só o IP, coberto pela síntese e pela placa
 ```
 
 ## Adoção por etapas
@@ -52,6 +71,15 @@ Um repositório que ainda não terminou a reorganização escolhe com `--only` a
 | `tests/test_tree_check.py::test_an_unknown_kind_or_rule_is_an_error` | Um tipo ou uma regra que não existe ou não vale falha. |
 | `tests/test_tree_check.py::test_cmd_check_tree_exit_status` | O comando imprime OK, ou sai com 1 listando os problemas, ou com 2 numa regra desconhecida. |
 | `tests/test_tree_check.py::test_the_subcommand_is_registered_without_a_config` | O subcomando roda sem `--config`. |
+| `tests/test_entity_coverage.py::test_the_new_rules_are_opt_in` | `vhdl-style` e `entity-coverage` existem para os tipos de VHDL e não rodam sem o `--only`. |
+| `tests/test_entity_coverage.py::test_an_entity_with_its_test_passes` | Um teste com a entidade como `toplevel` e o arquivo dela em `sources` a cobre. |
+| `tests/test_entity_coverage.py::test_a_testbench_named_after_the_entity_covers_it` | O `toplevel` `<nome>_tb` conta como a entidade. |
+| `tests/test_entity_coverage.py::test_an_entity_without_a_test_is_reported` | Um teste de sistema que só lista o arquivo não cobre a entidade. |
+| `tests/test_entity_coverage.py::test_a_test_must_list_the_file_of_the_entity` | O `toplevel` sem o arquivo em `sources` falha. |
+| `tests/test_entity_coverage.py::test_models_ips_and_vendor_are_not_rtl` | Modelos de simulação, IPs e `vendor/` não pedem teste. |
+| `tests/test_entity_coverage.py::test_an_exception_needs_a_justification` | A exceção exige justificativa e uma exceção velha falha. |
+| `tests/test_entity_coverage.py::test_a_named_proof_needs_its_file` | Cada entidade da lista `formal` exige `formal/<nome>.sv`. |
+| `tests/test_entity_coverage.py::test_vhdl_style_runs_through_check_tree` | Nomear `vhdl-style` no `--only` reporta os desvios do guia. |
 
 ## Uso
 

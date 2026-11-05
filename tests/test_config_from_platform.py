@@ -87,7 +87,7 @@ def test_memory_and_widths_come_from_the_map(tmp_path: Path) -> None:
             "boot_rom_addr_width": "9",
             "rom_addr_width": "13",
             "ram_addr_width": "16",
-            "NUM_REGS": "32",
+            "HAS_E": False,
             "HAS_ZICSR": True,
             "HAS_ZICNTR": True,
             "HAS_M": True,
@@ -124,7 +124,7 @@ def test_the_override_replaces_the_profile_of_the_platform(
     set_override("rv32e")
     config = config_from_platform(path)
     check_equal(config["isa"], {"base": "e"})
-    check_equal(config["sim"]["parameters"]["NUM_REGS"], "16")
+    check_is(config["sim"]["parameters"]["HAS_E"], True)
     check_is(config["sim"]["parameters"]["HAS_M"], False)
 
 
