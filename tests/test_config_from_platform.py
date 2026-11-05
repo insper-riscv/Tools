@@ -88,9 +88,15 @@ def test_memory_and_widths_come_from_the_map(tmp_path: Path) -> None:
             "rom_addr_width": "13",
             "ram_addr_width": "16",
             "HAS_E": False,
+            "HAS_M": True,
+            "HAS_ZMMUL": False,
             "HAS_ZICSR": True,
             "HAS_ZICNTR": True,
-            "HAS_M": True,
+            "HAS_ZIHPM": False,
+            "HAS_ZIMOP": False,
+            "HAS_ZICOND": False,
+            "HAS_ZIFENCEI": False,
+            "HAS_ZICCLSM": False,
         },
     )
 
