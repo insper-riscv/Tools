@@ -30,3 +30,6 @@ jobs:
 
       - name: Check the tree
         run: riscv-tools --root . check-tree --kind tools
+
+      - name: Check the VHDL style
+        run: riscv-tools --root . check-vhdl-style
