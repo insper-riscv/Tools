@@ -5,6 +5,7 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
+from riscv_tools import mem_edit
 from riscv_tools.proc import run_streaming
 
 # Thin alias: this module's own callers/docs refer to "_run_captured";
@@ -48,6 +49,8 @@ def program_only(hardware_name: str, project_dir: Path, sof_file: str) -> None:
         Assembler produced a new one); nothing to reprogram from,
         caller should fall back to full_reconfigure instead.
     """
+    # The memory instances may get other indices with the new design.
+    mem_edit.invalidate()
     sof_path = project_dir / sof_file
     if not sof_path.is_file():
         raise FileNotFoundError(
@@ -145,6 +148,8 @@ def full_reconfigure(
     -------
     None
     """
+    # The memory instances may get other indices with the new design.
+    mem_edit.invalidate()
     project_dir = project.project_dir
     for init in (rom, boot_rom):
         if init is not None:

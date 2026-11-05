@@ -14,6 +14,7 @@ from riscv_tools.cli.tools_cmd import (
     cmd_vhdl_sort,
 )
 from riscv_tools.cli.tree_cmd import cmd_check_tree
+from riscv_tools.cli.vhdl_style_cmd import cmd_check_vhdl_style
 from riscv_tools.tree_check import KINDS
 
 _DEFAULT_NPATHS = 30
@@ -127,6 +128,20 @@ def add_tool_commands(sub: Any) -> None:
         help="Comma-separated rules to run (default: every rule of the "
         "kind); a repository that has not finished its reorganization "
         "names the rules it already meets",
+    )
+
+    p = add_command(
+        sub,
+        cmd_check_vhdl_style,
+        "check-vhdl-style",
+        description=(
+            "Fail when a VHDL file breaks the style guide of the project "
+            "(vendor code and Quartus IPs are left out)"
+        ),
+    )
+    p.add_argument(
+        "--only",
+        help="Comma-separated rules to run (default: every rule)",
     )
 
     p = add_command(

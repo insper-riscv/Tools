@@ -19,11 +19,15 @@ The values come out as the `memory` keys the tools read
 `ram_words`, `tohost_addr` and `fromhost_addr`), as the `TOHOST_ADDR`
 and `STDOUT_ADDR` environment of the simulation and as the
 `sim.parameters.*_addr_width`, so no address or size is typed twice.
+With a `memory` section (see `memory`) the parameters also carry the
+choice of memories and caches, and `addr_widths` may be left out: it
+then lists the boot ROM and each internal memory.
 """
 
 from pathlib import Path
 from typing import Any
 
+from riscv_tools.memory_map import memory as memory_choice
 from riscv_tools.memory_map.core import (
     load_platform,
     platform_dict,
@@ -85,6 +89,7 @@ def _memory(platform: dict[str, Any], table: dict[str, int]) -> dict[str, int]:
 def _parameters(
     platform: dict[str, Any],
     memory: dict[str, int],
+    base: str,
     generics: dict[str, bool | int],
 ) -> dict[str, str | bool]:
     """Read the generics of the simulation top off the map and profile.
@@ -95,13 +100,15 @@ def _parameters(
         The loaded platform: `config.addr_widths` lists the memories.
     memory : dict of {str: int}
         The `memory` keys (see `_memory`).
+    base : str
+        The base letter of the profile, `i` or `e`.
     generics : dict of {str: bool or int}
         The generics of the profile.
 
     Returns
     -------
     dict of {str: str or bool}
-        The address widths, `NUM_REGS` and one `HAS_*` per extension.
+        The address widths, `HAS_E` and one `HAS_*` per extension.
     """
     words = {
         "boot_rom": memory["boot_rom_words"],
@@ -110,12 +117,13 @@ def _parameters(
     }
     parameters: dict[str, str | bool] = {
         f"{name}_addr_width": _width(words[name])
-        for name in platform_dict(platform, "config").get("addr_widths", [])
+        for name in memory_choice.addr_width_names(platform)
     }
-    parameters["NUM_REGS"] = str(generics["num_regs"])
+    parameters["HAS_E"] = base == "e"
     for key in SWITCHES:
         if key in generics:
             parameters[key.upper()] = bool(generics[key])
+    parameters |= memory_choice.parameters(platform)
     return parameters
 
 
@@ -146,7 +154,7 @@ def config_from_platform(platform_file: Path) -> dict[str, Any]:
         if symbol in table
     }
     sim: dict[str, Any] = {
-        "parameters": _parameters(platform, memory, generics)
+        "parameters": _parameters(platform, memory, base, generics)
     }
     if env:
         sim["env"] = env

@@ -76,7 +76,7 @@ def test_vhdl_package_has_the_generics_in_kib(tmp_path: Path) -> None:
     """The VHDL package has the core generics and the peripherals."""
     files = render_all(_write(tmp_path), tmp_path)
     text = files[tmp_path / "out/map_pkg.vhd"]
-    check_in("constant NUM_REGS            : positive := 32;", text)
+    check_in("constant HAS_E               : boolean  := false;", text)
     check_in("constant BOOT_ROM_BITS       : natural  := 11;", text)
     check_in("constant BOOT_ROM_SIZE_BYTES : positive := 2048;", text)
     check_in("constant ROM_BASE_KIB        : natural  := 2;", text)
@@ -214,20 +214,20 @@ def _matrix(root: Path) -> None:
 def test_the_profile_gives_the_registers_and_the_switches(
     tmp_path: Path,
 ) -> None:
-    """The package has `NUM_REGS` and one `HAS_*` per extension."""
+    """The package has `HAS_E` and one `HAS_*` per extension."""
     _matrix(tmp_path)
     small = yaml.safe_load(yaml.safe_dump(PLATFORM))
     small |= {"profile": "rv32em", "profiles": "matrix.yaml"}
     set_override(None)
     files = render_all(_write(tmp_path, small), tmp_path)
     text = files[tmp_path / "out/map_pkg.vhd"]
-    check_in("constant NUM_REGS            : positive := 16;", text)
+    check_in("constant HAS_E               : boolean  := true;", text)
     check_in("constant HAS_M               : boolean  := true;", text)
     set_override("rv32i")
     files = render_all(_write(tmp_path, small), tmp_path)
     set_override(None)
     text = files[tmp_path / "out/map_pkg.vhd"]
-    check_in("constant NUM_REGS            : positive := 32;", text)
+    check_in("constant HAS_E               : boolean  := false;", text)
     check_in("constant HAS_M               : boolean  := false;", text)
 
 
@@ -258,4 +258,4 @@ def test_the_profile_flag_reaches_the_generated_package(
     finally:
         set_override(None)
     text = (tmp_path / "out/map_pkg.vhd").read_text()
-    check_in("constant NUM_REGS            : positive := 16;", text)
+    check_in("constant HAS_E               : boolean  := true;", text)

@@ -120,7 +120,7 @@ def run_freq_sweep_at(job: SweepJob, mhz: float) -> dict[str, Any]:
         tohost = htif.read_tohost_configured(link, cfg)
         ram_dump.dump_ram(
             link,
-            ram_target.target_from_config(cfg),
+            ram_target.target_from_config(cfg, link),
             dump_path,
             mem_validator.golden_word_offsets(job.golden_path),
         )

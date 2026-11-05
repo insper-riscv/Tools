@@ -19,6 +19,7 @@ Um endereço de byte pode ser convertido em offset de palavra de duas formas dif
 
 | Chave | Significado |
 | :--- | :--- |
+| `quartus.ram_mem_name` | Nome (`INSTANCE_NAME` do IP, por exemplo `RAM`) da instância da RAM; vale mais que `quartus.ram_mem_instance`. |
 | `quartus.ram_mem_instance` | Índice da instância do tap de debug da RAM (padrão `1`). |
 | `quartus.poll_interval_seconds` | De quanto em quanto tempo reler o `tohost` enquanto espera um resultado (padrão `0.5`). |
 | `memory.ram_base` | Endereço de byte base da RAM. Sem padrão; específico do projeto. |
