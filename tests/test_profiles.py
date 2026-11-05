@@ -1,6 +1,7 @@
 """Tests for profiles."""
 
 import argparse
+import json
 from pathlib import Path
 
 import pytest
@@ -326,4 +327,126 @@ def test_a_spec_without_a_base_fails(tmp_path: Path) -> None:
     """A specification without base fails."""
     text = CORE_SPEC.replace("base: rv32i\n", "")
     with pytest.raises(ValueError, match="base"):
+        load_spec(_write(tmp_path, text))
+
+
+# The two bases as generics of the core (the base list format) and as
+# the extensions I and E over a base with no letter (the letter format).
+HAS_E_BASES_SPEC = HPM_SPEC.replace(
+    "base: rv32i\n",
+    "bases:\n"
+    "  - {name: rv32i, generics: {has_e: false}}\n"
+    "  - {name: rv32e, generics: {has_e: true}}\n",
+)
+LETTER_SPEC = (
+    HPM_SPEC.replace("base: rv32i\n", "base: rv32\n").replace(
+        "extensions:\n",
+        "extensions:\n"
+        "  - {name: I,        base_letter: i}\n"
+        "  - {name: E,        generic: has_e, base_letter: e}\n",
+    )
+    + "  - [I, E]\nrequires_any:\n  - [I, E]\n"
+)
+
+
+def _generics_of(tmp_path: Path, text: str) -> dict[str, dict[str, object]]:
+    return {
+        p.name: dict(p.generics)
+        for p in expand(load_spec(_write(tmp_path, text)))
+    }
+
+
+def _printed(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], fmt: str, text: str
+) -> str:
+    spec = _write(tmp_path, text)
+    cli.cmd_profiles(argparse.Namespace(spec=str(spec), format=fmt))
+    return capsys.readouterr().out
+
+
+def test_the_letter_format_gives_the_names_of_the_bases_format(
+    tmp_path: Path,
+) -> None:
+    """Both formats give the same 120 names and generics."""
+    old = _generics_of(tmp_path, HAS_E_BASES_SPEC)
+    new = _generics_of(tmp_path, LETTER_SPEC)
+    check_equal(len(new), 120)
+    check_equal(new, old)
+    check_in("rv32e", new)
+    check_in("rv32em_zicclsm_zicntr_zihpm_zifencei", new)
+    check_in("rv32i_zmmul", new)
+
+
+def test_the_letter_format_prints_the_same_generics_lines(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The generics format prints the same flags in the same order."""
+    lines = [
+        sorted(_printed(tmp_path, capsys, "generics", t).splitlines())
+        for t in (HAS_E_BASES_SPEC, LETTER_SPEC)
+    ]
+    check_equal(lines[0], lines[1])
+    check(
+        any(
+            line.startswith("rv32e -ghas_e=true -ghas_zicclsm=false ")
+            for line in lines[1]
+        )
+    )
+
+
+def test_the_letter_format_prints_the_same_json_names(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The json format lists the same names and generics."""
+    seen = [
+        {
+            p["name"]: p["generics"]
+            for p in json.loads(_printed(tmp_path, capsys, "json", t))
+        }
+        for t in (HAS_E_BASES_SPEC, LETTER_SPEC)
+    ]
+    check_equal(seen[0], seen[1])
+
+
+def test_every_letter_profile_has_exactly_one_of_i_and_e(
+    tmp_path: Path,
+) -> None:
+    """Each profile has exactly one of I and E."""
+    for p in expand(load_spec(_write(tmp_path, LETTER_SPEC))):
+        check_equal(len({"I", "E"} & set(p.extensions)), 1)
+        check_equal(p.generics["has_e"], "E" in p.extensions)
+
+
+def test_without_the_requirement_a_profile_may_lack_both_letters(
+    tmp_path: Path,
+) -> None:
+    """Without `requires_any` a profile may have neither letter."""
+    text = LETTER_SPEC.replace("requires_any:\n  - [I, E]\n", "")
+    names = {p.name for p in expand(load_spec(_write(tmp_path, text)))}
+    check_in("rv32", names)
+    check_equal(len(names), 180)
+
+
+def test_without_the_exclusion_a_profile_may_have_both_letters(
+    tmp_path: Path,
+) -> None:
+    """Without the exclusion the name carries both letters."""
+    text = LETTER_SPEC.replace("  - [I, E]\nrequires_any", "requires_any")
+    names = {p.name for p in expand(load_spec(_write(tmp_path, text)))}
+    check_in("rv32ie", names)
+
+
+def test_an_extension_with_a_letter_may_omit_the_generic(
+    tmp_path: Path,
+) -> None:
+    """Extension I carries no generic."""
+    profiles = expand(load_spec(_write(tmp_path, LETTER_SPEC)))
+    check_equal(len(profiles[0].generics), 8)
+    check_not_in("I", profiles[0].generics)
+
+
+def test_an_extension_without_generic_or_letter_fails(tmp_path: Path) -> None:
+    """An extension needs a generic or a base letter."""
+    text = LETTER_SPEC.replace("{name: I,        base_letter: i}", "{name: I}")
+    with pytest.raises(ValueError, match="generic"):
         load_spec(_write(tmp_path, text))

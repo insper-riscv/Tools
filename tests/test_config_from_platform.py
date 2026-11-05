@@ -136,3 +136,51 @@ def test_a_name_outside_the_specification_is_rejected(
     set_override("rv32im_zicsr_zicntr")
     with pytest.raises(ValueError, match="is not a profile"):
         config_from_platform(path)
+
+
+LETTER_MATRIX = {
+    "base": "rv32",
+    "extensions": [
+        {"name": "I", "base_letter": "i"},
+        {"name": "E", "generic": "has_e", "base_letter": "e"},
+        {"name": "Zicsr", "generic": "has_zicsr"},
+        {"name": "Zicntr", "generic": "has_zicntr", "implies": ["has_zicsr"]},
+        {"name": "M", "generic": "has_m", "base_letter": "m"},
+    ],
+    "mutually_exclusive": [["I", "E"], ["Zicsr", "Zicntr"]],
+    "requires_any": [["I", "E"]],
+}
+
+
+def _letter_platform(root: Path) -> Path:
+    (root / "matrix.yaml").write_text(yaml.safe_dump(LETTER_MATRIX))
+    path = root / "platform.yaml"
+    path.write_text(yaml.safe_dump(PLATFORM, sort_keys=False))
+    return path
+
+
+def test_the_letter_format_picks_the_base_and_has_e(tmp_path: Path) -> None:
+    """The base letter and `HAS_E` follow the letter of the name."""
+    path = _letter_platform(tmp_path)
+    for name, base, has_e in (
+        ("rv32im_zicntr", "i", False),
+        ("rv32em", "e", True),
+        ("rv32e", "e", True),
+    ):
+        set_override(name)
+        config = config_from_platform(path)
+        check_equal(config["isa"], {"base": base})
+        check_is(config["sim"]["parameters"]["HAS_E"], has_e)
+
+
+def test_the_letter_format_rejects_a_name_with_no_letter(
+    tmp_path: Path,
+) -> None:
+    """`rv32` with no I and no E is not a profile."""
+    path = _letter_platform(tmp_path)
+    for name in ("rv32", "rv32m", "rv32iem"):
+        set_override(name)
+        with pytest.raises(
+            ValueError, match=r"rv32i or rv32e|is not a profile"
+        ):
+            config_from_platform(path)
