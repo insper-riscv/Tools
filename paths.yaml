@@ -1,0 +1,10 @@
+# Configuração do `riscv-tools --root . check-vhdl-style` e do `check-tree` neste repositório.
+tree:
+  vhdl_style:
+    # Os dois DUTs mínimos dos testes do sim_runner (tests/test_sim_runner.py) ficam de fora de
+    # propósito. Os testes dirigem as portas pelo nome (dut.clk, dut.rst, dut.tohost) e o sim_runner
+    # exige essas portas, então o DUT não segue o guia de estilo (sem prefixos i_/o_, sem
+    # cabeçalho e sem docstrings por declaração). Renomeá-las mudaria o contrato que o teste cobre.
+    exclude:
+      - tests/fixtures/sim_min/dut.vhd
+      - tests/fixtures/sim_lib/dut.vhd
