@@ -6,23 +6,33 @@ example M excludes Zmmul), and this module expands it into the
 combinations that obey every rule.
 
 ```yaml
-bases:                       # name of the profile with no extension
-  - {name: rv32i, generics: {num_regs: 32}}
-  - {name: rv32e, generics: {num_regs: 16}}
+base: rv32                   # name of the profile with no letter
 extensions:                  # order = order of the tokens in the name
+  - {name: I,      base_letter: i}                  # rv32+i = rv32i
+  - {name: E,      generic: has_e, base_letter: e}  # rv32+e = rv32e
   - {name: Zicsr,  generic: has_zicsr}
   - {name: Zicntr, generic: has_zicntr, implies: [has_zicsr]}
   - {name: M,      generic: has_m, base_letter: m}  # rv32i+m = rv32im
 mutually_exclusive:          # at most one extension of each group
+  - [I, E]
   - [M, Zmmul]
 requires_any:                # at least one of each group (optional)
-  - [Zicsr, Zicclsm]
+  - [I, E]
+```
+
+The base letter may also come from the bases:
+
+```yaml
+bases:                       # name of the profile with no extension
+  - {name: rv32i, generics: {has_e: false}}
+  - {name: rv32e, generics: {has_e: true}}
 ```
 
 A specification with a single base may write `base: rv32i` instead of
 `bases`. Every base is combined with every valid set of extensions, and
 the generics of the base go into the profile before those of the
-extensions.
+extensions. An extension with `base_letter` may omit `generic`, as the
+extension I does: it only gives its letter to the name.
 
 A profile is named after its extensions: `base_letter` goes into the
 base name and every other extension adds `_<name in lowercase>`. An
@@ -48,7 +58,7 @@ class Extension:
     """One optional extension, as shown in the core and in the name."""
 
     name: str
-    generic: str
+    generic: str | None = None
     base_letter: str | None = None
     absent_token: str | None = None
     implies: tuple[str, ...] = ()
@@ -87,6 +97,25 @@ class Profile:
 def _optional(entry: dict[str, Any], key: str) -> str | None:
     value = entry.get(key)
     return None if value is None else str(value)
+
+
+def _extension(path: Path, entry: dict[str, Any]) -> Extension:
+    """Read one extension, which needs a generic or a base letter."""
+    extension = Extension(
+        name=str(entry["name"]),
+        generic=_optional(entry, "generic"),
+        base_letter=_optional(entry, "base_letter"),
+        absent_token=_optional(entry, "absent_token"),
+        implies=tuple(
+            str(g) for g in cast("list[object]", entry.get("implies") or [])
+        ),
+    )
+    if extension.generic is None and extension.base_letter is None:
+        raise ValueError(
+            f"{path}: extension {extension.name} needs a `generic` or a"
+            " `base_letter`"
+        )
+    return extension
 
 
 def _groups(
@@ -141,7 +170,8 @@ def load_spec(path: Path) -> Spec:
     Raises
     ------
     ValueError
-        If the file lacks the base or an extension, repeats a name, or a
+        If the file lacks the base or an extension, repeats a name, has
+        an extension with neither `generic` nor `base_letter`, or a
         rule mentions an extension that is not listed.
     """
     loaded: Any = yaml.safe_load(path.read_text())
@@ -152,15 +182,7 @@ def load_spec(path: Path) -> Spec:
         raise ValueError(f"{path}: needs a non-empty `extensions` list")
     bases = _bases(path, raw)
     extensions = tuple(
-        Extension(
-            name=str(e["name"]),
-            generic=str(e["generic"]),
-            base_letter=_optional(e, "base_letter"),
-            absent_token=_optional(e, "absent_token"),
-            implies=tuple(
-                str(g) for g in cast("list[object]", e.get("implies") or [])
-            ),
-        )
+        _extension(path, e)
         for e in cast(list[dict[str, Any]], raw["extensions"])
     )
     names = [e.name for e in extensions]
@@ -180,7 +202,13 @@ def _generics(
 ) -> dict[str, bool | int]:
     """Give the generics of the base and of the extensions on."""
     generics: dict[str, bool | int] = dict(base.generics)
-    generics.update({e.generic: e.name in present for e in spec.extensions})
+    generics.update(
+        {
+            e.generic: e.name in present
+            for e in spec.extensions
+            if e.generic is not None
+        }
+    )
     for e in spec.extensions:
         if e.name in present:
             for implied in e.implies:
