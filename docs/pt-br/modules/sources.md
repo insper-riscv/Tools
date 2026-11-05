@@ -6,7 +6,7 @@ Emite a lista ordenada dos arquivos de um alvo, lida dos manifestos `provides` d
 
 O alvo é um componente, escrito como `<repositório>/<componente>`; um nome sem prefixo é um componente do repositório da raiz. A saída traz os componentes de `requires` antes do alvo, em profundidade e na ordem em que o manifesto os lista, e depois os `sources` do próprio componente na ordem declarada. Nenhum arquivo aparece duas vezes, e os caminhos saem relativos à raiz, também para os arquivos de repositórios montados abaixo dela.
 
-Os manifestos lidos são o da própria raiz e os dos repositórios montados abaixo dela: os submódulos do `.gitmodules` e o `src/common`. Um repositório visto duas vezes fica com a primeira pasta encontrada. O formato do manifesto está em [tree_check](tree_check.md).
+Os manifestos lidos são o da própria raiz e os dos repositórios montados abaixo dela: os submódulos do `.gitmodules` e o `src/common`. Um repositório visto duas vezes fica com a primeira pasta encontrada. Os arquivos de um submódulo nunca vêm da listagem de pastas da raiz, só do manifesto do próprio submódulo, e um `requires: <repositório>/<componente>` segue para esse manifesto quando o outro repositório declara `provides`. O formato do manifesto está em [tree_check](tree_check.md).
 
 ## Erros
 

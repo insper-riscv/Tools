@@ -27,7 +27,7 @@ The coverage rule leaves out simulation models (folders `sim` and `tests`), `ven
 
 The kinds are `common-components`, `core`, `memory`, `peripherals`, `top`, `tests`, `certification`, `infra` and `tools`. The first five are the VHDL ones. Only `common-components` has no `formal/`.
 
-The walk leaves out hidden folders, build output (`build`, `sim_build`, `output_files`, `db`, `incremental_db`), third-party code in `vendor/` and any folder that is a repository of its own, such as a submodule, whose layout is checked in its own repository.
+The walk leaves out hidden folders, build output (`build`, `sim_build`, `output_files`, `db`, `incremental_db`), third-party code in `vendor/` and any folder that is a repository of its own, such as a submodule, whose layout is checked in its own repository. A submodule is recognized by the path declared in the root `.gitmodules`, so a copy without `.git` (made by `rsync`, for instance) also leaves it out, and by a `.git` entry inside the folder. Every rule that lists files uses this same walk: the `.vhd` files of `src/common` belong to the manifest of Common-Components and do not enter the `manifest`, `entity-coverage`, `vhdl-location`, `folder-names` and `vhdl-style` rules of the repository that mounts it.
 
 ## Configuration
 
@@ -78,6 +78,10 @@ A repository that has not finished its reorganization chooses with `--only` the 
 | `tests/test_tree_check.py::test_common_submodule_requires_the_mount_at_src_common` | Common-Components must be declared at `src/common`. |
 | `tests/test_tree_check.py::test_common_submodule_requires_the_right_repository` | The submodule at `src/common` must be Common-Components. |
 | `tests/test_tree_check.py::test_common_submodule_is_reported_without_gitmodules` | Without `.gitmodules`, the submodule is not mounted. |
+| `tests/test_submodule_exclusion.py::test_manifest_ignores_files_of_a_submodule` | The `manifest` rule does not ask for the files of a mounted submodule. |
+| `tests/test_submodule_exclusion.py::test_manifest_ignores_a_submodule_without_git` | A copy without `.git` also leaves out the submodule of `.gitmodules`. |
+| `tests/test_submodule_exclusion.py::test_coverage_and_location_ignore_a_submodule` | `entity-coverage` and `vhdl-location` skip the files of the submodule. |
+| `tests/test_submodule_exclusion.py::test_a_folder_that_is_not_a_submodule_is_still_checked` | Only the paths of `.gitmodules` are left out. |
 | `tests/test_tree_check.py::test_folder_names_reject_space_accent_and_capitals` | Space, accent and capitals in a folder name are reported. |
 | `tests/test_tree_check.py::test_folder_names_accept_the_identifiers_listed_in_paths_yaml` | The identifiers listed in `paths.yaml` keep their capitals. |
 | `tests/test_tree_check.py::test_folder_names_leave_out_vendor_code` | Third-party code keeps the names it came with. |

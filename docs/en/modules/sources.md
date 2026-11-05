@@ -6,7 +6,7 @@ Prints the ordered list of the files of a target, read from the `provides` manif
 
 The target is a component, written as `<repository>/<component>`; a name without a prefix is a component of the repository at the root. The output has the components of `requires` before the target, depth first and in the order the manifest lists them, and then the `sources` of the component itself in the declared order. No file appears twice, and the paths come out relative to the root, also for files of repositories mounted below it.
 
-The manifests read are the one of the root itself and the ones of the repositories mounted below it: the submodules of `.gitmodules` and `src/common`. A repository seen twice keeps the first folder found. The manifest format is in [tree_check](tree_check.md).
+The manifests read are the one of the root itself and the ones of the repositories mounted below it: the submodules of `.gitmodules` and `src/common`. A repository seen twice keeps the first folder found. The files of a submodule never come from the folder listing of the root, only from the manifest of the submodule itself, and a `requires: <repository>/<component>` follows into that manifest when the other repository declares `provides`. The manifest format is in [tree_check](tree_check.md).
 
 ## Errors
 

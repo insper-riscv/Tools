@@ -26,7 +26,7 @@ A regra de cobertura deixa de fora os modelos de simulação (pastas `sim` e `te
 
 Os tipos são `common-components`, `core`, `memory`, `peripherals`, `top`, `tests`, `certification`, `infra` e `tools`. Os cinco primeiros são os de VHDL. Só o `common-components` não tem `formal/`.
 
-A varredura deixa de fora as pastas ocultas, a saída de build (`build`, `sim_build`, `output_files`, `db`, `incremental_db`), o código de terceiros em `vendor/` e qualquer pasta que seja um repositório próprio, como um submódulo, cujo layout se confere no repositório dele.
+A varredura deixa de fora as pastas ocultas, a saída de build (`build`, `sim_build`, `output_files`, `db`, `incremental_db`), o código de terceiros em `vendor/` e qualquer pasta que seja um repositório próprio, como um submódulo, cujo layout se confere no repositório dele. Um submódulo é reconhecido pelo caminho declarado no `.gitmodules` da raiz, de modo que uma cópia sem `.git` (um `rsync`, por exemplo) também o deixa de fora, e por uma entrada `.git` dentro da pasta. Todas as regras que listam arquivos usam essa mesma varredura: os `.vhd` de `src/common` pertencem ao manifesto do Common-Components e não entram nas regras `manifest`, `entity-coverage`, `vhdl-location`, `folder-names` e `vhdl-style` do repositório que o monta.
 
 ## Configuração
 
@@ -77,6 +77,10 @@ Um repositório que ainda não terminou a reorganização escolhe com `--only` a
 | `tests/test_tree_check.py::test_common_submodule_requires_the_mount_at_src_common` | O Common-Components precisa estar declarado em `src/common`. |
 | `tests/test_tree_check.py::test_common_submodule_requires_the_right_repository` | O submódulo de `src/common` precisa ser o Common-Components. |
 | `tests/test_tree_check.py::test_common_submodule_is_reported_without_gitmodules` | Sem `.gitmodules`, o submódulo não está montado. |
+| `tests/test_submodule_exclusion.py::test_manifest_ignores_files_of_a_submodule` | A regra `manifest` não cobra os arquivos de um submódulo montado. |
+| `tests/test_submodule_exclusion.py::test_manifest_ignores_a_submodule_without_git` | Uma cópia sem `.git` também deixa o submódulo do `.gitmodules` de fora. |
+| `tests/test_submodule_exclusion.py::test_coverage_and_location_ignore_a_submodule` | `entity-coverage` e `vhdl-location` pulam os arquivos do submódulo. |
+| `tests/test_submodule_exclusion.py::test_a_folder_that_is_not_a_submodule_is_still_checked` | Só os caminhos do `.gitmodules` ficam de fora. |
 | `tests/test_tree_check.py::test_folder_names_reject_space_accent_and_capitals` | Espaço, acento e maiúscula em nome de pasta são reportados. |
 | `tests/test_tree_check.py::test_folder_names_accept_the_identifiers_listed_in_paths_yaml` | Os identificadores listados no `paths.yaml` mantêm as maiúsculas. |
 | `tests/test_tree_check.py::test_folder_names_leave_out_vendor_code` | O código de terceiros mantém os nomes de origem. |
