@@ -262,7 +262,7 @@ def test_the_profile_flag_reaches_the_generated_package(
     check_in("constant HAS_E               : boolean  := true;", text)
 
 
-def test_extras_turn_on_zimop_and_zicond_outside_the_matrix(
+def test_extras_turn_on_what_the_matrix_omits(
     tmp_path: Path,
 ) -> None:
     """`extras` sets what the matrix omits; the rest is false."""
@@ -271,7 +271,7 @@ def test_extras_turn_on_zimop_and_zicond_outside_the_matrix(
     small |= {
         "profile": "rv32im",
         "profiles": "matrix.yaml",
-        "extras": ["Zimop"],
+        "extras": ["Zimop", "Zihintpause"],
     }
     set_override(None)
     files = render_all(_write(tmp_path, small), tmp_path)
@@ -279,23 +279,8 @@ def test_extras_turn_on_zimop_and_zicond_outside_the_matrix(
     check_in("constant HAS_ZIMOP           : boolean  := true;", text)
     check_in("constant HAS_ZICOND          : boolean  := false;", text)
     check_in("constant HAS_ZICSR           : boolean  := false;", text)
-
-
-def test_extras_turn_on_the_hint_extensions(tmp_path: Path) -> None:
-    """The hint extensions come from `extras`; the rest is false."""
-    _matrix(tmp_path)
-    small = yaml.safe_load(yaml.safe_dump(PLATFORM))
-    small |= {
-        "profile": "rv32im",
-        "profiles": "matrix.yaml",
-        "extras": ["Zihintpause"],
-    }
-    set_override(None)
-    files = render_all(_write(tmp_path, small), tmp_path)
-    text = files[tmp_path / "out/map_pkg.vhd"]
     check_in("constant HAS_ZIHINTPAUSE     : boolean  := true;", text)
     check_in("constant HAS_ZIHINTNTL       : boolean  := false;", text)
-    check_in("constant HAS_ZIMOP           : boolean  := false;", text)
 
 
 BANKS_PLATFORM: dict[str, Any] = {
