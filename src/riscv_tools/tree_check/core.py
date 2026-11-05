@@ -16,11 +16,14 @@ problems. A rule applies to some kinds of repository.
 |                    | `src/common`                            |
 | `folder-names`     | Lowercase folder names without spaces   |
 |                    | or accents                              |
+| `entity-coverage`  | A test for every entity of `src/` and a |
+|                    | proof for the ones named in `paths.yaml`|
+| `manifest`         | The `provides` manifest of `paths.yaml` |
+|                    | lists every `.vhd` of `src/` once, only |
+|                    | files that exist, and acyclic           |
+|                    | dependencies (skipped without it)       |
 | `vhdl-style`       | Opt-in: the VHDL style guide, as        |
 |                    | `check-vhdl-style` checks it            |
-| `entity-coverage`  | Opt-in: a test for every entity of      |
-|                    | `src/` and a proof for the ones named   |
-|                    | in `paths.yaml`                         |
 
 The repository's `paths.yaml` may carry a `tree` section to name the
 folders that are identifiers of the ISA or of a peripheral and so keep
@@ -31,8 +34,7 @@ tree:
   identifier_folders: [I, M, Zicsr, ISA]
 ```
 
-The two opt-in rules run only when `only` names them, so a repository
-adopts each one when it meets it.
+The opt-in rule runs only when `only` names it.
 """
 
 import configparser
@@ -43,6 +45,7 @@ from typing import Any, cast
 
 from riscv_tools.repo_walk import directories, list_files, tree_config
 from riscv_tools.tree_check.coverage import rule_entity_coverage
+from riscv_tools.tree_check.manifest import rule_manifest
 from riscv_tools.vhdl_style import check_vhdl_style
 
 KINDS = (
@@ -336,10 +339,11 @@ _RULES: dict[str, tuple[Rule, frozenset[str]]] = {
     "folder-names": (_rule_folder_names, _VHDL_KINDS),
     "vhdl-style": (_rule_vhdl_style, _VHDL_KINDS),
     "entity-coverage": (rule_entity_coverage, _VHDL_KINDS),
+    "manifest": (rule_manifest, _VHDL_KINDS),
 }
-# Rules that run only when `--only` names them, so a repository adopts
-# each one when it meets it (the default run stays what it was).
-_OPT_IN = frozenset({"vhdl-style", "entity-coverage"})
+# Rules that run only when `--only` names them: the style check has its
+# own CI step, so the default run leaves it out.
+_OPT_IN = frozenset({"vhdl-style"})
 
 
 def rule_names(kind: str) -> list[str]:
