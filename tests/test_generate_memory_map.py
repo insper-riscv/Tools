@@ -19,6 +19,7 @@ from support import (
 from riscv_tools import cli
 from riscv_tools.memory_map import (
     check_all,
+    check_memory_map,
     render_all,
     set_override,
     write_all,
@@ -278,3 +279,110 @@ def test_extras_turn_on_zimop_and_zicond_outside_the_matrix(
     check_in("constant HAS_ZIMOP           : boolean  := true;", text)
     check_in("constant HAS_ZICOND          : boolean  := false;", text)
     check_in("constant HAS_ZICSR           : boolean  := false;", text)
+
+
+BANKS_PLATFORM: dict[str, Any] = {
+    **PLATFORM,
+    "flash": {
+        "region": "FLASH",
+        "banks": [
+            {"name": "A", "base": "0x1000", "size": "12K"},
+            {"name": "B", "base": "0x4000", "size": "16K"},
+        ],
+    },
+    "generate": {
+        **PLATFORM["generate"],
+        "bank_specs": [
+            {
+                "path": "out/b.specs",
+                "rom": "BANK_B_PAYLOAD",
+                "ram": "RAM",
+                "ram_limit": "stdout",
+            }
+        ],
+        "banks_h": {"path": "out/flash_banks.h"},
+    },
+}
+
+
+def _banks(**change: Any) -> dict[str, Any]:
+    flash = {**BANKS_PLATFORM["flash"], **change}
+    return {**BANKS_PLATFORM, "flash": flash}
+
+
+def test_a_bank_is_linked_after_its_header_page(tmp_path: Path) -> None:
+    """The specs of a bank start the program after the header page."""
+    files = render_all(_write(tmp_path, BANKS_PLATFORM), tmp_path)
+    text = files[tmp_path / "out/b.specs"]
+    check_in("--defsym=__flash=0x4100 --defsym=__flash_size=0x3F00", text)
+    check_in("--defsym=__ram=0x8000", text)
+
+
+def test_the_banks_header_has_the_layout(tmp_path: Path) -> None:
+    """The header carries the magic, the page and each bank."""
+    files = render_all(_write(tmp_path, BANKS_PLATFORM), tmp_path)
+    text = files[tmp_path / "out/flash_banks.h"]
+    check_in("#define RV32_IMAGE_MAGIC RV32_ADDRESS(0x52564946)", text)
+    check_in("#define RV32_IMAGE_HEADER_SIZE RV32_ADDRESS(0x100)", text)
+    check_in("#define RV32_BANK_A_BASE RV32_ADDRESS(0x00001000)", text)
+    check_in("#define RV32_BANK_A_ENTRY RV32_ADDRESS(0x00001100)", text)
+    check_in("#define RV32_BANK_B_SIZE RV32_ADDRESS(0x00004000)", text)
+
+
+@pytest.mark.parametrize(
+    ("banks", "message"),
+    [
+        ([{"name": "A", "base": "0x801", "size": "4K"}], "sector"),
+        ([{"name": "A", "base": "0x1000", "size": "4K+1"}], "sector"),
+        ([{"name": "A", "base": "0x1000", "size": "0"}], "no room"),
+        ([{"name": "A", "base": "0x0", "size": "4K"}], "not inside"),
+        ([{"name": "A", "base": "0x7000", "size": "8K"}], "not inside"),
+        (
+            [
+                {"name": "A", "base": "0x1000", "size": "8K"},
+                {"name": "B", "base": "0x2000", "size": "8K"},
+            ],
+            "overlap",
+        ),
+        (
+            [
+                {"name": "A", "base": "0x1000", "size": "4K"},
+                {"name": "A", "base": "0x2000", "size": "4K"},
+            ],
+            "share a name",
+        ),
+    ],
+)
+def test_a_bad_bank_is_rejected(
+    tmp_path: Path, banks: list[dict[str, str]], message: str
+) -> None:
+    """Banks off the sector, outside the FLASH or overlapping fail."""
+    path = _write(tmp_path, _banks(banks=banks))
+    with pytest.raises(ValueError, match=message):
+        render_all(path, tmp_path)
+
+
+def test_the_flash_must_name_a_region(tmp_path: Path) -> None:
+    """A bank section whose region does not exist fails."""
+    path = _write(tmp_path, _banks(region="NOPE"))
+    with pytest.raises(ValueError, match="names no region"):
+        render_all(path, tmp_path)
+
+
+def test_the_checker_reads_the_bank_symbols(tmp_path: Path) -> None:
+    """A check may expect a bank symbol of the map."""
+    (tmp_path / "copy.txt").write_text("base=0x4100\n")
+    platform = {
+        **BANKS_PLATFORM,
+        "checks": [
+            {
+                "name": "bank B entry",
+                "file": "copy.txt",
+                "pattern": r"base=(0x[0-9A-F]+)",
+                "expect": "BANK_B_PAYLOAD.base",
+            }
+        ],
+    }
+    count, problems = check_memory_map(_write(tmp_path, platform), tmp_path)
+    check_equal(count, 1)
+    check_equal(problems, [])
