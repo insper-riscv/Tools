@@ -525,6 +525,43 @@ def render_vhdl(
     )
 
 
+def _bank_files(
+    platform: dict[str, Any],
+    wanted: dict[str, Any],
+    table: dict[str, int],
+    source: str,
+    root: Path,
+) -> dict[Path, str]:
+    """Render the files that carry the FLASH banks.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+    wanted : dict of {str: Any}
+        The `generate` section.
+    table : dict of {str: int}
+        The symbols of the map, banks included.
+    source : str
+        The platform file, for the header.
+    root : Path
+        The project root the paths are relative to.
+
+    Returns
+    -------
+    dict of {Path: str}
+        The specs file of each `bank_specs` entry and the `banks_h`
+        header, when the platform asks for them.
+    """
+    out: dict[Path, str] = {}
+    for spec in cast(list[dict[str, Any]], wanted.get("bank_specs", [])):
+        out[root / spec["path"]] = render_specs(spec, table, source)
+    path = banks.header_path(wanted)
+    if path is not None:
+        out[root / path] = banks.render_header(platform, table, source)
+    return out
+
+
 def render_all(platform_file: Path, root: Path) -> dict[Path, str]:
     """Render every file the platform asks to generate.
 
@@ -562,11 +599,7 @@ def render_all(platform_file: Path, root: Path) -> dict[Path, str]:
     if "specs" in wanted:
         spec = cast(dict[str, Any], wanted["specs"])
         out[root / spec["path"]] = render_specs(spec, table, source)
-    for spec in cast(list[dict[str, Any]], wanted.get("bank_specs", [])):
-        out[root / spec["path"]] = render_specs(spec, table, source)
-    if "banks_h" in wanted:
-        path = banks.header_path(wanted)
-        out[root / str(path)] = banks.render_header(platform, table, source)
+    out |= _bank_files(platform, wanted, table, source, root)
     if "boot_ld" in wanted:
         spec = cast(dict[str, Any], wanted["boot_ld"])
         out[root / spec["path"]] = render_boot_ld(platform, table, source)
