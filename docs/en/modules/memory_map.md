@@ -67,6 +67,31 @@ uv run riscv-tools --root <project> generate-memory-map --platform src/platform/
 
 With `--check` nothing is written, and the command exits with status 1 when a file is missing or differs from what the map would generate. It needs no `--config`.
 
+## The FLASH banks
+
+The `flash` section of the `platform.yaml` splits the FLASH into banks, each holding an image in the format of [`flash_image`](flash_image.md), for the program update in the field.
+
+```yaml
+flash:
+  region: FLASH
+  banks:
+    - {name: A, base: 0x1000,  size: 124K}
+    - {name: B, base: 0x20000, size: 128K}
+generate:
+  bank_specs:
+    - {path: runtime/bank-b.specs, rom: BANK_B_PAYLOAD, ram: RAM, ram_limit: stdout}
+  banks_h: {path: runtime/flash_banks.h}
+```
+
+Each bank starts with a 256-byte header page, so its program is linked from `base + 256`. For the bank `A` the map gains the symbols `BANK_A.base|size|end|words` and `BANK_A_PAYLOAD.base|size|end|words` (the part after the header), which serve as `expect` in the checks and as `rom` in the specs sections.
+
+| Key | Generated file | Content |
+| :--- | :--- | :--- |
+| `bank_specs` | List of GCC specs files, one per entry | Like `specs`, with `__flash` and `__flash_size` of the region chosen in `rom`, usually `BANK_<name>_PAYLOAD` |
+| `banks_h` | Header (`.h`, also included by `.S`) | `RV32_IMAGE_MAGIC`, `RV32_IMAGE_HEADER_SIZE` and, for each bank, `RV32_BANK_<NAME>_BASE`, `_SIZE` and `_ENTRY` (where the program starts) |
+
+The map refuses banks that are not aligned to the 4 KiB sector, that leave no room for a program after the header, that leave the region named in `flash.region`, that overlap or that repeat a name.
+
 ## The profile of the platform
 
 The platform picks its profile in `profile:` (`rv32im`, `rv32em_zicsr`, ...) and says where the specification of the profiles is in `profiles:`, a path relative to the `platform.yaml` (the `profiles/matrix.yaml` of the Core). The name starts with `rv32i` (32 registers) or `rv32e` (16) and must be one of the profiles of the specification. It gives:

@@ -29,7 +29,15 @@ generate:
     ram_external: false
     ext_base: 0x40000000
     periph_base: 0x80000000
+  bank_specs:
+    - {path: runtime/bank-b.specs, rom: BANK_B_PAYLOAD, ram: RAM}
+  banks_h:
+    path: runtime/flash_banks.h
 ```
+
+`bank_specs` lists specs files like `specs`, each linking a program for
+a FLASH bank (see `riscv_tools.memory_map.banks`), and `banks_h` is the
+header with the banks and the layout of the image.
 
 `check` compares the written files with what would be generated, so a
 change of the map without a new generation fails.
@@ -38,6 +46,7 @@ change of the map without a new generation fails.
 from pathlib import Path
 from typing import Any, cast
 
+from riscv_tools.memory_map import banks
 from riscv_tools.memory_map import memory as memory_choice
 from riscv_tools.memory_map.core import (
     PERIPHERAL_WINDOW_BASE,
@@ -540,10 +549,10 @@ def render_all(platform_file: Path, root: Path) -> dict[Path, str]:
     generics = None
     if memory_choice.declared(platform):
         _, generics = resolve(platform, platform_file)
-    problems = validate_platform(platform, generics)
+    problems = validate_platform(platform, generics) + banks.problems(platform)
     if problems:
         raise ValueError("; ".join(str(p) for p in problems))
-    table = symbols(platform)
+    table = symbols(platform) | banks.symbols(platform)
     try:
         source = str(platform_file.relative_to(root))
     except ValueError:
@@ -553,6 +562,11 @@ def render_all(platform_file: Path, root: Path) -> dict[Path, str]:
     if "specs" in wanted:
         spec = cast(dict[str, Any], wanted["specs"])
         out[root / spec["path"]] = render_specs(spec, table, source)
+    for spec in cast(list[dict[str, Any]], wanted.get("bank_specs", [])):
+        out[root / spec["path"]] = render_specs(spec, table, source)
+    if "banks_h" in wanted:
+        path = banks.header_path(wanted)
+        out[root / str(path)] = banks.render_header(platform, table, source)
     if "boot_ld" in wanted:
         spec = cast(dict[str, Any], wanted["boot_ld"])
         out[root / spec["path"]] = render_boot_ld(platform, table, source)

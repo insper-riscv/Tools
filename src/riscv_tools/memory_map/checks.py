@@ -6,6 +6,7 @@ from typing import Any, cast
 
 import yaml
 
+from riscv_tools.memory_map import banks
 from riscv_tools.memory_map.core import (
     Mismatch,
     load_platform,
@@ -147,10 +148,10 @@ def check_memory_map(
         agree).
     """
     platform = load_platform(platform_path)
-    problems = validate_platform(platform)
+    problems = validate_platform(platform) + banks.problems(platform)
     if problems:
         return 0, problems
-    table = symbols(platform)
+    table = symbols(platform) | banks.symbols(platform)
     checks = platform_list(platform, "checks")
     for check in checks:
         problems += _run_check(check, root, table)
