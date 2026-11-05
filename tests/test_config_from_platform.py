@@ -95,6 +95,8 @@ def test_memory_and_widths_come_from_the_map(tmp_path: Path) -> None:
             "HAS_ZIHPM": False,
             "HAS_ZIMOP": False,
             "HAS_ZICOND": False,
+            "HAS_ZIHINTNTL": False,
+            "HAS_ZIHINTPAUSE": False,
             "HAS_ZIFENCEI": False,
             "HAS_ZICCLSM": False,
         },

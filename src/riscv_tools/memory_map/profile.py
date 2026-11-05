@@ -7,9 +7,10 @@ in `profiles:`, a path relative to the platform file (the
 line replaces the `profile:` of the platform, so a matrix of tests can
 run the same platform over many profiles without editing it.
 
-Zimop and Zicond are not in the specification of the Core (its matrix
-has only the extensions that combine freely), so the platform turns
-them on with `extras: [Zimop, Zicond]`, which also survives
+Zimop, Zicond, Zihintntl and Zihintpause are not in the specification
+of the Core (its matrix has only the extensions that combine freely),
+so the platform turns them on with `extras: [Zimop, Zicond,
+Zihintntl, Zihintpause]`, which also survives
 `--profile`. Every switch the profile and the extras do not turn on
 comes out false.
 """
@@ -28,6 +29,8 @@ SWITCHES = (
     "has_zihpm",
     "has_zimop",
     "has_zicond",
+    "has_zihintntl",
+    "has_zihintpause",
     "has_zifencei",
     "has_zicclsm",
 )
