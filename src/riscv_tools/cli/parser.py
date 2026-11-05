@@ -14,6 +14,7 @@ _COMMANDS_WITHOUT_CONFIG = frozenset(
         "check-memory-map",
         "check-paths",
         "check-tree",
+        "check-vhdl-style",
         "generate-memory-map",
         "platform",
         "profiles",
