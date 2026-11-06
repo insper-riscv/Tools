@@ -1,6 +1,6 @@
 # `uart_console`
 
-Shows what a program prints while it runs, through the JTAG UART of the platform: a UART whose other end is a Virtual JTAG instance (the registers and the scan protocol are in Memory's `docs/EXTERNAL_BUS.md`). It is the live view next to [`sdram_debug`](sdram_debug.md), which reads the stdout buffer after the fact: the UART shows the output of a program that is still running, or stuck, and gives it input.
+Shows what a program prints while it runs, through the JTAG UART of the platform: a UART whose other end is a Virtual JTAG instance (the registers and the scan protocol are in [`docs/en/UART/jtag_uart.md`](https://github.com/insper-riscv/Peripherals/blob/main/docs/en/UART/jtag_uart.md) of Peripherals). It is the live view next to [`sdram_debug`](sdram_debug.md), which reads the stdout buffer after the fact: the UART shows the output of a program that is still running, or stuck, and gives it input.
 
 The console scans the UART back to back; each scan brings up to four bytes. The UART is the second Virtual JTAG instance of the design; the SDRAM debug port is the first.
 
@@ -21,11 +21,11 @@ A program prints to the UART only once a host has scanned it, so start the conso
 
 ## Prerequisites
 
-- Quartus Prime Lite on `PATH` (`quartus_stp`), and a board with a USB-Blaster whose design has the JTAG UART (the SDRAM platform of TopLevel).
+- Quartus Prime Lite on `PATH` (`quartus_stp`), and a board with a USB-Blaster whose design has the JTAG UART (the `de0-cv` platform of Insper-RISC-V).
 
 ## Tests
 
-`tests/test_uart_console.py` runs the module against a stand-in for the script. In simulation, the SDRAM platform of TopLevel reads its UART the same way during every program and compares the stream with the stdout buffer.
+`tests/test_uart_console.py` runs the module against a stand-in for the script. In simulation, the `de0-cv` platform of Insper-RISC-V reads its UART the same way during every program and compares the stream with the stdout buffer.
 
 ---
 

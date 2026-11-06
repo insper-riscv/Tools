@@ -176,10 +176,10 @@ memory:
 
 quartus:
   jtag_device: "@1: 5CE(BA4|FA4) (0x02B050DD)"
-  project_dir: ../RV32IM/tests/FPGA/core/quartus
-  project_name: core_fpga_test
-  sof_file: output_files/core_fpga_test.sof
-  rom_mif_target: init.mif
+  project_dir: ../Insper-RISC-V/src/cyclone-v/de0-cv
+  project_name: de0-cv
+  sof_file: output_files/de0-cv.sof
+  rom_mif_target: flash_init.mif
 ```
 
 Everything else (`isa.*`, `quartus.rom_mem_names`/`ram_mem_name`/`rom_mem_instances`/`ram_mem_instance`/`poll_interval_seconds`/`program_wait_seconds`/`default_timeout_s`, `emulator.*`) is optional: override only what doesn't match your setup.

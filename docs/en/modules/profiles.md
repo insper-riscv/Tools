@@ -1,6 +1,6 @@
 # `profiles`
 
-Lists every valid core profile of a specification. A profile is a set of optional extensions on top of the base ISA, and writing the list by hand lets an impossible combination slip in: M together with Zmmul, or a core with neither Zicsr nor Zicclsm. The specification declares the extensions and the rules between them, and this module generates the combinations that obey every rule.
+Lists every valid core profile of a specification. A profile is a set of optional extensions on top of the base ISA, and writing the list by hand lets an impossible combination slip in: M together with Zmmul, or a performance counter (Zihpm) without the CSRs (Zicsr). The specification declares the extensions and the rules between them, and this module generates the combinations that obey every rule.
 
 ## Specification
 

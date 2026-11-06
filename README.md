@@ -27,6 +27,7 @@ Ele foi projetado para rodar em uma workstation com todas as ferramentas instala
 | `ram_target`         | Onde fica a RAM (instância da FPGA ou porta de debug da SDRAM) | [docs/modules/ram_target.md](docs/pt-br/modules/ram_target.md) |
 | `sdram_debug`        | Lê, escreve e preenche a SDRAM pela porta de debug JTAG      | [docs/modules/sdram_debug.md](docs/pt-br/modules/sdram_debug.md) |
 | `uart_console`       | Mostra a saída do programa pela UART JTAG enquanto ele roda  | [docs/modules/uart_console.md](docs/pt-br/modules/uart_console.md) |
+| `display`            | Lê e escreve o registrador do display de sete segmentos e a bandeira de falha da placa, com que o `run` e o `certify-board` mostram o programa em execução | [docs/modules/display.md](docs/pt-br/modules/display.md) |
 | `ram_dump`           | Faz o dump da RAM inteira via JTAG para um `.mif`           | [docs/modules/ram_dump.md](docs/pt-br/modules/ram_dump.md) |
 | `htif`               | Leitura do `tohost` e escrita do `fromhost` de reinício       | [docs/modules/htif.md](docs/pt-br/modules/htif.md) |
 | `quartus_program`    | Recompilação completa + `quartus_pgm` (o caminho lento, "base") | [docs/modules/quartus_program.md](docs/pt-br/modules/quartus_program.md) |
@@ -44,8 +45,9 @@ Ele foi projetado para rodar em uma workstation com todas as ferramentas instala
 | `sources`            | Emite a lista ordenada dos arquivos de um alvo, lida dos manifestos `provides` dos repositórios | [docs/modules/sources.md](docs/pt-br/modules/sources.md) |
 | `vhdl_style`         | Falha quando um `.vhd` desrespeita o guia de estilo do projeto (cabeçalho, prefixos `i_`/`o_`, docstring por declaração, sem `component`, `port map` por nome); deixa de fora `vendor/` e os IPs do Quartus | [docs/modules/vhdl_style.md](docs/pt-br/modules/vhdl_style.md) |
 | `platform_sync`      | Escreve o `config.yaml` de uma plataforma para o projeto que a consome, com a pasta do submódulo na frente de cada caminho dela | [docs/modules/platform_sync.md](docs/pt-br/modules/platform_sync.md) |
-| `profiles`           | Lista os perfis válidos de um core a partir das extensões e das regras entre elas (M e Zmmul não coexistem, Zicsr ou Zicclsm é obrigatório) | [docs/modules/profiles.md](docs/pt-br/modules/profiles.md) |
+| `profiles`           | Lista os perfis válidos de um core a partir das extensões e das regras entre elas (M e Zmmul não coexistem, Zicntr e Zihpm implicam Zicsr) | [docs/modules/profiles.md](docs/pt-br/modules/profiles.md) |
 | `freq_sweep`         | Reescreve a frequência de clock e as defasagens de um fonte de PLL: o mecanismo com que o sweep de frequência do `orchestrator` edita | [docs/modules/freq_sweep.md](docs/pt-br/modules/freq_sweep.md) |
+| `timing_paths`       | Lista os piores caminhos de setup de um projeto do Quartus compilado, por registrador | [docs/modules/timing_paths.md](docs/pt-br/modules/timing_paths.md) |
 | `run_log`            | Rotaciona e replica (tee) toda a saída de console de uma execução num histórico de logs persistente por tipo | [docs/modules/run_log.md](docs/pt-br/modules/run_log.md) |
 
 ## Docs
@@ -79,9 +81,7 @@ uv run riscv-tools --config /path/to/project/config.yaml sim
 uv run riscv-tools --config /path/to/project/config.yaml sim --only test-a,test-b
 ```
 
-Veja `riscv-tools --help` para a lista completa de subcomandos (`write-rom`,
-`zero-ram`, `dump-ram`, `program`, `htif read|restart`, `generate-header`,
-`generate-golden`, `spike-run`, `run`, `sim`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `check-paths`, `check-tree`, `sources`, `platform`, `freq-sweep`).
+Veja `riscv-tools --help` para a lista completa de subcomandos (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `check-paths`, `check-tree`, `sources`, `check-vhdl-style`, `platform`, `flash-image`, `timing-paths` e `freq-sweep`).
 
 ```bash
 # vhdl-sort não precisa de --config; é só análise do conteúdo dos arquivos,

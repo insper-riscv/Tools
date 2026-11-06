@@ -1,6 +1,6 @@
 # `sdram_debug`
 
-Lê e escreve palavras da SDRAM pela porta de debug JTAG dela: o equivalente do [`mem_edit`](mem_edit.md) para uma RAM que fica fora da FPGA. A porta de debug é um segundo mestre do controlador da SDRAM, atrás de uma instância de JTAG virtual (o protocolo está no `docs/SDRAM_DEBUG.md` do Memory), então o host lê e escreve a memória com o core rodando, parado ou travado.
+Lê e escreve palavras da SDRAM pela porta de debug JTAG dela: o equivalente do [`mem_edit`](mem_edit.md) para uma RAM que fica fora da FPGA. A porta de debug é um segundo mestre do controlador da SDRAM, atrás de uma instância de JTAG virtual (o protocolo está em [`docs/pt-br/ram/sdram_debug.md`](https://github.com/insper-riscv/Memory/blob/main/docs/pt-br/ram/sdram_debug.md) do Memory), então o host lê e escreve a memória com o core rodando, parado ou travado.
 
 Um endereço de palavra conta palavras de 32 bits a partir da base da SDRAM. O [`ram_target`](ram_target.md) escolhe entre este módulo e o `mem_edit` para a RAM de um projeto; os outros módulos não o chamam direto.
 
@@ -20,11 +20,11 @@ Um endereço de palavra conta palavras de 32 bits a partir da base da SDRAM. O [
 
 ## Pré-requisitos
 
-- Quartus Prime Lite no `PATH` (`quartus_stp`) e uma placa com USB-Blaster cujo projeto tenha a porta de debug (a plataforma da SDRAM do TopLevel).
+- Quartus Prime Lite no `PATH` (`quartus_stp`) e uma placa com USB-Blaster cujo projeto tenha a porta de debug (a plataforma `de0-cv` do Insper-RISC-V).
 
 ## Testes
 
-`tests/test_sdram_debug.py` roda o módulo contra um substituto do script. Na placa, a plataforma da SDRAM do TopLevel roda a suíte de hardware real por ele.
+`tests/test_sdram_debug.py` roda o módulo contra um substituto do script. Na placa, a plataforma `de0-cv` do Insper-RISC-V roda a suíte de hardware real por ele.
 
 ---
 
