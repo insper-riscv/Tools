@@ -21,7 +21,8 @@ def jtag_link(cfg: dict[str, Any]) -> JtagLink:
     Parameters
     ----------
     cfg : dict of {str: Any}
-        The merged project config, uses quartus.jtag_device.
+        The merged project config, uses quartus.jtag_device and
+        quartus.sdram_debug_instance.
 
     Returns
     -------
@@ -32,6 +33,7 @@ def jtag_link(cfg: dict[str, Any]) -> JtagLink:
     return JtagLink(
         hardware_name=detect_jtag_hardware(),
         device_name=cfg["quartus"]["jtag_device"],
+        sdram_instance=cfg["quartus"]["sdram_debug_instance"],
     )
 
 

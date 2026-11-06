@@ -10,6 +10,7 @@ A JTAG connection needs two identifiers, and they behave differently over time:
 | :--- | :--- | :--- |
 | `hardware_name` | The `"USB-Blaster [<bus>-<port>]"` cable name | Drifts across reboots/hub renumbering, so it's always live-detected via `detect_jtag_hardware()`, never read from config. |
 | `device_name` | The target chip's JTAG identity string | Stable across reboots; comes from a project's own config (`quartus.jtag_device`). |
+| `sdram_instance` | The index of the Virtual JTAG instance of the SDRAM debug port | Fixed in the top of the platform (`sld_instance_index`); comes from the config (`quartus.sdram_debug_instance`) and reaches the `sdram_dbg.tcl` script through the environment variable `RV32_SDRAM_DEBUG_INSTANCE`. |
 
 ## Chain health
 
@@ -20,6 +21,7 @@ A JTAG connection needs two identifiers, and they behave differently over time:
 | Key | Meaning |
 | :--- | :--- |
 | `quartus.jtag_device` | The FPGA's own JTAG IDCODE string. No default; every project must set this explicitly. |
+| `quartus.sdram_debug_instance` | The index of the Virtual JTAG instance of the SDRAM debug port. The default is 0; a platform that also has the FLASH loader gives the debug port another index. |
 
 ## Prerequisites
 

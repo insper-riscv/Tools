@@ -10,6 +10,7 @@ Uma conexão JTAG precisa de dois identificadores, e eles se comportam de forma 
 | :--- | :--- | :--- |
 | `hardware_name` | O nome do cabo `"USB-Blaster [<bus>-<port>]"` | Muda entre reboots e renumeração do hub, então é sempre detectado em tempo real por `detect_jtag_hardware()`, nunca lido da configuração. |
 | `device_name` | A string de identidade JTAG do chip alvo | Estável entre reboots; vem da configuração do próprio projeto (`quartus.jtag_device`). |
+| `sdram_instance` | O índice da instância do Virtual JTAG da porta de depuração da SDRAM | Fixado no topo da plataforma (`sld_instance_index`); vem da configuração (`quartus.sdram_debug_instance`) e chega ao script `sdram_dbg.tcl` pela variável de ambiente `RV32_SDRAM_DEBUG_INSTANCE`. |
 
 ## Saúde da chain
 
@@ -20,6 +21,7 @@ O `jtag_chain_healthy()` roda o `jtagconfig` e devolve `False` se a saída cont�
 | Chave | Significado |
 | :--- | :--- |
 | `quartus.jtag_device` | A string de IDCODE JTAG da própria FPGA. Sem padrão; todo projeto precisa defini-la explicitamente. |
+| `quartus.sdram_debug_instance` | O índice da instância do Virtual JTAG da porta de depuração da SDRAM. O padrão é 0; uma plataforma que também tem o carregador da FLASH dá outro índice à porta de depuração. |
 
 ## Pré-requisitos
 
