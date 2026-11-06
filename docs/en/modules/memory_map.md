@@ -103,7 +103,7 @@ The platform picks its profile in `profile:` (`rv32im`, `rv32em_zicsr`, ...) and
 
 `--profile NAME`, a global option of `riscv-tools`, replaces the `profile:` of the platform without editing it, to run the same platform over many profiles in a test matrix. It applies to `generate-memory-map` (writes the package of that profile), to `platform sync` and to every command that reads the configuration. A name that the specification does not list is rejected before anything runs.
 
-`extras:` turns on what the matrix of the Core does not list, by extension name (`extras: [Zimop, Zicond, Zihintntl, Zihintpause, Interrupts]`), and it also holds with `--profile`. Every switch that neither the profile nor the extras turn on comes out `false` in the package.
+`extras:` turns on what the profile does not turn on, by extension name (`extras: [Zihintntl, Zihintpause, Interrupts]`), and it also holds with `--profile`. The matrix of the Core lists Zimop and Zicond as profile extensions, so only the names the matrix does not list depend on `extras:`; the first two are still accepted there. Every switch that neither the profile nor the extras turn on comes out `false` in the package.
 
 ```bash
 uv run riscv-tools --root <project> --profile rv32em_zicsr generate-memory-map --platform src/platform/platform.yaml

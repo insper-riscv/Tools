@@ -7,12 +7,11 @@ in `profiles:`, a path relative to the platform file (the
 line replaces the `profile:` of the platform, so a matrix of tests can
 run the same platform over many profiles without editing it.
 
-Zimop, Zicond, Zihintntl, Zihintpause and Interrupts (the machine
-interrupts, which the core enables with Zicsr) are not in the
-specification of the Core (its matrix has only the extensions that
-combine freely), so the platform turns them on with `extras: [Zimop,
-Zicond, Zihintntl, Zihintpause, Interrupts]`, which also survives
-`--profile`. Every switch the profile and the extras do not turn on
+Zihintntl, Zihintpause and Interrupts (the machine interrupts, which
+the core enables with Zicsr) are not in the specification of the Core
+(Zimop and Zicond are), so the platform turns them on with `extras:
+[Zihintntl, Zihintpause, Interrupts]`, which also survives
+`--profile`. `extras` still accepts Zimop and Zicond. Every switch the profile and the extras do not turn on
 comes out false.
 """
 
