@@ -51,6 +51,9 @@ It is designed to run on a workstation with all the tools installed, or inside t
 | `profiles`           | Lists the valid profiles of a core from its extensions and the rules between them (M and Zmmul never coexist, Zicntr and Zihpm imply Zicsr) | [docs/modules/profiles.md](docs/en/modules/profiles.md) |
 | `freq_sweep`         | Rewrite a PLL source's clock frequency/phase offsets: the mechanism `orchestrator`'s frequency sweep edits with | [docs/modules/freq_sweep.md](docs/en/modules/freq_sweep.md) |
 | `timing_paths`       | Lists the worst setup paths of a compiled Quartus project, by register | [docs/modules/timing_paths.md](docs/en/modules/timing_paths.md) |
+| `quartus_reports`    | Reads the Quartus resource summaries (`*.map.summary`, `*.map.rpt`, `*.fit.summary`, `*.fit.rpt`) of every family | [docs/modules/quartus_reports.md](docs/en/modules/quartus_reports.md) |
+| `fit_estimate`       | Estimates whether a profile fits a board with the calibration table of the family and judges the fit report (passes up to 85 %, warns up to 100 %, errors above; V11 to V14 and V18) | [docs/modules/fit_estimate.md](docs/en/modules/fit_estimate.md) |
+| `calibration`        | Measures the profiles of a family with the compile command of the project (`quartus_map`) and fits the coefficients of the estimator by least squares | [docs/modules/calibration.md](docs/en/modules/calibration.md) |
 | `run_log`            | Rotates and tees a run's full console output into a persistent per-kind log history | [docs/modules/run_log.md](docs/en/modules/run_log.md) |
 
 ## Docs

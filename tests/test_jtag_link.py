@@ -51,7 +51,7 @@ def test_the_config_gives_the_instance_to_the_link(
 ) -> None:
     """quartus.sdram_debug_instance becomes the sdram_instance field."""
 
-    def cable(_device: str) -> str:
+    def cable(_device: str, _forced: str | None) -> str:
         return "cable"
 
     monkeypatch.setattr("riscv_tools.cli.common.detect_jtag_hardware", cable)
@@ -109,3 +109,19 @@ def test_the_idcode_of_a_device_name() -> None:
     """The IDCODE comes out in upper case, or None."""
     check_equal(idcode_of("@1: x (0x02b050dd)"), "02B050DD", "idcode")
     check_equal(idcode_of("chip"), None, "none")
+
+
+def test_a_forced_cable_must_list_the_idcode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """--cable keeps the cable, and the IDCODE is still checked."""
+    _fake_jtagconfig(monkeypatch)
+    check_equal(
+        detect_jtag_hardware("x (0x020F70DD)", "USB-Blaster [1-3]"),
+        "USB-Blaster [1-3]",
+        "forced",
+    )
+    with pytest.raises(RuntimeError, match="does not list the IDCODE"):
+        detect_jtag_hardware("x (0x02B050DD)", "USB-Blaster [1-3]")
+    with pytest.raises(RuntimeError, match="not listed"):
+        detect_jtag_hardware("x (0x02B050DD)", "USB-Blaster [9-9]")

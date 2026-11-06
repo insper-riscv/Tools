@@ -147,4 +147,5 @@ max-attributes = 15
 disable = [
     "redefined-outer-name",   # pytest fixtures are injected by parameter name
     "too-few-public-methods", # stubs and small data holders in tests
+    "too-many-instance-attributes", # records of the reports and the plans
 ]

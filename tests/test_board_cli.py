@@ -9,6 +9,7 @@ from board_support import FIXTURES
 from support import check_equal
 
 from riscv_tools.board import runtime
+from riscv_tools.cli.common import jtag_link
 from riscv_tools.cli.parser import main
 from riscv_tools.jtag.hardware import parse_jtagconfig
 
@@ -221,3 +222,29 @@ def test_doctor_exits_one_on_a_broken_chain(
     )
     check_equal(code, 1, "status")
     check_equal("[fail]" in capsys.readouterr().out, True, "report")
+
+
+def test_the_link_of_a_project_without_jtag_device_comes_from_the_board(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """quartus.board gives the link its cable and device, no IDCODE."""
+    text = (FIXTURES / "jtagconfig" / "four-cables.txt").read_text()
+    monkeypatch.setattr(runtime, "read_cables", lambda: parse_jtagconfig(text))
+    monkeypatch.setattr(runtime, "port_path", _fake_port)
+    monkeypatch.setenv("RISCV_TOOLS_BOARDS", str(FIXTURES / "boards"))
+    monkeypatch.setenv("RISCV_TOOLS_HOST", "ws")
+    monkeypatch.chdir(tmp_path)
+    cfg = {
+        "quartus": {
+            "jtag_device": None,
+            "board": "de2-115",
+            "boards": None,
+            "sdram_debug_instance": 1,
+        }
+    }
+    link = jtag_link(cfg)
+    check_equal(link.hardware_name, "USB-Blaster [1-3]", "cable")
+    check_equal(
+        link.device_name, "@1: 10CL120(Y|Z)/EP3C120/.. (0x020F70DD)", "device"
+    )
+    check_equal(link.sdram_instance, 1, "instance")
