@@ -1,5 +1,6 @@
 """Identify one JTAG connection and run the bundled .tcl scripts."""
 
+import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,10 +25,14 @@ class JtagLink:
         The target chip's JTAG identity string, from a project's
         config (`quartus.jtag_device`), stable across reboots, unlike
         hardware_name.
+    sdram_instance : int
+        Index of the Virtual JTAG instance of the SDRAM debug port, from
+        a project's config (`quartus.sdram_debug_instance`).
     """
 
     hardware_name: str
     device_name: str
+    sdram_instance: int = 0
 
 
 def run(cmd: list[str], **kw: Any) -> subprocess.CompletedProcess[Any]:
@@ -68,7 +73,9 @@ def run_tcl(
 ) -> subprocess.CompletedProcess[Any]:
     """Run one of this package's bundled tcl/ scripts via quartus_stp.
 
-    Always passes (hardware_name, device_name) first, then *args.
+    Always passes (hardware_name, device_name) first, then *args. The
+    index of the SDRAM debug instance goes in the environment variable
+    RV32_SDRAM_DEBUG_INSTANCE, which sdram_dbg.tcl reads.
 
     Parameters
     ----------
@@ -98,4 +105,8 @@ def run_tcl(
         link.device_name,
         *[str(a) for a in args],
     ]
-    return run(cmd)
+    env = {
+        **os.environ,
+        "RV32_SDRAM_DEBUG_INSTANCE": str(link.sdram_instance),
+    }
+    return run(cmd, env=env)

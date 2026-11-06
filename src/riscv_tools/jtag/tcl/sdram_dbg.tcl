@@ -18,6 +18,13 @@ if {[llength $argv] < 3} {
 lassign $argv HW DEV CMD
 set ARGS [lrange $argv 3 end]
 
+# the Virtual JTAG instance of the debug port: the platform's sld_instance_index, passed by riscv-tools in
+# RV32_SDRAM_DEBUG_INSTANCE (0 when the variable is not set)
+set INSTANCE 0
+if {[info exists ::env(RV32_SDRAM_DEBUG_INSTANCE)]} {
+    set INSTANCE $::env(RV32_SDRAM_DEBUG_INSTANCE)
+}
+
 # commands of the DEBUG register (op field)
 set OP_STATUS 0
 set OP_READ 1
@@ -43,8 +50,9 @@ proc fail {code message} {
 
 # one shift of the DEBUG register: returns {status word data} of the previous command
 proc shift {op word data be} {
+    global INSTANCE
     set v [expr {($op << 60) | ($be << 56) | (($word & 0xFFFFFF) << 32) | ($data & 0xFFFFFFFF)}]
-    set r [device_virtual_dr_shift -instance_index 0 -length 64 \
+    set r [device_virtual_dr_shift -instance_index $INSTANCE -length 64 \
                -dr_value [format %016llx $v] -value_in_hex]
     scan $r %llx x
     return [list [expr {($x >> 56) & 0xFF}] [expr {($x >> 32) & 0xFFFFFF}] [expr {$x & 0xFFFFFFFF}]]
@@ -68,7 +76,7 @@ if {[catch {
     set hw_name $HW
     open_device -hardware_name $HW -device_name $DEV
     device_lock -timeout 10000
-    device_virtual_ir_shift -instance_index 0 -ir_value 1 -no_captured_ir_value
+    device_virtual_ir_shift -instance_index $INSTANCE -ir_value 1 -no_captured_ir_value
 } err]} {
     fail 2 "cannot open the debug port: $err"
 }

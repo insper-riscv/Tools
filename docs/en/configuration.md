@@ -51,6 +51,7 @@ No `tests_real_dir`/`tests_sim_dir`/`golden_dir` split: every test under `c_dir`
 | Key | Default | Used by |
 |---|---|---|
 | `jtag_device` | **required** | `jtag`: the FPGA's own JTAG IDCODE string. The cable name (`USB-Blaster [...]`) is auto-detected live instead, since it drifts across reboots |
+| `sdram_debug_instance` | `0` | `jtag`: index of the Virtual JTAG instance of the SDRAM debug port; a platform that also has the FLASH loader gives the port another index |
 | `project_dir` | **required** | `quartus_program`: path to the Quartus project directory |
 | `project_name` | **required** | `quartus_program`: passed to `quartus_sh --flow compile` |
 | `sof_file` | **required** | `quartus_program`: path (relative to `project_dir`) to the compiled `.sof`, passed to `quartus_pgm` |
