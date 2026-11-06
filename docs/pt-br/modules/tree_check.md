@@ -50,7 +50,7 @@ tree:
       boot_memory_shell: instancia só o IP, coberto pela síntese e pela placa
 ```
 
-A regra `manifest` lê a seção `provides` da raiz do `paths.yaml`. Cada componente lista em `sources` os arquivos na ordem de análise do GHDL e em `requires` os componentes de que precisa: um nome sem prefixo é do mesmo repositório e `<repositório>/<componente>` é de outro. O nome do repositório vem da chave `repository` da raiz, ou da pasta quando ela falta.
+A regra `manifest` lê a seção `provides` da raiz do `paths.yaml`. Cada componente lista em `sources` os arquivos na ordem de análise do GHDL e em `requires` os componentes de que precisa: um nome sem prefixo é do mesmo repositório e `<repositório>/<componente>` é de outro. O nome do repositório vem da chave `repository` da raiz, ou da pasta quando ela falta. O componente pode ter ainda `needs`, a lista dos tipos de recurso de placa de que depende; um tipo fora do conjunto conhecido é um problema do manifesto.
 
 ```yaml
 repository: Core

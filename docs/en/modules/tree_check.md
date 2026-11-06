@@ -51,7 +51,7 @@ tree:
       boot_memory_shell: only instantiates the IP, covered by synthesis and the board
 ```
 
-The `manifest` rule reads the `provides` section at the root of `paths.yaml`. Each component lists in `sources` its files in the order GHDL analyzes them and in `requires` the components it needs: a name without a prefix belongs to the same repository, and `<repository>/<component>` to another one. The repository name comes from the `repository` key at the root, or from the folder when it is absent.
+The `manifest` rule reads the `provides` section at the root of `paths.yaml`. Each component lists in `sources` its files in the order GHDL analyzes them and in `requires` the components it needs: a name without a prefix belongs to the same repository, and `<repository>/<component>` to another one. The repository name comes from the `repository` key at the root, or from the folder when it is absent. A component may also have `needs`, the list of board resource types it depends on; a type outside the known set is a manifest problem.
 
 ```yaml
 repository: Core

@@ -6,6 +6,7 @@ consuming project's own config.yaml on top, which always wins. Add a
 new module's DEFAULTS to _MODULE_DEFAULTS to wire it in.
 """
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
@@ -132,8 +133,58 @@ def read_config(path: Path) -> dict[str, Any]:
     return _read_project_config(Path(path), ())
 
 
+def read_with_bases(
+    path: Path, base_of: Callable[[Path, str], Path]
+) -> dict[str, Any]:
+    """Read one file with its `extends:` chain, naming the base by rule.
+
+    The same merge as `read_config`, for a catalog whose files name
+    their base by something other than a relative path (the chip
+    catalog names the chip, and `base_of` turns the name into the file).
+
+    Parameters
+    ----------
+    path : Path
+        The file to read.
+    base_of : Callable of (Path, str) to Path
+        Receives the file that holds the `extends` key and its value,
+        and returns the file of the base.
+
+    Returns
+    -------
+    dict of {str: Any}
+        The file's content merged over its bases, without `extends`.
+
+    Raises
+    ------
+    ValueError
+        The `extends` chain loops back to a file already in it.
+    """
+    return _read_project_config(Path(path), (), base_of)
+
+
+def _relative_base(path: Path, ref: str) -> Path:
+    """Name the base of a config as a path relative to the file.
+
+    Parameters
+    ----------
+    path : Path
+        The file that holds the `extends` key.
+    ref : str
+        The value of the key.
+
+    Returns
+    -------
+    Path
+        The file of the base.
+    """
+    return path.parent / ref
+
+
 def _read_project_config(
-    path: Path, chain: tuple[Path, ...]
+    path: Path,
+    chain: tuple[Path, ...],
+    base_of: Callable[[Path, str], Path] = _relative_base,
 ) -> dict[str, Any]:
     """Read one project config file, resolving its `extends:` chain.
 
@@ -149,6 +200,9 @@ def _read_project_config(
         The config file to read.
     chain : tuple of Path
         The files already being resolved, to reject a cycle.
+    base_of : Callable of (Path, str) to Path, optional
+        Turns the `extends` value into the file of the base; by
+        default, a path relative to the file that names it.
 
     Returns
     -------
@@ -179,6 +233,6 @@ def _read_project_config(
         return data
 
     base = _read_project_config(
-        path.parent / str(base_ref), (*chain, resolved)
+        base_of(path, str(base_ref)), (*chain, resolved), base_of
     )
     return deep_merge(base, data)
