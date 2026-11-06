@@ -1,0 +1,7 @@
+board: de10-nano
+device: 5CSEBA6U23I7
+jtag:
+  cable: usb-blaster-ii
+  chain:
+    - {name: "SOCVHPS", idcode: "4BA00477"}
+    - {name: "5CSE(BA6|MA6)/..", idcode: "02D020DD", fpga: true}
