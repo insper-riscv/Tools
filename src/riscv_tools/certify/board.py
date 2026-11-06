@@ -107,7 +107,7 @@ def _flash_code(cfg: dict[str, Any], elf: Path, sdram_base: int) -> bytes:
     ----------
     cfg : dict of {str: Any}
         The merged project config: act.flash_base and, for a platform
-        whose boot ROM runs only a bank with a valid header,
+        whose boot memory runs only a bank with a valid header,
         act.flash_bank and act.flash_entry (the address the code of
         the ELF is linked at, after the header page and the payload of
         the bank).
