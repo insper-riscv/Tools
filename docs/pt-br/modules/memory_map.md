@@ -111,7 +111,7 @@ uv run riscv-tools --root <projeto> --profile rv32em_zicsr generate-memory-map -
 
 ## As interrupções da plataforma
 
-Uma plataforma com as interrupções de máquina liga o extra `Interrupts` (que exige `Zicsr`), lista o `CLINT` e, para as linhas externas, o `EXT_IRQ` entre os `peripherals`, e descreve o relógio na seção `interrupts`.
+Uma plataforma com as interrupções de máquina liga o extra `Interrupts` (o núcleo só as habilita se tiver `Zicsr`), lista o `CLINT` e, para as linhas externas, o `EXT_IRQ` entre os `peripherals`, e descreve o relógio na seção `interrupts`.
 
 ```yaml
 extras: [Interrupts]
@@ -123,7 +123,7 @@ interrupts:
   mtime_hz: 1000000    # taxa com que o mtime do CLINT conta
 ```
 
-O `mtime` do CLINT é um contador próprio, ajustado por `mtime_hz`, e é independente do CSR `time` da Zicntr, que o núcleo atende. O `clock_hz` precisa ser múltiplo de `mtime_hz`, o perfil precisa ligar `has_interrupts` com `has_zicsr`, e a lista `peripherals` precisa ter o `CLINT`; a ausência de qualquer um deles é um erro antes de gerar e no `check-memory-map`.
+O `mtime` do CLINT é um contador próprio, ajustado por `mtime_hz`, e é independente do CSR `time` da Zicntr, que o núcleo atende. O `clock_hz` precisa ser múltiplo de `mtime_hz`, o perfil precisa ligar `has_interrupts`, e a lista `peripherals` precisa ter o `CLINT`; a ausência de qualquer um deles é um erro antes de gerar e no `check-memory-map`.
 
 | Saída | Constantes |
 | :--- | :--- |
@@ -237,7 +237,7 @@ O `platform sync` grava os valores já trocados, de modo que Tests e Certificati
 | `tests/test_memory_map.py::test_load_platform_rejects_a_non_mapping` | Um arquivo que não é mapeamento é rejeitado. |
 | `tests/test_memory_map.py::test_cmd_check_memory_map_exit_status` | O comando imprime OK, ou sai com 1 listando as divergências. |
 | `tests/test_generate_memory_map.py` | Specs, linker script e pacote VHDL saem do mapa; `--check` pega arquivo ausente ou editado; endereço fora de KiB, região acima da janela dos periféricos e mapa inconsistente são rejeitados; o comando escreve e confere. |
-| `tests/test_interrupts.py` | O pacote traz `HAS_INTERRUPTS`, `CLOCK_HZ`, `MTIME_HZ` e `CLINT_TICK_CYCLES`, o cabeçalho traz os registradores do CLINT e a taxa do `mtime`, e uma seção inconsistente (taxa, CLINT ausente, perfil sem as interrupções ou sem Zicsr) é rejeitada. |
+| `tests/test_interrupts.py` | O pacote traz `HAS_INTERRUPTS`, `CLOCK_HZ`, `MTIME_HZ` e `CLINT_TICK_CYCLES`, o cabeçalho traz os registradores do CLINT e a taxa do `mtime`, e uma seção inconsistente (taxa, CLINT ausente, perfil sem as interrupções) é rejeitada. |
 | `tests/test_memory_choice.py` | A seção `memory` e a opção `--memory` geram as 16 combinações como 16 pacotes diferentes, as constantes e os parâmetros da simulação saem da escolha, e as regras V1 a V5, V7 e V10 falham com mensagem clara. |
 | `tests/test_config_from_platform.py` | As chaves de `memory`, o ambiente do `tohost` e do `stdout` e as larguras de endereço saem do mapa, e o mapa vale mais que o arquivo e os seus `extends`. |
 

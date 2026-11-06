@@ -136,7 +136,7 @@ def problems(
 def _profile_problems(
     generics: dict[str, bool | int] | None,
 ) -> list[Mismatch]:
-    """Check that the profile turns the interrupts on, with Zicsr.
+    """Check that the profile turns the interrupts on.
 
     Parameters
     ----------
@@ -151,21 +151,16 @@ def _profile_problems(
     """
     if generics is None or "has_interrupts" not in generics:
         return []
-    found: list[Mismatch] = []
-    if not generics["has_interrupts"]:
-        found.append(
-            Mismatch(
-                "interrupts",
-                "",
-                "the profile does not turn on has_interrupts "
-                "(extras: [Interrupts])",
-            )
+    if generics["has_interrupts"]:
+        return []
+    return [
+        Mismatch(
+            "interrupts",
+            "",
+            "the profile does not turn on has_interrupts "
+            "(extras: [Interrupts])",
         )
-    elif not generics.get("has_zicsr"):
-        found.append(
-            Mismatch("interrupts", "", "has_interrupts needs has_zicsr")
-        )
-    return found
+    ]
 
 
 def vhdl_lines(platform: dict[str, Any]) -> str:

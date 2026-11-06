@@ -98,7 +98,6 @@ def test_without_the_section_nothing_is_added(tmp_path: Path) -> None:
         ),
         ({"peripherals": []}, "no CLINT"),
         ({"extras": []}, "does not turn on has_interrupts"),
-        ({"profile": "rv32i"}, "needs has_zicsr"),
     ],
 )
 def test_an_inconsistent_section_is_rejected(
