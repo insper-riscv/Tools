@@ -19,6 +19,7 @@ Ele foi projetado para rodar em uma workstation com todas as ferramentas instala
 | `c_to_asm`           | .c -> assembly RISC-V legível (`gcc -S`), para inspecionar a geração de código | [docs/modules/c_to_asm.md](docs/pt-br/modules/c_to_asm.md) |
 | `boot_memory`           | Compila o bootloader fixo e compartilhado, uma vez, reutilizado em todos os testes | [docs/modules/boot_memory.md](docs/pt-br/modules/boot_memory.md) |
 | `jtag`               | Detecção do cabo JTAG em tempo real, executor genérico de `.tcl` | [docs/modules/jtag.md](docs/pt-br/modules/jtag.md) |
+| `board`              | Identificação, seleção e trava da placa pelo JTAG | [docs/modules/board.md](docs/pt-br/modules/board.md) |
 | `mem_edit`           | Primitivas genéricas do In-System Memory Content Editor (ler/escrever palavra, escrita completa, dump) | [docs/modules/mem_edit.md](docs/pt-br/modules/mem_edit.md) |
 | `flash_loader`       | Grava a FLASH interna de uma só cópia pelo carregador JTAG   | [docs/modules/flash_loader.md](docs/pt-br/modules/flash_loader.md) |
 | `flash_image`        | Empacota um programa na imagem de uma banca da FLASH (cabeçalho, CRC, versão), confere a imagem e a envia pela UART JTAG | [docs/modules/flash_image.md](docs/pt-br/modules/flash_image.md) |

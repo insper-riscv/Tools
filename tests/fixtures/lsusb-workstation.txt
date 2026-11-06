@@ -1,0 +1,9 @@
+Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 001 Device 002: ID 09fb:6001 Altera Blaster
+Bus 001 Device 003: ID 09fb:6001 Altera Blaster
+Bus 001 Device 004: ID 2341:8056 Arduino SA Arduino MKR Vidor 4000
+Bus 001 Device 005: ID 09fb:6001 Altera Blaster
+Bus 001 Device 006: ID 09fb:6001 Altera Blaster
+Bus 001 Device 011: ID 046d:c52b Logitech, Inc. Unifying Receiver
+Bus 001 Device 012: ID 8087:0033 Intel Corp. AX211 Bluetooth
+Bus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub

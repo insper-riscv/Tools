@@ -1,0 +1,5 @@
+board: de2-115
+device: EP4CE115F29C7
+jtag:
+  cable: usb-blaster
+  chain: [{name: "10CL120(Y|Z)/EP3C120", idcode: "020F70DD", fpga: true}]
