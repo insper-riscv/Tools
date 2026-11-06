@@ -118,7 +118,57 @@ def add_board_commands(sub: Any) -> None:
         "reconfigure)",
     )
     p.add_argument(
-        "mif", help=".mif to bake in as the ROM's init_file before compiling"
+        "mif",
+        nargs="?",
+        default=None,
+        help=".mif to bake in as the ROM's init_file before compiling "
+        "(required unless --compile-only or --stop-after)",
+    )
+    p.add_argument(
+        "--board",
+        default=None,
+        help="board of boards/<name>/board.yaml: its FPGA IDCODE picks the "
+        "cable",
+    )
+    p.add_argument(
+        "--boards-dir",
+        default=None,
+        help="the boards/ folder (default: <root>/boards)",
+    )
+    p.add_argument(
+        "--project-dir",
+        default=None,
+        help="Quartus project folder, in place of quartus.project_dir "
+        "(for a project written by `board generate`)",
+    )
+    p.add_argument(
+        "--project-name",
+        default=None,
+        help="Quartus revision, in place of quartus.project_name",
+    )
+    p.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="placement seed (compiles through the single compile script)",
+    )
+    p.add_argument(
+        "--generic",
+        action="append",
+        default=[],
+        metavar="NAME=VALUE",
+        help="top-level generic changed for this compile only; repeatable",
+    )
+    p.add_argument(
+        "--stop-after",
+        choices=["map", "fit", "sta"],
+        default=None,
+        help="stop the compile after this stage (the board is not programmed)",
+    )
+    p.add_argument(
+        "--compile-only",
+        action="store_true",
+        help="compile without programming the board",
     )
 
     p = add_command(

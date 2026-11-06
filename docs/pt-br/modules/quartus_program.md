@@ -11,6 +11,28 @@ O caminho lento, "base": um `quartus_sh --flow compile` completo seguido de `qua
 
 O `full_reconfigure` sempre chama os passos de compilação e programação juntos numa única cadeia `bash -c`, nunca como duas chamadas Python separadas de subprocesso: invocar o `quartus_pgm` como subprocesso próprio logo depois do `quartus_sh` já se observou quebrar a chain JTAG (`Error 213019: Can't scan JTAG chain`), enquanto encadear os mesmos dois comandos dentro de um único processo de shell não quebra.
 
+## Opções da compilação
+
+O `program` aceita, além do `.mif`, as opções abaixo. Sem nenhuma delas o fluxo é o de sempre: `quartus_sh --flow compile` seguido de `quartus_pgm`. Com `--seed`, `--generic` ou `--stop-after`, a compilação passa pelo script único `tcl/compile.tcl`, que substitui os `<projeto>_synth.tcl` de cada plataforma.
+
+| Opção | Efeito |
+| :--- | :--- |
+| `--seed N` | Semente do posicionamento (padrão do script, 5); o script também fixa o modo `HIGH PERFORMANCE EFFORT` |
+| `--generic NOME=VALOR` | Troca um generic inteiro do topo só nesta compilação, sem gravar no `.qsf`; repetível |
+| `--stop-after map\|fit\|sta` | Para depois da síntese, do ajuste ou da análise de tempo; não programa a placa |
+| `--compile-only` | Compila o fluxo inteiro e não programa a placa |
+| `--board NOME` | Escolhe o cabo pelo IDCODE do FPGA de `boards/<NOME>/board.yaml` (`--boards-dir` troca a pasta) |
+| `--project-dir`, `--project-name` | Projeto Quartus no lugar de `quartus.project_dir` e `quartus.project_name`, para um projeto escrito por `board generate`; o `.sof` é `output_files/<nome>.sof` |
+
+O `.mif` só é obrigatório quando a placa é programada. Com `--compile-only` ou `--stop-after`, nenhum cabo é consultado.
+
+| Ponto de parada | Estágios executados |
+| :--- | :--- |
+| `map` | Síntese |
+| `fit` | Síntese e ajuste |
+| `sta` | Síntese, ajuste e análise de tempo |
+| completo | `execute_flow -compile` |
+
 ## Configuração
 
 | Chave | Significado |
@@ -27,7 +49,11 @@ O `full_reconfigure` sempre chama os passos de compilação e programação junt
 
 ## Testes
 
-Não há teste automatizado neste repositório. Um runner self-hosted preparado como no `RUNNER_SETUP.md` do Infra roda a suíte de hardware real de um projeto consumidor (`riscv-tools run`), que é o único lugar onde este módulo é exercitado.
+| Teste | O que verifica |
+| :--- | :--- |
+| `tests/test_program_options.py` | O `compile.tcl` registra as mesmas chamadas do `de0-cv_synth.tcl`, a cadeia de compilação e programação, o `program_only` contra o `de0-cv_program.sh` e o `cmd_program` com as opções novas |
+
+Os scripts antigos ficam como fixtures dos testes (`tests/fixtures/multifpga/handwritten/`), executados em `tclsh` com os comandos do Quartus substituídos por registros.
 
 ## Uso
 
