@@ -227,3 +227,22 @@ def test_bank_image_rejects_an_entry_inside_the_header() -> None:
         flash.bank_image(cfg, b"\0" * 4, 0x1200, "Z")
     with pytest.raises(ValueError):
         flash.bank_image({}, b"\0" * 4, 0x1200)
+
+
+def testflash_code_of_a_bank_starts_at_the_storage_origin(
+    tmp_path: Path,
+) -> None:
+    """The bank sits at its address inside the raw-addressed storage."""
+    elf = tmp_path / "t.elf"
+    code = bytes(range(16))
+    segments = [(0x1200, code), (SDRAM_BASE + 0x20, b"\xff" * 8)]
+    elf.write_bytes(build_elf(segments, {"tohost": SDRAM_BASE + 0x20}))
+    cfg: dict[str, Any] = {
+        "act": {"flash_bank": "A", "flash_entry": "0x1200"},
+        "memory": {"rom_origin": 0},
+        "flash": {"banks": [{"name": "A", "base": 0x1000, "size": 0x1F000}]},
+    }
+    image = board.flash_code(cfg, elf, SDRAM_BASE)
+    check_equal(len(image), 0x1200 + 16)
+    check_equal(image[0x1200:], code)
+    check_equal(image[:0x1000], bytes(0x1000))

@@ -100,7 +100,7 @@ def run_elf(
     return None, len(words), time.monotonic() - started
 
 
-def _flash_code(cfg: dict[str, Any], elf: Path, sdram_base: int) -> bytes:
+def flash_code(cfg: dict[str, Any], elf: Path, sdram_base: int) -> bytes:
     """Build the image that goes to the FLASH storage for one ELF.
 
     Parameters
@@ -120,7 +120,8 @@ def _flash_code(cfg: dict[str, Any], elf: Path, sdram_base: int) -> bytes:
     -------
     bytes
         The code from `flash_base`, or the bank (header, payload that
-        jumps to the code, then the code) when a bank is named.
+        jumps to the code, then the code) when a bank is named, placed
+        from `memory.rom_origin`, the address of word 0 of the storage.
     """
     segments = load_segments(elf)
     if cfg["act"].get("flash_bank") is None:
@@ -128,8 +129,10 @@ def _flash_code(cfg: dict[str, Any], elf: Path, sdram_base: int) -> bytes:
         return region_image(segments, base, sdram_base)
     entry = int(str(cfg["act"]["flash_entry"]), 0)
     code = region_image(segments, entry, sdram_base)
-    image, _ = bank_image(cfg, code, entry, cfg["act"]["flash_bank"])
-    return image
+    image, base = bank_image(cfg, code, entry, cfg["act"]["flash_bank"])
+    # the storage is addressed raw: its word 0 is memory.rom_origin
+    origin = int(cfg.get("memory", {}).get("rom_origin") or 0)
+    return bytes(base - origin) + image
 
 
 def run_elf_flash(
@@ -176,7 +179,7 @@ def run_elf_flash(
         The code of the ELF does not fit in the FLASH storage.
     """
     flash_words = int(cfg["act"]["flash_words"])
-    image = _flash_code(cfg, elf, region.base)
+    image = flash_code(cfg, elf, region.base)
     if len(image) > flash_words * 4:
         raise ValueError(
             f"{elf.stem}: the code takes {len(image)} bytes, "
