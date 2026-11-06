@@ -7,7 +7,7 @@ Escreve o `config.yaml` de uma plataforma para o projeto que a consome. Uma plat
 | Chave | Conteúdo |
 | :--- | :--- |
 | `toolchain.specs` | Arquivo de specs do GCC da plataforma |
-| `paths.boot_rom`, `paths.boot_rom_linker_script` | Fonte e linker script da BOOT_ROM |
+| `paths.boot_memory`, `paths.boot_memory_linker_script` | Fonte e linker script da BOOT_MEMORY |
 | `paths.sources`, `emulator.sources` | Fontes C e assembly do runtime e do substituto do Spike |
 | `freq_sweep.pll_file` | Fonte da PLL que a varredura de frequência reescreve |
 | `quartus.project_dir` | Pasta do projeto do Quartus |

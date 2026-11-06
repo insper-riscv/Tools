@@ -47,7 +47,7 @@ tree:
       sdram_arbiter: []
       axi_master_bridge: [formal/axi_master/props.sv]
     exceptions:
-      boot_rom_shell: instancia só o IP, coberto pela síntese e pela placa
+      boot_memory_shell: instancia só o IP, coberto pela síntese e pela placa
 ```
 
 A regra `manifest` lê a seção `provides` da raiz do `paths.yaml`. Cada componente lista em `sources` os arquivos na ordem de análise do GHDL e em `requires` os componentes de que precisa: um nome sem prefixo é do mesmo repositório e `<repositório>/<componente>` é de outro. O nome do repositório vem da chave `repository` da raiz, ou da pasta quando ela falta.

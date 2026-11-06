@@ -16,8 +16,8 @@ O seu `config.yaml` é um YAML aninhado com estas seções de nível superior. Q
 
 | Chave | Padrão | Usada por |
 |---|---|---|
-| `gcc` | `riscv32-unknown-elf-gcc` | `compiler`, `c_to_asm`, `boot_rom` |
-| `objcopy` | `riscv32-unknown-elf-objcopy` | `compiler`, `boot_rom`, `certify`, `golden_generator` |
+| `gcc` | `riscv32-unknown-elf-gcc` | `compiler`, `c_to_asm`, `boot_memory` |
+| `objcopy` | `riscv32-unknown-elf-objcopy` | `compiler`, `boot_memory`, `certify`, `golden_generator` |
 | `nm` | `riscv32-unknown-elf-nm` | `golden_generator` (`generate-golden`) |
 | `libc` | `none` | `compiler`: a biblioteca C com que os testes linkam. `none` passa `-nostdlib`, então o projeto fornece o que precisar (como `malloc`) por `paths.syscalls`. `picolibc` passa `--specs=picolibc.specs` (e `-Wl,--no-gc-sections`, veja [compiler.md](modules/compiler.md#biblioteca-c)) para um GCC configurado com picolibc, como o que o `manual/GCC_SETUP.md` do Infra compila |
 | `specs` | não definida | `compiler`: caminho (relativo à raiz do projeto) de um arquivo de especificação do GCC que descreve a sua plataforma. Ele inclui o `picolibc.specs` e acrescenta o mapa de memória (`--defsym=__flash=...`, `__ram=...`) e o `crt0` a usar, então os testes linkam com o `crt0` e o `picolibc.ld` da própria toolchain e não precisam de `crt0.S` nem de linker script seu. Os testes são então compilados como programas hospedados (o `main` pode retornar), e `libc` é ignorada. Veja [compiler.md](modules/compiler.md#arquivo-de-especificação-da-plataforma) |
@@ -87,7 +87,7 @@ Não há divisão `tests_real_dir`/`tests_sim_dir`/`golden_dir`: todo teste em `
 | `flash_image.bank` | Nome da banca (de `flash.banks`) para a qual os programas são ligados, com o `rv32im-fpga-bank-<nome>.specs` em `toolchain.specs` |
 | `flash_image.version` | Versão escrita no cabeçalho da imagem (padrão 1) |
 
-Com `flash_image` a imagem começa na base da banca: o cabeçalho de 256 bytes e depois o programa, que o linker põe em `base + 256`. É o que a boot ROM de uma plataforma com bancas exige para executar o programa (ver [`flash_image`](modules/flash_image.md)). Sem `flash_image` o `compile` entrega o binário como o linker o gerou.
+Com `flash_image` a imagem começa na base da banca: o cabeçalho de 256 bytes e depois o programa, que o linker põe em `base + 256`. É o que a memória de boot de uma plataforma com bancas exige para executar o programa (ver [`flash_image`](modules/flash_image.md)). Sem `flash_image` o `compile` entrega o binário como o linker o gerou.
 
 ### `emulator:`
 
@@ -97,7 +97,7 @@ Com `flash_image` a imagem começa na base da banca: o cabeçalho de 256 bytes e
 | `timeout_s` | `60` | `golden_generator`: segundos de espera até um teste escrever `tohost`, antes de a geração falhar |
 | `tohost_symbol` | `tohost` | `golden_generator`: o símbolo HTIF que o Spike observa até uma escrita diferente de zero. Convenção padrão; raramente precisa ser alterado |
 | `entry_symbol` | `_start` | `golden_generator`, `spike_run`: o símbolo cujo endereço é onde o Spike começa a executar. O rótulo de entrada usual do `crt0`; só mude se o seu código de boot o nomear de outro jeito |
-| `sources` | `[]` | `golden_generator`, `spike_run`: arquivos-fonte (relativos à raiz do projeto) linkados no ELF que o Spike executa e não na imagem do próprio teste. Para uma imagem que termina em código que, no hardware, fica em outro lugar (uma rotina da boot ROM num endereço fixo): um substituto dela, mais os símbolos `tohost` e `fromhost` de que o Spike precisa. Vazia, o Spike executa a imagem do próprio teste |
+| `sources` | `[]` | `golden_generator`, `spike_run`: arquivos-fonte (relativos à raiz do projeto) linkados no ELF que o Spike executa e não na imagem do próprio teste. Para uma imagem que termina em código que, no hardware, fica em outro lugar (uma rotina da memória de boot num endereço fixo): um substituto dela, mais os símbolos `tohost` e `fromhost` de que o Spike precisa. Vazia, o Spike executa a imagem do próprio teste |
 | `gcc_flags` | `[]` | `golden_generator`, `spike_run`: argumentos extras do gcc para esse ELF, por exemplo um `-D` que faz o arquivo de especificação omitir o endereço fixo do hardware |
 
 ### `sim:`
@@ -110,14 +110,14 @@ Com `flash_image` a imagem começa na base da banca: o cabeçalho de 256 bytes e
 | `ghdl_std` | `08` | `sim_runner`: valor do `--std=` do GHDL. VHDL-2008 (IEEE Std 1076-2008) por padrão, acompanhando o teto do próprio Quartus: o Quartus (mesmo o mais recente, 25.1std) só aceita `VHDL93`/`VHDL_2008` em `VHDL_INPUT_VERSION`, e `VHDL_2019` é rejeitado de cara, então isso mantém simulação e síntese no mesmo dialeto |
 | `parameters` | `{}` | `sim_runner`: generics VHDL a definir no `toplevel` na etapa de execução do GHDL, por exemplo `{"ROM_FILE": "{hex_path}"}` para um projeto cujo modelo de ROM só de simulação carrega a imagem do programa por um generic VHDL, em vez de ler a variável de ambiente `ROM_HEX` do próprio `sim_runner`. `"{hex_path}"` é substituído pelo caminho do `.hex` compilado de cada teste; qualquer outro valor é repassado como está (por exemplo um generic de profundidade de memória fixa). Vazio por padrão: a maioria dos toplevels não precisa sobrescrever generics |
 | `hex_format` | `words` | `compile --emit hex`, `sim`, `certify`: layout do `.hex` que uma simulação carrega. `words` é uma palavra de 32 bits por linha, com palavras zero à esquerda para um programa linkado acima do endereço 0. `verilog` é o que o `objcopy -O verilog` escreve (veja [compiler.md](modules/compiler.md#formato-do-arquivo-hex)), então o modelo de memória que o carrega precisa tratar linhas `@<endereço de palavra>` e quatro palavras por linha |
-| `image` | `hex` | `sim`: qual imagem a simulação carrega. `hex` lê `<build_dir>/sim/manifest.json` (de `compile --emit hex`). `mif` lê `<build_dir>/real/manifest.json` (de `compile --emit mif`), as mesmas imagens que o hardware carrega, e também gera o `.mif` da boot ROM |
+| `image` | `hex` | `sim`: qual imagem a simulação carrega. `hex` lê `<build_dir>/sim/manifest.json` (de `compile --emit hex`). `mif` lê `<build_dir>/real/manifest.json` (de `compile --emit mif`), as mesmas imagens que o hardware carrega, e também gera o `.mif` da memória de boot |
 | `ghdl_flags` | `[]` | `sim_runner`: argumentos extras do GHDL nas etapas de análise, elaboração e execução, por exemplo `["-fsynopsys", "-fexplicit"]` para uma biblioteca de simulação de fornecedor |
 | `libraries` | `{}` | `sim_runner`: bibliotecas VHDL analisadas uma vez por execução do `sim`, antes de `vhdl_sources`, como `{biblioteca: [arquivos]}`, por exemplo a `altera_mf` do Quartus para um toplevel que instancia a IP de memória dele. Os caminhos são relativos à raiz do projeto, e `$VAR` ou `${VAR}` é substituído a partir do ambiente (variável não definida é um erro) |
 | `run_files` | `{}` | `sim_runner`: arquivos copiados para o diretório de execução de cada teste antes de ele rodar, como `{nome do arquivo: origem}`, para um projeto que abre um arquivo por um nome fixo, por exemplo o `init_file` de um `altsyncram`. A origem aceita os mesmos modelos que `parameters` |
 | `env` | `{}` | `sim_runner`: variáveis de ambiente extras para o módulo de teste cocotb, como `{nome: modelo}`, com os mesmos modelos que `parameters` |
 | `python_path` | `[]` | `sim_runner`: diretórios (relativos à raiz do seu projeto) colocados no caminho de módulos da simulação, para que o `test_module` possa ficar fora do seu projeto, por exemplo no repositório da plataforma que um `extends:` da configuração usa |
 
-Os modelos de `parameters`, `run_files` e `env` são `{hex_path}` e `{mif_path}` (a imagem do teste, a que o `image` seleciona; a outra fica vazia), e `{boot_rom_hex_path}` e `{boot_rom_mif_path}` (as da boot ROM, iguais para todos os testes).
+Os modelos de `parameters`, `run_files` e `env` são `{hex_path}` e `{mif_path}` (a imagem do teste, a que o `image` seleciona; a outra fica vazia), e `{boot_memory_hex_path}` e `{boot_memory_mif_path}` (as da memória de boot, iguais para todos os testes).
 
 ### `freq_sweep:` (só necessária para `riscv-tools freq-sweep`)
 

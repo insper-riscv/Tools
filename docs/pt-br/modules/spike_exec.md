@@ -8,7 +8,7 @@ Prepara e dispara execuções do Spike. É a etapa compartilhada por trás do [`
 | :--- | :--- |
 | Preflight | Procura `emulator.spike_bin` no `PATH` (ou como caminho) e o sonda uma vez por processo. Um Spike que coloca o módulo de debug no endereço 0 aborta com `devices at [0, 1000) and [0, 10000) overlap` sempre que a ROM do alvo começa no endereço 0, então é rejeitado com uma indicação do `SPIKE_SETUP.md` do Infra. |
 | Preparação do ELF | Copia o ELF para um diretório temporário e, com `objcopy --add-symbol`, define o que o Spike precisa: `fromhost` logo depois de `tohost` quando o link script não o define (sem os dois, o Spike avisa e nunca termina ao concluir), um alias `tohost` quando `emulator.tohost_symbol` usa outro nome, e quaisquer símbolos extras que quem chama pedir (como `begin_signature`). O ELF original nunca é modificado. |
-| Linha de comando | `--isa`, um `-m` por região de memória real, `--disable-dtb` e `--pc`. A memória padrão do próprio Spike fica em `0x80000000` e o vetor de reset dele passa por uma boot ROM em `0x1000`, e os dois colidem com um alvo cuja memória começa perto do endereço 0. |
+| Linha de comando | `--isa`, um `-m` por região de memória real, `--disable-dtb` e `--pc`. A memória padrão do próprio Spike fica em `0x80000000` e o vetor de reset dele passa por uma memória de boot em `0x1000`, e os dois colidem com um alvo cuja memória começa perto do endereço 0. |
 
 ## Configuração
 

@@ -23,7 +23,7 @@ O `crt0.S` do teste escreve `1` no HTIF `tohost` para um pass e `3` para um fail
 | `toolchain.nm`, `toolchain.objcopy` | Resolvem os símbolos de entrada e de `tohost` e acrescentam `fromhost` a uma cópia temporária do ELF quando o link script não o define. |
 | `memory.*` | As regiões de ROM e RAM entregues ao `-m` do Spike, as mesmas que o [golden_generator](golden_generator.md) usa. |
 
-Um projeto com boot ROM separada (`paths.golden_linker_script` e `paths.boot_rom`) roda pelo mesmo ELF autocontido que o gerador de goldens compila, já que a imagem só de FLASH não tem ponto de entrada de onde o Spike consiga partir.
+Um projeto com memória de boot separada (`paths.golden_linker_script` e `paths.boot_memory`) roda pelo mesmo ELF autocontido que o gerador de goldens compila, já que a imagem só de FLASH não tem ponto de entrada de onde o Spike consiga partir.
 
 ## Pré-requisitos
 

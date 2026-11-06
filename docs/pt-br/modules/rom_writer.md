@@ -4,7 +4,7 @@ Carrega uma nova imagem de ROM numa placa já programada por JTAG, sem uma recom
 
 Um projeto com mais de uma cópia física do mesmo conteúdo de ROM (veja o `rom_mif_target`/`rom_mem_instances` do [`quartus_program`](quartus_program.md)) escreve em todas as instâncias listadas numa só chamada, mantendo todas as cópias em sincronia.
 
-Com `quartus.rom_write_method` igual a `jtag_loader`, a imagem vai para a única cópia da FLASH pelo [`flash_loader`](flash_loader.md), com o núcleo parado, e o próprio carregador reinicia o núcleo pela BOOT_ROM. Nesse método o chamador não escreve o `fromhost`.
+Com `quartus.rom_write_method` igual a `jtag_loader`, a imagem vai para a única cópia da FLASH pelo [`flash_loader`](flash_loader.md), com o núcleo parado, e o próprio carregador reinicia o núcleo pela BOOT_MEMORY. Nesse método o chamador não escreve o `fromhost`.
 
 ## Configuração
 

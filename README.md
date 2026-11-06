@@ -17,7 +17,7 @@ Ele foi projetado para rodar em uma workstation com todas as ferramentas instala
 | `compiler`           | .c/.S -> .elf/.bin, leitura dos cabeçalhos (`RV32_EXT`/`RV32_TEST_KIND`/`RV32_TIMEOUT_S`) | [docs/modules/compiler.md](docs/pt-br/modules/compiler.md) |
 | `bin_to_image`       | .bin -> .mif/.hex (formatos de imagem de memória, sem compilador) | [docs/modules/bin_to_image.md](docs/pt-br/modules/bin_to_image.md) |
 | `c_to_asm`           | .c -> assembly RISC-V legível (`gcc -S`), para inspecionar a geração de código | [docs/modules/c_to_asm.md](docs/pt-br/modules/c_to_asm.md) |
-| `boot_rom`           | Compila o bootloader fixo e compartilhado, uma vez, reutilizado em todos os testes | [docs/modules/boot_rom.md](docs/pt-br/modules/boot_rom.md) |
+| `boot_memory`           | Compila o bootloader fixo e compartilhado, uma vez, reutilizado em todos os testes | [docs/modules/boot_memory.md](docs/pt-br/modules/boot_memory.md) |
 | `jtag`               | Detecção do cabo JTAG em tempo real, executor genérico de `.tcl` | [docs/modules/jtag.md](docs/pt-br/modules/jtag.md) |
 | `mem_edit`           | Primitivas genéricas do In-System Memory Content Editor (ler/escrever palavra, escrita completa, dump) | [docs/modules/mem_edit.md](docs/pt-br/modules/mem_edit.md) |
 | `flash_loader`       | Grava a FLASH interna de uma só cópia pelo carregador JTAG   | [docs/modules/flash_loader.md](docs/pt-br/modules/flash_loader.md) |
