@@ -9,7 +9,8 @@ run the same platform over many profiles without editing it.
 
 Zihintntl, Zihintpause, Interrupts (the machine interrupts, which
 the core enables with Zicsr) and Sscofpmf (the counter-overflow
-interrupt, which needs Zihpm and Interrupts) are not in the
+interrupt, which needs Zihpm and Interrupts) and AccessFaults (the
+access-fault exceptions of the memory map) are not in the
 specification of the Core (Zimop and Zicond are), so the platform turns
 them on with `extras: [Zihintntl, Zihintpause, Interrupts, Sscofpmf]`,
 which also survives `--profile`. `extras` still accepts Zimop and
@@ -37,6 +38,7 @@ SWITCHES = (
     "has_zicclsm",
     "has_interrupts",
     "has_sscofpmf",
+    "has_access_faults",
 )
 
 _override: list[str | None] = [None]

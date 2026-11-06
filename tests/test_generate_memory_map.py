@@ -327,6 +327,21 @@ def test_sscofpmf_extra_needs_zihpm_and_interrupts(tmp_path: Path) -> None:
             render_all(_write(tmp_path, bad), tmp_path)
 
 
+def test_periph_slots_mark_the_occupied_windows(tmp_path: Path) -> None:
+    """`PERIPH_SLOTS` has bit n set for each peripheral of id n."""
+    plat = yaml.safe_load(yaml.safe_dump(PLATFORM))
+    plat["peripherals"] = [
+        {"name": "A", "base": "0xB0000000", "id": 3},
+        {"name": "B", "base": "0xF0000000", "id": 7},
+    ]
+    set_override(None)
+    files = render_all(_write(tmp_path, plat), tmp_path)
+    text = files[tmp_path / "out/map_pkg.vhd"]
+    check_in(
+        'PERIPH_SLOTS : std_logic_vector(7 downto 0) := "10001000";', text
+    )
+
+
 BANKS_PLATFORM: dict[str, Any] = {
     **PLATFORM,
     "flash": {

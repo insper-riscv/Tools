@@ -364,10 +364,18 @@ def _peripheral_lines(platform: dict[str, Any]) -> str:
     Returns
     -------
     str
-        One commented constant per peripheral, each preceded by a blank
-        line; empty without peripherals.
+        The mask of the occupied slots and one commented constant per
+        peripheral, each preceded by a blank line.
     """
-    lines = ""
+    slots = 0
+    for periph in platform_list(platform, "peripherals"):
+        slots |= 1 << int(periph["id"])
+    lines = (
+        "\n\t-- Janelas de 256 MiB do barramento de periféricos que têm"
+        " periférico (bit n para o índice n, bits 30:28 do endereço).\n"
+        "\tconstant PERIPH_SLOTS : std_logic_vector(7 downto 0) :="
+        f' "{slots:08b}";\n'
+    )
     for periph in platform_list(platform, "peripherals"):
         name = str(periph["name"]).upper()
         base = evaluate(periph["base"])
