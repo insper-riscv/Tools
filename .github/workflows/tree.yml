@@ -15,31 +15,15 @@ permissions:
   contents: read
 
 jobs:
-  # The CI images (always the tag latest) and the gates that may reuse a pass of the same tree.
-  image:
-    name: image
-    runs-on: ubuntu-26.04
-    timeout-minutes: 5
-    permissions:
-      contents: read
-    outputs:
-      images: ${{ steps.plan.outputs.images }}
-    steps:
-      - uses: actions/checkout@v7
-
-      - id: plan
-        uses: insper-riscv/Infra/.github/actions/ci-plan@main
-
   # Confere a árvore do repositório com as regras do Capstone (riscv-tools check-tree): arquivos padrão,
   # espelho entre docs/pt-br e docs/en e, nos repositórios de VHDL, a posição dos arquivos.
   tree:
     name: tree
-    needs: image
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     # O riscv-tools de insper-riscv/Infra.
     container:
-      image: ${{ fromJSON(needs.image.outputs.images)['ci-vhdl'] }}
+      image: ghcr.io/insper-riscv/ci-vhdl:latest
 
     steps:
       - uses: actions/checkout@v7.0.1
