@@ -132,6 +132,27 @@ The `mtime` of the CLINT is a counter of its own, set by `mtime_hz`, and it is i
 
 The offsets of the registers inside the 64 KiB window of the CLINT follow the SiFive layout that the FreeRTOS port expects.
 
+### PLIC and interrupt sources
+
+A platform with a PLIC lists it in `peripherals` with a `size` (the window it decodes, a power of two of at least `0x200008` bytes) and describes it in `interrupts`.
+
+```yaml
+peripherals:
+  - {name: PLIC, base: 0xF0000000, id: 7, size: 4M}
+interrupts:
+  plic: {priority_bits: 3}
+  sources:                 # ids of the lines wired to the PLIC
+    - {name: UART, id: 1}
+    - {name: TIMER, id: 5}
+```
+
+| Output | Constants |
+| :--- | :--- |
+| VHDL package (`vhdl`) | `PLIC_N_SOURCES` (the largest id), `PLIC_PRIORITY_BITS`, `PLIC_ADDR_WIDTH` (the window in words, as a power of two) and `IRQ_<NAME>` per source |
+| Runtime header (`runtime`) | `RV32_PLIC_PRIORITY`, `RV32_PLIC_PENDING`, `RV32_PLIC_ENABLE`, `RV32_PLIC_THRESHOLD`, `RV32_PLIC_CLAIM` and `RV32_IRQ_<NAME>` per source |
+
+Repeated ids, ids outside 1 to 1023, `priority_bits` outside 1 to 32 and a window with no `size` or an invalid one are errors before generating.
+
 $$ \text{msip} = base, \quad \text{mtimecmp} = base + \texttt{0x4000}, \quad \text{mtime} = base + \texttt{0xBFF8} $$
 
 ## The memories and caches of the platform

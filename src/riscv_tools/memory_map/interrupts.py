@@ -13,6 +13,29 @@ interrupts:
 The `mtime` of the CLINT is a counter of its own, set by this rate. It
 is independent of the CSR `time` of Zicntr, which the core serves.
 
+A platform with the PLIC lists it among its `peripherals` (with a
+`size`, the window the PLIC decodes, at least 0x200008 bytes and a power
+of two) and describes it in `interrupts`:
+
+```yaml
+peripherals:
+  - {name: PLIC, base: 0xF0000000, id: 7, size: 4M}
+interrupts:
+  clock_hz: 50000000
+  mtime_hz: 1000000
+  plic: {priority_bits: 3}
+  sources:                 # the ids of the lines wired to the PLIC
+    - {name: UART, id: 1}
+    - {name: TIMER, id: 2}
+```
+
+The VHDL package then also gets `PLIC_N_SOURCES` (the largest source
+id), `PLIC_PRIORITY_BITS`, `PLIC_ADDR_WIDTH` (the window in words, as a
+power of two) and one `IRQ_<NAME>` per source; the runtime header gets
+the registers of the PLIC (`RV32_PLIC_PRIORITY`, `RV32_PLIC_PENDING`,
+`RV32_PLIC_ENABLE`, `RV32_PLIC_THRESHOLD`, `RV32_PLIC_CLAIM`) and one
+`RV32_IRQ_<NAME>` per source.
+
 The VHDL package gets `CLOCK_HZ`, `MTIME_HZ` and `CLINT_TICK_CYCLES`
 (clock cycles per increment of `mtime`, the `tick_cycles` generic of the
 CLINT), and the runtime header gets the three registers of the CLINT
@@ -35,6 +58,19 @@ MTIMECMP_OFFSET = 0x4000
 MTIME_OFFSET = 0xBFF8
 
 CLINT = "CLINT"
+PLIC = "PLIC"
+
+# Byte offsets of the registers of the PLIC (riscv-plic-1.0.0), for the
+# context 0.
+PLIC_PRIORITY_OFFSET = 0x000000
+PLIC_PENDING_OFFSET = 0x001000
+PLIC_ENABLE_OFFSET = 0x002000
+PLIC_THRESHOLD_OFFSET = 0x200000
+PLIC_CLAIM_OFFSET = 0x200004
+# Smallest window that holds the registers above, and the most sources.
+PLIC_MIN_WINDOW = 0x200008
+PLIC_MAX_SOURCES = 1023
+PLIC_MAX_PRIORITY_BITS = 32
 
 
 def declared(platform: dict[str, Any]) -> bool:
@@ -130,7 +166,143 @@ def problems(
         found.append(
             Mismatch("interrupts", "", f"the peripherals have no {CLINT}")
         )
-    return found + _profile_problems(generics)
+    return (
+        found + _plic_problems(platform, names) + _profile_problems(generics)
+    )
+
+
+def _plic_problems(
+    platform: dict[str, Any], names: set[str]
+) -> list[Mismatch]:
+    """Check the PLIC window and the list of sources.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+    names : set of str
+        The names of the peripherals.
+
+    Returns
+    -------
+    list of Mismatch
+        The problems; empty without `sources` and `plic`.
+    """
+    section = platform_dict(platform, "interrupts")
+    if "sources" not in section and "plic" not in section:
+        return []
+    if PLIC not in names:
+        return [Mismatch("interrupts", "", f"the peripherals have no {PLIC}")]
+    found: list[Mismatch] = []
+    periph = _plic_peripheral(platform)
+    if "size" not in periph:
+        return [Mismatch("interrupts", "", f"{PLIC} has no size")]
+    size = evaluate(periph["size"])
+    if size < PLIC_MIN_WINDOW or size & (size - 1):
+        found.append(
+            Mismatch(
+                "interrupts",
+                "",
+                f"{PLIC} size {size:#x} is not a power of two of at least "
+                f"{PLIC_MIN_WINDOW:#x}",
+            )
+        )
+    if size > 1 << 28:
+        found.append(
+            Mismatch(
+                "interrupts",
+                "",
+                f"{PLIC} size {size:#x} exceeds the 256 MiB slot",
+            )
+        )
+    sources = sources_of(platform)
+    ids = [i for _, i in sources]
+    if len(set(ids)) != len(ids) or len({n for n, _ in sources}) != len(ids):
+        found.append(Mismatch("interrupts", "", "source names or ids repeat"))
+    if any(not 1 <= i <= PLIC_MAX_SOURCES for i in ids):
+        found.append(
+            Mismatch(
+                "interrupts",
+                "",
+                f"a source id is outside 1..{PLIC_MAX_SOURCES}",
+            )
+        )
+    bits = _plic_dict(platform).get("priority_bits", 3)
+    if not 1 <= int(bits) <= PLIC_MAX_PRIORITY_BITS:
+        found.append(
+            Mismatch("interrupts", "", "priority_bits is outside 1..32")
+        )
+    return found
+
+
+def _plic_peripheral(platform: dict[str, Any]) -> dict[str, Any]:
+    """Return the `peripherals` entry of the PLIC.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+
+    Returns
+    -------
+    dict of {str: Any}
+        The entry named `PLIC`.
+    """
+    return next(
+        p for p in platform_list(platform, "peripherals") if p["name"] == PLIC
+    )
+
+
+def _plic_dict(platform: dict[str, Any]) -> dict[str, Any]:
+    """Return the `interrupts.plic` section.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+
+    Returns
+    -------
+    dict of {str: Any}
+        The section; empty without it.
+    """
+    return dict(platform_dict(platform, "interrupts").get("plic") or {})
+
+
+def sources_of(platform: dict[str, Any]) -> list[tuple[str, int]]:
+    """List the sources wired to the PLIC.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+
+    Returns
+    -------
+    list of tuple of (str, int)
+        `(NAME, id)` in the order of the file; empty without `sources`.
+    """
+    raw: list[dict[str, Any]] = (
+        platform_dict(platform, "interrupts").get("sources") or []
+    )
+    return [(str(s["name"]).upper(), int(s["id"])) for s in raw]
+
+
+def has_plic(platform: dict[str, Any]) -> bool:
+    """Tell whether the platform describes a PLIC.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+
+    Returns
+    -------
+    bool
+        True when `interrupts` has `sources` or `plic`.
+    """
+    section = platform_dict(platform, "interrupts")
+    return "sources" in section or "plic" in section
 
 
 def _profile_problems(
@@ -180,6 +352,60 @@ def vhdl_lines(platform: dict[str, Any]) -> str:
     if not declared(platform):
         return ""
     clock, mtime = _rates(platform)
+    return _clint_lines(clock, mtime) + _plic_lines(platform)
+
+
+def _plic_lines(platform: dict[str, Any]) -> str:
+    """Write the VHDL constants of the PLIC and of its sources.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+
+    Returns
+    -------
+    str
+        The constants; empty without a PLIC in the interrupts.
+    """
+    if not has_plic(platform):
+        return ""
+    sources = sources_of(platform)
+    words = evaluate(_plic_peripheral(platform)["size"]) // 4
+    width = words.bit_length() - 1
+    bits = int(_plic_dict(platform).get("priority_bits", 3))
+    lines = (
+        "\n\t-- Número de fontes do PLIC (o maior identificador de fonte).\n"
+        f"\tconstant PLIC_N_SOURCES     : positive := "
+        f"{max([i for _, i in sources] or [1])};\n"
+        "\t-- Largura da prioridade e do limiar do PLIC, em bits.\n"
+        f"\tconstant PLIC_PRIORITY_BITS : positive := {bits};\n"
+        "\t-- Largura do endereço de palavra da janela do PLIC.\n"
+        f"\tconstant PLIC_ADDR_WIDTH    : positive := {width};\n"
+    )
+    for name, ident in sources:
+        lines += (
+            f"\t-- Identificador da fonte {name} no PLIC.\n"
+            f"\tconstant IRQ_{name} : positive := {ident};\n"
+        )
+    return lines
+
+
+def _clint_lines(clock: int, mtime: int) -> str:
+    """Write the VHDL constants of the tick of the CLINT.
+
+    Parameters
+    ----------
+    clock : int
+        The clock rate of the core domain, in Hz.
+    mtime : int
+        The rate at which `mtime` counts, in Hz.
+
+    Returns
+    -------
+    str
+        The three constants.
+    """
     return (
         "\n\t-- Frequência do clock do domínio do núcleo e do CLINT, em Hz.\n"
         f"\tconstant CLOCK_HZ          : positive := {clock};\n"
@@ -213,9 +439,21 @@ def runtime_values(
     if not declared(platform):
         return {}
     base = table[f"{CLINT}.base"]
-    return {
+    values = {
         "RV32_MSIP": base + MSIP_OFFSET,
         "RV32_MTIMECMP": base + MTIMECMP_OFFSET,
         "RV32_MTIME": base + MTIME_OFFSET,
         "RV32_MTIME_HZ": _rates(platform)[1],
     }
+    if has_plic(platform):
+        plic = evaluate(_plic_peripheral(platform)["base"])
+        values |= {
+            "RV32_PLIC_PRIORITY": plic + PLIC_PRIORITY_OFFSET,
+            "RV32_PLIC_PENDING": plic + PLIC_PENDING_OFFSET,
+            "RV32_PLIC_ENABLE": plic + PLIC_ENABLE_OFFSET,
+            "RV32_PLIC_THRESHOLD": plic + PLIC_THRESHOLD_OFFSET,
+            "RV32_PLIC_CLAIM": plic + PLIC_CLAIM_OFFSET,
+        }
+        for name, ident in sources_of(platform):
+            values[f"RV32_IRQ_{name}"] = ident
+    return values

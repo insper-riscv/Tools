@@ -132,6 +132,27 @@ O `mtime` do CLINT é um contador próprio, ajustado por `mtime_hz`, e é indepe
 
 Os deslocamentos dos registradores dentro da janela de 64 KiB do CLINT seguem o leiaute da SiFive que o porte do FreeRTOS espera.
 
+### PLIC e fontes de interrupção
+
+Uma plataforma com PLIC o lista em `peripherals` com um `size` (a janela que ele decodifica, potência de dois de pelo menos `0x200008` bytes) e o descreve em `interrupts`.
+
+```yaml
+peripherals:
+  - {name: PLIC, base: 0xF0000000, id: 7, size: 4M}
+interrupts:
+  plic: {priority_bits: 3}
+  sources:                 # identificadores das linhas ligadas ao PLIC
+    - {name: UART, id: 1}
+    - {name: TIMER, id: 5}
+```
+
+| Saída | Constantes |
+| :--- | :--- |
+| Pacote VHDL (`vhdl`) | `PLIC_N_SOURCES` (o maior identificador), `PLIC_PRIORITY_BITS`, `PLIC_ADDR_WIDTH` (a janela em palavras, como potência de dois) e `IRQ_<NOME>` por fonte |
+| Cabeçalho do runtime (`runtime`) | `RV32_PLIC_PRIORITY`, `RV32_PLIC_PENDING`, `RV32_PLIC_ENABLE`, `RV32_PLIC_THRESHOLD`, `RV32_PLIC_CLAIM` e `RV32_IRQ_<NOME>` por fonte |
+
+Identificadores repetidos, fora de 1 a 1023, `priority_bits` fora de 1 a 32 e janela sem `size` ou de tamanho inválido são erros antes de gerar.
+
 $$ \text{msip} = base, \quad \text{mtimecmp} = base + \texttt{0x4000}, \quad \text{mtime} = base + \texttt{0xBFF8} $$
 
 ## As memórias e as caches da plataforma

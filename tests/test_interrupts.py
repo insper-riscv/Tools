@@ -106,3 +106,120 @@ def test_an_inconsistent_section_is_rejected(
     """Each way the section disagrees with the platform is an error."""
     with pytest.raises(ValueError, match=message):
         render_all(_write(tmp_path, **changes), tmp_path)
+
+
+PLIC_PLATFORM: dict[str, Any] = {
+    "peripherals": [
+        {"name": "CLINT", "base": "0xE0000000", "id": 6},
+        {"name": "PLIC", "base": "0xF0000000", "id": 7, "size": "4M"},
+    ],
+    "interrupts": {
+        "clock_hz": 50000000,
+        "mtime_hz": 1000000,
+        "plic": {"priority_bits": 3},
+        "sources": [
+            {"name": "UART", "id": 1},
+            {"name": "TIMER", "id": 5},
+        ],
+    },
+}
+
+
+def test_the_package_has_the_plic_and_its_sources(tmp_path: Path) -> None:
+    """The VHDL package carries the window width and the source ids."""
+    text = render_all(_write(tmp_path, **PLIC_PLATFORM), tmp_path)[
+        tmp_path / "gen/irq_pkg.vhd"
+    ]
+    check_in("constant PLIC_N_SOURCES     : positive := 5;", text)
+    check_in("constant PLIC_PRIORITY_BITS : positive := 3;", text)
+    check_in("constant PLIC_ADDR_WIDTH    : positive := 20;", text)
+    check_in("constant IRQ_UART : positive := 1;", text)
+    check_in("constant IRQ_TIMER : positive := 5;", text)
+
+
+@pytest.mark.parametrize(
+    ("macro", "value"),
+    [
+        ("RV32_PLIC_BASE", "0xF0000000"),
+        ("RV32_PLIC_PRIORITY", "0xF0000000"),
+        ("RV32_PLIC_PENDING", "0xF0001000"),
+        ("RV32_PLIC_ENABLE", "0xF0002000"),
+        ("RV32_PLIC_THRESHOLD", "0xF0200000"),
+        ("RV32_PLIC_CLAIM", "0xF0200004"),
+        ("RV32_IRQ_UART", "0x00000001"),
+        ("RV32_IRQ_TIMER", "0x00000005"),
+    ],
+)
+def test_the_header_has_the_registers_of_the_plic(
+    tmp_path: Path, macro: str, value: str
+) -> None:
+    """The runtime header has the PLIC registers and the source ids."""
+    files = render_all(_write(tmp_path, **PLIC_PLATFORM), tmp_path)
+    check_in(
+        f"#define {macro} RV32_ADDRESS({value})",
+        files[tmp_path / "gen/rv32.h"],
+    )
+
+
+def _plic_with(**changes: Any) -> dict[str, Any]:
+    """Return the PLIC platform with some sections changed."""
+    base = yaml.safe_load(yaml.safe_dump(PLIC_PLATFORM))
+    if "interrupts" in changes:
+        base["interrupts"] |= changes["interrupts"]
+    if "peripherals" in changes:
+        base["peripherals"] = changes["peripherals"]
+    return base
+
+
+@pytest.mark.parametrize(
+    ("changes", "message"),
+    [
+        (
+            {
+                "interrupts": {
+                    "sources": [{"name": "A", "id": 1}, {"name": "B", "id": 1}]
+                }
+            },
+            "repeat",
+        ),
+        ({"interrupts": {"sources": [{"name": "A", "id": 0}]}}, "outside"),
+        ({"interrupts": {"plic": {"priority_bits": 40}}}, "priority_bits"),
+        (
+            {
+                "peripherals": [
+                    {"name": "CLINT", "base": "0xE0000000", "id": 6},
+                    {
+                        "name": "PLIC",
+                        "base": "0xF0000000",
+                        "id": 7,
+                        "size": "64K",
+                    },
+                ]
+            },
+            "power of two",
+        ),
+        (
+            {
+                "peripherals": [
+                    {"name": "CLINT", "base": "0xE0000000", "id": 6},
+                    {"name": "PLIC", "base": "0xF0000000", "id": 7},
+                ]
+            },
+            "has no size",
+        ),
+        (
+            {
+                "peripherals": [
+                    {"name": "CLINT", "base": "0xE0000000", "id": 6}
+                ]
+            },
+            "no PLIC",
+        ),
+    ],
+)
+def test_an_inconsistent_plic_is_rejected(
+    tmp_path: Path, changes: dict[str, Any], message: str
+) -> None:
+    """Each way the PLIC description is wrong is an error."""
+    with pytest.raises(ValueError, match=message):
+        render_all(_write(tmp_path, **_plic_with(**changes)), tmp_path)
