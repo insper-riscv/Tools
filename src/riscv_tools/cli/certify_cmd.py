@@ -6,7 +6,7 @@ import sys
 from riscv_tools import (
     certify,
 )
-from riscv_tools.certify.board import VERDICTS
+from riscv_tools.certify.board import VERDICTS, find_elfs
 from riscv_tools.cli.common import jtag_link, start_certification
 
 
@@ -59,8 +59,8 @@ def cmd_certify_board(args: argparse.Namespace) -> None:
     args : argparse.Namespace
         Parsed CLI arguments: args.config, args.root, args.only
         (comma-separated ELF names, optional), args.extensions
-        (overrides act.extensions) and
-        args.skip_build.
+        (overrides act.extensions), args.skip_build and args.build_only
+        (build the ELFs and stop, with no board).
 
     Returns
     -------
@@ -69,6 +69,10 @@ def cmd_certify_board(args: argparse.Namespace) -> None:
         any ELF did not pass.
     """
     cfg, root = start_certification(args, "certification-board")
+    if args.build_only:
+        elfs = find_elfs(cfg["act"], root, None, build=True)
+        print(f"{len(elfs)} ELFs built")
+        return
     only = [n for n in args.only.split(",") if n] if args.only else None
     results = certify.run_suite_on_board(
         cfg,
