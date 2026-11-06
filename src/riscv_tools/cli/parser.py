@@ -2,7 +2,9 @@
 
 import argparse
 
+from riscv_tools.board.runtime import set_override as set_board_override
 from riscv_tools.cli.parser_board import add_board_commands
+from riscv_tools.cli.parser_board_id import add_board_id_commands
 from riscv_tools.cli.parser_build import add_build_commands
 from riscv_tools.cli.parser_run import add_run_commands
 from riscv_tools.cli.parser_tools import add_tool_commands
@@ -11,6 +13,7 @@ from riscv_tools.memory_map.profile import set_override as set_profile_override
 
 _COMMANDS_WITHOUT_CONFIG = frozenset(
     {
+        "board",
         "vhdl-sort",
         "check-memory-map",
         "check-paths",
@@ -82,14 +85,38 @@ def main() -> None:
         "rom=ext,ram=int,icache=on,dcache=4096 (rom and ram take int or "
         "ext; icache and dcache take on, off or a size in bits)",
     )
+    parser.add_argument(
+        "--board",
+        dest="select_board",
+        default=None,
+        help="Board to use, in place of the `board:` of the platform "
+        "(RISCV_TOOLS_BOARD)",
+    )
+    parser.add_argument(
+        "--board-id",
+        dest="select_board_id",
+        default=None,
+        help="Entry of the host inventory to use (RISCV_TOOLS_BOARD_ID)",
+    )
+    parser.add_argument(
+        "--cable",
+        dest="select_cable",
+        default=None,
+        help="Force the JTAG cable name; the IDCODE is still checked "
+        "(RISCV_TOOLS_CABLE)",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
     add_build_commands(sub)
     add_board_commands(sub)
+    add_board_id_commands(sub)
     add_run_commands(sub)
     add_tool_commands(sub)
 
     args = parser.parse_args()
     set_profile_override(args.profile)
+    set_board_override(
+        args.select_board, args.select_board_id, args.select_cable
+    )
     try:
         set_memory_override(args.memory)
     except ValueError as error:

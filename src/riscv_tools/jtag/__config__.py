@@ -11,8 +11,14 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         # The FPGA's own JTAG IDCODE string, unlike the "USB-Blaster
         # [<bus>-<port>]" cable name (auto-detected live, see
         # hardware.py), this doesn't drift across reboots/hub
-        # renumbering. Every project must set this explicitly.
+        # renumbering.
+        # Only for a project that still names its chip. A project
+        # without it selects the board by JTAG (riscv_tools.board):
+        # `board` is a board identifier or "auto" (the platform's
+        # `board:`), `boards` the list "auto" may take.
         "jtag_device": None,
+        "board": None,
+        "boards": None,
         # Index of the Virtual JTAG instance of the SDRAM debug port
         # (sld_instance_index in the platform's top). The default, 0, is
         # the only instance of a platform without the FLASH loader; a
