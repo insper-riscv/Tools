@@ -103,11 +103,36 @@ The platform picks its profile in `profile:` (`rv32im`, `rv32em_zicsr`, ...) and
 
 `--profile NAME`, a global option of `riscv-tools`, replaces the `profile:` of the platform without editing it, to run the same platform over many profiles in a test matrix. It applies to `generate-memory-map` (writes the package of that profile), to `platform sync` and to every command that reads the configuration. A name that the specification does not list is rejected before anything runs.
 
-`extras:` turns on what the matrix of the Core does not list, by extension name (`extras: [Zimop, Zicond, Zihintntl, Zihintpause]`), and it also holds with `--profile`. Every switch that neither the profile nor the extras turn on comes out `false` in the package.
+`extras:` turns on what the matrix of the Core does not list, by extension name (`extras: [Zimop, Zicond, Zihintntl, Zihintpause, Interrupts]`), and it also holds with `--profile`. Every switch that neither the profile nor the extras turn on comes out `false` in the package.
 
 ```bash
 uv run riscv-tools --root <project> --profile rv32em_zicsr generate-memory-map --platform src/platform/platform.yaml
 ```
+
+## The interrupts of the platform
+
+A platform with the machine interrupts turns on the `Interrupts` extra (which needs `Zicsr`), lists the `CLINT` and, for the external lines, the `EXT_IRQ` among the `peripherals`, and describes the clock in the `interrupts` section.
+
+```yaml
+extras: [Interrupts]
+peripherals:
+  - {name: CLINT,   base: 0xE0000000, id: 6}
+  - {name: EXT_IRQ, base: 0xF0000000, id: 7}
+interrupts:
+  clock_hz: 50000000   # clock of the domain of the core and the CLINT
+  mtime_hz: 1000000    # rate at which the mtime of the CLINT counts
+```
+
+The `mtime` of the CLINT is a counter of its own, set by `mtime_hz`, and it is independent of the CSR `time` of Zicntr, which the core serves. `clock_hz` must be a multiple of `mtime_hz`, the profile must turn on `has_interrupts` with `has_zicsr`, and the `peripherals` list must have the `CLINT`; the absence of any of them is an error before generating and in `check-memory-map`.
+
+| Output | Constants |
+| :--- | :--- |
+| VHDL package (`vhdl`) | `HAS_INTERRUPTS`, `CLOCK_HZ`, `MTIME_HZ` and `CLINT_TICK_CYCLES` (clock cycles per increment of `mtime`, the `tick_cycles` generic of the CLINT), besides `CLINT_BASE`, `CLINT_ID`, `EXT_IRQ_BASE` and `EXT_IRQ_ID` |
+| Runtime header (`runtime`) | `RV32_CLINT_BASE`, `RV32_MSIP`, `RV32_MTIMECMP`, `RV32_MTIME` and `RV32_MTIME_HZ`, which `FreeRTOSConfig.h` uses in `configMTIMECMP_BASE_ADDRESS`, `configMTIME_BASE_ADDRESS` and `configCPU_CLOCK_HZ` |
+
+The offsets of the registers inside the 64 KiB window of the CLINT follow the SiFive layout that the FreeRTOS port expects.
+
+$$ \text{msip} = base, \quad \text{mtimecmp} = base + \texttt{0x4000}, \quad \text{mtime} = base + \texttt{0xBFF8} $$
 
 ## The memories and caches of the platform
 
@@ -211,6 +236,7 @@ config:
 | `tests/test_memory_map.py::test_check_stops_at_an_inconsistent_map` | No copy is read when the map itself is inconsistent. |
 | `tests/test_memory_map.py::test_load_platform_rejects_a_non_mapping` | A non-mapping file is rejected. |
 | `tests/test_memory_map.py::test_cmd_check_memory_map_exit_status` | The command prints OK, or exits 1 listing the mismatches. |
+| `tests/test_interrupts.py` | The package has `HAS_INTERRUPTS`, `CLOCK_HZ`, `MTIME_HZ` and `CLINT_TICK_CYCLES`, the header has the registers of the CLINT and the rate of `mtime`, and an inconsistent section (rate, missing CLINT, profile without the interrupts or without Zicsr) is rejected. |
 | `tests/test_memory_choice.py` | The `memory` section and the `--memory` option make the 16 combinations 16 different packages, the constants and the simulation parameters come from the choice, and rules V1 to V5, V7 and V10 fail with a clear message. |
 | `tests/test_config_from_platform.py` | The `memory` keys, the `tohost` and `stdout` environment and the address widths come from the map, and the map wins over the file and its `extends`. |
 | `tests/test_generate_memory_map.py` | The specs, the linker script and the VHDL package come out of the map; `--check` catches a missing or edited file; an address off the KiB grid and an inconsistent map are rejected; the command writes and checks. |
