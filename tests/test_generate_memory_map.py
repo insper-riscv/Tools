@@ -283,6 +283,50 @@ def test_extras_turn_on_what_the_matrix_omits(
     check_in("constant HAS_ZIHINTNTL       : boolean  := false;", text)
 
 
+def _matrix_hpm(root: Path) -> None:
+    """Write a profile spec with Zicsr and Zihpm."""
+    spec = {
+        "bases": [{"name": "rv32i", "generics": {"num_regs": 32}}],
+        "extensions": [
+            {"name": "Zicsr", "generic": "has_zicsr"},
+            {
+                "name": "Zihpm",
+                "generic": "has_zihpm",
+                "implies": ["has_zicsr"],
+            },
+        ],
+        "mutually_exclusive": [["Zicsr", "Zihpm"]],
+    }
+    (root / "matrix.yaml").write_text(yaml.safe_dump(spec))
+
+
+def test_sscofpmf_extra_needs_zihpm_and_interrupts(tmp_path: Path) -> None:
+    """`Sscofpmf` needs Zihpm and Interrupts and sets `HAS_SSCOFPMF`."""
+    _matrix_hpm(tmp_path)
+    full = yaml.safe_load(yaml.safe_dump(PLATFORM))
+    full |= {
+        "profile": "rv32i_zihpm",
+        "profiles": "matrix.yaml",
+        "extras": ["Interrupts", "Sscofpmf"],
+    }
+    set_override(None)
+    files = render_all(_write(tmp_path, full), tmp_path)
+    text = files[tmp_path / "out/map_pkg.vhd"]
+    check_in("constant HAS_SSCOFPMF        : boolean  := true;", text)
+    check_in("constant HAS_ZIHPM           : boolean  := true;", text)
+    off = full | {"extras": ["Interrupts"]}
+    files = render_all(_write(tmp_path, off), tmp_path)
+    text = files[tmp_path / "out/map_pkg.vhd"]
+    check_in("constant HAS_SSCOFPMF        : boolean  := false;", text)
+    for extras, profile in (
+        (["Sscofpmf"], "rv32i_zihpm"),
+        (["Interrupts", "Sscofpmf"], "rv32i_zicsr"),
+    ):
+        bad = full | {"extras": extras, "profile": profile}
+        with pytest.raises(ValueError, match="Sscofpmf"):
+            render_all(_write(tmp_path, bad), tmp_path)
+
+
 BANKS_PLATFORM: dict[str, Any] = {
     **PLATFORM,
     "flash": {

@@ -7,12 +7,14 @@ in `profiles:`, a path relative to the platform file (the
 line replaces the `profile:` of the platform, so a matrix of tests can
 run the same platform over many profiles without editing it.
 
-Zihintntl, Zihintpause and Interrupts (the machine interrupts, which
-the core enables with Zicsr) are not in the specification of the Core
-(Zimop and Zicond are), so the platform turns them on with `extras:
-[Zihintntl, Zihintpause, Interrupts]`, which also survives
-`--profile`. `extras` still accepts Zimop and Zicond. Every switch
-the profile and the extras do not turn on comes out false.
+Zihintntl, Zihintpause, Interrupts (the machine interrupts, which
+the core enables with Zicsr) and Sscofpmf (the counter-overflow
+interrupt, which needs Zihpm and Interrupts) are not in the
+specification of the Core (Zimop and Zicond are), so the platform turns
+them on with `extras: [Zihintntl, Zihintpause, Interrupts, Sscofpmf]`,
+which also survives `--profile`. `extras` still accepts Zimop and
+Zicond. Every switch the profile and the extras do not turn on comes
+out false.
 """
 
 from pathlib import Path
@@ -34,6 +36,7 @@ SWITCHES = (
     "has_zifencei",
     "has_zicclsm",
     "has_interrupts",
+    "has_sscofpmf",
 )
 
 _override: list[str | None] = [None]
@@ -122,4 +125,11 @@ def resolve(
         if key not in SWITCHES:
             raise ValueError(f"extra {extra!r} is not one of {SWITCHES}")
         generics[key] = True
+    if generics["has_sscofpmf"] and not (
+        generics["has_zihpm"] and generics["has_interrupts"]
+    ):
+        raise ValueError(
+            "extra 'Sscofpmf' needs Zihpm in the profile and the "
+            "'Interrupts' extra"
+        )
     return _base_of(name), generics

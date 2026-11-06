@@ -98,12 +98,12 @@ A plataforma escolhe o seu perfil em `profile:` (`rv32im`, `rv32em_zicsr`, ...) 
 
 | Saída | Conteúdo |
 | :--- | :--- |
-| Pacote VHDL | `HAS_E` (verdadeiro no RV32E) e um `HAS_<EXTENSÃO>` booleano por extensão do núcleo (`HAS_M`, `HAS_ZMMUL`, `HAS_ZICSR`, `HAS_ZICNTR`, `HAS_ZIHPM`, `HAS_ZIMOP`, `HAS_ZICOND`, `HAS_ZIHINTNTL`, `HAS_ZIHINTPAUSE`, `HAS_ZIFENCEI`, `HAS_ZICCLSM`) |
+| Pacote VHDL | `HAS_E` (verdadeiro no RV32E) e um `HAS_<EXTENSÃO>` booleano por extensão do núcleo (`HAS_M`, `HAS_ZMMUL`, `HAS_ZICSR`, `HAS_ZICNTR`, `HAS_ZIHPM`, `HAS_ZIMOP`, `HAS_ZICOND`, `HAS_ZIHINTNTL`, `HAS_ZIHINTPAUSE`, `HAS_ZIFENCEI`, `HAS_ZICCLSM`, `HAS_INTERRUPTS`, `HAS_SSCOFPMF`) |
 | `config.yaml` | `isa.base`, que escolhe o `-march` e o `-mabi` dos programas e da memória de boot (`rv32e` com `ilp32e`, os demais com `ilp32`), e os `sim.parameters` `HAS_E` e `HAS_*` que o runner passa ao GHDL |
 
 `--profile NOME`, opção global do `riscv-tools`, troca o `profile:` da plataforma sem editá-la, para rodar a mesma plataforma sobre vários perfis numa matriz de testes. Vale para o `generate-memory-map` (escreve o pacote daquele perfil), para o `platform sync` e para todo comando que lê a configuração. Um nome que a especificação não lista é rejeitado antes de qualquer coisa rodar.
 
-`extras:` liga o que o perfil não liga, por nome de extensão (`extras: [Zihintntl, Zihintpause, Interrupts]`), e vale também com `--profile`. A matriz do Core lista Zimop e Zicond como extensões de perfil, então só os nomes que a matriz não lista dependem de `extras:`; os dois primeiros continuam aceitos ali. Toda chave que nem o perfil nem os extras ligam sai `false` no pacote.
+`extras:` liga o que o perfil não liga, por nome de extensão (`extras: [Zihintntl, Zihintpause, Interrupts, Sscofpmf]`; a `Sscofpmf` exige o Zihpm no perfil e `Interrupts` nos extras, e a geração falha sem eles), e vale também com `--profile`. A matriz do Core lista Zimop e Zicond como extensões de perfil, então só os nomes que a matriz não lista dependem de `extras:`; os dois primeiros continuam aceitos ali. Toda chave que nem o perfil nem os extras ligam sai `false` no pacote.
 
 ```bash
 uv run riscv-tools --root <projeto> --profile rv32em_zicsr generate-memory-map --platform src/platform/platform.yaml
