@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 jobs:
-  # Digests of the CI images, read from ci-images.lock (never `:latest`); the lock changes by pull request.
+  # The CI images (always the tag latest) and the gates that may reuse a pass of the same tree.
   image:
     name: image
     runs-on: ubuntu-26.04
