@@ -3,27 +3,30 @@
 Each rule looks at one aspect of the tree and returns a list of
 problems. A rule applies to some kinds of repository.
 
-| Rule               | What it checks                          |
-| ------------------ | --------------------------------------- |
-| `standard-files`   | The files every repository of its kind  |
-|                    | has                                     |
-| `language-pairs`   | `README`, `CONTRIBUTING` and `AUTHORS`  |
-|                    | in both languages, and every            |
-|                    | `docs/pt-br` file mirrored in `docs/en` |
-| `vhdl-location`    | No `.vhd` outside `src/` and            |
-|                    | `tests/vhdl/`                           |
-| `common-submodule` | Common-Components mounted at            |
-|                    | `src/common`                            |
-| `folder-names`     | Lowercase folder names without spaces   |
-|                    | or accents                              |
-| `entity-coverage`  | A test for every entity of `src/` and a |
-|                    | proof for the ones named in `paths.yaml`|
-| `manifest`         | The `provides` manifest of `paths.yaml` |
-|                    | lists every `.vhd` of `src/` once, only |
-|                    | files that exist, and acyclic           |
-|                    | dependencies (skipped without it)       |
-| `vhdl-style`       | Opt-in: the VHDL style guide, as        |
-|                    | `check-vhdl-style` checks it            |
+| Rule                | What it checks                          |
+| ------------------- | --------------------------------------- |
+| `standard-files`    | The files every repository of its kind  |
+|                     | has                                     |
+| `language-pairs`    | `README`, `CONTRIBUTING` and `AUTHORS`  |
+|                     | in both languages, and every            |
+|                     | `docs/pt-br` file mirrored in `docs/en` |
+| `vhdl-location`     | No `.vhd` outside `src/` and            |
+|                     | `tests/vhdl/`                           |
+| `common-submodule`  | Common-Components mounted at            |
+|                     | `src/common`                            |
+| `folder-names`      | Lowercase folder names without spaces   |
+|                     | or accents                              |
+| `entity-coverage`   | A test for every entity of `src/` and a |
+|                     | proof for the ones named in `paths.yaml` |
+| `manifest`          | The `provides` manifest of `paths.yaml` |
+|                     | lists every `.vhd` of `src/` once, only |
+|                     | files that exist, and acyclic           |
+|                     | dependencies (skipped without it)       |
+| `provides-required` | A VHDL repository declares `provides`   |
+|                     | (`tree.require_provides` decides the    |
+|                     | other kinds)                            |
+| `vhdl-style`        | Opt-in: the VHDL style guide, as        |
+|                     | `check-vhdl-style` checks it            |
 
 The repository's `paths.yaml` may carry a `tree` section to name the
 folders that are identifiers of the ISA or of a peripheral and so keep
@@ -45,7 +48,10 @@ from typing import Any, cast
 
 from riscv_tools.repo_walk import directories, list_files, tree_config
 from riscv_tools.tree_check.coverage import rule_entity_coverage
-from riscv_tools.tree_check.manifest import rule_manifest
+from riscv_tools.tree_check.manifest import (
+    rule_manifest,
+    rule_provides_required,
+)
 from riscv_tools.vhdl_style import check_vhdl_style
 
 KINDS = (
@@ -340,6 +346,7 @@ _RULES: dict[str, tuple[Rule, frozenset[str]]] = {
     "vhdl-style": (_rule_vhdl_style, _VHDL_KINDS),
     "entity-coverage": (rule_entity_coverage, _VHDL_KINDS),
     "manifest": (rule_manifest, _VHDL_KINDS),
+    "provides-required": (rule_provides_required, frozenset(KINDS)),
 }
 # Rules that run only when `--only` names them: the style check has its
 # own CI step, so the default run leaves it out.

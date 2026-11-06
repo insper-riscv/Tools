@@ -20,6 +20,8 @@ O comando sai com status 2 e uma linha `sources:` quando um manifesto está malf
 | `tests/test_manifest_sources.py::test_sources_rejects_unknown_targets` | Componente, repositório ou manifesto ausente falha. |
 | `tests/test_manifest_sources.py::test_the_repository_name_defaults_to_the_folder` | Sem `repository`, a pasta da raiz dá o nome. |
 | `tests/test_manifest_sources.py::test_the_subcommand_prints_and_fails` | O comando imprime um caminho por linha e sai com 2 num erro. |
+| `tests/test_sources_workspace.py::test_a_top_resolves_requires_across_the_submodules` | Um topo resolve `requires` de Core e Memory, que por sua vez pedem o Common-Components, sem repetir arquivo. |
+| `tests/test_sources_workspace.py::test_a_leaf_reaches_the_common_components_at_src_common` | Um repositório que monta o Common-Components em `src/common` o encontra ali. |
 
 ## Uso
 

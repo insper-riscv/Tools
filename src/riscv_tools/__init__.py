@@ -1,3 +1,3 @@
 """Build/JTAG tooling for bare-metal RV32IM test programs."""
 
-__version__ = "1.9.3"
+__version__ = "1.9.5"

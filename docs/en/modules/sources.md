@@ -20,6 +20,8 @@ The command exits with status 2 and a `sources:` line when a manifest is malform
 | `tests/test_manifest_sources.py::test_sources_rejects_unknown_targets` | A missing component, repository or manifest fails. |
 | `tests/test_manifest_sources.py::test_the_repository_name_defaults_to_the_folder` | Without `repository`, the root folder gives the name. |
 | `tests/test_manifest_sources.py::test_the_subcommand_prints_and_fails` | The command prints one path per line and exits with 2 on an error. |
+| `tests/test_sources_workspace.py::test_a_top_resolves_requires_across_the_submodules` | A top resolves `requires` of Core and Memory, which in turn need the Common-Components, with no repeated file. |
+| `tests/test_sources_workspace.py::test_a_leaf_reaches_the_common_components_at_src_common` | A repository that mounts the Common-Components at `src/common` finds it there. |
 
 ## Usage
 
