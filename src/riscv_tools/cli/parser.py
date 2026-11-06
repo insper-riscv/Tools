@@ -4,6 +4,7 @@ import argparse
 
 from riscv_tools.cli.parser_board import add_board_commands
 from riscv_tools.cli.parser_build import add_build_commands
+from riscv_tools.cli.parser_catalog import add_catalog_commands
 from riscv_tools.cli.parser_run import add_run_commands
 from riscv_tools.cli.parser_tools import add_tool_commands
 from riscv_tools.memory_map.memory import set_override as set_memory_override
@@ -12,6 +13,7 @@ from riscv_tools.memory_map.profile import set_override as set_profile_override
 _COMMANDS_WITHOUT_CONFIG = frozenset(
     {
         "vhdl-sort",
+        "check-boards",
         "check-memory-map",
         "check-paths",
         "check-tree",
@@ -30,9 +32,9 @@ Usage: ``riscv-tools --config <config.yaml> <subcommand> ...``.
 Every subcommand takes --config, pointing at the CONSUMING project's
 own config.yaml (memory map, Quartus project paths, toolchain, etc.),
 except `vhdl-sort`, `check-memory-map`, `generate-memory-map`,
-`check-paths`, `check-tree`, `sources`, `platform` and `flash-image`
-(except `send`), which read only files and need no project config at
-all.
+`check-paths`, `check-boards`, `check-tree`, `sources`, `platform` and
+`flash-image` (except `send`), which read only files and need no
+project config at all.
 """
 
 
@@ -87,6 +89,7 @@ def main() -> None:
     add_board_commands(sub)
     add_run_commands(sub)
     add_tool_commands(sub)
+    add_catalog_commands(sub)
 
     args = parser.parse_args()
     set_profile_override(args.profile)

@@ -44,6 +44,8 @@ Ele foi projetado para rodar em uma workstation com todas as ferramentas instala
 | `tree_check`         | Falha quando a árvore de um repositório sai do layout que todos compartilham: arquivos padrão, pares de idioma, `.vhd` em `src/`, Common-Components em `src/common`, nomes de pasta, o manifesto `provides` e a cobertura de testes e provas | [docs/modules/tree_check.md](docs/pt-br/modules/tree_check.md) |
 | `sources`            | Emite a lista ordenada dos arquivos de um alvo, lida dos manifestos `provides` dos repositórios | [docs/modules/sources.md](docs/pt-br/modules/sources.md) |
 | `vhdl_style`         | Falha quando um `.vhd` desrespeita o guia de estilo do projeto (cabeçalho, prefixos `i_`/`o_`, docstring por declaração, sem `component`, `port map` por nome); deixa de fora `vendor/` e os IPs do Quartus | [docs/modules/vhdl_style.md](docs/pt-br/modules/vhdl_style.md) |
+| `board_schema`       | Lê e confere o `board.yaml`, o `pins.yaml`, a família e o chip do catálogo de placas e os campos novos do `platform.yaml` | [docs/modules/board_schema.md](docs/pt-br/modules/board_schema.md) |
+| `board_check`        | Confere o que a plataforma exige contra o que as placas oferecem (regras V1 a V19) | [docs/modules/board_check.md](docs/pt-br/modules/board_check.md) |
 | `platform_sync`      | Escreve o `config.yaml` de uma plataforma para o projeto que a consome, com a pasta do submódulo na frente de cada caminho dela | [docs/modules/platform_sync.md](docs/pt-br/modules/platform_sync.md) |
 | `profiles`           | Lista os perfis válidos de um core a partir das extensões e das regras entre elas (M e Zmmul não coexistem, Zicntr e Zihpm implicam Zicsr) | [docs/modules/profiles.md](docs/pt-br/modules/profiles.md) |
 | `freq_sweep`         | Reescreve a frequência de clock e as defasagens de um fonte de PLL: o mecanismo com que o sweep de frequência do `orchestrator` edita | [docs/modules/freq_sweep.md](docs/pt-br/modules/freq_sweep.md) |
@@ -81,7 +83,7 @@ uv run riscv-tools --config /path/to/project/config.yaml sim
 uv run riscv-tools --config /path/to/project/config.yaml sim --only test-a,test-b
 ```
 
-Veja `riscv-tools --help` para a lista completa de subcomandos (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `check-paths`, `check-tree`, `sources`, `check-vhdl-style`, `platform`, `flash-image`, `timing-paths` e `freq-sweep`).
+Veja `riscv-tools --help` para a lista completa de subcomandos (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `check-paths`, `check-boards`, `check-tree`, `sources`, `check-vhdl-style`, `platform`, `flash-image`, `timing-paths` e `freq-sweep`).
 
 ```bash
 # vhdl-sort não precisa de --config; é só análise do conteúdo dos arquivos,

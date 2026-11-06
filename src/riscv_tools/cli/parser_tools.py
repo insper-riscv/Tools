@@ -73,6 +73,11 @@ def add_tool_commands(sub: Any) -> None:
         required=True,
         help="Platform YAML (relative to --root): the map and the checks",
     )
+    p.add_argument(
+        "--accept-inferred-pins",
+        action="store_true",
+        help="Allow a board pin that is only inferred (rule V16)",
+    )
 
     p = add_command(
         sub,

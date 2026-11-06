@@ -24,6 +24,7 @@ from riscv_tools.memory_map import (
     memory_notes,
     render_all,
     set_memory_override,
+    validate_platform,
 )
 
 MEMORY: dict[str, Any] = {
@@ -454,4 +455,28 @@ def test_listed_widths_win_and_no_memory_adds_nothing(
     check_not_in("ROM_EXTERNAL", parameters)
     check_equal(
         render_all(path, tmp_path)[tmp_path / PACKAGE].count("VIA_PORT"), 0
+    )
+
+
+def test_the_board_fields_of_a_memory_are_known_fields() -> None:
+    """The fields of the board catalog are not typos."""
+    platform = {
+        "regions": [
+            {"name": "BOOT_MEMORY", "base": "0x0", "size": "4K"},
+            {"name": "RAM", "base": "0x40000000", "size": "1M", "kind": "ram"},
+        ],
+        "memory": {
+            "rom": {"external": False},
+            "ram": {
+                "external": True,
+                "backend": "dispositivo",
+                "device": "sdram",
+            },
+            "icache": {"enabled": False},
+            "dcache": {"enabled": False},
+        },
+    }
+    check_equal(
+        [p for p in validate_platform(platform) if "not a field" in str(p)],
+        [],
     )

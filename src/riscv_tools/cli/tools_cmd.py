@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from riscv_tools import (
+    board_check,
     memory_map,
     orchestrator,
     path_check,
@@ -183,10 +184,17 @@ def cmd_check_memory_map(args: argparse.Namespace) -> None:
     if not platform.is_absolute():
         platform = root / platform
     count, problems = memory_map.check_memory_map(platform, root)
-    if problems:
-        for problem in problems:
-            print(f"MISMATCH {problem}", file=sys.stderr)
-        print(f"{len(problems)} disagreement(s)", file=sys.stderr)
+    findings = board_check.check_platform_file(
+        platform, root, accept_inferred_pins=args.accept_inferred_pins
+    )
+    errors = [f for f in findings if f.level == "E"]
+    for problem in problems:
+        print(f"MISMATCH {problem}", file=sys.stderr)
+    for finding in findings:
+        print(f"BOARD {finding.rule} {finding}", file=sys.stderr)
+    if problems or errors:
+        total = len(problems) + len(errors)
+        print(f"{total} disagreement(s)", file=sys.stderr)
         sys.exit(1)
     print(f"memory map OK: {count} checks against {platform.name}")
 

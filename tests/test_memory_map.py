@@ -282,7 +282,11 @@ def test_cmd_check_memory_map_exit_status(
 ) -> None:
     """Cmd check memory map exit status."""
     _project(tmp_path)
-    args = argparse.Namespace(root=str(tmp_path), platform="platform.yaml")
+    args = argparse.Namespace(
+        root=str(tmp_path),
+        platform="platform.yaml",
+        accept_inferred_pins=False,
+    )
     cli.cmd_check_memory_map(args)
     check_in("memory map OK: 5 checks", capsys.readouterr().out)
 
