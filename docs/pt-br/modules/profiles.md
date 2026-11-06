@@ -1,6 +1,6 @@
 # `profiles`
 
-Lista todos os perfis válidos de um core a partir de uma especificação. Um perfil é um conjunto de extensões opcionais sobre a ISA base, e escrever a lista à mão deixa passar uma combinação impossível: M junto com Zmmul, ou um core sem Zicsr e sem Zicclsm. A especificação declara as extensões e as regras entre elas, e este módulo gera as combinações que obedecem a todas.
+Lista todos os perfis válidos de um core a partir de uma especificação. Um perfil é um conjunto de extensões opcionais sobre a ISA base, e escrever a lista à mão deixa passar uma combinação impossível: M junto com Zmmul, ou um contador de desempenho (Zihpm) sem os CSRs (Zicsr). A especificação declara as extensões e as regras entre elas, e este módulo gera as combinações que obedecem a todas.
 
 ## Especificação
 

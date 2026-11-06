@@ -16,7 +16,10 @@ without a prefix is a component of the same repository;
 `<repository>/<component>` names one of another repository. The
 `manifest` rule of `check-tree` runs only on repositories that declare
 `provides`; `riscv-tools sources` reads the manifests to emit the list
-of files of a target.
+of files of a target. The `provides-required` rule fails a repository of
+a VHDL kind that declares none, unless its `tree` section sets
+`require_provides: false`; any other kind can ask for it with
+`require_provides: true`.
 """
 
 from dataclasses import dataclass
@@ -26,6 +29,10 @@ from typing import Any, cast
 import yaml
 
 from riscv_tools.repo_walk import list_files
+
+REQUIRED_KINDS = frozenset(
+    {"common-components", "core", "memory", "peripherals", "top"}
+)
 
 
 @dataclass(frozen=True)
@@ -309,3 +316,42 @@ def rule_manifest(
         )
     problems.extend(_cycle(provides.components, provides.repository))
     return problems
+
+
+def rule_provides_required(
+    root: Path, kind: str, config: dict[str, Any]
+) -> list[str]:
+    """Report a repository that must declare `provides` and does not.
+
+    A repository of a VHDL kind must declare the section, so that a
+    merge or a rewrite of `paths.yaml` that drops it fails the check
+    instead of silently turning the `manifest` rule off. The `tree`
+    section decides the other cases with `require_provides`.
+
+    Parameters
+    ----------
+    root : Path
+        The repository root.
+    kind : str
+        The kind of repository; the VHDL kinds require `provides` by
+        default.
+    config : dict of str to Any
+        The `tree` section, with the optional `require_provides`.
+
+    Returns
+    -------
+    list of str
+        One problem when the section is required and absent; a section
+        that exists but is malformed is the `manifest` rule's business.
+    """
+    required = config.get("require_provides", kind in REQUIRED_KINDS)
+    if required is not True:
+        if required is not False:
+            return ["tree.require_provides is true or false"]
+        return []
+    if _raw(root)[1] is not None:
+        return []
+    return [
+        "paths.yaml declares no `provides`; this repository must list its"
+        " components there (`tree.require_provides: false` opts out)"
+    ]

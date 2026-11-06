@@ -46,7 +46,7 @@ change of the map without a new generation fails.
 from pathlib import Path
 from typing import Any, cast
 
-from riscv_tools.memory_map import banks
+from riscv_tools.memory_map import banks, interrupts
 from riscv_tools.memory_map import memory as memory_choice
 from riscv_tools.memory_map.core import (
     PERIPHERAL_WINDOW_BASE,
@@ -345,6 +345,7 @@ def render_runtime(
     for periph in platform_list(platform, "peripherals"):
         name = str(periph["name"]).upper()
         values[f"RV32_{name}_BASE"] = evaluate(periph["base"])
+    values |= interrupts.runtime_values(platform, table)
     defines = "\n".join(
         f"#define {macro} RV32_ADDRESS(0x{value:08X})"
         for macro, value in values.items()
@@ -521,7 +522,8 @@ def render_vhdl(
         ext_base=_kib(evaluate(spec.get("ext_base", window)), "ext_base"),
         periph_base=_kib(window, "periph_base"),
         memory="" if choice is None else memory_choice.vhdl_lines(choice),
-        peripherals=_peripheral_lines(platform),
+        peripherals=_peripheral_lines(platform)
+        + interrupts.vhdl_lines(platform),
     )
 
 
@@ -584,9 +586,13 @@ def render_all(platform_file: Path, root: Path) -> dict[Path, str]:
     """
     platform = load_platform(platform_file)
     generics = None
-    if memory_choice.declared(platform):
+    if memory_choice.declared(platform) or interrupts.declared(platform):
         _, generics = resolve(platform, platform_file)
-    problems = validate_platform(platform, generics) + banks.problems(platform)
+    problems = (
+        validate_platform(platform, generics)
+        + banks.problems(platform)
+        + interrupts.problems(platform, generics)
+    )
     if problems:
         raise ValueError("; ".join(str(p) for p in problems))
     table = symbols(platform) | banks.symbols(platform)

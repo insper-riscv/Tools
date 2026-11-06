@@ -46,7 +46,12 @@ def _conforming(root: Path) -> None:
     ):
         _write(root / name)
     _write(root / ".gitmodules", GITMODULES)
-    _write(root / "paths.yaml", "tree:\n  identifier_folders: [I]\n")
+    _write(
+        root / "paths.yaml",
+        "tree:\n  identifier_folders: [I]\n"
+        "provides:\n  alu:\n    sources: [src/I/alu.vhd]\n"
+        "  core:\n    sources: [src/core/core.vhd]\n    requires: [alu]\n",
+    )
 
 
 def test_a_conforming_tree_has_no_problem(tmp_path: Path) -> None:
@@ -220,7 +225,10 @@ def test_folder_names_leave_out_vendor_code(tmp_path: Path) -> None:
 
 def test_rules_depend_on_the_kind() -> None:
     """The layout rules of VHDL do not apply to the other kinds."""
-    check_equal(rule_names("tools"), ["standard-files", "language-pairs"])
+    check_equal(
+        rule_names("tools"),
+        ["standard-files", "language-pairs", "provides-required"],
+    )
     check_equal(
         rule_names("core"),
         [
@@ -231,6 +239,7 @@ def test_rules_depend_on_the_kind() -> None:
             "folder-names",
             "entity-coverage",
             "manifest",
+            "provides-required",
         ],
     )
     check_not_in("common-submodule", rule_names("common-components"))

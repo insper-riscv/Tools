@@ -28,8 +28,21 @@ jobs:
       actions: read
     outputs:
       skip: ${{ steps.lookup.outputs.skip }}
+      images: ${{ steps.plan.outputs.images }}
+      gates: ${{ steps.plan.outputs.gates }}
 
     steps:
+      - uses: actions/checkout@v7
+
+      # The CI images (tag latest) and, for each gate, the key of its inputs: a gate whose
+      # key already has a pass (artifact ci-pass-<gate>-<key>) is skipped, whatever the commit, branch or event.
+      - name: Read the image digests and look for a pass of the same inputs
+        id: plan
+        uses: insper-riscv/Infra/.github/actions/ci-plan@main
+        with:
+          gates: |
+            unit-tests|ci-elf|!docs/** !**/*.md !LICENSE !AUTHORS* !CITATION.cff !codeclone.baseline.json !.github/workflows/version-bump.yml !.github/workflows/tree.yml
+
       - name: Look for a passed pull request run of the same tree
         id: lookup
         env:
@@ -60,7 +73,7 @@ jobs:
   unit-tests:
     name: unit-tests
     needs: reuse
-    if: ${{ needs.reuse.outputs.skip != 'true' }}
+    if: ${{ needs.reuse.outputs.skip != 'true' && fromJSON(needs.reuse.outputs.gates)['unit-tests'].skip != 'true' }}
     # The image carries GHDL, the RISC-V GCC and a patched Spike, so the whole
     # suite (simulation and Spike tests included) runs on a hosted runner.
     runs-on: ubuntu-26.04
@@ -77,9 +90,22 @@ jobs:
           context: .
           load: true
           tags: riscv-tools-tests:ci
+          build-args: TOOLCHAIN_IMAGE=${{ fromJSON(needs.reuse.outputs.images)['ci-elf'] }}
 
       - name: Run the test suite
         run: docker run --rm -v "$PWD:/workspace" riscv-tools-tests:ci -v
+
+      - name: Record the pass of these inputs
+        # Only reached when every step above passed: a later run with the same key skips this gate.
+        env:
+          KEY: ${{ fromJSON(needs.reuse.outputs.gates)['unit-tests'].key }}
+        run: echo "$KEY" > ci-pass.txt
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ fromJSON(needs.reuse.outputs.gates)['unit-tests'].artifact }}
+          path: ci-pass.txt
+          overwrite: true
 
   # The job id and name are the status check the default-branch ruleset requires, so they must not change.
   python-static-analysis:
@@ -91,7 +117,7 @@ jobs:
     # The tools that need no project environment come pinned in the image (ruff, pylint, pyright,
     # deptry and uv audit still run with `uv run` in the environment `uv sync` builds from uv.lock).
     container:
-      image: ghcr.io/insper-riscv/ci-vhdl:latest
+      image: ${{ fromJSON(needs.reuse.outputs.images)['ci-vhdl'] }}
 
     steps:
       - uses: actions/checkout@v7.0.1

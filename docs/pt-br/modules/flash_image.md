@@ -41,7 +41,7 @@ riscv-tools --config <config.yaml> flash-image send imagem.bin
 
 ## 5. Testes
 
-`tests/test_flash_image.py` cobre o formato, os danos que a conferência precisa pegar e o envio contra um leitor substituto.
+`tests/test_flash_image.py` cobre o formato, os danos que a conferência precisa pegar, o envio contra um leitor substituto e o empacotamento que o `compile` faz com `flash_image` no config (a banca certa, o endereço de início da imagem e a recusa de uma banca que o mapa não tem).
 
 ---
 

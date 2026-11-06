@@ -20,7 +20,7 @@ The images come from [insper-riscv/Infra](https://github.com/insper-riscv/Infra)
 
 `latest` is the last publication. For a reproducible run, use the `sha-<commit>` tag of the publication you want.
 
-The consuming project depends on this repository as a submodule (normally `tools/Tools`) and lists `riscv-tools` as an editable path dependency in its own `pyproject.toml`, so `uv sync` at the root of the project installs everything and `uv run riscv-tools` works from there. Every job below starts the same way:
+The `ci-vhdl`, `ci-elf`, `ci-act4` and `dev_tools` images of Infra already carry `riscv-tools` at the version of this repository, so the job calls `riscv-tools` directly, with nothing to install. `uv sync` only serves the dependencies of the project itself, such as the cocotb of the entity tests. Every job below starts the same way:
 
 ```yaml
 runs-on: ubuntu-26.04
@@ -29,11 +29,11 @@ container:
 steps:
   - uses: actions/checkout@v7
     with:
-      submodules: true
+      submodules: recursive
   - run: uv sync
 ```
 
-`submodules: true` is what brings this repository in. If the project's config refers to sibling repositories (such as `../Core`), the job also clones them next to the checkout, since a bare CI checkout has no parent directory with them.
+`submodules: recursive` brings the submodules of the project, such as Insper-RISC-V and, inside it, Core, Memory, Peripherals and Common-Components. If the project's config refers to sibling repositories, the job also clones them next to the checkout, since a bare CI checkout has no parent directory with them.
 
 ## 2. Simulation-only tests
 
@@ -56,12 +56,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          submodules: true
+          submodules: recursive
       - run: uv sync
 
-      - run: uv run riscv-tools --config config.yaml generate-header
-      - run: uv run riscv-tools --config config.yaml compile --emit hex
-      - run: uv run riscv-tools --config config.yaml sim
+      - run: riscv-tools --config config.yaml generate-header
+      - run: riscv-tools --config config.yaml compile --emit hex
+      - run: riscv-tools --config config.yaml sim
 
       - name: Upload waveforms
         if: failure()
@@ -110,7 +110,7 @@ jobs:
 
       - uses: actions/checkout@v7
         with:
-          submodules: true
+          submodules: recursive
 
       - run: docker pull "$IMAGE"
 
@@ -126,9 +126,9 @@ jobs:
             -v "$PWD:/workspace" -w /workspace "$IMAGE" bash -c '
               export PATH=/opt/altera_lite/25.1std/quartus/bin:$PATH
               uv sync
-              uv run riscv-tools --config config.yaml generate-header
-              uv run riscv-tools --config config.yaml compile --emit mif
-              uv run riscv-tools --config config.yaml run'
+              riscv-tools --config config.yaml generate-header
+              riscv-tools --config config.yaml compile --emit mif
+              riscv-tools --config config.yaml run'
 ```
 
 | Option | What it does |
@@ -157,10 +157,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          submodules: true
+          submodules: recursive
       - run: uv sync
 
-      - run: uv run riscv-tools --config config.yaml compile --emit mif
+      - run: riscv-tools --config config.yaml compile --emit mif
 
       - name: Regenerate every existing golden
         run: |
@@ -177,7 +177,7 @@ jobs:
             start=$(jq -r 'keys | min' "$golden")
             max_key=$(jq -r 'keys | max' "$golden")
             end=$(printf '0x%X' $((max_key + 1)))
-            uv run riscv-tools --config config.yaml generate-golden "$elf" \
+            riscv-tools --config config.yaml generate-golden "$elf" \
                 --march "$march" --start "$start" --end "$end" --out "$golden"
           done
 

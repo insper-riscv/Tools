@@ -78,6 +78,17 @@ No `tests_real_dir`/`tests_sim_dir`/`golden_dir` split: every test under `c_dir`
 | `rom_origin` | Byte address that the first word of the FLASH storage has (0 by default). The leading padding of the `.mif`/`.hex` becomes `(rom_base - rom_origin) / 4` words and the memory regions of Spike start there: a FLASH behind the caches starts at its own base and has no padding |
 | `rom_words` | ROM depth in words: used to validate/format a program's `.mif` |
 
+### `flash:` and `flash_image:` (optional; platform with banks in the FLASH)
+
+`flash.banks` comes from the `platform.yaml` (`flash.banks`, see [`memory_map`](modules/memory_map.md)) and lists, for each bank, `name`, `base` and `size` in bytes. Nobody writes it by hand. `flash_image` chooses the bank the programs of the project run in, and `compile` packs each binary into the image of that bank before converting it to `.mif` or `.hex`.
+
+| Key | Meaning |
+|---|---|
+| `flash_image.bank` | Name of the bank (from `flash.banks`) the programs are linked for, with `rv32im-fpga-bank-<name>.specs` in `toolchain.specs` |
+| `flash_image.version` | Version written to the image header (default 1) |
+
+With `flash_image` the image starts at the base of the bank: the 256-byte header and then the program, which the linker places at `base + 256`. This is what the boot ROM of a platform with banks requires to run the program (see [`flash_image`](modules/flash_image.md)). Without `flash_image`, `compile` delivers the binary as the linker produced it.
+
 ### `emulator:`
 
 | Key | Default | Used by |
@@ -176,10 +187,10 @@ memory:
 
 quartus:
   jtag_device: "@1: 5CE(BA4|FA4) (0x02B050DD)"
-  project_dir: ../RV32IM/tests/FPGA/core/quartus
-  project_name: core_fpga_test
-  sof_file: output_files/core_fpga_test.sof
-  rom_mif_target: init.mif
+  project_dir: ../Insper-RISC-V/src/cyclone-v/de0-cv
+  project_name: de0-cv
+  sof_file: output_files/de0-cv.sof
+  rom_mif_target: flash_init.mif
 ```
 
 Everything else (`isa.*`, `quartus.rom_mem_names`/`ram_mem_name`/`rom_mem_instances`/`ram_mem_instance`/`poll_interval_seconds`/`program_wait_seconds`/`default_timeout_s`, `emulator.*`) is optional: override only what doesn't match your setup.

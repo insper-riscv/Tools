@@ -148,3 +148,52 @@ def test_the_command_packs_verifies_and_checks_the_bank(
         with pytest.raises(SystemExit) as raised:
             cli.main()
         check_equal(raised.value.code, 1)
+
+
+BANKS_CONFIG: dict[str, Any] = {
+    "memory": {"rom_base": 0x1000, "rom_words": 64512},
+    "flash": {
+        "banks": [
+            {"name": "A", "base": 0x1000, "size": 0x1F000},
+            {"name": "B", "base": 0x20000, "size": 0x20000},
+        ]
+    },
+    "flash_image": {"bank": "B", "version": 4},
+}
+
+
+def _compile_bin(tmp_path: Path) -> Path:
+    path = tmp_path / "t.bin"
+    path.write_bytes(PROGRAM)
+    return path
+
+
+def test_a_config_without_flash_image_leaves_the_binary_alone(
+    tmp_path: Path,
+) -> None:
+    """Platforms with a single image keep the raw binary."""
+    bin_ = _compile_bin(tmp_path)
+    config = {k: v for k, v in BANKS_CONFIG.items() if k != "flash_image"}
+    got = flash_image.image_for_config(config, tmp_path, "t", bin_)
+    check_equal(got, (bin_, None))
+
+
+def test_flash_image_packs_the_binary_for_the_named_bank(
+    tmp_path: Path,
+) -> None:
+    """The packed image verifies and starts at the base of the bank."""
+    packed, base = flash_image.image_for_config(
+        BANKS_CONFIG, tmp_path, "t", _compile_bin(tmp_path)
+    )
+    check_equal(base, 0x20000)
+    header = flash_image.verify(packed.read_bytes())
+    check_equal(header.version, 4)
+
+
+def test_flash_image_rejects_a_bank_the_map_lacks(tmp_path: Path) -> None:
+    """A wrong bank name is an error, not a silent raw image."""
+    config = {**BANKS_CONFIG, "flash_image": {"bank": "C"}}
+    with pytest.raises(flash_image.ImageError):
+        flash_image.image_for_config(
+            config, tmp_path, "t", _compile_bin(tmp_path)
+        )

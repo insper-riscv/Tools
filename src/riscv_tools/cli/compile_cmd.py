@@ -8,6 +8,7 @@ from typing import Any
 
 from riscv_tools import (
     bin_to_image,
+    flash_image,
 )
 from riscv_tools import c_to_asm as c_to_asm_mod
 from riscv_tools import compiler as compiler_mod
@@ -216,7 +217,9 @@ def _attach_image(
     and its content lands at the right word index. With
     memory.rom_origin (the address the first word of the FLASH storage
     has, 0 by default) the padding counts from there: a FLASH behind
-    the caches starts at its own base and has none.
+    the caches starts at its own base and has none. With `flash_image`
+    in the config the binary is first packed with the header page of
+    its bank (see `image_for_config`) and the image starts at the bank.
 
     Parameters
     ----------
@@ -233,9 +236,9 @@ def _attach_image(
     """
     build_dir, bin_ = built
     name = entry["name"]
-    flash_pad_words = (
-        cfg["memory"]["rom_base"] - (cfg["memory"].get("rom_origin") or 0)
-    ) // 4
+    bin_, flash_base = flash_image.image_for_config(cfg, build_dir, name, bin_)
+    start = flash_base if flash_base is not None else cfg["memory"]["rom_base"]
+    flash_pad_words = (start - (cfg["memory"].get("rom_origin") or 0)) // 4
     if is_real:
         mif = build_dir / f"{name}.mif"
         bin_to_image.bin_to_mif(

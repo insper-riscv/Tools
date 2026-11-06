@@ -16,6 +16,7 @@ Each rule looks at one aspect of the tree and applies to some kinds of repositor
 
 | `entity-coverage` | Every RTL entity of `src/` has an entry in `tests/python/tests.json` with it (or the testbench `<name>_tb`) as `toplevel` and its file in `sources`; every entity of the `formal` table has its proof in `formal/` | VHDL |
 | `manifest` | The `provides` section of `paths.yaml` lists each `.vhd` of `src/` exactly once, only files that exist, and acyclic requirements; without the section the rule checks nothing | VHDL |
+| `provides-required` | `paths.yaml` declares the `provides` section; a VHDL repository that loses it (through a merge or a rewrite of the file) fails instead of silently turning off the `manifest` rule and `riscv-tools sources`. The `tree.require_provides` key changes the default of the kind | all (requires it on the VHDL kinds) |
 
 The `vhdl-style` rule is optional and only runs when `--only` names it, because the CI has a step of its own for style.
 
@@ -58,6 +59,13 @@ provides:
   Zicntr:
     requires: [constants]
     sources: [src/Zicntr/counter64.vhd, src/Zicntr/tick_divider.vhd]
+```
+
+The `provides-required` rule demands the section on the five VHDL kinds. A repository that must not have it writes `require_provides: false` in the `tree` section, and a kind that is not VHDL asks for the section with `require_provides: true`. Any other value is a problem.
+
+```yaml
+tree:
+  require_provides: true
 ```
 
 ## Adoption in steps
@@ -103,6 +111,14 @@ A repository that has not finished its reorganization chooses with `--only` the 
 | `tests/test_manifest_sources.py::test_a_complete_manifest_passes` | Each file listed once and existing passes. |
 | `tests/test_manifest_sources.py::test_unlisted_missing_duplicate_and_unknown` | A missing file, a file listed twice, a file with no component, an unknown requirement and a cycle are reported. |
 | `tests/test_manifest_sources.py::test_a_malformed_manifest_is_reported` | A component without `sources` is reported. |
+| `tests/test_provides_required.py::test_a_vhdl_repository_without_provides_fails` | A VHDL repository without the `provides` section fails. |
+| `tests/test_provides_required.py::test_a_missing_paths_yaml_fails_too` | Without `paths.yaml` there is no section either. |
+| `tests/test_provides_required.py::test_a_repository_with_provides_passes` | Declaring the section meets the rule on every kind. |
+| `tests/test_provides_required.py::test_a_malformed_section_is_left_to_the_manifest_rule` | A malformed section is a problem for the `manifest` rule, not an absence. |
+| `tests/test_provides_required.py::test_the_tree_section_can_opt_out` | `require_provides: false` waives the section on a VHDL kind. |
+| `tests/test_provides_required.py::test_the_tree_section_can_ask_for_other_kinds` | `require_provides: true` requires the section on a non-VHDL kind. |
+| `tests/test_provides_required.py::test_a_value_that_is_not_a_boolean_is_reported` | Only `true` or `false` is accepted. |
+| `tests/test_provides_required.py::test_the_default_run_includes_the_rule` | A `check-tree` without `--only` already catches the loss. |
 | `tests/test_entity_coverage.py::test_vhdl_style_runs_through_check_tree` | Naming `vhdl-style` in `--only` reports the deviations of the guide. |
 
 ## Usage

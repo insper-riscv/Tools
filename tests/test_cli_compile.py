@@ -22,7 +22,7 @@ from support import (
     write_rv32_header,
 )
 
-from riscv_tools import run_log
+from riscv_tools import flash_image, run_log
 from riscv_tools.cli import (
     cmd_compile,
     cmd_spike_run,
@@ -255,3 +255,23 @@ def test_cmd_compile_hex_uses_the_verilog_format_when_configured(
 
     hex_text = (tmp_path / "build" / "sim" / "add.hex").read_text()
     check(hex_text.startswith("@00000000\n"))
+
+
+@pytest.mark.skipif(
+    shutil.which(GCC) is None or shutil.which(SPIKE) is None,
+    reason=f"needs {GCC} and {SPIKE} on PATH",
+)
+def test_cmd_compile_packs_the_image_of_the_bank(tmp_path: Path) -> None:
+    """With flash_image in the config the mif starts with the header."""
+    _make_project(tmp_path)
+    config = _cfg_dict(tmp_path)
+    config["flash_image"] = {"bank": "A", "version": 3}
+    config["flash"] = {
+        "banks": [{"name": "A", "base": 0x1000, "size": 0x7000}]
+    }
+    write_config(tmp_path, config)
+
+    cmd_compile(compile_args(tmp_path, "mif", ["add"]))
+
+    mif = (tmp_path / "build" / "real" / "add.mif").read_text().upper()
+    check_in(f"{0x1000 // 4:04X} : {flash_image.MAGIC:08X}", mif)
