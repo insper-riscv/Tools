@@ -152,11 +152,11 @@ def bank_image(
 ) -> tuple[bytes, int]:
     """Wrap the code of an ELF in a valid bank of the FLASH.
 
-    The boot memory of a platform with `flash.banks` jumps only to a bank
-    whose header page is valid. The bank here holds a two-instruction
-    payload that jumps to `entry`, and the code of the ELF follows at
-    `entry`, outside the payload that the header checksums, so the ELF
-    may use the whole FLASH instead of one bank.
+    The boot memory of a platform with `flash.banks` jumps only to a
+    bank whose header page is valid. The bank here holds a
+    two-instruction payload that jumps to `entry`, and the code of the
+    ELF follows at `entry`, outside the payload that the header
+    checksums, so the ELF may use the whole FLASH instead of one bank.
 
     Parameters
     ----------
