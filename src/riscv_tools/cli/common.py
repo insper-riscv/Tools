@@ -17,11 +17,12 @@ from riscv_tools.settings import load_config
 def jtag_link(cfg: dict[str, Any]) -> JtagLink:
     """Build a JtagLink for the connected cable and the chip.
 
-    With `quartus.jtag_device` set and no board option (`--board`,
-    `--board-id`, `--cable` or their environment variables), the cable
-    is the one whose chain lists the IDCODE of that device. Otherwise
-    the board is selected by its IDCODE and USB port (see
-    riscv_tools.board.select) and the cable and device come from it.
+    With `quartus.jtag_device` set and neither `--board` nor
+    `--board-id` (nor their environment variables), the cable is the
+    one whose chain lists the IDCODE of that device, or the one that
+    `--cable` forces when it lists it. Otherwise the board is selected
+    by its IDCODE and USB port (see riscv_tools.board.select) and the
+    cable and device come from it.
 
     Parameters
     ----------
@@ -37,8 +38,8 @@ def jtag_link(cfg: dict[str, Any]) -> JtagLink:
     """
     quartus = cfg["quartus"]
     request = override_request()
-    explicit = request.cable or request.board_id or request.board
-    if quartus["jtag_device"] is None or explicit:
+    named = request.board_id or request.board
+    if quartus["jtag_device"] is None or named:
         selection = select_for_config(cfg, Path.cwd())
         return JtagLink(
             hardware_name=selection.cable,
@@ -46,7 +47,9 @@ def jtag_link(cfg: dict[str, Any]) -> JtagLink:
             sdram_instance=quartus["sdram_debug_instance"],
         )
     return JtagLink(
-        hardware_name=detect_jtag_hardware(quartus["jtag_device"]),
+        hardware_name=detect_jtag_hardware(
+            quartus["jtag_device"], request.cable
+        ),
         device_name=quartus["jtag_device"],
         sdram_instance=quartus["sdram_debug_instance"],
     )

@@ -197,7 +197,22 @@ def read_cables() -> list[Cable]:
     return parse_jtagconfig(_run_jtagconfig(check=True).stdout)
 
 
-def detect_jtag_hardware(device_name: str | None = None) -> str:
+def _forced(cables: list[Cable], name: str, wanted: str | None) -> str:
+    """Check a cable forced by name and return it."""
+    found = next((c for c in cables if c.name == name), None)
+    if found is None:
+        listed = ", ".join(c.name for c in cables)
+        raise RuntimeError(f"cable {name!r} not listed; cables: {listed}")
+    if wanted and not any(
+        same_idcode(d.idcode, wanted) for d in found.devices
+    ):
+        raise RuntimeError(f"cable {name!r} does not list the IDCODE {wanted}")
+    return found.name
+
+
+def detect_jtag_hardware(
+    device_name: str | None = None, cable: str | None = None
+) -> str:
     """Detect the live JTAG hardware name for the -c flag of Quartus.
 
     The name suffix reflects USB topology, not the physical cable, and
@@ -215,6 +230,10 @@ def detect_jtag_hardware(device_name: str | None = None) -> str:
         IDCODE chooses the cable. Without it, or when no cable lists
         the IDCODE, the first cable is taken.
 
+    cable : str, optional
+        A cable name forced by the caller (`--cable`): it must be
+        listed and, with `device_name`, its chain must list the IDCODE.
+
     Returns
     -------
     str
@@ -225,16 +244,19 @@ def detect_jtag_hardware(device_name: str | None = None) -> str:
     ------
     RuntimeError
         `jtagconfig`'s output has no cable line (cable unplugged,
-        driver not loaded, etc).
+        driver not loaded, etc), or a forced cable is not listed or
+        lacks the IDCODE.
     """
     cables = read_cables()
     if not cables:
         raise RuntimeError("jtagconfig produced no cable line")
     wanted = idcode_of(device_name)
+    if cable is not None:
+        return _forced(cables, cable, wanted)
     if wanted:
-        for cable in cables:
-            if any(same_idcode(d.idcode, wanted) for d in cable.devices):
-                return cable.name
+        for listed in cables:
+            if any(same_idcode(d.idcode, wanted) for d in listed.devices):
+                return listed.name
     return cables[0].name
 
 

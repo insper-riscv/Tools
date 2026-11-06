@@ -95,7 +95,7 @@ A MKR Vidor 4000 só tem a USB do SAMD21 (`2341:8056`). O `doctor` diz que falta
 
 ## 9. Integração com a configuração
 
-`riscv-tools` monta o `JtagLink` pela seleção quando `quartus.jtag_device` não está definido, ou quando uma das opções `--cable`, `--board-id` ou `--board` é dada. Com `jtag_device` e sem opções, o cabo continua sendo o que lista o IDCODE dele. As chaves `quartus.board` (identificador ou `auto`) e `quartus.boards` (lista que o `auto` pode tomar) vêm do `platform.yaml`.
+`riscv-tools` monta o `JtagLink` pela seleção quando `quartus.jtag_device` não está definido, ou quando `--board` ou `--board-id` é dado. Com `jtag_device` e sem essas opções, o cabo é o que lista o IDCODE dele, ou o que `--cable` força, desde que a cadeia dele liste o IDCODE. As chaves `quartus.board` (identificador ou `auto`) e `quartus.boards` (lista que o `auto` pode tomar) vêm do `platform.yaml`.
 
 ## 10. Testes
 
