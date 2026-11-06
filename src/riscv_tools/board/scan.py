@@ -11,8 +11,10 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from riscv_tools.board.inventory import Inventory, InventoryEntry
-from riscv_tools.board.spec import BoardSpec
-from riscv_tools.jtag.hardware import Cable, same_idcode
+from riscv_tools.board_check import check_chain
+from riscv_tools.board_schema import Board
+from riscv_tools.board_schema.model import JtagDevice
+from riscv_tools.jtag.hardware import Cable
 
 PortResolver = Callable[[str], str | None]
 
@@ -74,16 +76,33 @@ def cable_kind(cable: Cable) -> str:
     return "usb-blaster"
 
 
-def chain_matches(spec: BoardSpec, cable: Cable) -> bool:
-    """Tell whether a cable presents the chain a board declares.
-
-    The IDCODEs of the board must appear in the chain of the cable, in
-    order, ignoring the version field; the kind of cable must agree
-    unless the board uses an external cable.
+def fpga_of(board: Board) -> JtagDevice:
+    """Give the FPGA device of the chain of a board.
 
     Parameters
     ----------
-    spec : BoardSpec
+    board : Board
+        The board.
+
+    Returns
+    -------
+    JtagDevice
+        The element marked `fpga`, or the last one.
+    """
+    marked = [d for d in board.jtag.chain if d.fpga]
+    return marked[0] if marked else board.jtag.chain[-1]
+
+
+def chain_matches(board: Board, cable: Cable) -> bool:
+    """Tell whether a cable presents the chain a board declares.
+
+    The kind of cable must agree, and the chain is compared by the
+    rule V17 of the validator (`board_check.check_chain`), so the
+    comparison is written once.
+
+    Parameters
+    ----------
+    board : Board
         The board.
     cable : Cable
         The cable.
@@ -93,16 +112,14 @@ def chain_matches(spec: BoardSpec, cable: Cable) -> bool:
     bool
         True when the cable can be that board.
     """
-    if spec.cable == "usb-blaster-ii" and cable_kind(cable) != spec.cable:
+    kind = board.jtag.cable
+    if kind == "usb-blaster-ii" and cable_kind(cable) != kind:
         return False
-    plain = spec.cable in {"usb-blaster", "samd21-usbblaster"}
+    plain = kind in {"usb-blaster", "samd21-usbblaster"}
     if plain and cable_kind(cable) != "usb-blaster":
         return False
-    present = iter(d.idcode for d in cable.devices)
-    return all(
-        any(same_idcode(seen, want.idcode) for seen in present)
-        for want in spec.chain
-    )
+    observed = [d.idcode for d in cable.devices]
+    return not check_chain(board, cable.name, observed)
 
 
 def _problem(
@@ -132,7 +149,7 @@ def _problem(
 
 def scan(
     cables: list[Cable],
-    boards: dict[str, BoardSpec],
+    boards: dict[str, Board],
     inventory: Inventory,
     resolve_port: PortResolver,
 ) -> list[CableReport]:
@@ -142,7 +159,7 @@ def scan(
     ----------
     cables : list of Cable
         The cables `jtagconfig` listed.
-    boards : dict of {str: BoardSpec}
+    boards : dict of {str: Board}
         The known boards.
     inventory : Inventory
         The inventory of the host.
@@ -160,7 +177,7 @@ def scan(
         bus = cable.bus_port
         port = resolve_port(bus) if bus else None
         candidates = tuple(
-            name for name, spec in boards.items() if chain_matches(spec, cable)
+            name for name, item in boards.items() if chain_matches(item, cable)
         )
         entry = inventory.by_port(port)
         reports.append(

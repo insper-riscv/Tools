@@ -33,12 +33,6 @@ def _host_options(p: argparse.ArgumentParser) -> None:
         help="label of the host in the lock file names (default: the short "
         "hostname, or RISCV_TOOLS_HOST)",
     )
-    p.add_argument(
-        "--idcode",
-        default=None,
-        help="IDCODE of a board that has no board.yaml; it becomes the "
-        "board `adhoc`",
-    )
 
 
 def _select_options(p: argparse.ArgumentParser) -> None:

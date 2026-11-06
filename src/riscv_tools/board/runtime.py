@@ -14,6 +14,7 @@ from typing import Any, cast
 
 import yaml
 
+from riscv_tools.board.errors import BoardError
 from riscv_tools.board.inventory import load_inventory
 from riscv_tools.board.select import (
     AUTO,
@@ -22,8 +23,8 @@ from riscv_tools.board.select import (
     Selection,
     select_board,
 )
-from riscv_tools.board.spec import BoardSpec, adhoc_board, load_boards
 from riscv_tools.board.usb import port_path
+from riscv_tools.board_schema import Board, Catalog, SchemaError
 from riscv_tools.jtag.hardware import read_cables
 
 BOARDS_ENV = "RISCV_TOOLS_BOARDS"
@@ -64,7 +65,7 @@ def override_request() -> Request:
 
 
 def boards_directories(explicit: list[str], root: Path) -> list[Path]:
-    """List where the board packages are looked for.
+    """List the `boards/` folders of the catalog to read.
 
     Parameters
     ----------
@@ -76,15 +77,45 @@ def boards_directories(explicit: list[str], root: Path) -> list[Path]:
     Returns
     -------
     list of Path
-        The explicit ones, those of `RISCV_TOOLS_BOARDS`, then
-        `<root>/boards` and `<root>/Insper-RISC-V/boards`.
+        The explicit ones, those of `RISCV_TOOLS_BOARDS`, then the
+        `boards/` folder of the catalog at the root and at
+        `<root>/Insper-RISC-V`.
     """
     env = [p for p in os.environ.get(BOARDS_ENV, "").split(os.pathsep) if p]
-    chosen = [*explicit, *env]
-    return [Path(p) for p in chosen] + [
-        root / "boards",
-        root / "Insper-RISC-V" / "boards",
+    return [Path(p) for p in [*explicit, *env]] + [
+        Catalog.for_root(root).boards,
+        Catalog.for_root(root / "Insper-RISC-V").boards,
     ]
+
+
+def load_boards(directories: list[Path]) -> dict[str, Board]:
+    """Read every board of the catalogs in the folders.
+
+    Parameters
+    ----------
+    directories : list of Path
+        `boards/` folders; a missing one is skipped, and a board found
+        twice keeps the first.
+
+    Returns
+    -------
+    dict of {str: Board}
+        The boards by identifier, sorted by it.
+
+    Raises
+    ------
+    BoardError
+        A `board.yaml` does not follow the schema.
+    """
+    found: dict[str, Board] = {}
+    for directory in directories:
+        catalog = Catalog(directory, directory)
+        for name in catalog.board_names():
+            try:
+                found.setdefault(name, catalog.load_board(name))
+            except SchemaError as error:
+                raise BoardError(f"board {name}: {error}") from error
+    return dict(sorted(found.items()))
 
 
 def platform_choice(path: Path | None) -> tuple[str | None, tuple[str, ...]]:
@@ -117,36 +148,29 @@ def build_environment(
     directories: list[Path],
     inventory: Path | None = None,
     host: str | None = None,
-    idcode: str | None = None,
-) -> tuple[Environment, str | None]:
+) -> Environment:
     """Read the host and build the environment of the selection.
 
     Parameters
     ----------
     directories : list of Path
-        Where the board packages are.
+        The `boards/` folders of the catalog.
     inventory : Path, optional
         The inventory file in place of the default.
     host : str, optional
         The label of the host.
-    idcode : str, optional
-        The IDCODE of a board without a package; it becomes the board
-        `adhoc`, returned as the second value.
 
     Returns
     -------
-    tuple of (Environment, str or None)
-        The environment and the name of the ad hoc board, if any.
+    Environment
+        The boards, the inventory, the cables and the ports.
     """
-    boards: dict[str, BoardSpec] = load_boards(directories)
-    name = None
-    if idcode:
-        name = "adhoc"
-        boards[name] = adhoc_board(idcode, name)
-    env = Environment(
-        boards, load_inventory(inventory, host), read_cables(), port_path
+    return Environment(
+        load_boards(directories),
+        load_inventory(inventory, host),
+        read_cables(),
+        port_path,
     )
-    return env, name
 
 
 def select_for_config(cfg: dict[str, Any], root: Path) -> Selection:
@@ -166,7 +190,7 @@ def select_for_config(cfg: dict[str, Any], root: Path) -> Selection:
     """
     quartus = cfg["quartus"]
     request = override_request()
-    env, _ = build_environment(boards_directories([], root))
+    env = build_environment(boards_directories([], root))
     return select_board(
         env,
         Request(

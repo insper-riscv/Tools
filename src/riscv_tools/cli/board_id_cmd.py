@@ -35,21 +35,25 @@ from riscv_tools.board.usb import list_cable_users, read_usb
 from riscv_tools.cli.common import project_root
 
 
-def _environment(args: argparse.Namespace) -> tuple[Environment, str | None]:
+def _environment(args: argparse.Namespace) -> Environment:
     """Read the host the way the options say."""
     directories = boards_directories(args.boards_dir, project_root(args))
     inventory = Path(args.inventory) if args.inventory else None
-    return build_environment(directories, inventory, args.host, args.idcode)
+    try:
+        return build_environment(directories, inventory, args.host)
+    except BoardError as error:
+        _fail(error)
+        raise
 
 
-def _request(args: argparse.Namespace, adhoc: str | None) -> Request:
+def _request(args: argparse.Namespace) -> Request:
     """Build the selection request from the options."""
     platform = Path(args.platform) if args.platform else None
     board, allowed = platform_choice(platform)
     return Request(
         cable=args.cable,
         board_id=args.board_id,
-        board=args.board or adhoc,
+        board=args.board,
         platform_board=board,
         allowed=allowed,
         free=args.free,
@@ -134,7 +138,7 @@ def cmd_board_scan(args: argparse.Namespace) -> None:
         Parsed CLI arguments: boards_dir, inventory, host, save,
         assign, json.
     """
-    env, _ = _environment(args)
+    env = _environment(args)
     reports = scan(env.cables, env.boards, env.inventory, env.resolve_port)
     if args.json:
         print(_scan_json(reports))
@@ -156,8 +160,8 @@ def cmd_board_select(args: argparse.Namespace) -> None:
     args : argparse.Namespace
         Parsed CLI arguments: the selection options, json, all.
     """
-    env, adhoc = _environment(args)
-    request = _request(args, adhoc)
+    env = _environment(args)
+    request = _request(args)
     try:
         if args.all:
             name = request.board or request.platform_board
@@ -198,7 +202,7 @@ def cmd_board_lock(args: argparse.Namespace) -> None:
         Parsed CLI arguments: the selection options, wait, hold,
         command.
     """
-    env, adhoc = _environment(args)
+    env = _environment(args)
     command: list[str] = list(args.lock_command)
     if command[:1] == ["--"]:
         command = command[1:]
@@ -206,7 +210,7 @@ def cmd_board_lock(args: argparse.Namespace) -> None:
         sys.exit("board lock needs a command after `--`, or --hold")
     code = 0
     try:
-        selection = select_board(env, _request(args, adhoc))
+        selection = select_board(env, _request(args))
         started = time.monotonic()
         with BoardLock(selection.lock_file, args.wait):
             if time.monotonic() - started > 1:
@@ -229,7 +233,7 @@ def _doctor_checks(args: argparse.Namespace) -> list[Check]:
     if shutil.which("jtagconfig") is None:
         return [missing_tool()]
     try:
-        env, _ = _environment(args)
+        env = _environment(args)
     except subprocess.CalledProcessError as error:
         return [Check("jtagconfig", FAIL, f"failed: {error}")]
     return run_doctor(env, read_usb(), list_cable_users())

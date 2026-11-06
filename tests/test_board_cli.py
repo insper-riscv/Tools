@@ -124,36 +124,6 @@ def test_select_all_lists_every_present_board(
     )
 
 
-def test_an_idcode_without_a_package_selects_an_adhoc_board(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    """`--idcode` serves a board that has no board.yaml yet."""
-    code = _run(
-        monkeypatch,
-        tmp_path,
-        "four-cables",
-        "board",
-        "select",
-        "--inventory",
-        str(tmp_path / "none.yaml"),
-        "--host",
-        "ws",
-        "--boards-dir",
-        str(tmp_path / "empty"),
-        "--idcode",
-        "02B050DD",
-        "--json",
-    )
-    check_equal(code, 0, "status")
-    check_equal(
-        json.loads(capsys.readouterr().out)["cable"],
-        "USB-Blaster [1-2]",
-        "cable",
-    )
-
-
 def test_scan_save_writes_the_inventory(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

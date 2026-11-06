@@ -1,5 +1,47 @@
+# Pacote da Terasic DE0-Nano. Esquema: docs/pt-br/boards/formato.md. Ficha: Plans/Multi-FPGA/placas/de0-nano.md.
 board: de0-nano
+name: Terasic DE0-Nano
+family: cyclone-iv-e
 device: EP4CE22F17C6
+speed_grade: C6
+target_level: N3
 jtag:
   cable: usb-blaster
-  chain: [{name: "10CL025(Y|Z)/EP3C25/EP4CE22", idcode: "020F30DD", fpga: true}]
+  chain:
+    - {name: "10CL025(Y|Z)/EP3C25/EP4CE22", idcode: "020F30DD", fpga: true, confirmed: measured}
+resources:
+  logic:       {unit: le, total: 22320}
+  block_ram:   {kind: m9k, blocks: 66, bits_per_block: 9216}
+  multipliers: {kind: dsp9x9, total: 132}
+  plls: 4
+  user_pins: 153
+clocks:
+  inputs:
+    - {name: clock_50, signal: CLOCK_50, mhz: 50}
+  reference: clock_50
+  reset: {signal: "KEY[0]", active: low}
+io:
+  leds:     {signals: "LED[7:0]", active: high}
+  switches: {signals: "DIP[3:0]", active: high}
+  keys:     {signals: "KEY[1:0]", active: low}
+memories:
+  sdram:
+    chip: IS42S16160B-7
+    chips: 1
+    signals: DRAM
+    clk_phase_ps: null
+  serial_flash:
+    chip: EPCS64
+    bytes: 8388608
+    shared_with_config: true
+console:
+  default: jtag
+pins: pins.yaml
+notes:
+  - "Sem botao de reset dedicado: o reset do SoC e o KEY[0]. Sem display, VGA, SD nem UART; o unico console e a JTAG UART."
+  - "O chip da SDRAM (IS42S16160B-7) e inferido de uma porta VHDL de terceiros; o manual so da 16M x 16."
+  - "A capacidade do EPCS varia por revisao da placa (EPCS4, EPCS16 ou EPCS64); 8 MiB vale para o manual v1.9 e deve ser conferido pelo ID JEDEC. O EPCS guarda tambem o bitstream (cerca de 0,75 MB)."
+  - "Logica, M9K, multiplicadores e PLLs vem de fonte secundaria (listagem de distribuidor); user_pins (153) vem do manual."
+  - "Os multiplicadores sao contados em elementos de 9 bits (66 de 18x18)."
+  - "Todos os bancos sao 3.3 V. DIP[3:0] leva nivel alto na posicao baixa (manual, tabela 3-3)."
+  - "A identificacao da placa pelo IDCODE e inferida: 020F30DD e o do EP4CE22, e a DE0-Nano e a unica placa Terasic DE0 com esse dispositivo."

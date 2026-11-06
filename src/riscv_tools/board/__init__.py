@@ -11,16 +11,13 @@ from riscv_tools.board.select import (
     present,
     select_board,
 )
-from riscv_tools.board.spec import BoardSpec, ExpectedDevice
 
 __all__ = [
     "BoardBusyError",
     "BoardError",
     "BoardLock",
-    "BoardSpec",
     "CableReport",
     "Environment",
-    "ExpectedDevice",
     "Inventory",
     "InventoryEntry",
     "Request",

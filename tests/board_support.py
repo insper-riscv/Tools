@@ -3,8 +3,8 @@
 from pathlib import Path
 
 from riscv_tools.board.inventory import Inventory, InventoryEntry
+from riscv_tools.board.runtime import load_boards
 from riscv_tools.board.select import Environment
-from riscv_tools.board.spec import load_boards
 from riscv_tools.jtag.hardware import parse_jtagconfig
 
 FIXTURES = Path(__file__).parent / "fixtures"

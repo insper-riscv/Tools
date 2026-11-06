@@ -20,9 +20,11 @@ from riscv_tools.board.scan import (
     CableReport,
     PortResolver,
     chain_matches,
+    fpga_of,
     scan,
 )
-from riscv_tools.board.spec import BoardSpec
+from riscv_tools.board_check import check_chain
+from riscv_tools.board_schema import Board
 from riscv_tools.jtag.hardware import Cable, ChainDevice, same_idcode
 
 AUTO = "auto"
@@ -63,7 +65,7 @@ class Environment:
 
     Attributes
     ----------
-    boards : dict of {str: BoardSpec}
+    boards : dict of {str: Board}
         The known boards.
     inventory : Inventory
         The inventory of the host.
@@ -75,7 +77,7 @@ class Environment:
         Tells whether a lock file is free.
     """
 
-    boards: dict[str, BoardSpec]
+    boards: dict[str, Board]
     inventory: Inventory
     cables: list[Cable]
     resolve_port: PortResolver
@@ -188,15 +190,15 @@ class Selection:
         }
 
 
-def _warnings(spec: BoardSpec, cable: Cable) -> tuple[str, ...]:
+def _warnings(spec: Board, cable: Cable) -> tuple[str, ...]:
     """Say what the IDCODE does not prove (case 6 and case 4)."""
-    fpga = spec.fpga
+    fpga = fpga_of(spec)
     for device in cable.devices:
         if same_idcode(device.idcode, fpga.idcode) and "/" in device.name:
             return (
                 f"IDCODE {device.idcode} does not prove the variant: Quartus "
                 f"names it {device.name} and {spec.board} declares "
-                f"{spec.device or 'no device'}",
+                f"{spec.device}",
             )
     return ()
 
@@ -204,7 +206,7 @@ def _warnings(spec: BoardSpec, cable: Cable) -> tuple[str, ...]:
 def _selection(env: Environment, report: CableReport, board: str) -> Selection:
     """Build the selection of one cable taken as a board."""
     spec = env.boards[board]
-    fpga = spec.fpga
+    fpga = fpga_of(spec)
     device = next(
         d for d in report.cable.devices if same_idcode(d.idcode, fpga.idcode)
     )
@@ -224,7 +226,9 @@ def _selection(env: Environment, report: CableReport, board: str) -> Selection:
 def _searched(env: Environment, wanted: set[str] | None) -> str:
     """List the IDCODEs searched and the cables seen, for an error."""
     names = sorted(wanted if wanted is not None else env.boards)
-    ids = sorted({env.boards[n].fpga.idcode for n in names if n in env.boards})
+    ids = sorted(
+        {fpga_of(env.boards[n]).idcode for n in names if n in env.boards}
+    )
     seen = [c.name for c in env.cables] or ["no cable"]
     return f"searched IDCODEs {', '.join(ids)}; cables seen: {', '.join(seen)}"
 
@@ -318,6 +322,24 @@ def _forced_report(env: Environment, request: Request) -> CableReport:
     )
 
 
+def _chain_mismatch(
+    env: Environment, request: Request, expected: str | None, cable: Cable
+) -> BoardError:
+    """Build the error of a forced cable with the wrong chain."""
+    observed = [d.idcode for d in cable.devices]
+    found = (
+        check_chain(env.boards[expected], request.cable or "", observed)
+        if expected
+        else []
+    )
+    text = (
+        found[0].text
+        if found
+        else f"the chain of {request.cable} matches no known board: {observed}"
+    )
+    return BoardError(text, case=7)
+
+
 def _by_cable(env: Environment, request: Request) -> Selection:
     """Use the cable that was forced; the IDCODE is still checked."""
     report = _forced_report(env, request)
@@ -329,12 +351,7 @@ def _by_cable(env: Environment, request: Request) -> Selection:
         b for b in options if chain_matches(env.boards[b], report.cable)
     ]
     if not options:
-        raise BoardError(
-            f"the chain of {request.cable} does not match "
-            f"{expected or 'any known board'}: "
-            f"{[d.idcode for d in report.cable.devices]}",
-            case=7,
-        )
+        raise _chain_mismatch(env, request, expected, report.cable)
     if len(options) > 1:
         raise BoardError(
             f"{request.cable} may be {', '.join(options)}; add --board",

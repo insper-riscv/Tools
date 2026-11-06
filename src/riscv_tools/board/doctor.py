@@ -143,7 +143,7 @@ def _usb_checks(env: Environment, usb: list[UsbDevice]) -> list[Check]:
     ids = {d.ident for d in usb}
     checks: list[Check] = []
     if ARDUINO_MKR_VIDOR in ids and not any(
-        env.boards[b].cable == "samd21-usbblaster"
+        env.boards[b].jtag.cable == "samd21-usbblaster"
         for r in env.reports()
         for b in r.candidates
     ):

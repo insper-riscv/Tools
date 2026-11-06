@@ -16,7 +16,6 @@ from riscv_tools.board import (
 )
 from riscv_tools.board.inventory import Inventory
 from riscv_tools.board.register import register
-from riscv_tools.board.spec import parse_board
 from riscv_tools.jtag.hardware import parse_jtagconfig, same_idcode
 
 DE0CV = InventoryEntry("de0-cv-ws", "de0-cv", "pci-0000:00:14.0-usb-0:2")
@@ -234,7 +233,7 @@ def test_the_precedence_cable_id_board_platform() -> None:
 def test_a_forced_cable_still_checks_the_idcode() -> None:
     """--cable with a board whose IDCODE the cable lacks is refused."""
     env = host("four-cables")
-    with pytest.raises(BoardError, match="does not match de0-cv"):
+    with pytest.raises(BoardError, match="expects IDCODE 02B050DD"):
         select_board(env, Request(cable="USB-Blaster [1-3]", board="de0-cv"))
     with pytest.raises(BoardError, match="not found"):
         select_board(env, Request(cable="USB-Blaster [9-9]"))
@@ -302,16 +301,3 @@ def test_the_scan_reports_candidates_and_problems() -> None:
     report = scan(env.cables, env.boards, env.inventory, env.resolve_port)[0]
     check_equal(report.candidates, (), "no candidate")
     check_equal(report.problem is not None, True, "problem")
-
-
-def test_board_yaml_errors_are_reported() -> None:
-    """A board.yaml without a chain or with a bad IDCODE is an error."""
-    with pytest.raises(BoardError, match=r"jtag\.chain"):
-        parse_board({"board": "x"}, "x.yaml")
-    bad = {"board": "x", "jtag": {"chain": [{"idcode": "12"}]}}
-    with pytest.raises(BoardError, match="8 hex digits"):
-        parse_board(bad, "x.yaml")
-    spec = parse_board(
-        {"board": "x", "jtag": {"chain": [{"idcode": "0x02b050dd"}]}}, "x"
-    )
-    check_equal(spec.fpga.idcode, "02B050DD", "idcode")

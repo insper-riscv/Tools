@@ -1,5 +1,55 @@
+# Pacote da Terasic DE2-115. Esquema: docs/pt-br/boards/formato.md. Ficha: Plans/Multi-FPGA/placas/de2-115.md.
 board: de2-115
+name: Terasic DE2-115
+family: cyclone-iv-e
 device: EP4CE115F29C7
+speed_grade: C7
+target_level: N4
 jtag:
   cable: usb-blaster
-  chain: [{name: "10CL120(Y|Z)/EP3C120", idcode: "020F70DD", fpga: true}]
+  chain:
+    - {name: "10CL120(Y|Z)/EP3C120/..", idcode: "020F70DD", fpga: true, confirmed: measured}
+resources:
+  logic:       {unit: le, total: 114480}
+  block_ram:   {kind: m9k, blocks: 432, bits_per_block: 9216}
+  multipliers: {kind: dsp9x9, total: 532}
+  plls: 4
+  user_pins: null
+clocks:
+  inputs:
+    - {name: clock_50,  signal: CLOCK_50,  mhz: 50}
+    - {name: clock2_50, signal: CLOCK2_50, mhz: 50}
+    - {name: clock3_50, signal: CLOCK3_50, mhz: 50}
+  reference: clock_50
+  reset: {signal: "KEY[0]", active: low}
+io:
+  leds:     {signals: "LEDR[17:0]",     active: high}
+  switches: {signals: "SW[17:0]",       active: high}
+  keys:     {signals: "KEY[3:0]",       active: low}
+  display:  {signals: "HEX[7:0][6:0]",  active: low}
+memories:
+  sdram:
+    chip: IS42S16320B-7
+    chips: 2
+    signals: DRAM
+    clk_phase_ps: null
+  sram:
+    chip: IS61WV102416BLL-10
+    bus_width: 16
+    signals: SRAM
+  nor:
+    chip: S29GL064N90
+    bus_width: 8
+    signals: FL
+console:
+  default: jtag
+  uart: {rx: UART_RXD, tx: UART_TXD}
+pins: pins.yaml
+notes:
+  - "JP6 e JP7 mudam a tensao dos bancos de usuario: KEY, SW e parte dos HEX seguem o JP7 (fabrica 2.5 V), o GPIO e o SMA_CLKOUT seguem o JP6 (fabrica 3.3 V). O io_standard de cada pino esta em pins.yaml."
+  - "JP3 com os pinos 1 e 2 fechados isola a cadeia JTAG do HSMC, de modo que so o EP4CE115 aparece na cadeia."
+  - "A chave RUN/PROG (SW19) fica em RUN para configurar pela JTAG; PROG so para o modo AS (EPCS64)."
+  - "As pecas da SDRAM (IS42S16320B-7), da SRAM e da FLASH (S29GL064N90, sufixo nao verificado) sao inferidas de fonte de terceiros; o mapa de setores da FLASH e os tempos dependem do datasheet."
+  - "A FLASH NOR liga 8 bits (BYTE# em GND): uma palavra de 32 bits custa quatro leituras."
+  - "A SDRAM tem dois chips de 16 bits com controle e endereco em comum e um unico DRAM_CLK; a largura efetiva e de 32 bits."
+  - "O codigo do dispositivo na cadeia e compartilhado com o 10CL120 e o EP3C120; a placa e distinguida pelo inventario do host (documento 03 do plano)."

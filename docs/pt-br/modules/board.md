@@ -4,7 +4,7 @@ Descobre qual placa está ligada ao host, escolhe a placa certa para uma platafo
 
 ## 1. Referência
 
-O plano de identificação pelo JTAG (`Plans/Multi-FPGA/03-IDENTIFICACAO-PELO-JTAG.md`) define o algoritmo, os nove casos de ambiguidade e a trava por placa. As placas conhecidas vêm dos pacotes `<pasta>/<placa>/board.yaml` do Insper-RISC-V, dos quais só a parte `jtag` é lida.
+O plano de identificação pelo JTAG (`Plans/Multi-FPGA/03-IDENTIFICACAO-PELO-JTAG.md`) define o algoritmo, os nove casos de ambiguidade e a trava por placa. As placas conhecidas vêm do catálogo lido pelo módulo `board_schema` (`Catalog`, pacotes `boards/<placa>/board.yaml` do Insper-RISC-V); deste módulo só a parte `jtag` é usada.
 
 ```yaml
 board: de0-cv
@@ -25,7 +25,7 @@ A placa é o par (IDCODE da cadeia, caminho estável da porta USB). O IDCODE diz
 | Nome do cabo (`USB-Blaster [1-2]`) | Só o argumento `-c` da sessão, nunca chave |
 | Número de série USB | Descartado, porque o mesmo valor aparece em vários cabos |
 
-A cadeia de uma candidata deve conter os IDCODEs do `board.yaml`, na ordem. O cabo `DE-SoC` e o `USB-BlasterII` são do tipo `usb-blaster-ii`, e os demais são `usb-blaster`.
+A cadeia de uma candidata é comparada com a do `board.yaml` pela regra V17 do validador (`board_check.check_chain`), a mesma função que confere a plataforma. O cabo `DE-SoC` e o `USB-BlasterII` são do tipo `usb-blaster-ii`, e os demais são `usb-blaster`.
 
 ## 3. Inventário do host
 
@@ -50,7 +50,7 @@ Sem o arquivo, uma placa com uma só candidata ainda é identificada, e o `host`
 | `board lock <opções de select> [--wait [S]] (-- comando \| --hold)` | Escolhe, trava e roda o comando sob a trava, ou segura a trava até a entrada padrão fechar |
 | `board doctor [--json]` | Verifica cabo, cadeia, processos e as placas especiais, sem alterar nada |
 
-As opções de local são `--boards-dir` (repetível, além de `RISCV_TOOLS_BOARDS` e de `<raiz>/Insper-RISC-V/boards`), `--inventory`, `--host` e `--idcode`. O `--idcode` serve a uma placa sem pacote, que passa a se chamar `adhoc`.
+As opções de local são `--boards-dir` (repetível, pasta `boards/` de um catálogo, além de `RISCV_TOOLS_BOARDS`, `<raiz>/boards` e `<raiz>/Insper-RISC-V/boards`), `--inventory` e `--host`.
 
 A saída de `select` traz `board`, `id`, `cable`, `device` (a identidade `@N: nome (0xIDCODE)` do FPGA na cadeia, no formato de `quartus.jtag_device`), `idcode`, `port`, `lock_file`, `warnings` e `free`. O código de saída é 2 para erro de seleção, com o número do caso, e 3 quando todas as placas estão ocupadas.
 
