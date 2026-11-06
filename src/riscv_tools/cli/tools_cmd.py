@@ -195,7 +195,7 @@ def cmd_generate_memory_map(args: argparse.Namespace) -> None:
     """Implement `riscv-tools generate-memory-map`.
 
     Writes the files the platform YAML asks for under `generate` (the
-    linker flags, the linker script of the boot ROM and the VHDL
+    linker flags, the linker script of the boot memory and the VHDL
     package of the map), or with `--check` only compares them with
     what is on disk.
 

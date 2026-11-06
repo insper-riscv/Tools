@@ -123,7 +123,7 @@ class MifInit:
 def full_reconfigure(
     project: QuartusProject,
     rom: MifInit,
-    boot_rom: MifInit | None = None,
+    boot_memory: MifInit | None = None,
 ) -> None:
     """Compile the whole Quartus project and program the board.
 
@@ -138,10 +138,10 @@ def full_reconfigure(
         The Quartus project to compile and program.
     rom : MifInit
         The .mif to bake in as the ROM's initial content.
-    boot_rom : MifInit, optional
+    boot_memory : MifInit, optional
         The .mif to bake in as the shared bootloader's initial content
-        (quartus.boot_rom_mif_target), only for a project with a
-        BOOT_ROM/FLASH/RAM split. It is written only by this full
+        (quartus.boot_memory_mif_target), only for a project with a
+        BOOT_MEMORY/FLASH/RAM split. It is written only by this full
         compile, never per test.
 
     Returns
@@ -151,7 +151,7 @@ def full_reconfigure(
     # The memory instances may get other indices with the new design.
     mem_edit.invalidate()
     project_dir = project.project_dir
-    for init in (rom, boot_rom):
+    for init in (rom, boot_memory):
         if init is not None:
             target = project_dir / init.target
             target.parent.mkdir(parents=True, exist_ok=True)

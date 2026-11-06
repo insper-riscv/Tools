@@ -8,7 +8,7 @@ from typing import Any
 
 from riscv_tools import (
     bin_to_image,
-    boot_rom,
+    boot_memory,
     orchestrator,
     sim_runner,
 )
@@ -323,29 +323,29 @@ def cmd_sim(args: argparse.Namespace) -> None:
     )
 
     # Built ONCE per invocation, reused across every manifest entry --
-    # see boot_rom.build_boot_rom / sim_runner.run_suite's own
-    # boot_rom_hex_path parameter. Only meaningful for a project whose
-    # sim toplevel actually has a BOOT_ROM/FLASH split (paths.boot_rom
-    # set) -- skipped otherwise.
-    boot_rom_hex_path = None
-    boot_rom_mif_path = None
-    if cfg.get("paths", {}).get("boot_rom"):
-        boot_rom_dir = build_dir / "boot_rom"
-        boot_rom_hex_path = boot_rom.build_boot_rom(
+    # see boot_memory.build_boot_memory / sim_runner.run_suite's own
+    # boot_memory_hex_path parameter. Only meaningful for a project
+    # whose sim toplevel actually has a BOOT_MEMORY/FLASH split
+    # (paths.boot_memory set) -- skipped otherwise.
+    boot_memory_hex_path = None
+    boot_memory_mif_path = None
+    if cfg.get("paths", {}).get("boot_memory"):
+        boot_memory_dir = build_dir / "boot_memory"
+        boot_memory_hex_path = boot_memory.build_boot_memory(
             cfg["toolchain"],
             cfg["paths"],
             root,
-            boot_rom_dir,
-            boot_rom.BootRomOptions(
+            boot_memory_dir,
+            boot_memory.BootMemoryOptions(
                 hex_format=cfg["sim"]["hex_format"], base=cfg["isa"]["base"]
             ),
         )
         if use_mif:
-            boot_rom_mif_path = boot_rom_dir / "boot_rom.mif"
+            boot_memory_mif_path = boot_memory_dir / "boot_memory.mif"
             bin_to_image.bin_to_mif(
-                boot_rom_dir / "boot_rom.bin",
-                boot_rom_mif_path,
-                depth=cfg["memory"]["boot_rom_words"],
+                boot_memory_dir / "boot_memory.bin",
+                boot_memory_mif_path,
+                depth=cfg["memory"]["boot_memory_words"],
             )
 
     results = sim_runner.run_suite(
@@ -353,8 +353,8 @@ def cmd_sim(args: argparse.Namespace) -> None:
         manifest,
         root,
         build_dir / "sim_work",
-        boot_rom_hex_path=boot_rom_hex_path,
-        boot_rom_mif_path=boot_rom_mif_path,
+        boot_memory_hex_path=boot_memory_hex_path,
+        boot_memory_mif_path=boot_memory_mif_path,
     )
 
     print("\n=== Summary ===")

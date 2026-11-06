@@ -1,4 +1,4 @@
-/* Reduced boot ROM for the picolibc runtime: clears the four HTIF words
+/* Reduced boot memory for the picolibc runtime: clears the four HTIF words
  * (tohost and fromhost, 64 bits each, at the top of RAM) and jumps to
  * FLASH_BASE, where the toolchain's crt0 (_start) is. */
     .section .text.reset
@@ -14,7 +14,7 @@ _reset:
 
     /* Where every test ends (RV32_PASS/RV32_FAIL, _exit): the test has
      * written tohost already, so wait for the host to write fromhost and
-     * start over. Fixed at 0x100 by boot_rom.ld and, for a test's image,
+     * start over. Fixed at 0x100 by boot_memory.ld and, for a test's image,
      * by `--defsym=rv32_wait_restart=0x100` in the specs file. */
     .section .text.wait_restart
     .global rv32_wait_restart

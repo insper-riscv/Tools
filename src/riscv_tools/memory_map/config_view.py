@@ -8,20 +8,20 @@ and which simulation memories take their address width from the map:
 config:
   rom: FLASH
   ram: RAM
-  addr_widths: [boot_rom, rom, ram]
+  addr_widths: [boot_memory, rom, ram]
 ```
 
 The base ISA of the platform's `profile` (`i` or `e`) becomes
 `isa.base`, which picks `-march` and `-mabi` of the programs and of the
-boot ROM.
+boot memory.
 The values come out as the `memory` keys the tools read
-(`boot_rom_base`, `boot_rom_words`, `rom_base`, `rom_words`, `ram_base`,
-`ram_words`, `tohost_addr` and `fromhost_addr`), as the `TOHOST_ADDR`
-and `STDOUT_ADDR` environment of the simulation and as the
+(`boot_memory_base`, `boot_memory_words`, `rom_base`, `rom_words`,
+`ram_base`, `ram_words`, `tohost_addr` and `fromhost_addr`), as the
+`TOHOST_ADDR` and `STDOUT_ADDR` environment of the simulation and as the
 `sim.parameters.*_addr_width`, so no address or size is typed twice.
 With a `memory` section (see `memory`) the parameters also carry the
 choice of memories and caches, and `addr_widths` may be left out: it
-then lists the boot ROM and each internal memory.
+then lists the boot memory and each internal memory.
 """
 
 from pathlib import Path
@@ -75,8 +75,8 @@ def _memory(platform: dict[str, Any], table: dict[str, int]) -> dict[str, int]:
     boot = platform_list(platform, "regions")[0]["name"]
     rom, ram = spec["rom"], spec["ram"]
     memory = {
-        "boot_rom_base": table[f"{boot}.base"],
-        "boot_rom_words": table[f"{boot}.words"],
+        "boot_memory_base": table[f"{boot}.base"],
+        "boot_memory_words": table[f"{boot}.words"],
         "rom_base": table[f"{rom}.base"],
         "rom_words": table[f"{rom}.words"],
         "ram_base": table[f"{ram}.base"],
@@ -113,7 +113,7 @@ def _parameters(
         The address widths, `HAS_E` and one `HAS_*` per extension.
     """
     words = {
-        "boot_rom": memory["boot_rom_words"],
+        "boot_memory": memory["boot_memory_words"],
         "rom": memory["rom_words"],
         "ram": memory["ram_words"],
     }

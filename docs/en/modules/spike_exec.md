@@ -8,7 +8,7 @@ Prepares and launches Spike runs. It is the shared step behind [`golden_generato
 | :--- | :--- |
 | Preflight | Finds `emulator.spike_bin` on `PATH` (or as a path) and probes it once per process. A Spike that places its debug module at address 0 aborts with `devices at [0, 1000) and [0, 10000) overlap` whenever the target's ROM starts at address 0, so it is rejected with a pointer to the `manual/SPIKE_SETUP.md` of Infra. |
 | ELF preparation | Copies the ELF to a temporary directory and, with `objcopy --add-symbol`, defines what Spike needs: `fromhost` right after `tohost` when the link script doesn't define it (without both, Spike warns and never exits on completion), a `tohost` alias when `emulator.tohost_symbol` names it differently, and any extra symbols a caller asks for (such as `begin_signature`). The original ELF is never modified. |
-| Command line | `--isa`, one `-m` region per real memory, `--disable-dtb` and `--pc`. Spike's own default memory sits at `0x80000000` and its reset vector goes through a boot ROM at `0x1000`, both of which collide with a target whose memory starts near address 0. |
+| Command line | `--isa`, one `-m` region per real memory, `--disable-dtb` and `--pc`. Spike's own default memory sits at `0x80000000` and its reset vector goes through a boot memory at `0x1000`, both of which collide with a target whose memory starts near address 0. |
 
 ## Configuration
 

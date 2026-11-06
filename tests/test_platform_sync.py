@@ -23,7 +23,7 @@ BASE = """\
 toolchain:
   specs: src/sim/runtime/rv32im-fpga.specs
 paths:
-  boot_rom: src/sim/runtime/boot_rom.S
+  boot_memory: src/sim/runtime/boot_memory.S
   sources: [src/sim/runtime/_exit.c, src/sim/runtime/stdio.c]
   include_dir: include
 quartus:

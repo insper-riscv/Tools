@@ -27,15 +27,15 @@ variável vazia de CI transforme `--only` numa execução da suíte inteira.
 | `sim.run_files` | Arquivos copiados para o diretório de execução de cada teste, como `{nome do arquivo: origem}`. Vazio por padrão. |
 | `sim.env` | Variáveis de ambiente extras para o módulo de teste cocotb, como `{nome: modelo}`. Vazio por padrão. |
 
-As quatro últimas usam modelos: `{hex_path}`, `{mif_path}`, `{boot_rom_hex_path}` e `{boot_rom_mif_path}` são substituídos por teste (veja [configuration.md](../configuration.md)).
+As quatro últimas usam modelos: `{hex_path}`, `{mif_path}`, `{boot_memory_hex_path}` e `{boot_memory_mif_path}` são substituídos por teste (veja [configuration.md](../configuration.md)).
 
 ## Simulando com as memórias do hardware
 
 Por padrão a simulação carrega imagens `.hex` em modelos de memória feitos de arrays VHDL simples. Um projeto cujo topo de hardware instancia a IP de memória do fornecedor (o `altsyncram` do Quartus) pode ser simulado com essa IP, para que as memórias simuladas se comportem como as da FPGA. As peças são todas configuração:
 
-1. `sim.image: mif`, para cada teste carregar o `.mif` que o `compile --emit mif` escreve e que o hardware carrega, e para o `.mif` da boot ROM também ser gerado.
+1. `sim.image: mif`, para cada teste carregar o `.mif` que o `compile --emit mif` escreve e que o hardware carrega, e para o `.mif` da memória de boot também ser gerado.
 2. `sim.libraries`, com a biblioteca do fornecedor (no Quartus, `altera_mf_components.vhd` e depois `altera_mf.vhd`, do diretório `eda/sim_lib` da instalação, por uma variável de ambiente para o caminho não ficar fixo) e `sim.ghdl_flags` com o que essa biblioteca exige (`-fsynopsys -fexplicit -frelaxed`). A biblioteca é analisada uma vez por execução do `sim`, abaixo de `<build_dir>/sim/sim_work/<perfil-de-simulacao>/libraries`. Cada configuração `sim` distinta recebe um diretório de perfil estável e separado, com um prefixo legível do toplevel e uma impressão digital da configuração, evitando que unidades incompatíveis do GHDL atravessem perfis mesmo quando usam a mesma entidade de topo.
-3. `sim.run_files`, porque a IP lê o conteúdo inicial de um nome de arquivo fixo no VHDL (por exemplo `init.mif`): cada entrada copia a imagem do teste, ou a da boot ROM, para esse nome no diretório de execução.
+3. `sim.run_files`, porque a IP lê o conteúdo inicial de um nome de arquivo fixo no VHDL (por exemplo `init.mif`): cada entrada copia a imagem do teste, ou a da memória de boot, para esse nome no diretório de execução.
 4. `sim.env`, para dizer a um módulo de teste escrito para outro topo (outros nomes de clock e reset, outro limite de tempo) o que dirigir.
 
 O clock e o PLL não fazem parte disso: o modelo de simulação de um PLL em geral não é VHDL (o do Quartus é SystemVerilog, que o GHDL não roda), então o projeto fornece um substituto comportamental com as mesmas portas e parâmetros.

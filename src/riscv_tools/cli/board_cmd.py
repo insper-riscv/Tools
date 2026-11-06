@@ -6,7 +6,7 @@ from pathlib import Path
 
 from riscv_tools import (
     bin_to_image,
-    boot_rom,
+    boot_memory,
     htif,
     quartus_program,
     ram_dump,
@@ -175,31 +175,31 @@ def cmd_program(args: argparse.Namespace) -> None:
     link = jtag_link(cfg)
     root = project_root(args)
 
-    # BOOT_ROM (see riscv_tools.boot_rom) is only ever written here,
-    # as part of this full compile, never JTAG-rewritten per test the
-    # way FLASH (args.mif) is. Only meaningful for a project with a
-    # 3-memory BOOT_ROM/FLASH/RAM split (paths.boot_rom set).
+    # BOOT_MEMORY (see riscv_tools.boot_memory) is only ever written
+    # here, as part of this full compile, never JTAG-rewritten per test
+    # the way FLASH (args.mif) is. Only meaningful for a project with a
+    # 3-memory BOOT_MEMORY/FLASH/RAM split (paths.boot_memory set).
     boot_init: quartus_program.MifInit | None = None
-    if cfg.get("paths", {}).get("boot_rom") and cfg["quartus"].get(
-        "boot_rom_mif_target"
+    if cfg.get("paths", {}).get("boot_memory") and cfg["quartus"].get(
+        "boot_memory_mif_target"
     ):
-        build_dir = root / cfg["paths"]["build_dir"] / "boot_rom"
-        boot_rom.build_boot_rom(
+        build_dir = root / cfg["paths"]["build_dir"] / "boot_memory"
+        boot_memory.build_boot_memory(
             cfg["toolchain"],
             cfg["paths"],
             root,
             build_dir,
-            boot_rom.BootRomOptions(base=cfg["isa"]["base"]),
+            boot_memory.BootMemoryOptions(base=cfg["isa"]["base"]),
         )
-        boot_rom_mif_path = build_dir / "boot_rom.mif"
+        boot_memory_mif_path = build_dir / "boot_memory.mif"
         bin_to_image.bin_to_mif(
-            build_dir / "boot_rom.bin",
-            boot_rom_mif_path,
-            depth=cfg["memory"]["boot_rom_words"],
+            build_dir / "boot_memory.bin",
+            boot_memory_mif_path,
+            depth=cfg["memory"]["boot_memory_words"],
         )
         boot_init = quartus_program.MifInit(
-            target=cfg["quartus"]["boot_rom_mif_target"],
-            path=boot_rom_mif_path,
+            target=cfg["quartus"]["boot_memory_mif_target"],
+            path=boot_memory_mif_path,
         )
 
     quartus_program.full_reconfigure(
@@ -213,7 +213,7 @@ def cmd_program(args: argparse.Namespace) -> None:
         rom=quartus_program.MifInit(
             target=cfg["quartus"]["rom_mif_target"], path=Path(args.mif)
         ),
-        boot_rom=boot_init,
+        boot_memory=boot_init,
     )
 
 

@@ -24,8 +24,8 @@ from riscv_tools.settings import read_config
 
 PATH_KEYS: tuple[tuple[str, ...], ...] = (
     ("toolchain", "specs"),
-    ("paths", "boot_rom"),
-    ("paths", "boot_rom_linker_script"),
+    ("paths", "boot_memory"),
+    ("paths", "boot_memory_linker_script"),
     ("paths", "sources"),
     ("emulator", "sources"),
     ("freq_sweep", "pll_file"),

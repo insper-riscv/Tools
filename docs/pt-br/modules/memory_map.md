@@ -1,6 +1,6 @@
 # `memory_map`
 
-Confere que todas as cópias escritas à mão do mapa de memória de uma plataforma concordam. O mapa (bases e tamanhos das regiões, as palavras que a boot ROM reserva no topo da RAM, os pontos de entrada do boot, as janelas dos periféricos) é necessário em muitos arquivos: flags do linker, boot ROM, runtime C, VHDL, IPs do Quartus, o `config.yaml` do projeto. Cada cópia só é notada quando diverge na placa. Um arquivo YAML, a plataforma, é a fonte da verdade; este módulo lê cada cópia e reporta toda divergência.
+Confere que todas as cópias escritas à mão do mapa de memória de uma plataforma concordam. O mapa (bases e tamanhos das regiões, as palavras que a memória de boot reserva no topo da RAM, os pontos de entrada do boot, as janelas dos periféricos) é necessário em muitos arquivos: flags do linker, memória de boot, runtime C, VHDL, IPs do Quartus, o `config.yaml` do projeto. Cada cópia só é notada quando diverge na placa. Um arquivo YAML, a plataforma, é a fonte da verdade; este módulo lê cada cópia e reporta toda divergência.
 
 ## Configuração
 
@@ -8,7 +8,7 @@ Sem seção no `config.yaml`: o arquivo da plataforma se descreve sozinho e é p
 
 ```yaml
 regions:                      # o mapa em si
-  - {name: BOOT_ROM, base: 0x0,    size: 2K,   kind: rom, exec: true}
+  - {name: BOOT_MEMORY, base: 0x0,    size: 2K,   kind: rom, exec: true}
   - {name: FLASH,    base: 0x800,  size: 30K,  kind: rom, exec: true}
   - {name: RAM,      base: 0x8000, size: 160K, kind: ram}
 reserved:                     # palavras no topo da RAM (dentro de uma região ram)
@@ -31,7 +31,7 @@ checks:                       # onde mora cada cópia
 - **Símbolos** em `expect`: `<REGIÃO>.base|size|end|words`, `<reservado>.base|size|end`, `boot.entry|wait_restart`, `<PERIFÉRICO>.base|id`.
 - **Números** aceitam hexadecimal, decimal, VHDL (`16#800#`), sufixos (`30K`, `0x800u`) e `+ - * /` (divisão exata), além de `log2()` (exato) e `clog2()` (arredonda para cima, para larguras de endereço).
 - Um check cujo padrão não casa nada **falha** ("a cópia mudou de lugar"); `optional: true` ignora um arquivo ausente. Um padrão com vários casamentos precisa concordar em todos.
-- Antes de ler as cópias, o próprio mapa é validado: regiões e palavras reservadas não se sobrepõem, as reservadas ficam dentro de uma região RAM, `boot.entry` está numa região executável, `boot.wait_restart` está na primeira região, e a base de cada periférico bate com o id, e toda região termina em `0x80000000` ou antes (os 2 GiB inferiores são da BOOT_ROM, da ROM e da RAM, e os superiores, dos periféricos).
+- Antes de ler as cópias, o próprio mapa é validado: regiões e palavras reservadas não se sobrepõem, as reservadas ficam dentro de uma região RAM, `boot.entry` está numa região executável, `boot.wait_restart` está na primeira região, e a base de cada periférico bate com o id, e toda região termina em `0x80000000` ou antes (os 2 GiB inferiores são da BOOT_MEMORY, da ROM e da RAM, e os superiores, dos periféricos).
 
 ## Gerar os arquivos do mapa
 
@@ -40,14 +40,14 @@ O mesmo YAML pode dizer, na seção `generate`, quais arquivos saem dele, de mod
 | Chave | Arquivo gerado | Conteúdo |
 | :--- | :--- | :--- |
 | `specs` | Arquivo de specs do GCC | As flags do linker: `__flash`, `__flash_size`, `__ram`, `__ram_size` e `rv32_wait_restart`. A RAM do linker termina onde começa a palavra reservada `ram_limit` |
-| `boot_ld` | Linker script da boot ROM | A memória `boot_rom` na primeira região e o `RESET_RESERVED` de `boot.wait_restart` |
-| `runtime` | Cabeçalho do runtime (`.h`, também incluído por `.S`) | `RV32_RAM_END` (fim da RAM `ram`), `RV32_TOHOST_ADDR`, `RV32_FROMHOST_ADDR` e `RV32_STDOUT_BASE`, das faixas `reserved` que o mapa tem, `RV32_BOOT_ENTRY` (para onde a boot ROM salta) e `RV32_<NOME>_BASE` de cada periférico; o runtime em C e em assembly (`_exit.c`, `stdio.c`, `boot_rom.S`, `spike_exit.S`) usa esses nomes no lugar de endereços escritos à mão |
-| `vhdl` | Pacote VHDL | As constantes `BOOT_ROM_BITS`, `BOOT_ROM_SIZE_BYTES`, `ROM_BASE_KIB`, `ROM_END_KIB`, `ROM_STORAGE_BYTES`, `RAM_BASE_KIB`, `RAM_END_KIB`, `RAM_STORAGE_BYTES`, `RAM_LAST_PAGE`, `EXT_BASE_KIB` e `PERIPH_BASE_KIB`, as flags `ROM_EXTERNAL` e `RAM_EXTERNAL` (de `generate.vhdl` ou da seção `memory`), as constantes das caches da seção `memory` e, de cada periférico, `<NOME>_BASE` e `<NOME>_ID` |
+| `boot_ld` | Linker script da memória de boot | A memória `boot_memory` na primeira região e o `RESET_RESERVED` de `boot.wait_restart` |
+| `runtime` | Cabeçalho do runtime (`.h`, também incluído por `.S`) | `RV32_RAM_END` (fim da RAM `ram`), `RV32_TOHOST_ADDR`, `RV32_FROMHOST_ADDR` e `RV32_STDOUT_BASE`, das faixas `reserved` que o mapa tem, `RV32_BOOT_ENTRY` (para onde a memória de boot salta) e `RV32_<NOME>_BASE` de cada periférico; o runtime em C e em assembly (`_exit.c`, `stdio.c`, `boot_memory.S`, `spike_exit.S`) usa esses nomes no lugar de endereços escritos à mão |
+| `vhdl` | Pacote VHDL | As constantes `BOOT_MEMORY_BITS`, `BOOT_MEMORY_SIZE_BYTES`, `ROM_BASE_KIB`, `ROM_END_KIB`, `ROM_STORAGE_BYTES`, `RAM_BASE_KIB`, `RAM_END_KIB`, `RAM_STORAGE_BYTES`, `RAM_LAST_PAGE`, `EXT_BASE_KIB` e `PERIPH_BASE_KIB`, as flags `ROM_EXTERNAL` e `RAM_EXTERNAL` (de `generate.vhdl` ou da seção `memory`), as constantes das caches da seção `memory` e, de cada periférico, `<NOME>_BASE` e `<NOME>_ID` |
 
 ```yaml
 generate:
   specs: {path: runtime/rv32im-fpga.specs, rom: FLASH, ram: RAM, ram_limit: stdout}
-  boot_ld: {path: runtime/boot_rom.ld}
+  boot_ld: {path: runtime/boot_memory.ld}
   runtime: {path: runtime/memory_map.h, ram: RAM}
   vhdl:
     path: rtl/map_pkg.vhd
@@ -99,11 +99,11 @@ A plataforma escolhe o seu perfil em `profile:` (`rv32im`, `rv32em_zicsr`, ...) 
 | Saída | Conteúdo |
 | :--- | :--- |
 | Pacote VHDL | `HAS_E` (verdadeiro no RV32E) e um `HAS_<EXTENSÃO>` booleano por extensão do núcleo (`HAS_M`, `HAS_ZMMUL`, `HAS_ZICSR`, `HAS_ZICNTR`, `HAS_ZIHPM`, `HAS_ZIMOP`, `HAS_ZICOND`, `HAS_ZIHINTNTL`, `HAS_ZIHINTPAUSE`, `HAS_ZIFENCEI`, `HAS_ZICCLSM`) |
-| `config.yaml` | `isa.base`, que escolhe o `-march` e o `-mabi` dos programas e da boot ROM (`rv32e` com `ilp32e`, os demais com `ilp32`), e os `sim.parameters` `HAS_E` e `HAS_*` que o runner passa ao GHDL |
+| `config.yaml` | `isa.base`, que escolhe o `-march` e o `-mabi` dos programas e da memória de boot (`rv32e` com `ilp32e`, os demais com `ilp32`), e os `sim.parameters` `HAS_E` e `HAS_*` que o runner passa ao GHDL |
 
 `--profile NOME`, opção global do `riscv-tools`, troca o `profile:` da plataforma sem editá-la, para rodar a mesma plataforma sobre vários perfis numa matriz de testes. Vale para o `generate-memory-map` (escreve o pacote daquele perfil), para o `platform sync` e para todo comando que lê a configuração. Um nome que a especificação não lista é rejeitado antes de qualquer coisa rodar.
 
-`extras:` liga o que a matriz do Core não lista, por nome de extensão (`extras: [Zimop, Zicond, Zihintntl, Zihintpause, Interrupts]`), e vale também com `--profile`. Toda chave que nem o perfil nem os extras ligam sai `false` no pacote.
+`extras:` liga o que o perfil não liga, por nome de extensão (`extras: [Zihintntl, Zihintpause, Interrupts]`), e vale também com `--profile`. A matriz do Core lista Zimop e Zicond como extensões de perfil, então só os nomes que a matriz não lista dependem de `extras:`; os dois primeiros continuam aceitos ali. Toda chave que nem o perfil nem os extras ligam sai `false` no pacote.
 
 ```bash
 uv run riscv-tools --root <projeto> --profile rv32em_zicsr generate-memory-map --platform src/platform/platform.yaml
@@ -172,7 +172,7 @@ O pacote VHDL ganha as constantes abaixo. `ROM_VIA_PORT` e `RAM_VIA_PORT` são o
 | `ROM_VIA_PORT` | boolean | `ROM_EXTERNAL or HAS_ICACHE` |
 | `RAM_VIA_PORT` | boolean | `RAM_EXTERNAL or HAS_DCACHE` |
 
-No `config.yaml` os mesmos valores chegam como `sim.parameters` com os mesmos nomes (`ROM_EXTERNAL`, `RAM_EXTERNAL`, `HAS_ICACHE`, `HAS_DCACHE`, `ICACHE_SIZE_BITS` e `DCACHE_SIZE_BITS`), e o topo de simulação precisa declarar os genéricos correspondentes. Sem `config.addr_widths` na plataforma, as larguras de endereço vêm da escolha, e saem a `boot_rom` e cada memória interna, já que uma memória externa é um chip dimensionado pelo próprio topo. Com `config.addr_widths` listado, a lista vale.
+No `config.yaml` os mesmos valores chegam como `sim.parameters` com os mesmos nomes (`ROM_EXTERNAL`, `RAM_EXTERNAL`, `HAS_ICACHE`, `HAS_DCACHE`, `ICACHE_SIZE_BITS` e `DCACHE_SIZE_BITS`), e o topo de simulação precisa declarar os genéricos correspondentes. Sem `config.addr_widths` na plataforma, as larguras de endereço vêm da escolha, e saem a `boot_memory` e cada memória interna, já que uma memória externa é um chip dimensionado pelo próprio topo. Com `config.addr_widths` listado, a lista vale.
 
 ### Validação
 
@@ -207,13 +207,13 @@ uv run riscv-tools --root <projeto> --memory rom=ext,ram=int,icache=on,dcache=of
 
 ## Ler a configuração do mapa
 
-Um `config.yaml` do projeto declara `memory_map: <caminho do platform.yaml>`, e o carregador de configuração troca as chaves que o mapa fixa pelas dele: `isa.base`, `memory.boot_rom_base`, `boot_rom_words`, `rom_base`, `rom_words`, `ram_base`, `ram_words`, `tohost_addr`, `fromhost_addr` `sim.env.TOHOST_ADDR`, `sim.env.STDOUT_ADDR` (o testbench lê o endereço do ambiente) e, para as memórias que a seção `config.addr_widths` do mapa lista, `sim.parameters.<memória>_addr_width`. O que o mapa fixa vale mais que o que o arquivo ou os seus `extends` dizem, então nenhum endereço nem tamanho é escrito duas vezes.
+Um `config.yaml` do projeto declara `memory_map: <caminho do platform.yaml>`, e o carregador de configuração troca as chaves que o mapa fixa pelas dele: `isa.base`, `memory.boot_memory_base`, `boot_memory_words`, `rom_base`, `rom_words`, `ram_base`, `ram_words`, `tohost_addr`, `fromhost_addr` `sim.env.TOHOST_ADDR`, `sim.env.STDOUT_ADDR` (o testbench lê o endereço do ambiente) e, para as memórias que a seção `config.addr_widths` do mapa lista, `sim.parameters.<memória>_addr_width`. O que o mapa fixa vale mais que o que o arquivo ou os seus `extends` dizem, então nenhum endereço nem tamanho é escrito duas vezes.
 
 ```yaml
 config:
   rom: FLASH
   ram: RAM
-  addr_widths: [boot_rom, rom, ram]
+  addr_widths: [boot_memory, rom, ram]
 ```
 
 O `platform sync` grava os valores já trocados, de modo que Tests e Certification não precisam do `platform.yaml`.

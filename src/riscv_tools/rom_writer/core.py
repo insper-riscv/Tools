@@ -72,7 +72,7 @@ def write_rom(
     the core jump back to _start and run the image (see crt0.S in the
     consuming project). With "jtag_loader" the loader halts the core,
     writes the single FLASH copy, checks it and releases the core, which
-    restarts from the boot ROM by itself.
+    restarts from the boot memory by itself.
 
     Parameters
     ----------

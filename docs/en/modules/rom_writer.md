@@ -4,7 +4,7 @@ Loads a new ROM image into an already-programmed board over JTAG, without a full
 
 A project with more than one physical copy of the same ROM content (see [`quartus_program`](quartus_program.md)'s `rom_mif_target`/`rom_mem_instances`) writes to every listed instance in one call, keeping all copies in sync.
 
-With `quartus.rom_write_method` set to `jtag_loader`, the image goes into the single FLASH copy through [`flash_loader`](flash_loader.md), with the core halted, and the loader itself restarts the core from the BOOT_ROM. With that method the caller does not write `fromhost`.
+With `quartus.rom_write_method` set to `jtag_loader`, the image goes into the single FLASH copy through [`flash_loader`](flash_loader.md), with the core halted, and the loader itself restarts the core from the BOOT_MEMORY. With that method the caller does not write `fromhost`.
 
 ## Configuration
 

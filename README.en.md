@@ -17,7 +17,7 @@ It is designed to run on a workstation with all the tools installed, or inside t
 | `compiler`           | .c/.S -> .elf/.bin, header parsing (`RV32_EXT`/`RV32_TEST_KIND`/`RV32_TIMEOUT_S`) | [docs/modules/compiler.md](docs/en/modules/compiler.md) |
 | `bin_to_image`       | .bin -> .mif/.hex (memory-image formats, no compiler involved)    | [docs/modules/bin_to_image.md](docs/en/modules/bin_to_image.md) |
 | `c_to_asm`           | .c -> human-readable RISC-V assembly (`gcc -S`), for inspecting codegen | [docs/modules/c_to_asm.md](docs/en/modules/c_to_asm.md) |
-| `boot_rom`           | Builds the fixed, shared bootloader, once, reused across every test | [docs/modules/boot_rom.md](docs/en/modules/boot_rom.md) |
+| `boot_memory`           | Builds the fixed, shared bootloader, once, reused across every test | [docs/modules/boot_memory.md](docs/en/modules/boot_memory.md) |
 | `jtag`               | Live JTAG cable detection, generic `.tcl` runner            | [docs/modules/jtag.md](docs/en/modules/jtag.md) |
 | `mem_edit`           | Generic In-System Memory Content Editor primitives (read/write word, write-full, dump) | [docs/modules/mem_edit.md](docs/en/modules/mem_edit.md) |
 | `flash_loader`       | Write the one-copy internal FLASH through the JTAG loader   | [docs/modules/flash_loader.md](docs/en/modules/flash_loader.md) |

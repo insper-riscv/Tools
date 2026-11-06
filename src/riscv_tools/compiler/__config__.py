@@ -43,7 +43,8 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         # Optional: source files (relative to the project root) compiled
         # into every test, for the parts of the runtime that are the
         # platform's own (for instance the _exit the toolchain's crt0
-        # ends in, and the write function of stdout). Not the boot ROM.
+        # ends in, and the write function of stdout). Not the boot
+        # memory.
         "sources": [],
         "build_dir": None,
         # Each holds one <name>/ folder per test (src.c under c_dir,

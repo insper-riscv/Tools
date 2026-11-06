@@ -20,7 +20,7 @@ _TEMPLATE = """\
  * RV32_TOHOST_ADDR and fromhost 8 bytes above it. A test ends by
  * writing tohost (low word, then the zero high word) and then calling
  * rv32_wait_restart() (implemented wherever this project's own boot
- * code lives, see the project's own paths.crt0/boot_rom in
+ * code lives, see the project's own paths.crt0/boot_memory in
  * config.yaml):
  *
  *   tohost low word = 1                    the test passed

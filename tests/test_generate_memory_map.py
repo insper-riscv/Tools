@@ -78,8 +78,8 @@ def test_vhdl_package_has_the_generics_in_kib(tmp_path: Path) -> None:
     files = render_all(_write(tmp_path), tmp_path)
     text = files[tmp_path / "out/map_pkg.vhd"]
     check_in("constant HAS_E               : boolean  := false;", text)
-    check_in("constant BOOT_ROM_BITS       : natural  := 11;", text)
-    check_in("constant BOOT_ROM_SIZE_BYTES : positive := 2048;", text)
+    check_in("constant BOOT_MEMORY_BITS       : natural  := 11;", text)
+    check_in("constant BOOT_MEMORY_SIZE_BYTES : positive := 2048;", text)
     check_in("constant ROM_BASE_KIB        : natural  := 2;", text)
     check_in("constant ROM_END_KIB         : natural  := 32;", text)
     check_in("constant ROM_STORAGE_BYTES   : positive := 32768;", text)

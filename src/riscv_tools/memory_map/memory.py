@@ -698,7 +698,7 @@ def addr_width_names(platform: dict[str, Any]) -> list[str]:
     -------
     list of str
         `config.addr_widths` when the platform lists it; otherwise,
-        with a `memory` choice, the boot ROM and each internal memory
+        with a `memory` choice, the boot memory and each internal memory
         (an external one is a chip that the top sizes by itself);
         otherwise empty.
     """
@@ -708,7 +708,7 @@ def addr_width_names(platform: dict[str, Any]) -> list[str]:
     memory = resolve(platform)
     if memory is None:
         return []
-    return ["boot_rom"] + [
+    return ["boot_memory"] + [
         name
         for name, external in (
             ("rom", memory.rom_external),

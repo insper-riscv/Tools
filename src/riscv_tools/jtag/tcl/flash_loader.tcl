@@ -8,7 +8,7 @@
 #        quartus_stp -t flash_loader.tcl <hardware> <device> load <word_address> <file> <count> <sum> <run|hold>
 #
 # A word address counts 32-bit words from the start of the FLASH IP. halt stops the core, run releases it (it
-# restarts from the boot ROM). summary prints SUMMARY=<count> <sum>, the words written since the last halt and
+# restarts from the boot memory). summary prints SUMMARY=<count> <sum>, the words written since the last halt and
 # their checksum. read prints WORDS=<values, in decimal, separated by spaces>. load halts the core, writes the
 # words of a text file (one hexadecimal word per line) from the word address in a few long scans, each one
 # opened by a start bit, compares the

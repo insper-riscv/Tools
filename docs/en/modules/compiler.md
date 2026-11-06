@@ -53,7 +53,7 @@ The same specs file serves any `gcc` command, outside this package: `gcc --specs
 
 ### Image for Spike
 
-When a program's image ends in code that lives elsewhere on the hardware, Spike cannot run it as is. `emulator.sources` and `emulator.gcc_flags` build a second ELF for Spike from the same sources plus a stand-in: in the example above, the hardware's `rv32_wait_restart` is a boot ROM routine at address `0x100`, and the Spike ELF is built with `-DRV32_SPIKE`, which leaves that fixed address out of the link, and with a source that defines `rv32_wait_restart` as ordinary code (it only waits, since the test has already written `tohost`) and the `tohost` and `fromhost` symbols. Without `emulator.sources`, Spike runs the test's own image.
+When a program's image ends in code that lives elsewhere on the hardware, Spike cannot run it as is. `emulator.sources` and `emulator.gcc_flags` build a second ELF for Spike from the same sources plus a stand-in: in the example above, the hardware's `rv32_wait_restart` is a boot memory routine at address `0x100`, and the Spike ELF is built with `-DRV32_SPIKE`, which leaves that fixed address out of the link, and with a source that defines `rv32_wait_restart` as ordinary code (it only waits, since the test has already written `tohost`) and the `tohost` and `fromhost` symbols. Without `emulator.sources`, Spike runs the test's own image.
 
 
 With `sim.hex_format: verilog`, the simulation `.hex` comes straight from the linked ELF through `objcopy -O verilog --verilog-data-width=4` instead of from the flat binary. The file keeps the image's real word addresses:
@@ -107,7 +107,7 @@ A program linked at `0x800` starts at `@00000200` (word address), so it needs no
 | `tests/test_compiler_libc.py::test_libc_flags_rejects_an_unknown_library` | An unknown value raises an error naming the key. |
 | `tests/test_compiler_libc.py::test_picolibc_provides_libc_functions` | A test calling `strlen` links with `picolibc` (skipped without a GCC configured with picolibc). |
 | `tests/test_compiler_libc.py::test_no_libc_leaves_libc_functions_undefined` | The same test fails to link with `none` (skipped without a GCC configured with picolibc). |
-| `tests/test_platform_runtime.py::test_compile_needs_no_crt0_or_linker_script` | With a specs file, a test compiles and links with no `crt0` and no linker script: `_start` is at the flash base and the boot ROM's routine at its fixed address. |
+| `tests/test_platform_runtime.py::test_compile_needs_no_crt0_or_linker_script` | With a specs file, a test compiles and links with no `crt0` and no linker script: `_start` is at the flash base and the boot memory's routine at its fixed address. |
 | `tests/test_platform_runtime.py::test_cmd_compile_builds_every_kind_and_the_goldens` | A C test, a C memory test, a test that returns from `main`, one with initialized data and an assembly test compile; Spike generates the golden from the image built with the stand-in. |
 | `tests/test_platform_runtime.py::test_cmd_spike_run_passes_programs_that_return_from_main` | The same tests pass under Spike, including the ones that return from `main` and the one checking `.data`, `.bss` and a constant. |
 | `tests/test_platform_runtime.py::test_cmd_compile_hex_places_the_image_at_the_flash_base` | The simulation image starts at the flash base. |

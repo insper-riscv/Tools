@@ -2,7 +2,7 @@
 
 Each ELF is one flat image that starts at the base of the SDRAM. The
 host loads it through the SDRAM debug port while the core is parked in
-the boot ROM, then lets the core go:
+the boot memory, then lets the core go:
 
 1. Once, the FLASH gets a three-instruction stub (`fence.i`,
    `lui t0, base`, `jr t0`) that sends the core to the ELF.
@@ -143,8 +143,8 @@ def run_elf_flash(
 
     The code and the constants of the ELF go to the storage of the
     FLASH chip over the memory editor, the data to the SDRAM through
-    the debug port. The boot ROM jumps to the FLASH after the restart,
-    with a `fence.i` that drops the lines of the previous ELF.
+    the debug port. The boot memory jumps to the FLASH after the
+    restart, with a `fence.i` that drops the lines of the previous ELF.
 
     Parameters
     ----------

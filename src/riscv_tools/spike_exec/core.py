@@ -152,7 +152,7 @@ def spike_command(
 ) -> list[str]:
     """Build a Spike command line that runs elf_path on the target.
 
-    Spike's default memory (0x80000000) and boot ROM reset vector
+    Spike's default memory (0x80000000) and boot memory reset vector
     (0x1000) collide with a target whose memory starts near address 0,
     so the command passes every real region and starts at the ELF's
     entry point with no device tree.
