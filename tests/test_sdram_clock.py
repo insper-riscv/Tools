@@ -89,6 +89,23 @@ def test_an_inconsistent_section_is_rejected(
         render_all(_write(tmp_path, sdram=section), tmp_path)
 
 
+def test_the_core_phase_is_a_symbol_of_the_checks(tmp_path: Path) -> None:
+    """The `pll` section names the phase of the core clock."""
+    check = {
+        "name": "core phase",
+        "file": "pll.v",
+        "pattern": r'phase_shift3\("(\d+) ps"',
+        "expect": "PLL.core_phase_ps",
+    }
+    path = _write(tmp_path, pll={"core_phase_ps": 8250}, checks=[check])
+    (tmp_path / "pll.v").write_text('.phase_shift3("8250 ps"),\n')
+    check_equal(check_memory_map(path, tmp_path)[1], [])
+    (tmp_path / "pll.v").write_text('.phase_shift3("6625 ps"),\n')
+    check_equal(
+        [m.check for m in check_memory_map(path, tmp_path)[1]], ["core phase"]
+    )
+
+
 def test_a_check_ties_the_pll_file_to_the_section(tmp_path: Path) -> None:
     """A PLL file in step passes and one out of step fails."""
     checks = [

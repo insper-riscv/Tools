@@ -172,6 +172,8 @@ sdram:
 
 O `clock_hz` precisa ter período inteiro em picossegundos e a fase precisa ficar dentro de um período; os dois campos são obrigatórios, e a falta de qualquer um é um erro antes de gerar e no `check-memory-map`.
 
+A seção opcional `pll` guarda a fase do relógio do núcleo (saída 3 da PLL) em `core_phase_ps`, que só os `checks` usam (`PLL.core_phase_ps`).
+
 ## As memórias e as caches da plataforma
 
 A seção `memory` do `platform.yaml` escolhe, por plataforma, quatro coisas independentes, e delas saem as 16 combinações. Nenhum campo tem valor padrão, então esquecer um deles é um erro e a plataforma nunca monta uma combinação diferente da que o autor escreveu. Uma plataforma sem a seção continua gerando o pacote de antes.

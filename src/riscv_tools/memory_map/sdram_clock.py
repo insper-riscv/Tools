@@ -9,6 +9,9 @@ sdram:
   dram_clk_phase_ps: 4000  # phase of DRAM_CLK against it (PLL output 1)
 ```
 
+The optional `pll` section holds the phase of the core clock (PLL output
+3) in `core_phase_ps`, which only the checks use (`PLL.core_phase_ps`).
+
 The VHDL package gets `SDRAM_CLOCK_HZ` and `SDRAM_TCK_PS` (the period
 the controller and the chip model convert the chip timings with), and
 the checks of the platform can name `SDRAM.clock_mhz` and
@@ -88,14 +91,19 @@ def symbols(platform: dict[str, Any]) -> dict[str, int]:
     Returns
     -------
     dict of {str: int}
-        `SDRAM.clock_mhz`, `SDRAM.tck_ps` and `SDRAM.dram_clk_phase_ps`;
-        empty without the section.
+        `SDRAM.clock_mhz`, `SDRAM.tck_ps` and `SDRAM.dram_clk_phase_ps`
+        (with the `sdram` section) and `PLL.core_phase_ps` (with the
+        `pll` section).
     """
+    out: dict[str, int] = {}
+    pll = platform_dict(platform, "pll")
+    if "core_phase_ps" in pll:
+        out["PLL.core_phase_ps"] = evaluate(pll["core_phase_ps"])
     if not declared(platform):
-        return {}
+        return out
     section = platform_dict(platform, "sdram")
     clock = evaluate(section["clock_hz"])
-    return {
+    return out | {
         "SDRAM.clock_mhz": clock // HZ_PER_MHZ,
         "SDRAM.tck_ps": PS_PER_S // clock,
         "SDRAM.dram_clk_phase_ps": evaluate(section["dram_clk_phase_ps"]),
