@@ -15,6 +15,7 @@ Cada regra olha um aspecto da árvore e vale para alguns tipos de repositório. 
 | `folder-names` | Nomes de pasta em minúsculas, dígitos, hífen, ponto e sublinhado, sem espaço nem acento | VHDL |
 | `entity-coverage` | Toda entidade de RTL de `src/` tem uma entrada em `tests/python/tests.json` com ela (ou o testbench `<nome>_tb`) como `toplevel` e o arquivo dela em `sources`; toda entidade da tabela `formal` tem a prova em `formal/` | VHDL |
 | `manifest` | A seção `provides` do `paths.yaml` lista cada `.vhd` de `src/` uma única vez, só arquivos que existem e dependências sem ciclo; sem a seção, a regra não confere nada | VHDL |
+| `provides-required` | O `paths.yaml` declara a seção `provides`; um repositório de VHDL que a perde (por um merge ou uma reescrita do arquivo) falha em vez de desligar em silêncio a regra `manifest` e o `riscv-tools sources`. A chave `tree.require_provides` troca o padrão do tipo | todos (exige nos de VHDL) |
 
 A regra `vhdl-style` é opcional e só roda quando o `--only` a nomeia, porque o CI tem um passo próprio para o estilo.
 
@@ -57,6 +58,13 @@ provides:
   Zicntr:
     requires: [constants]
     sources: [src/Zicntr/counter64.vhd, src/Zicntr/tick_divider.vhd]
+```
+
+A regra `provides-required` exige a seção nos cinco tipos de VHDL. Um repositório que não deve tê-la escreve `require_provides: false` na seção `tree`, e um tipo que não é de VHDL pede a seção com `require_provides: true`. Qualquer outro valor é um problema.
+
+```yaml
+tree:
+  require_provides: true
 ```
 
 ## Adoção por etapas
@@ -102,6 +110,14 @@ Um repositório que ainda não terminou a reorganização escolhe com `--only` a
 | `tests/test_manifest_sources.py::test_a_complete_manifest_passes` | Cada arquivo listado uma vez e existente passa. |
 | `tests/test_manifest_sources.py::test_unlisted_missing_duplicate_and_unknown` | Arquivo inexistente, listado duas vezes, sem componente, requisito desconhecido e ciclo são reportados. |
 | `tests/test_manifest_sources.py::test_a_malformed_manifest_is_reported` | Um componente sem `sources` é reportado. |
+| `tests/test_provides_required.py::test_a_vhdl_repository_without_provides_fails` | Um repositório de VHDL sem a seção `provides` falha. |
+| `tests/test_provides_required.py::test_a_missing_paths_yaml_fails_too` | Sem o `paths.yaml` também não há seção. |
+| `tests/test_provides_required.py::test_a_repository_with_provides_passes` | Declarar a seção cumpre a regra em todos os tipos. |
+| `tests/test_provides_required.py::test_a_malformed_section_is_left_to_the_manifest_rule` | Uma seção malformada é problema da regra `manifest`, não da ausência. |
+| `tests/test_provides_required.py::test_the_tree_section_can_opt_out` | `require_provides: false` dispensa a seção num tipo de VHDL. |
+| `tests/test_provides_required.py::test_the_tree_section_can_ask_for_other_kinds` | `require_provides: true` exige a seção num tipo que não é de VHDL. |
+| `tests/test_provides_required.py::test_a_value_that_is_not_a_boolean_is_reported` | Só `true` ou `false` vale. |
+| `tests/test_provides_required.py::test_the_default_run_includes_the_rule` | O `check-tree` sem `--only` já pega a perda. |
 | `tests/test_entity_coverage.py::test_vhdl_style_runs_through_check_tree` | Nomear `vhdl-style` no `--only` reporta os desvios do guia. |
 
 ## Uso
