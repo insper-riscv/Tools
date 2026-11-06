@@ -281,6 +281,10 @@ def test_extras_turn_on_what_the_matrix_omits(
     check_in("constant HAS_ZICSR           : boolean  := false;", text)
     check_in("constant HAS_ZIHINTPAUSE     : boolean  := true;", text)
     check_in("constant HAS_ZIHINTNTL       : boolean  := false;", text)
+    small["extras"] = ["AccessFaults"]
+    files = render_all(_write(tmp_path, small), tmp_path)
+    text = files[tmp_path / "out/map_pkg.vhd"]
+    check_in("constant HAS_ACCESS_FAULTS   : boolean  := true;", text)
 
 
 def _matrix_hpm(root: Path) -> None:

@@ -18,6 +18,7 @@ Zicond. Every switch the profile and the extras do not turn on comes
 out false.
 """
 
+import re
 from pathlib import Path
 from typing import Any, cast
 
@@ -123,7 +124,7 @@ def resolve(
     generics = dict.fromkeys(SWITCHES, False) | dict(chosen.generics)
     extras = cast("list[Any]", platform.get("extras") or [])
     for extra in extras:
-        key = f"has_{str(extra).lower()}"
+        key = "has_" + re.sub(r"(?<!^)(?=[A-Z])", "_", str(extra)).lower()
         if key not in SWITCHES:
             raise ValueError(f"extra {extra!r} is not one of {SWITCHES}")
         generics[key] = True
