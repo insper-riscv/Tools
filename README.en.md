@@ -26,6 +26,8 @@ It is designed to run on a workstation with all the tools installed, or inside t
 | `ram_zero`           | JTAG-zero the whole RAM without reprogramming                | [docs/modules/ram_zero.md](docs/en/modules/ram_zero.md) |
 | `ram_target`         | Where the RAM lives (FPGA instance or SDRAM debug port)      | [docs/modules/ram_target.md](docs/en/modules/ram_target.md) |
 | `sdram_debug`        | Read, write and fill the SDRAM through its JTAG debug port   | [docs/modules/sdram_debug.md](docs/en/modules/sdram_debug.md) |
+| `uart_console`       | Shows the output of the program through the JTAG UART while it runs | [docs/modules/uart_console.md](docs/en/modules/uart_console.md) |
+| `display`            | Reads and writes the seven-segment display register and the failure flag of the board, with which `run` and `certify-board` show the running program | [docs/modules/display.md](docs/en/modules/display.md) |
 | `ram_dump`           | JTAG-dump the whole RAM to a `.mif`                          | [docs/modules/ram_dump.md](docs/en/modules/ram_dump.md) |
 | `htif`               | `tohost` read + `fromhost` restart write                     | [docs/modules/htif.md](docs/en/modules/htif.md) |
 | `quartus_program`    | Full recompile + `quartus_pgm` (the slow "base" path)        | [docs/modules/quartus_program.md](docs/en/modules/quartus_program.md) |
@@ -37,12 +39,15 @@ It is designed to run on a workstation with all the tools installed, or inside t
 | `sim_runner`         | Drives cocotb/GHDL simulation: the sim-side counterpart to `orchestrator` (needs the `sim` extra) | [docs/modules/sim_runner.md](docs/en/modules/sim_runner.md) |
 | `certify`            | Builds and runs the ACT4 architectural certification suite under cocotb/GHDL | [docs/modules/certify.md](docs/en/modules/certify.md) |
 | `vhdl_sort`          | Topologically sort VHDL sources by entity/package dependency, for GHDL `-a` | [docs/modules/vhdl_sort.md](docs/en/modules/vhdl_sort.md) |
+| `memory_map`         | Checks that every hand-written copy of the memory map agrees with the platform YAML | [docs/modules/memory_map.md](docs/en/modules/memory_map.md) |
+| `path_check`         | Fails when a file path listed in the project configuration does not exist (before and after moving files) | [docs/modules/path_check.md](docs/en/modules/path_check.md) |
 | `tree_check`         | Fails when the tree of a repository strays from the layout all of them share: standard files, language pairs, `.vhd` in `src/`, Common-Components at `src/common`, folder names, the `provides` manifest and the coverage of tests and proofs | [docs/modules/tree_check.md](docs/en/modules/tree_check.md) |
 | `sources`            | Prints the ordered list of the files of a target, read from the `provides` manifests of the repositories | [docs/modules/sources.md](docs/en/modules/sources.md) |
 | `vhdl_style`         | Fails when a `.vhd` breaks the style guide of the project (header, `i_`/`o_` prefixes, a docstring per declaration, no `component`, `port map` by name); leaves out `vendor/` and the Quartus IPs | [docs/modules/vhdl_style.md](docs/en/modules/vhdl_style.md) |
 | `platform_sync`      | Writes the `config.yaml` of a platform for the project that consumes it, with the submodule folder in front of each of its paths | [docs/modules/platform_sync.md](docs/en/modules/platform_sync.md) |
-| `profiles`           | Lists the valid profiles of a core from its extensions and the rules between them (M and Zmmul never coexist, Zicsr or Zicclsm is required) | [docs/modules/profiles.md](docs/en/modules/profiles.md) |
+| `profiles`           | Lists the valid profiles of a core from its extensions and the rules between them (M and Zmmul never coexist, Zicntr and Zihpm imply Zicsr) | [docs/modules/profiles.md](docs/en/modules/profiles.md) |
 | `freq_sweep`         | Rewrite a PLL source's clock frequency/phase offsets: the mechanism `orchestrator`'s frequency sweep edits with | [docs/modules/freq_sweep.md](docs/en/modules/freq_sweep.md) |
+| `timing_paths`       | Lists the worst setup paths of a compiled Quartus project, by register | [docs/modules/timing_paths.md](docs/en/modules/timing_paths.md) |
 | `run_log`            | Rotates and tees a run's full console output into a persistent per-kind log history | [docs/modules/run_log.md](docs/en/modules/run_log.md) |
 
 ## Docs
@@ -76,9 +81,7 @@ uv run riscv-tools --config /path/to/project/config.yaml sim
 uv run riscv-tools --config /path/to/project/config.yaml sim --only test-a,test-b
 ```
 
-See `riscv-tools --help` for the full subcommand list (`write-rom`,
-`zero-ram`, `dump-ram`, `program`, `htif read|restart`, `generate-header`,
-`generate-golden`, `spike-run`, `run`, `sim`, `vhdl-sort`, `generate-memory-map`, `check-tree`, `sources`, `platform`, `freq-sweep`).
+See `riscv-tools --help` for the full subcommand list (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `check-paths`, `check-tree`, `sources`, `check-vhdl-style`, `platform`, `flash-image`, `timing-paths`, and `freq-sweep`).
 
 ```bash
 # vhdl-sort needs no --config; pure file-content analysis, e.g. wired

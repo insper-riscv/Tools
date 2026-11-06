@@ -1,6 +1,6 @@
 # `sdram_debug`
 
-Reads and writes words of the SDRAM through its JTAG debug port: the counterpart of [`mem_edit`](mem_edit.md) for a RAM that is outside the FPGA. The debug port is a second master of the SDRAM controller behind a Virtual JTAG instance (the protocol is in Memory's `docs/SDRAM_DEBUG.md`), so the host can read and write the memory with the core running, stopped or hung.
+Reads and writes words of the SDRAM through its JTAG debug port: the counterpart of [`mem_edit`](mem_edit.md) for a RAM that is outside the FPGA. The debug port is a second master of the SDRAM controller behind a Virtual JTAG instance (the protocol is in [`docs/en/ram/sdram_debug.md`](https://github.com/insper-riscv/Memory/blob/main/docs/en/ram/sdram_debug.md) of Memory), so the host can read and write the memory with the core running, stopped or hung.
 
 A word address counts 32-bit words from the base of the SDRAM. [`ram_target`](ram_target.md) chooses between this module and `mem_edit` for a project's RAM; the other modules do not call it directly.
 
@@ -20,11 +20,11 @@ A word address counts 32-bit words from the base of the SDRAM. [`ram_target`](ra
 
 ## Prerequisites
 
-- Quartus Prime Lite on `PATH` (`quartus_stp`), and a board with a USB-Blaster whose design has the debug port (the SDRAM platform of TopLevel).
+- Quartus Prime Lite on `PATH` (`quartus_stp`), and a board with a USB-Blaster whose design has the debug port (the `de0-cv` platform of Insper-RISC-V).
 
 ## Tests
 
-`tests/test_sdram_debug.py` runs the module against a stand-in for the script. On the board, the SDRAM platform of TopLevel runs the real-hardware suite through it.
+`tests/test_sdram_debug.py` runs the module against a stand-in for the script. On the board, the `de0-cv` platform of Insper-RISC-V runs the real-hardware suite through it.
 
 ---
 
