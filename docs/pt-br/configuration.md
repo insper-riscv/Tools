@@ -78,6 +78,17 @@ Não há divisão `tests_real_dir`/`tests_sim_dir`/`golden_dir`: todo teste em `
 | `rom_origin` | Endereço de byte que a primeira palavra do armazenamento da FLASH tem (padrão 0). Com ele o preenchimento à esquerda do `.mif`/`.hex` passa a ser `(rom_base - rom_origin) / 4` palavras e as regiões de memória do Spike começam nele: uma FLASH atrás das caches começa na própria base e não tem preenchimento |
 | `rom_words` | Profundidade da ROM em palavras: usada para validar/formatar o `.mif` de um programa |
 
+### `flash:` e `flash_image:` (opcionais; plataforma com bancas na FLASH)
+
+`flash.banks` vem do `platform.yaml` (`flash.banks`, ver [`memory_map`](modules/memory_map.md)) e lista, de cada banca, `name`, `base` e `size` em bytes. Ninguém o escreve à mão. `flash_image` escolhe em qual banca os programas do projeto rodam, e o `compile` empacota cada binário na imagem dessa banca antes de convertê-lo em `.mif` ou `.hex`.
+
+| Chave | Significado |
+|---|---|
+| `flash_image.bank` | Nome da banca (de `flash.banks`) para a qual os programas são ligados, com o `rv32im-fpga-bank-<nome>.specs` em `toolchain.specs` |
+| `flash_image.version` | Versão escrita no cabeçalho da imagem (padrão 1) |
+
+Com `flash_image` a imagem começa na base da banca: o cabeçalho de 256 bytes e depois o programa, que o linker põe em `base + 256`. É o que a boot ROM de uma plataforma com bancas exige para executar o programa (ver [`flash_image`](modules/flash_image.md)). Sem `flash_image` o `compile` entrega o binário como o linker o gerou.
+
 ### `emulator:`
 
 | Chave | Padrão | Usada por |

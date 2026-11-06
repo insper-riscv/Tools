@@ -1,5 +1,6 @@
 """Pack a program into a FLASH bank image and send it over the UART."""
 
+from riscv_tools.flash_image.bank import image_for_config
 from riscv_tools.flash_image.header import (
     HEADER_SIZE,
     MAGIC,
@@ -18,6 +19,7 @@ __all__ = [
     "SECTOR_SIZE",
     "ImageError",
     "ImageHeader",
+    "image_for_config",
     "pack",
     "parse_header",
     "send_image",

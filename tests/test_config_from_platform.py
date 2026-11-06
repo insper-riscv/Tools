@@ -193,3 +193,28 @@ def test_the_letter_format_rejects_a_name_with_no_letter(
             ValueError, match=r"rv32i or rv32e|is not a profile"
         ):
             config_from_platform(path)
+
+
+def test_the_flash_banks_of_the_map_reach_the_config(tmp_path: Path) -> None:
+    """The banks come out evaluated, for the tests that pack."""
+    banks = [
+        {"name": "A", "base": 0x1000, "size": "124K"},
+        {"name": "B", "base": 0x20000, "size": "128K"},
+    ]
+    platform = {**PLATFORM, "flash": {"region": "FLASH", "banks": banks}}
+    (tmp_path / "matrix.yaml").write_text(yaml.safe_dump(MATRIX))
+    path = tmp_path / "platform.yaml"
+    path.write_text(yaml.safe_dump(platform, sort_keys=False))
+    config = config_from_platform(path)
+    check_equal(
+        config["flash"]["banks"],
+        [
+            {"name": "A", "base": 0x1000, "size": 124 * 1024},
+            {"name": "B", "base": 0x20000, "size": 128 * 1024},
+        ],
+    )
+
+
+def test_a_map_without_banks_adds_no_flash_key(tmp_path: Path) -> None:
+    """A platform with a single image has no `flash` in its config."""
+    check_not_in("flash", config_from_platform(_platform(tmp_path)))

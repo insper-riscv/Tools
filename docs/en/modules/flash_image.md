@@ -41,7 +41,7 @@ riscv-tools --config <config.yaml> flash-image send image.bin
 
 ## 5. Tests
 
-`tests/test_flash_image.py` covers the format, the damage the check must catch and the transfer against a stand-in reader.
+`tests/test_flash_image.py` covers the format, the damage the check must catch, the transfer against a stand-in reader and the packing that `compile` does with `flash_image` in the config (the right bank, the start address of the image and the refusal of a bank the map lacks).
 
 ---
 

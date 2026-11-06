@@ -28,12 +28,14 @@ from pathlib import Path
 from typing import Any
 
 from riscv_tools.memory_map import memory as memory_choice
+from riscv_tools.memory_map.banks import bank_list
 from riscv_tools.memory_map.core import (
     load_platform,
     platform_dict,
     platform_list,
     symbols,
 )
+from riscv_tools.memory_map.expressions import evaluate
 from riscv_tools.memory_map.profile import SWITCHES, resolve
 
 
@@ -158,4 +160,21 @@ def config_from_platform(platform_file: Path) -> dict[str, Any]:
     }
     if env:
         sim["env"] = env
-    return {"memory": memory, "isa": {"base": base}, "sim": sim}
+    config: dict[str, Any] = {
+        "memory": memory,
+        "isa": {"base": base},
+        "sim": sim,
+    }
+    banks = bank_list(platform)
+    if banks:
+        config["flash"] = {
+            "banks": [
+                {
+                    "name": str(bank["name"]),
+                    "base": evaluate(bank["base"]),
+                    "size": evaluate(bank["size"]),
+                }
+                for bank in banks
+            ]
+        }
+    return config
