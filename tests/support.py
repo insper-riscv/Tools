@@ -23,7 +23,7 @@ ISA = {"base": "i", "default_ext": "", "canonical_order": "MAFDQLCBJTPVNH"}
 # The regions and the reserved words of a small platform map, shared by
 # the tests of the files that are generated from a map.
 MAP_REGIONS: list[dict[str, Any]] = [
-    {"name": "BOOT_ROM", "base": "0x0", "size": "2K", "exec": True},
+    {"name": "BOOT_MEMORY", "base": "0x0", "size": "2K", "exec": True},
     {"name": "FLASH", "base": "0x800", "size": "30K", "exec": True},
     {"name": "RAM", "base": "0x8000", "size": "160K", "kind": "ram"},
 ]

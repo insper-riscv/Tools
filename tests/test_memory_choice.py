@@ -429,7 +429,7 @@ def test_the_config_carries_the_choice_and_the_widths(
     check_is(parameters["ROM_EXTERNAL"], True)
     check_is(parameters["HAS_ICACHE"], True)
     check_equal(parameters["DCACHE_SIZE_BITS"], "1024")
-    check_in("boot_rom_addr_width", parameters)
+    check_in("boot_memory_addr_width", parameters)
     check_not_in("rom_addr_width", parameters)
     set_memory_override(_choice("int", "int", "off", "off"))
     parameters = config_from_platform(path)["sim"]["parameters"]
@@ -448,7 +448,7 @@ def test_listed_widths_win_and_no_memory_adds_nothing(
     path.write_text(yaml.safe_dump(listed, sort_keys=False))
     parameters = config_from_platform(path)["sim"]["parameters"]
     check_in("ram_addr_width", parameters)
-    check_not_in("boot_rom_addr_width", parameters)
+    check_not_in("boot_memory_addr_width", parameters)
     path.write_text(yaml.safe_dump(_platform(memory=None), sort_keys=False))
     parameters = config_from_platform(path)["sim"]["parameters"]
     check_not_in("ROM_EXTERNAL", parameters)

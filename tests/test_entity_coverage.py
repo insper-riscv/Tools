@@ -90,24 +90,24 @@ def test_models_ips_and_vendor_are_not_rtl(tmp_path: Path) -> None:
 
 def test_an_exception_needs_a_justification(tmp_path: Path) -> None:
     """An excused entity needs its reason; a stale excuse fails."""
-    _entity(tmp_path, "boot_rom_shell")
+    _entity(tmp_path, "boot_memory_shell")
     _tests_json(tmp_path, {})
     _write(
         tmp_path,
         "paths.yaml",
         "tree:\n  coverage:\n    exceptions:\n"
-        "      boot_rom_shell: wraps an IP\n",
+        "      boot_memory_shell: wraps an IP\n",
     )
     check_false(_coverage(tmp_path))
     _write(
         tmp_path,
         "paths.yaml",
-        "tree:\n  coverage:\n    exceptions:\n      boot_rom_shell:\n"
+        "tree:\n  coverage:\n    exceptions:\n      boot_memory_shell:\n"
         "      ghost: nothing\n",
     )
     problems = _coverage(tmp_path)
     check_in(
-        "entity-coverage exception boot_rom_shell has no justification",
+        "entity-coverage exception boot_memory_shell has no justification",
         problems,
     )
     check_in(

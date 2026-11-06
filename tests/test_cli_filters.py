@@ -9,7 +9,7 @@ from unittest import mock
 import pytest
 from support import check_equal, check_in
 
-from riscv_tools import boot_rom, cli, run_log, sim_runner
+from riscv_tools import boot_memory, cli, run_log, sim_runner
 from riscv_tools.cli import (
     common,
     filter_manifest,
@@ -159,10 +159,10 @@ def test_cmd_run_rejects_bad_filter_before_opening_jtag(
     link.assert_not_called()
 
 
-def test_cmd_sim_rejects_bad_filter_before_building_boot_rom(
+def test_cmd_sim_rejects_bad_filter_before_building_boot_memory(
     tmp_path: Path,
 ) -> None:
-    """Cmd sim rejects bad filter before building boot rom."""
+    """Cmd sim rejects bad filter before building boot memory."""
     manifest_path = tmp_path / "manifest.json"
     manifest_path.write_text(json.dumps(MANIFEST))
     args = argparse.Namespace(
@@ -173,7 +173,7 @@ def test_cmd_sim_rejects_bad_filter_before_building_boot_rom(
         exclude=["missing"],
     )
     cfg = {
-        "paths": {"build_dir": "build", "boot_rom": "boot_rom.S"},
+        "paths": {"build_dir": "build", "boot_memory": "boot_memory.S"},
         "run_log": {"logs_dir": "logs"},
         "sim": {"image": "hex"},
     }
@@ -181,11 +181,13 @@ def test_cmd_sim_rejects_bad_filter_before_building_boot_rom(
     with (
         mock.patch.object(common, "load_config", return_value=cfg),
         mock.patch.object(run_log, "start"),
-        mock.patch.object(boot_rom, "build_boot_rom") as build_boot_rom,
+        mock.patch.object(
+            boot_memory, "build_boot_memory"
+        ) as build_boot_memory,
         mock.patch.object(sim_runner, "run_suite") as run_suite,
         pytest.raises(SystemExit),
     ):
         cli.cmd_sim(args)
 
-    build_boot_rom.assert_not_called()
+    build_boot_memory.assert_not_called()
     run_suite.assert_not_called()

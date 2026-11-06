@@ -23,7 +23,7 @@ PLATFORM = {
     "config": {
         "rom": "FLASH",
         "ram": "RAM",
-        "addr_widths": ["boot_rom", "rom", "ram"],
+        "addr_widths": ["boot_memory", "rom", "ram"],
     },
 }
 
@@ -63,8 +63,8 @@ def test_memory_and_widths_come_from_the_map(tmp_path: Path) -> None:
     check_equal(
         config["memory"],
         {
-            "boot_rom_base": 0,
-            "boot_rom_words": 512,
+            "boot_memory_base": 0,
+            "boot_memory_words": 512,
             "rom_base": 0x800,
             "rom_words": 7680,
             "ram_base": 0x8000,
@@ -84,7 +84,7 @@ def test_memory_and_widths_come_from_the_map(tmp_path: Path) -> None:
     check_equal(
         config["sim"]["parameters"],
         {
-            "boot_rom_addr_width": "9",
+            "boot_memory_addr_width": "9",
             "rom_addr_width": "13",
             "ram_addr_width": "16",
             "HAS_E": False,
