@@ -31,11 +31,11 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         # Source files (relative to the project root) linked into the
         # ELF Spike runs and not into the test's own image. A project
         # whose image ends in code that lives elsewhere on the hardware
-        # (a boot ROM routine at a fixed address) gives Spike a stand-in
-        # here, plus the tohost/fromhost symbols it needs. Empty: Spike
-        # runs the test's own image (or, with the legacy
+        # (a boot memory routine at a fixed address) gives Spike a
+        # stand-in here, plus the tohost/fromhost symbols it needs.
+        # Empty: Spike runs the test's own image (or, with the legacy
         # paths.golden_linker_script, the test linked with
-        # paths.boot_rom).
+        # paths.boot_memory).
         "sources": [],
         # Extra gcc arguments for that ELF (for example a -D that makes
         # the platform's specs file leave the hardware's fixed address

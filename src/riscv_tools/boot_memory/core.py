@@ -1,6 +1,6 @@
-"""Build the shared bootloader of a project (its boot_rom.S).
+"""Build the shared bootloader of a project (its boot_memory.S).
 
-The boot ROM has no test source and no crt0 pairing, so it is built
+The boot memory has no test source and no crt0 pairing, so it is built
 once per invocation instead of once per test, and the caller reuses its
 image.
 """
@@ -18,8 +18,8 @@ from riscv_tools.compiler.build import (
 
 
 @dataclass(frozen=True)
-class BootRomOptions:
-    """What varies between boot ROM builds.
+class BootMemoryOptions:
+    """What varies between boot memory builds.
 
     Parameters
     ----------
@@ -35,14 +35,14 @@ class BootRomOptions:
     base: str = "i"
 
 
-def build_boot_rom(
+def build_boot_memory(
     toolchain_cfg: dict[str, Any],
     paths_cfg: dict[str, Any],
     root: Path,
     build_dir: Path,
-    options: BootRomOptions | None = None,
+    options: BootMemoryOptions | None = None,
 ) -> Path:
-    """Compile boot_rom.S/boot_rom.ld into a flat .bin, then a .hex.
+    """Compile boot_memory.S/.ld into a flat .bin, then a .hex.
 
     Parameters
     ----------
@@ -50,32 +50,32 @@ def build_boot_rom(
         The project's `toolchain:` config section: needs `gcc` and
         `objcopy`.
     paths_cfg : dict of {str: Any}
-        The project's `paths:` config section: needs `boot_rom` and
-        `boot_rom_linker_script`.
+        The project's `paths:` config section: needs `boot_memory` and
+        `boot_memory_linker_script`.
     root : Path
         The consuming project's root directory; paths_cfg entries are
         resolved relative to this.
     build_dir : Path
-        Directory to write boot_rom.elf/.bin/.hex into (created if
+        Directory to write boot_memory.elf/.bin/.hex into (created if
         missing).
-    options : BootRomOptions, optional
+    options : BootMemoryOptions, optional
         The hex layout and the base ISA; the defaults are one word per
         line and RV32I.
 
     Returns
     -------
     Path
-        Path to the compiled boot_rom.hex.
+        Path to the compiled boot_memory.hex.
     """
-    options = options or BootRomOptions()
+    options = options or BootMemoryOptions()
     base = options.base
-    boot_rom_src = root / paths_cfg["boot_rom"]
-    linker = root / paths_cfg["boot_rom_linker_script"]
+    boot_memory_src = root / paths_cfg["boot_memory"]
+    linker = root / paths_cfg["boot_memory_linker_script"]
 
     build_dir.mkdir(parents=True, exist_ok=True)
-    elf = build_dir / "boot_rom.elf"
-    bin_ = build_dir / "boot_rom.bin"
-    hex_ = build_dir / "boot_rom.hex"
+    elf = build_dir / "boot_memory.elf"
+    bin_ = build_dir / "boot_memory.bin"
+    hex_ = build_dir / "boot_memory.hex"
 
     run_gcc(
         toolchain_cfg,
@@ -88,7 +88,7 @@ def build_boot_rom(
             "-nostartfiles",
             "-T",
             str(linker),
-            str(boot_rom_src),
+            str(boot_memory_src),
             "-o",
             str(elf),
         ],

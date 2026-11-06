@@ -1,6 +1,6 @@
 """The image of a bank, built from the project config.
 
-A platform whose boot ROM chooses the bank by its header (the
+A platform whose boot memory chooses the bank by its header (the
 `flash.banks` of its map) runs only a program that starts with the
 header page. The config says which bank the programs are linked for:
 

@@ -3,7 +3,7 @@
 The loader is a Virtual JTAG instance in front of the second port of
 the FLASH (see Memory's docs/pt-br/rom/flash_loader.md). It writes only
 while the core is halted, and releasing the core restarts it from the
-boot ROM. Addresses here are word addresses counted from the start of
+boot memory. Addresses here are word addresses counted from the start of
 the FLASH IP. Pure mechanism, no policy: the callers decide what to
 load.
 """
@@ -52,7 +52,7 @@ def halt(link: JtagLink) -> None:
 
 
 def release(link: JtagLink) -> None:
-    """Release the core, which restarts from the boot ROM.
+    """Release the core, which restarts from the boot memory.
 
     Parameters
     ----------
@@ -121,8 +121,8 @@ def load_image(
         Word address of the first word. Defaults to 0.
     restart : bool, optional
         Release the core after the check, so it runs the new image from
-        the boot ROM. Defaults to True; with False the core stays halted
-        until release is called.
+        the boot memory. Defaults to True; with False the core stays
+        halted until release is called.
 
     Returns
     -------

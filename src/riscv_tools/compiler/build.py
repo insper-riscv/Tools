@@ -92,7 +92,7 @@ class LinkSetup:
         default.
     link_flags : list of str
         Extra gcc arguments placed before the sources (for that
-        combined ELF: where the boot ROM's sections go, the entry
+        combined ELF: where the boot memory's sections go, the entry
         symbol). Empty by default.
     """
 

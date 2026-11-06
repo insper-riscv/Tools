@@ -5,10 +5,10 @@ Two stages:
 1. `build_elfs` runs ACT4's own `make` to compile the self-checking
    ELFs of this project's ACT4 target (act.target_config).
 2. `run_suite` splits each ELF by address into the images the
-   simulation loads (code into the instruction memory and the boot ROM,
-   data into the RAM) and runs it on the same cocotb/GHDL toplevel as
-   the regular suite. ACT4 tests signal completion through HTIF tohost,
-   not through the PASS/FAIL result of the regular suite.
+   simulation loads (code into the instruction memory and the boot
+   memory, data into the RAM) and runs it on the same cocotb/GHDL
+   toplevel as the regular suite. ACT4 tests signal completion through
+   HTIF tohost, not through the PASS/FAIL result of the regular suite.
 
 No hardware is involved, and there is no golden: each test checks
 itself.
@@ -267,7 +267,7 @@ def _write_elf_images(
         test_build_dir,
         elf.stem,
         ram_base=int(str(act_cfg["ram_base"]), 0),
-        boot_bytes=int(str(act_cfg["boot_rom_bytes"]), 0),
+        boot_bytes=int(str(act_cfg["boot_memory_bytes"]), 0),
     )
 
 

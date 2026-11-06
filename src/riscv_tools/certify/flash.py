@@ -99,7 +99,7 @@ def write_flash_stub(
     mif_path = build_dir / "flash_stub.mif"
     bin_path.write_bytes(stub)
     # The FLASH is addressed raw by the instruction bus, so the stub
-    # sits at the word index of memory.rom_base, where the boot ROM
+    # sits at the word index of memory.rom_base, where the boot memory
     # jumps to (the same padding `compile` gives an image).
     pad_words = int(cfg["memory"]["rom_base"]) // 4
     bin_to_image.bin_to_mif(

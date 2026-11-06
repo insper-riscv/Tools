@@ -79,7 +79,7 @@ def add_tool_commands(sub: Any) -> None:
         cmd_generate_memory_map,
         "generate-memory-map",
         description=(
-            "Write the linker flags, the boot ROM linker script and the "
+            "Write the linker flags, the boot memory linker script and the "
             "VHDL package of the map from the platform YAML"
         ),
     )

@@ -30,9 +30,9 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         # sets {"ROM_FILE": "{hex_path}"} here. Templates may use
         # {hex_path} and {mif_path} (this test's image, whichever
         # sim.image selects; the other is empty) and
-        # {boot_rom_hex_path} and {boot_rom_mif_path} (the boot ROM's,
-        # the same for every test). See run_suite. Empty by default,
-        # most toplevels need no generic overrides at all.
+        # {boot_memory_hex_path} and {boot_memory_mif_path} (the boot
+        # memory's, the same for every test). See run_suite. Empty by
+        # default, most toplevels need no generic overrides at all.
         "parameters": {},
         # Format of the .hex a simulation loads: "words" is one 32-bit
         # word per line, with leading zero words so a program linked
@@ -45,8 +45,8 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         # reads by default: "hex" is <build_dir>/sim/manifest.json (from
         # `compile --emit hex`), "mif" is <build_dir>/real/manifest.json
         # (from `compile --emit mif`), the same images the hardware
-        # loads. With "mif", `sim` also builds the boot ROM's .mif
-        # (`{boot_rom_mif_path}` below).
+        # loads. With "mif", `sim` also builds the boot memory's .mif
+        # (`{boot_memory_mif_path}` below).
         "image": "hex",
         # Extra arguments for GHDL's analyze, elaborate and run steps,
         # e.g. ["-fsynopsys", "-fexplicit"] for a vendor simulation

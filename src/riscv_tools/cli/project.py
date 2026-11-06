@@ -38,7 +38,7 @@ def spike_elf(
         Where the ELFs live.
     root : Path
         The consuming project's root directory; resolves
-        paths.boot_rom/golden_linker_script.
+        paths.boot_memory/golden_linker_script.
     src : Path
         This test's own source file, recompiled against
         paths.golden_linker_script when configured.
@@ -48,11 +48,11 @@ def spike_elf(
     Path
         The ELF to hand to Spike.
     """
-    # A project with a BOOT_ROM/FLASH/RAM split (see
-    # riscv_tools.boot_rom) can't always hand Spike its normal,
+    # A project with a BOOT_MEMORY/FLASH/RAM split (see
+    # riscv_tools.boot_memory) can't always hand Spike its normal,
     # FLASH-only elf_path: on real
-    # hardware the boot ROM is a SEPARATE image, so that ELF has nothing
-    # at the address the program jumps to when it finishes
+    # hardware the boot memory is a SEPARATE image, so that ELF has
+    # nothing at the address the program jumps to when it finishes
     # (rv32_wait_restart, the code that signals HTIF).
     #
     # - emulator.sources: a stand-in for that code (and the tohost/
@@ -61,14 +61,14 @@ def spike_elf(
     #   toolchain's does the linking (see toolchain.specs).
     # - paths.golden_linker_script (legacy): the test linked together
     # with
-    #   the boot ROM source (paths.boot_rom) by the project's own
-    #   script, and Spike starts at the boot ROM's entry
+    #   the boot memory source (paths.boot_memory) by the project's own
+    #   script, and Spike starts at the boot memory's entry
     #   (emulator.entry_symbol).
     # - Neither: reuse build_dir/{name}.elf.
     golden_linker = optional_path(cfg, root, "golden_linker_script")
-    boot_rom_src = optional_path(cfg, root, "boot_rom")
+    boot_memory_src = optional_path(cfg, root, "boot_memory")
     spike_sources = [root / s for s in cfg["emulator"].get("sources", [])]
-    legacy_combined = golden_linker is not None and boot_rom_src is not None
+    legacy_combined = golden_linker is not None and boot_memory_src is not None
     if spike_sources or legacy_combined:
         elf_path = build_dir / f"{name}.golden.elf"
         base = build_setup(cfg, root)
@@ -80,8 +80,8 @@ def spike_elf(
                 linker=golden_linker,
                 extra_sources=[
                     *(
-                        [boot_rom_src]
-                        if legacy_combined and boot_rom_src
+                        [boot_memory_src]
+                        if legacy_combined and boot_memory_src
                         else []
                     ),
                     *spike_sources,
@@ -120,7 +120,7 @@ def generate_c_golden(
         Where {name}.elf lives and {name}.golden.json gets written.
     root : Path
         The consuming project's root directory, resolves
-        paths.boot_rom/golden_linker_script.
+        paths.boot_memory/golden_linker_script.
 
     Returns
     -------
