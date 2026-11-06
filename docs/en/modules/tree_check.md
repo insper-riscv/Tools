@@ -24,6 +24,12 @@ The `vhdl-style` rule is optional and only runs when `--only` names it, because 
 | :--- | :--- | :--- |
 | `vhdl-style` | The VHDL files follow the style guide, as `check-vhdl-style` checks it (see [vhdl_style](vhdl_style.md)) | VHDL |
 
+The `purity` rule is optional too and only runs when `--only` names it, because each repository turns it on once its vendor names are inside the vendor folders.
+
+| Rule | What it checks | Kinds |
+| :--- | :--- | :--- |
+| `purity` | No board, FPGA family, device or vendor primitive name in a file outside the vendor folders (see [Purity](#purity)) | VHDL |
+
 The coverage rule leaves out simulation models (folders `sim` and `tests`), `vendor/` code and Quartus IPs. The proof of an entity is `formal/<name>.sv`, `formal/<name>_props.sv` or `formal/<name>/props.sv`, or the files the `formal` table names for it. An exception excuses only the entity test, never the proof.
 
 The kinds are `common-components`, `core`, `memory`, `peripherals`, `top`, `tests`, `certification`, `infra` and `tools`. The first five are the VHDL ones. Only `common-components` has no `formal/`.
@@ -66,6 +72,28 @@ The `provides-required` rule demands the section on the five VHDL kinds. A repos
 ```yaml
 tree:
   require_provides: true
+```
+
+## Purity
+
+The portable part of a repository (the SoC, the core, the memories) talks to its neighbours through interface contracts and does not name a board, a family or a vendor primitive. Those names live in the vendor folders (`altera/`) and in the board data (`boards/`). In the same walk as the other rules, the `purity` rule reads the files outside those folders and reports each term it finds, with the first line and the count:
+
+```text
+TREE purity src/ROM/Cyclone-V/flash.vhd:2: primitives:altsyncram* (4x) outside the vendor folders
+```
+
+The terms are data. The file `src/riscv_tools/tree_check/purity.yaml` carries the defaults in five groups: `primitives` (`altsyncram`, `altpll`, `altera_*`, `sld_virtual_jtag`, `intended_device_family`), `families`, `boards`, `devices` and `idcodes`. The comparison ignores case, has a word boundary on the left, accepts a hyphen, an underscore, a space or nothing where the term has `-` or a space, and refuses a letter right after the term unless it ends in `*`. The same file names the vendor folders (`altera`, `boards`, at any depth, case-insensitive) and the extensions read (`.vhd`, `.vhdl`, `.v`, `.sv`, `.vh`).
+
+The `paths.yaml` of the repository adds to this data in the `purity` subsection of the `tree` section: `terms` (group and terms), `vendor_folders`, `suffixes` and `exceptions`. An exception is a path, a folder or a pattern (`fnmatch`) with its justification. An exception without justification and one that excuses no file are problems.
+
+```yaml
+tree:
+  purity:
+    terms:
+      boards: [new-board]
+    vendor_folders: [intel]
+    exceptions:
+      src/legacy/top.vhd: wrapper kept until the board package exists
 ```
 
 ## Adoption in steps
@@ -120,12 +148,28 @@ A repository that has not finished its reorganization chooses with `--only` the 
 | `tests/test_provides_required.py::test_a_value_that_is_not_a_boolean_is_reported` | Only `true` or `false` is accepted. |
 | `tests/test_provides_required.py::test_the_default_run_includes_the_rule` | A `check-tree` without `--only` already catches the loss. |
 | `tests/test_entity_coverage.py::test_vhdl_style_runs_through_check_tree` | Naming `vhdl-style` in `--only` reports the deviations of the guide. |
+| `tests/test_tree_purity.py::test_a_portable_tree_passes` | A file that names no board, family or primitive passes. |
+| `tests/test_tree_purity.py::test_a_vendor_primitive_outside_a_vendor_folder_fails` | Each primitive of the data is reported with file and line. |
+| `tests/test_tree_purity.py::test_a_board_name_fails_in_any_spelling` | Case, hyphen, underscore and a missing separator are the same board. |
+| `tests/test_tree_purity.py::test_a_family_a_device_and_an_idcode_fail` | Family, device and JTAG IDCODE are board names too. |
+| `tests/test_tree_purity.py::test_a_vendor_folder_is_exempt_at_any_depth` | `altera/` and `boards/` may name vendor, family and board at any depth. |
+| `tests/test_tree_purity.py::test_a_word_that_only_looks_like_a_term_passes` | The word boundary lets `alteração` and `altera o valor` through. |
+| `tests/test_tree_purity.py::test_only_the_listed_suffixes_are_read` | Documents and board files are not RTL sources. |
+| `tests/test_tree_purity.py::test_the_first_line_and_the_count_are_reported` | Many hits of one term in a file make a single problem. |
+| `tests/test_tree_purity.py::test_an_exception_excuses_a_file_a_folder_or_a_pattern` | A path, a folder and a pattern cover the files they match. |
+| `tests/test_tree_purity.py::test_an_exception_needs_a_justification_and_a_file` | An exception without justification or without a file to excuse is a problem. |
+| `tests/test_tree_purity.py::test_the_repository_adds_terms_folders_and_suffixes` | `paths.yaml` adds to the data without replacing it. |
+| `tests/test_tree_purity.py::test_the_terms_come_from_the_data_file` | Changing `purity.yaml` changes the verdict: nothing is in the code. |
+| `tests/test_tree_purity.py::test_a_submodule_is_left_to_its_own_repository` | The folders of `.gitmodules` are left out. |
+| `tests/test_tree_purity.py::test_the_rule_is_opt_in_and_for_the_vhdl_kinds` | The default run leaves it out and the kinds without VHDL reject it. |
+| `tests/test_tree_purity.py::test_cmd_check_tree_runs_the_rule` | The command exits 1 with a `TREE purity` line, or 0 when clean. |
 
 ## Usage
 
 ```bash
 uv run riscv-tools --root <repository> check-tree --kind core
 uv run riscv-tools --root <repository> check-tree --kind core --only standard-files,language-pairs
+uv run riscv-tools --root <repository> check-tree --kind core --only purity
 ```
 
 No `--config` needed. Status 1 and one `TREE` line per problem; made for the CI of each repository, before and after every move of files.

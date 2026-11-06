@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from board_support import (
+from catalog_support import (
     FAMILY,
     NOR_CHIP,
     SDRAM_CHIP,

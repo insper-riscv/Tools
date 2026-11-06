@@ -9,6 +9,7 @@ from typing import Any, NamedTuple
 from riscv_tools import (
     run_log,
 )
+from riscv_tools.board.runtime import override_request, select_for_config
 from riscv_tools.jtag import JtagLink, detect_jtag_hardware
 from riscv_tools.settings import load_config
 
@@ -16,24 +17,38 @@ from riscv_tools.settings import load_config
 def jtag_link(cfg: dict[str, Any]) -> JtagLink:
     """Build a JtagLink for the connected cable and the chip.
 
-    The chip is the one of the project.
+    With `quartus.jtag_device` set and no board option (`--board`,
+    `--board-id`, `--cable` or their environment variables), the cable
+    is the one whose chain lists the IDCODE of that device. Otherwise
+    the board is selected by its IDCODE and USB port (see
+    riscv_tools.board.select) and the cable and device come from it.
 
     Parameters
     ----------
     cfg : dict of {str: Any}
-        The merged project config, uses quartus.jtag_device and
-        quartus.sdram_debug_instance.
+        The merged project config, uses quartus.jtag_device,
+        quartus.board, quartus.boards and quartus.sdram_debug_instance.
 
     Returns
     -------
     JtagLink
-        A JtagLink with a live-detected hardware_name (see
-        jtag.detect_jtag_hardware) and cfg's device_name.
+        A JtagLink with a live-detected hardware_name and the device
+        name of the chip.
     """
+    quartus = cfg["quartus"]
+    request = override_request()
+    explicit = request.cable or request.board_id or request.board
+    if quartus["jtag_device"] is None or explicit:
+        selection = select_for_config(cfg, Path.cwd())
+        return JtagLink(
+            hardware_name=selection.cable,
+            device_name=selection.device,
+            sdram_instance=quartus["sdram_debug_instance"],
+        )
     return JtagLink(
-        hardware_name=detect_jtag_hardware(cfg["quartus"]["jtag_device"]),
-        device_name=cfg["quartus"]["jtag_device"],
-        sdram_instance=cfg["quartus"]["sdram_debug_instance"],
+        hardware_name=detect_jtag_hardware(quartus["jtag_device"]),
+        device_name=quartus["jtag_device"],
+        sdram_instance=quartus["sdram_debug_instance"],
     )
 
 

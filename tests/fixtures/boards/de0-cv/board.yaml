@@ -1,0 +1,5 @@
+board: de0-cv
+device: 5CEBA4F23C7
+jtag:
+  cable: usb-blaster
+  chain: [{name: "5CE(BA4|FA4)", idcode: "02B050DD", fpga: true}]

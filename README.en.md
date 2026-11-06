@@ -19,6 +19,7 @@ It is designed to run on a workstation with all the tools installed, or inside t
 | `c_to_asm`           | .c -> human-readable RISC-V assembly (`gcc -S`), for inspecting codegen | [docs/modules/c_to_asm.md](docs/en/modules/c_to_asm.md) |
 | `boot_memory`           | Builds the fixed, shared bootloader, once, reused across every test | [docs/modules/boot_memory.md](docs/en/modules/boot_memory.md) |
 | `jtag`               | Live JTAG cable detection, generic `.tcl` runner            | [docs/modules/jtag.md](docs/en/modules/jtag.md) |
+| `board`              | Board identification, selection and lock through JTAG       | [docs/modules/board.md](docs/en/modules/board.md) |
 | `mem_edit`           | Generic In-System Memory Content Editor primitives (read/write word, write-full, dump) | [docs/modules/mem_edit.md](docs/en/modules/mem_edit.md) |
 | `flash_loader`       | Write the one-copy internal FLASH through the JTAG loader   | [docs/modules/flash_loader.md](docs/en/modules/flash_loader.md) |
 | `flash_image`        | Packs a program into the image of a FLASH bank (header, CRC, version), checks the image and sends it over the JTAG UART | [docs/modules/flash_image.md](docs/en/modules/flash_image.md) |

@@ -1,0 +1,5 @@
+board: mkr-vidor-4000
+device: 10CL016YU256C8G
+jtag:
+  cable: samd21-usbblaster
+  chain: [{name: "10CL016", idcode: "020F10DD", fpga: true}]

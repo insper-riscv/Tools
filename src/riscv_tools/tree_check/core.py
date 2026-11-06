@@ -27,6 +27,9 @@ problems. A rule applies to some kinds of repository.
 |                     | other kinds)                            |
 | `vhdl-style`        | Opt-in: the VHDL style guide, as        |
 |                     | `check-vhdl-style` checks it            |
+| `purity`            | Opt-in: no board, FPGA family or vendor |
+|                     | primitive name outside the vendor       |
+|                     | folders (`altera/`, `boards/`)          |
 
 The repository's `paths.yaml` may carry a `tree` section to name the
 folders that are identifiers of the ISA or of a peripheral and so keep
@@ -52,6 +55,7 @@ from riscv_tools.tree_check.manifest import (
     rule_manifest,
     rule_provides_required,
 )
+from riscv_tools.tree_check.purity import rule_purity
 from riscv_tools.vhdl_style import check_vhdl_style
 
 KINDS = (
@@ -344,13 +348,16 @@ _RULES: dict[str, tuple[Rule, frozenset[str]]] = {
     "common-submodule": (_rule_common_submodule, _COMMON_MOUNT_KINDS),
     "folder-names": (_rule_folder_names, _VHDL_KINDS),
     "vhdl-style": (_rule_vhdl_style, _VHDL_KINDS),
+    "purity": (rule_purity, _VHDL_KINDS),
     "entity-coverage": (rule_entity_coverage, _VHDL_KINDS),
     "manifest": (rule_manifest, _VHDL_KINDS),
     "provides-required": (rule_provides_required, frozenset(KINDS)),
 }
 # Rules that run only when `--only` names them: the style check has its
-# own CI step, so the default run leaves it out.
-_OPT_IN = frozenset({"vhdl-style"})
+# own CI step, and a repository turns `purity` on when its vendor
+# names are inside the vendor folders, so the default run leaves both
+# out.
+_OPT_IN = frozenset({"vhdl-style", "purity"})
 
 
 def rule_names(kind: str) -> list[str]:

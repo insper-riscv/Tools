@@ -1,0 +1,2 @@
+1) USB-Blaster [1-2]
+  02B050DD   5CE(BA4|FA4)

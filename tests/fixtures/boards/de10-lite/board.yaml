@@ -1,0 +1,5 @@
+board: de10-lite
+device: 10M50DAF484C7G
+jtag:
+  cable: usb-blaster
+  chain: [{name: "10M50DA(.|ES)/10M50DC", idcode: "031050DD", fpga: true}]

@@ -1,0 +1,5 @@
+board: de0-nano
+device: EP4CE22F17C6
+jtag:
+  cable: usb-blaster
+  chain: [{name: "10CL025(Y|Z)/EP3C25/EP4CE22", idcode: "020F30DD", fpga: true}]
