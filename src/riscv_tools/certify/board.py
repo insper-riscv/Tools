@@ -221,7 +221,7 @@ class BoardOptions(TypedDict, total=False):
     build: bool
 
 
-def _find_elfs(
+def find_elfs(
     act_cfg: dict[str, Any],
     root: Path,
     only: list[str] | None,
@@ -294,7 +294,7 @@ def run_suite_on_board(
     """
     act_cfg = cfg["act"]
     region = _sdram_region(act_cfg)
-    elfs = _find_elfs(act_cfg, root, only, build=options.get("build", True))
+    elfs = find_elfs(act_cfg, root, only, build=options.get("build", True))
     build_dir.mkdir(parents=True, exist_ok=True)
     if act_cfg.get("flash_base") is None:
         write_flash_stub(link, cfg, build_dir, region.base)
