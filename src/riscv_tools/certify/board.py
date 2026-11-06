@@ -25,12 +25,15 @@ from riscv_tools import (
     bin_to_image,
     display,
     htif,
-    mem_edit,
     rom_writer,
     sdram_debug,
 )
 from riscv_tools.certify import core as certify_core
-from riscv_tools.certify.flash import image_words, write_flash_stub
+from riscv_tools.certify.flash import (
+    bank_image,
+    image_words,
+    write_flash_stub,
+)
 from riscv_tools.certify.segments import load_segments, region_image
 from riscv_tools.certify.symbols import elf_symbol
 from riscv_tools.jtag import JtagLink
@@ -97,6 +100,38 @@ def run_elf(
     return None, len(words), time.monotonic() - started
 
 
+def _flash_code(cfg: dict[str, Any], elf: Path, sdram_base: int) -> bytes:
+    """Build the image that goes to the FLASH storage for one ELF.
+
+    Parameters
+    ----------
+    cfg : dict of {str: Any}
+        The merged project config: act.flash_base and, for a platform
+        whose boot ROM runs only a bank with a valid header,
+        act.flash_bank and act.flash_entry (the address the code of
+        the ELF is linked at, after the header page and the payload of
+        the bank).
+    elf : Path
+        The ACT4 ELF.
+    sdram_base : int
+        First address of the SDRAM, where the code ends.
+
+    Returns
+    -------
+    bytes
+        The code from `flash_base`, or the bank (header, payload that
+        jumps to the code, then the code) when a bank is named.
+    """
+    segments = load_segments(elf)
+    if cfg["act"].get("flash_bank") is None:
+        base = int(str(cfg["act"]["flash_base"]), 0)
+        return region_image(segments, base, sdram_base)
+    entry = int(str(cfg["act"]["flash_entry"]), 0)
+    code = region_image(segments, entry, sdram_base)
+    image, _ = bank_image(cfg, code, entry, cfg["act"]["flash_bank"])
+    return image
+
+
 def run_elf_flash(
     link: JtagLink,
     cfg: dict[str, Any],
@@ -141,8 +176,7 @@ def run_elf_flash(
         The code of the ELF does not fit in the FLASH storage.
     """
     flash_words = int(cfg["act"]["flash_words"])
-    flash_base = int(str(cfg["act"]["flash_base"]), 0)
-    image = region_image(load_segments(elf), flash_base, region.base)
+    image = _flash_code(cfg, elf, region.base)
     if len(image) > flash_words * 4:
         raise ValueError(
             f"{elf.stem}: the code takes {len(image)} bytes, "
@@ -156,9 +190,12 @@ def run_elf_flash(
     tohost_word = (elf_symbol(elf, "tohost") - region.base) // 4
     sdram_debug.fill(link, 0, region.words, 0)
     sdram_debug.load_words(link, 0, image_words(elf, region.base))
-    rom_writer.write_rom(link, mem_edit.rom_instances(link, cfg), mif_path)
+    # the JTAG loader restarts the core by itself; the memory editor
+    # needs the pulse of fromhost
+    restarted = rom_writer.write_rom_configured(link, cfg, mif_path)
 
-    htif.pulse_fromhost_configured(link, cfg)
+    if not restarted:
+        htif.pulse_fromhost_configured(link, cfg)
     started = time.monotonic()
     while time.monotonic() - started < region.timeout_s:
         (tohost,) = sdram_debug.read_words(link, tohost_word, 1)

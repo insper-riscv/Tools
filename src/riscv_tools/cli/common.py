@@ -31,7 +31,7 @@ def jtag_link(cfg: dict[str, Any]) -> JtagLink:
         jtag.detect_jtag_hardware) and cfg's device_name.
     """
     return JtagLink(
-        hardware_name=detect_jtag_hardware(),
+        hardware_name=detect_jtag_hardware(cfg["quartus"]["jtag_device"]),
         device_name=cfg["quartus"]["jtag_device"],
         sdram_instance=cfg["quartus"]["sdram_debug_instance"],
     )

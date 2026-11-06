@@ -19,6 +19,7 @@ Precisa de um GCC RISC-V no `PATH` para o build do próprio ACT4 (o `compile_exe
 | `act.jobs` | O paralelismo do próprio `make` (padrão `0`, a detecção automática do próprio ACT4). |
 | `act.sim_parameters` | Mesclado por cima de `sim.parameters`; só necessário para sobrescrever algo que as imagens maiores do ACT4 dimensionam diferente do orçamento de hardware real do projeto (por exemplo `rom_addr_width`/`ram_addr_width`). Vazio por padrão. |
 | `act.flash_base` | Primeiro endereço da FLASH, quando o código do ELF fica nela e os dados na SDRAM (plataforma com a FLASH atrás das caches). A imagem da FLASH começa nele, a da SDRAM em `act.sdram_base`, e o boot ROM só salta para a FLASH. Sem padrão. |
+| `act.flash_bank` e `act.flash_entry` | Para a plataforma cuja boot ROM só executa uma banca com cabeçalho válido (`flash.banks`): o nome da banca e o endereço em que o código do ELF é ligado, depois da página de cabeçalho e do payload. A imagem da FLASH vira o cabeçalho, um payload de duas instruções que salta para a entrada e o código. Usados só na placa. |
 | `act.flash_words` | Palavras do armazenamento da FLASH na FPGA: um ELF com código maior é reportado e não executado. Usado só na placa. |
 | `act.ram_tests` | Nomes dos ELFs que reescrevem o próprio código e por isso rodam de uma variante do alvo, com o corpo do teste na RAM (padrão vazio). O relatório tem uma entrada por teste. |
 | `act.ram_target_config` | O `test_config.yaml` da variante, cujo script de ligação põe o corpo do teste em memória gravável. Obrigatório com `act.ram_tests`. |

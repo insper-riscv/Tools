@@ -19,6 +19,7 @@ Needs a RISC-V GCC on `PATH` for ACT4's own build (the `compile_exe` in the ACT4
 | `act.jobs` | `make`'s own parallelism (default `0`, ACT4's own auto-detect). |
 | `act.sim_parameters` | Merged on top of `sim.parameters`; only needed to override something ACT4's own, typically larger images need sized differently than the project's real-hardware budget (e.g. `rom_addr_width`/`ram_addr_width`). Empty by default. |
 | `act.flash_base` | First address of the FLASH, when the code of the ELF sits in it and the data in the SDRAM (the platform with the FLASH behind the caches). The FLASH image starts there, the SDRAM one at `act.sdram_base`, and the boot ROM only jumps to the FLASH. No default. |
+| `act.flash_bank` and `act.flash_entry` | For a platform whose boot ROM runs only a bank with a valid header (`flash.banks`): the bank name and the address the code of the ELF is linked at, after the header page and the payload. The FLASH image becomes the header, a two-instruction payload that jumps to the entry, and the code. Board only. |
 | `act.flash_words` | Words of the FLASH storage in the FPGA: an ELF with larger code is reported, not run. Used only on the board. |
 | `act.ram_tests` | Names of the ELFs that rewrite their own code and so run from a variant of the target, with the body of the test in the RAM (empty by default). The report has one entry per test. |
 | `act.ram_target_config` | The `test_config.yaml` of the variant, whose linker script puts the body of the test in writable memory. Required with `act.ram_tests`. |
