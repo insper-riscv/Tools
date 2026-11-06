@@ -1,0 +1,16 @@
+platform: mkr-vidor-4000
+board: auto
+boards: [mkr-vidor-4000]
+profile: rv32i
+regions:
+  - {name: BOOT_MEMORY, base: 0x00000000, size: 4K,  kind: rom, exec: true}
+  - {name: FLASH,       base: 0x00001000, size: 12K, kind: rom, exec: true}
+  - {name: RAM,         base: 0x40000000, size: 16K, kind: ram}
+memory:
+  rom:    {external: true, backend: emulado}
+  ram:    {external: true, backend: emulado}
+  icache: {enabled: false, size_bits: 0}
+  dcache: {enabled: false, size_bits: 0}
+clocks:
+  core: {mhz: 48, phase_ps: 0}
+console: jtag

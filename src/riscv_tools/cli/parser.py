@@ -3,6 +3,7 @@
 import argparse
 
 from riscv_tools.cli.parser_board import add_board_commands
+from riscv_tools.cli.parser_board_group import add_board_group
 from riscv_tools.cli.parser_build import add_build_commands
 from riscv_tools.cli.parser_run import add_run_commands
 from riscv_tools.cli.parser_tools import add_tool_commands
@@ -11,6 +12,7 @@ from riscv_tools.memory_map.profile import set_override as set_profile_override
 
 _COMMANDS_WITHOUT_CONFIG = frozenset(
     {
+        "board",
         "vhdl-sort",
         "check-memory-map",
         "check-paths",
@@ -85,6 +87,7 @@ def main() -> None:
     sub = parser.add_subparsers(dest="command", required=True)
     add_build_commands(sub)
     add_board_commands(sub)
+    add_board_group(sub)
     add_run_commands(sub)
     add_tool_commands(sub)
 

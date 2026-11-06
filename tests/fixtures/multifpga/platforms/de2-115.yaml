@@ -1,0 +1,20 @@
+platform: de2-115
+board: auto
+boards: [de2-115]
+profile: rv32im_zicntr_zifencei
+regions:
+  - {name: BOOT_MEMORY, base: 0x00000000, size: 4K,    kind: rom, exec: true}
+  - {name: FLASH,       base: 0x00001000, size: 1024K, kind: rom, exec: true}
+  - {name: RAM,         base: 0x40000000, size: 128M,  kind: ram}
+memory:
+  rom:    {external: true, backend: dispositivo, device: nor}
+  ram:    {external: true, backend: dispositivo, device: sdram}
+  icache: {enabled: true, size_bits: 32768}
+  dcache: {enabled: true, size_bits: 32768}
+clocks:
+  core: {mhz: 50, phase_ps: 8250}
+  mem:  {mhz: 100}
+console: jtag
+io:
+  leds: {count: 18, need: required}
+  display: {count: 8, need: optional}

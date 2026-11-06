@@ -1,0 +1,7 @@
+family: cyclone-v
+quartus_family: Cyclone V
+pll:
+  ip: altera_pll
+  vco_mhz: [600, 1600]
+  clock_node_pattern: "{instance}|altera_pll_i|general[{index}].gpll~PLL_OUTPUT_COUNTER|divclk"
+  outputs_max: 5

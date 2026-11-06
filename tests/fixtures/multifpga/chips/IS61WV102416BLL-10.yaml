@@ -1,0 +1,5 @@
+chip: IS61WV102416BLL-10
+kind: sram
+organization: {words: 1048576, width: 16}
+timing: {access_ns: 10}
+source: inferido

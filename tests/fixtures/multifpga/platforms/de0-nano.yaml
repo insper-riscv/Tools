@@ -1,0 +1,20 @@
+platform: de0-nano
+board: auto
+boards: [de0-nano]
+profile: rv32im_zicntr_zifencei
+regions:
+  - {name: BOOT_MEMORY, base: 0x00000000, size: 4K,  kind: rom, exec: true}
+  - {name: FLASH,       base: 0x00001000, size: 28K, kind: rom, exec: true}
+  - {name: RAM,         base: 0x40000000, size: 16M, kind: ram}
+memory:
+  rom:    {external: true, backend: emulado, latency: {first: 24, next: 4}, sector_bytes: 4096}
+  ram:    {external: true, backend: dispositivo, device: sdram}
+  icache: {enabled: true, size_bits: 8192}
+  dcache: {enabled: true, size_bits: 8192}
+clocks:
+  core: {mhz: 50, phase_ps: 8250}
+  mem:  {mhz: 100}
+console: jtag
+io:
+  leds: {count: 8, need: required}
+  display: {count: 6, need: optional}

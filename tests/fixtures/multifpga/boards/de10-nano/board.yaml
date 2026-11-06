@@ -1,0 +1,46 @@
+# Pacote da Terasic DE10-Nano. Esquema: docs/pt-br/boards/formato.md. Ficha: Plans/Multi-FPGA/placas/de10-nano.md.
+# O cabo e o USB-Blaster II e nao enumera hoje em nenhuma estacao; este pacote nao foi validado em hardware.
+board: de10-nano
+name: Terasic DE10-Nano
+family: cyclone-v-soc
+device: 5CSEBA6U23I7
+speed_grade: I7
+target_level: N2
+jtag:
+  cable: usb-blaster-ii
+  cable_name: "DE-SoC [USB-1]"
+  usb:
+    - {id: "09fb:6010", state: "antes da carga do firmware do cabo", confirmed: inferred}
+    - {id: "09fb:6810", state: "depois da carga do firmware do cabo", confirmed: inferred}
+  chain:
+    - {name: "SOCVHPS", idcode: "4BA00477", hps: true, confirmed: inferred}
+    - {name: "5CSEBA6", idcode: "02D020DD", fpga: true,  confirmed: inferred}
+resources:
+  logic:       {unit: alm, total: 41910}
+  block_ram:   {kind: m10k, blocks: 557, bits_per_block: 10240}
+  multipliers: {kind: dsp18x18, total: 224}
+  plls: 6
+  user_pins: null
+clocks:
+  inputs:
+    - {name: fpga_clk1_50, signal: FPGA_CLK1_50, mhz: 50}
+    - {name: fpga_clk2_50, signal: FPGA_CLK2_50, mhz: 50}
+    - {name: fpga_clk3_50, signal: FPGA_CLK3_50, mhz: 50}
+  reference: fpga_clk1_50
+  reset: {signal: "KEY[0]", active: low}
+io:
+  leds:     {signals: "LED[7:0]", active: high}
+  switches: {signals: "SW[3:0]",  active: high}
+  keys:     {signals: "KEY[1:0]", active: low}
+console:
+  default: jtag
+pins: pins.yaml
+notes:
+  - "A cadeia JTAG tem dois dispositivos, o HPS (DAP do ARM) e o FPGA, e precisa formar um laco fechado para o Quartus ver o FPGA. O erro 209025 (silicon ID) reportado em foruns e tratado removendo o HPS da cadeia no programador; o doctor do Tools so sugere, nunca aplica."
+  - "Os IDCODEs vem de um topico de forum (fonte secundaria), os IDs USB do cabo II sao inferidos; nada foi lido do cabo nesta placa."
+  - "Sem memoria ligada ao fabric: a DDR3 pertence ao HPS e so serve ao fabric depois do preloader (decisao DM4: limitar a placa a memoria emulada). Nao ha SDRAM, SRAM nem FLASH de usuario."
+  - "A UART USB e do HPS, nao do fabric; o console do SoC e a JTAG UART. ARDUINO_IO[0] (RXD) e ARDUINO_IO[1] (TXD) servem a um adaptador externo."
+  - "O MSEL de fabrica (FPPx32) delega a configuracao ao HPS a partir do cartao SD; a carga por JTAG continua sendo o caminho de desenvolvimento."
+  - "Os multiplicadores sao contados em 18x18 (112 blocos DSP). O total de ALMs (41910) e o maximo da familia no membro A6; o numero exato do 5CSEBA6 nao foi aberto."
+  - "O manual nao informa os bancos de E/S dos tres relogios de 50 MHz; FPGA_CLK3_50 compartilha o sinal de FPGA_CLK1_50 segundo a tabela 3-5."
+  - "A configuracao persistente usa o EPCS128 (modo AS, MSEL = 10010); ele nao e memoria de usuario neste pacote."

@@ -1,0 +1,7 @@
+family: max-10
+quartus_family: MAX 10
+pll:
+  ip: altpll
+  vco_mhz: [600, 1300]
+  clock_node_pattern: "{instance}|altpll_component|auto_generated|pll1|clk[{index}]"
+  outputs_max: 5

@@ -1,0 +1,4 @@
+chip: IS42S16160B-7
+extends: IS42S16320D-7
+organization: {words: 16777216, width: 16, banks: 4, row_bits: 13, col_bits: 9}
+source: inferido

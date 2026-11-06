@@ -1,0 +1,7 @@
+family: cyclone-10-lp
+quartus_family: Cyclone 10 LP
+pll:
+  ip: altpll
+  vco_mhz: [600, 1300]
+  clock_node_pattern: "{instance}|altpll_component|auto_generated|pll1|clk[{index}]"
+  outputs_max: 5

@@ -1,0 +1,7 @@
+family: cyclone-iv-e
+quartus_family: Cyclone IV E
+pll:
+  ip: altpll
+  vco_mhz: [600, 1300]
+  clock_node_pattern: "{instance}|altpll_component|auto_generated|pll1|clk[{index}]"
+  outputs_max: 5

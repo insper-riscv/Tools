@@ -49,6 +49,17 @@ It is designed to run on a workstation with all the tools installed, or inside t
 | `freq_sweep`         | Rewrite a PLL source's clock frequency/phase offsets: the mechanism `orchestrator`'s frequency sweep edits with | [docs/modules/freq_sweep.md](docs/en/modules/freq_sweep.md) |
 | `timing_paths`       | Lists the worst setup paths of a compiled Quartus project, by register | [docs/modules/timing_paths.md](docs/en/modules/timing_paths.md) |
 | `run_log`            | Rotates and tees a run's full console output into a persistent per-kind log history | [docs/modules/run_log.md](docs/en/modules/run_log.md) |
+| `board_inputs` | Reads the `platform.yaml`, `board.yaml`, `pins.yaml`, family and chips a generator consumes | [docs/modules/board_inputs.md](docs/en/modules/board_inputs.md) |
+| `board_ports` | Builds the ports of a board top (name, width, direction and pin of each bit) from the roles | [docs/modules/board_ports.md](docs/en/modules/board_ports.md) |
+| `board_clocks` | Decides the clocks by role (`mem`, `mem_pin`, `fetch`, `core`) with frequency and phase | [docs/modules/board_clocks.md](docs/en/modules/board_clocks.md) |
+| `chip_package` | Generates the VHDL package with the timings of a catalog chip and hands the I/O delays to the `.sdc` | [docs/modules/chip_package.md](docs/en/modules/chip_package.md) |
+| `pin_assignments` | Writes the pin and I/O standard assignments of the `.qsf`, deriving the others from the role | [docs/modules/pin_assignments.md](docs/en/modules/pin_assignments.md) |
+| `pll_generator` | Computes the PLL counters and writes the family primitive (`altera_pll` ready, `altpll` as an extension point) | [docs/modules/pll_generator.md](docs/en/modules/pll_generator.md) |
+| `sdc_generator` | Generates the `.sdc` with clocks, chip I/O delays, read paths and domain crossings | [docs/modules/sdc_generator.md](docs/en/modules/sdc_generator.md) |
+| `quartus_project` | Generates the `.qpf` and the `.qsf` (without pins) with family, device and the source list | [docs/modules/quartus_project.md](docs/en/modules/quartus_project.md) |
+| `top_generator` | Generates the thin board top, which only wires the PLL, the SoC, one backend per region and the pin ring | [docs/modules/top_generator.md](docs/en/modules/top_generator.md) |
+| `board_generate` | Composes the generators into the Quartus project of a platform on a board (`riscv-tools board generate`) | [docs/modules/board_generate.md](docs/en/modules/board_generate.md) |
+| `board_equivalence` | Compares the generated project with the hand-written files: pins, constraints, PLL, sources and assignments | [docs/modules/board_equivalence.md](docs/en/modules/board_equivalence.md) |
 
 ## Docs
 
@@ -81,7 +92,7 @@ uv run riscv-tools --config /path/to/project/config.yaml sim
 uv run riscv-tools --config /path/to/project/config.yaml sim --only test-a,test-b
 ```
 
-See `riscv-tools --help` for the full subcommand list (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `check-paths`, `check-tree`, `sources`, `check-vhdl-style`, `platform`, `flash-image`, `timing-paths`, and `freq-sweep`).
+See `riscv-tools --help` for the full subcommand list (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `check-paths`, `check-tree`, `sources`, `check-vhdl-style`, `platform`, `flash-image`, `timing-paths`, `board generate`, and `freq-sweep`).
 
 ```bash
 # vhdl-sort needs no --config; pure file-content analysis, e.g. wired
