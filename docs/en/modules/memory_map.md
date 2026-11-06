@@ -155,6 +155,23 @@ Repeated ids, ids outside 1 to 1023, `priority_bits` outside 1 to 32 and a windo
 
 $$ \text{msip} = base, \quad \text{mtimecmp} = base + \texttt{0x4000}, \quad \text{mtime} = base + \texttt{0xBFF8} $$
 
+## The clock of the SDRAM controller
+
+A platform with an SDRAM describes the clock of the controller and the phase of the `DRAM_CLK` pin against it in the `sdram` section. Both values come from the PLL of the platform and from the Quartus timing report, and the section is their single source.
+
+```yaml
+sdram:
+  clock_hz: 100000000       # controller clock (PLL output 0)
+  dram_clk_phase_ps: 4000   # phase of DRAM_CLK against it (PLL output 1)
+```
+
+| Output | Content |
+| :--- | :--- |
+| VHDL package (`vhdl`) | `SDRAM_CLOCK_HZ` and `SDRAM_TCK_PS`, the period in picoseconds with which the controller and the chip model convert the chip timings into cycles |
+| `checks` symbols | `SDRAM.clock_mhz`, `SDRAM.tck_ps` and `SDRAM.dram_clk_phase_ps`, which keep the PLL file equal to the map |
+
+`clock_hz` must have a whole period in picoseconds and the phase must lie inside one period; both fields are required, and the absence of either is an error before generating and in `check-memory-map`.
+
 ## The memories and caches of the platform
 
 The `memory` section of the `platform.yaml` picks four independent things per platform, and the 16 combinations come out of them. No field has a default, so forgetting one is an error and the platform never builds a combination other than the one its author wrote. A platform without the section keeps generating the package it generated before.

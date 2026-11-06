@@ -155,6 +155,23 @@ Identificadores repetidos, fora de 1 a 1023, `priority_bits` fora de 1 a 32 e ja
 
 $$ \text{msip} = base, \quad \text{mtimecmp} = base + \texttt{0x4000}, \quad \text{mtime} = base + \texttt{0xBFF8} $$
 
+## O relógio do controlador da SDRAM
+
+Uma plataforma com SDRAM descreve na seção `sdram` o relógio do controlador e a fase do pino `DRAM_CLK` contra ele. Os dois valores vêm da PLL da plataforma e do relatório de tempo do Quartus, e a seção é a fonte única deles.
+
+```yaml
+sdram:
+  clock_hz: 100000000       # relógio do controlador (saída 0 da PLL)
+  dram_clk_phase_ps: 4000   # fase de DRAM_CLK contra ele (saída 1 da PLL)
+```
+
+| Saída | Conteúdo |
+| :--- | :--- |
+| Pacote VHDL (`vhdl`) | `SDRAM_CLOCK_HZ` e `SDRAM_TCK_PS`, o período em picossegundos com que o controlador e o modelo do chip convertem os tempos do chip em ciclos |
+| Símbolos dos `checks` | `SDRAM.clock_mhz`, `SDRAM.tck_ps` e `SDRAM.dram_clk_phase_ps`, que mantêm o arquivo da PLL igual ao mapa |
+
+O `clock_hz` precisa ter período inteiro em picossegundos e a fase precisa ficar dentro de um período; os dois campos são obrigatórios, e a falta de qualquer um é um erro antes de gerar e no `check-memory-map`.
+
 ## As memórias e as caches da plataforma
 
 A seção `memory` do `platform.yaml` escolhe, por plataforma, quatro coisas independentes, e delas saem as 16 combinações. Nenhum campo tem valor padrão, então esquecer um deles é um erro e a plataforma nunca monta uma combinação diferente da que o autor escreveu. Uma plataforma sem a seção continua gerando o pacote de antes.

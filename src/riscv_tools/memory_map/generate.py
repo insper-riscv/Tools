@@ -46,7 +46,7 @@ change of the map without a new generation fails.
 from pathlib import Path
 from typing import Any, cast
 
-from riscv_tools.memory_map import banks, interrupts
+from riscv_tools.memory_map import banks, interrupts, sdram_clock
 from riscv_tools.memory_map import memory as memory_choice
 from riscv_tools.memory_map.core import (
     PERIPHERAL_WINDOW_BASE,
@@ -523,7 +523,8 @@ def render_vhdl(
         periph_base=_kib(window, "periph_base"),
         memory="" if choice is None else memory_choice.vhdl_lines(choice),
         peripherals=_peripheral_lines(platform)
-        + interrupts.vhdl_lines(platform),
+        + interrupts.vhdl_lines(platform)
+        + sdram_clock.vhdl_lines(platform),
     )
 
 
@@ -592,10 +593,15 @@ def render_all(platform_file: Path, root: Path) -> dict[Path, str]:
         validate_platform(platform, generics)
         + banks.problems(platform)
         + interrupts.problems(platform, generics)
+        + sdram_clock.problems(platform)
     )
     if problems:
         raise ValueError("; ".join(str(p) for p in problems))
-    table = symbols(platform) | banks.symbols(platform)
+    table = (
+        symbols(platform)
+        | banks.symbols(platform)
+        | sdram_clock.symbols(platform)
+    )
     try:
         source = str(platform_file.relative_to(root))
     except ValueError:

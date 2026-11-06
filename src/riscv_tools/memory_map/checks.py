@@ -6,7 +6,7 @@ from typing import Any, cast
 
 import yaml
 
-from riscv_tools.memory_map import banks, interrupts
+from riscv_tools.memory_map import banks, interrupts, sdram_clock
 from riscv_tools.memory_map.core import (
     Mismatch,
     load_platform,
@@ -152,10 +152,15 @@ def check_memory_map(
         validate_platform(platform)
         + banks.problems(platform)
         + interrupts.problems(platform)
+        + sdram_clock.problems(platform)
     )
     if problems:
         return 0, problems
-    table = symbols(platform) | banks.symbols(platform)
+    table = (
+        symbols(platform)
+        | banks.symbols(platform)
+        | sdram_clock.symbols(platform)
+    )
     checks = platform_list(platform, "checks")
     for check in checks:
         problems += _run_check(check, root, table)
