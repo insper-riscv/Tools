@@ -48,6 +48,9 @@ Ele foi projetado para rodar em uma workstation com todas as ferramentas instala
 | `profiles`           | Lista os perfis válidos de um core a partir das extensões e das regras entre elas (M e Zmmul não coexistem, Zicntr e Zihpm implicam Zicsr) | [docs/modules/profiles.md](docs/pt-br/modules/profiles.md) |
 | `freq_sweep`         | Reescreve a frequência de clock e as defasagens de um fonte de PLL: o mecanismo com que o sweep de frequência do `orchestrator` edita | [docs/modules/freq_sweep.md](docs/pt-br/modules/freq_sweep.md) |
 | `timing_paths`       | Lista os piores caminhos de setup de um projeto do Quartus compilado, por registrador | [docs/modules/timing_paths.md](docs/pt-br/modules/timing_paths.md) |
+| `quartus_reports`    | Lê os resumos de recursos do Quartus (`*.map.summary`, `*.map.rpt`, `*.fit.summary`, `*.fit.rpt`) de todas as famílias | [docs/modules/quartus_reports.md](docs/pt-br/modules/quartus_reports.md) |
+| `fit_estimate`       | Estima se um perfil cabe numa placa com a tabela de calibração da família e julga o relatório do ajuste (passa até 85 %, aviso até 100 %, erro acima; V11 a V14 e V18) | [docs/modules/fit_estimate.md](docs/pt-br/modules/fit_estimate.md) |
+| `calibration`        | Mede os perfis de uma família com o comando de compilação do projeto (`quartus_map`) e ajusta por mínimos quadrados os coeficientes do estimador | [docs/modules/calibration.md](docs/pt-br/modules/calibration.md) |
 | `run_log`            | Rotaciona e replica (tee) toda a saída de console de uma execução num histórico de logs persistente por tipo | [docs/modules/run_log.md](docs/pt-br/modules/run_log.md) |
 
 ## Docs
@@ -81,7 +84,7 @@ uv run riscv-tools --config /path/to/project/config.yaml sim
 uv run riscv-tools --config /path/to/project/config.yaml sim --only test-a,test-b
 ```
 
-Veja `riscv-tools --help` para a lista completa de subcomandos (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `check-paths`, `check-tree`, `sources`, `check-vhdl-style`, `platform`, `flash-image`, `timing-paths` e `freq-sweep`).
+Veja `riscv-tools --help` para a lista completa de subcomandos (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `check-paths`, `check-tree`, `sources`, `check-vhdl-style`, `platform`, `flash-image`, `timing-paths`, `freq-sweep`, `calibrate` e `check-fit`).
 
 ```bash
 # vhdl-sort não precisa de --config; é só análise do conteúdo dos arquivos,

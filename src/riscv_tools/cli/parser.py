@@ -4,6 +4,7 @@ import argparse
 
 from riscv_tools.cli.parser_board import add_board_commands
 from riscv_tools.cli.parser_build import add_build_commands
+from riscv_tools.cli.parser_fit import add_fit_commands
 from riscv_tools.cli.parser_run import add_run_commands
 from riscv_tools.cli.parser_tools import add_tool_commands
 from riscv_tools.memory_map.memory import set_override as set_memory_override
@@ -13,6 +14,8 @@ _COMMANDS_WITHOUT_CONFIG = frozenset(
     {
         "vhdl-sort",
         "check-memory-map",
+        "calibrate",
+        "check-fit",
         "check-paths",
         "check-tree",
         "check-vhdl-style",
@@ -87,6 +90,7 @@ def main() -> None:
     add_board_commands(sub)
     add_run_commands(sub)
     add_tool_commands(sub)
+    add_fit_commands(sub)
 
     args = parser.parse_args()
     set_profile_override(args.profile)
