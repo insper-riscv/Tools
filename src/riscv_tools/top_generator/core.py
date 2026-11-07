@@ -983,8 +983,8 @@ def render_top(spec: TopSpec) -> RenderedTop:
         "\tboot_inst : entity work.boot_memory",
         "\t\tgeneric map (size_bytes => BOOT_MEMORY_SIZE_BYTES)",
         "\t\tport map (",
-        "\t\t\ti_address => if_addr(log2_exact(BOOT_MEMORY_SIZE_BYTES) - 1 "
-        "downto 2), i_clk => clk_fetch,",
+        "\t\t\ti_address => if_addr(log2_exact(BOOT_MEMORY_SIZE_BYTES) - 3 "
+        "downto 0), i_clk => clk_fetch,",
         "\t\t\ti_rden => if_rden, i_wren => '0', "
         "i_data => (others => '0'), o_q => boot_data",
         "\t\t);",

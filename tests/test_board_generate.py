@@ -60,6 +60,7 @@ def test_the_top_uses_the_real_entities_of_the_soc_and_memory() -> None:
         "pll_inst : de0_cv_de0_cv_pll",
         "soc_inst : entity work.soc",
         "boot_inst : entity work.boot_memory",
+        "if_addr(log2_exact(BOOT_MEMORY_SIZE_BYTES) - 3 downto 0)",
         "flash_chip_inst : entity work.flash_chip",
         "first_latency => 24, next_latency => 4",
         "flash_loader_inst : entity work.flash_loader",
