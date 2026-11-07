@@ -134,7 +134,7 @@ def _read_component(
     sources = _strings(body.get("sources"))
     requires = _strings(body.get("requires"))
     needs = _strings(body.get("needs"))
-    if not sources:
+    if not sources and not requires:
         problems.append(f"{name}: `sources` is a non-empty list of paths")
     if requires is None:
         problems.append(f"{name}: `requires` is a list of names")

@@ -56,7 +56,7 @@ tree:
       boot_memory_shell: instancia só o IP, coberto pela síntese e pela placa
 ```
 
-A regra `manifest` lê a seção `provides` da raiz do `paths.yaml`. Cada componente lista em `sources` os arquivos na ordem de análise do GHDL e em `requires` os componentes de que precisa: um nome sem prefixo é do mesmo repositório e `<repositório>/<componente>` é de outro. O nome do repositório vem da chave `repository` da raiz, ou da pasta quando ela falta. O componente pode ter ainda `needs`, a lista dos tipos de recurso de placa de que depende; um tipo fora do conjunto conhecido é um problema do manifesto.
+A regra `manifest` lê a seção `provides` da raiz do `paths.yaml`. Cada componente lista em `sources` os arquivos na ordem de análise do GHDL e em `requires` os componentes de que precisa: um nome sem prefixo é do mesmo repositório e `<repositório>/<componente>` é de outro. O nome do repositório vem da chave `repository` da raiz, ou da pasta quando ela falta. Um componente sem `sources` e com `requires` só agrupa outros (o topo de uma placa gerada usa isso para dar a lista de fontes do projeto). O componente pode ter ainda `needs`, a lista dos tipos de recurso de placa de que depende; um tipo fora do conjunto conhecido é um problema do manifesto.
 
 ```yaml
 repository: Core
@@ -137,7 +137,8 @@ Um repositório que ainda não terminou a reorganização escolhe com `--only` a
 | `tests/test_manifest_sources.py::test_without_provides_the_rule_is_silent` | Sem a seção `provides`, a regra `manifest` não confere nada. |
 | `tests/test_manifest_sources.py::test_a_complete_manifest_passes` | Cada arquivo listado uma vez e existente passa. |
 | `tests/test_manifest_sources.py::test_unlisted_missing_duplicate_and_unknown` | Arquivo inexistente, listado duas vezes, sem componente, requisito desconhecido e ciclo são reportados. |
-| `tests/test_manifest_sources.py::test_a_malformed_manifest_is_reported` | Um componente sem `sources` é reportado. |
+| `tests/test_manifest_sources.py::test_a_malformed_manifest_is_reported` | Um componente sem `sources` e sem `requires` é reportado. |
+| `tests/test_manifest_sources.py::test_a_component_may_only_group_others` | Um componente sem `sources` e com `requires` só agrupa e passa. |
 | `tests/test_provides_required.py::test_a_vhdl_repository_without_provides_fails` | Um repositório de VHDL sem a seção `provides` falha. |
 | `tests/test_provides_required.py::test_a_missing_paths_yaml_fails_too` | Sem o `paths.yaml` também não há seção. |
 | `tests/test_provides_required.py::test_a_repository_with_provides_passes` | Declarar a seção cumpre a regra em todos os tipos. |

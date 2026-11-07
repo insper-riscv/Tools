@@ -57,7 +57,7 @@ tree:
       boot_memory_shell: only instantiates the IP, covered by synthesis and the board
 ```
 
-The `manifest` rule reads the `provides` section at the root of `paths.yaml`. Each component lists in `sources` its files in the order GHDL analyzes them and in `requires` the components it needs: a name without a prefix belongs to the same repository, and `<repository>/<component>` to another one. The repository name comes from the `repository` key at the root, or from the folder when it is absent. A component may also have `needs`, the list of board resource types it depends on; a type outside the known set is a manifest problem.
+The `manifest` rule reads the `provides` section at the root of `paths.yaml`. Each component lists in `sources` its files in the order GHDL analyzes them and in `requires` the components it needs: a name without a prefix belongs to the same repository, and `<repository>/<component>` to another one. The repository name comes from the `repository` key at the root, or from the folder when it is absent. A component without `sources` and with `requires` only groups others (the top of a generated board uses it to give the source list of the project). A component may also have `needs`, the list of board resource types it depends on; a type outside the known set is a manifest problem.
 
 ```yaml
 repository: Core
@@ -138,7 +138,8 @@ A repository that has not finished its reorganization chooses with `--only` the 
 | `tests/test_manifest_sources.py::test_without_provides_the_rule_is_silent` | Without the `provides` section, the `manifest` rule checks nothing. |
 | `tests/test_manifest_sources.py::test_a_complete_manifest_passes` | Each file listed once and existing passes. |
 | `tests/test_manifest_sources.py::test_unlisted_missing_duplicate_and_unknown` | A missing file, a file listed twice, a file with no component, an unknown requirement and a cycle are reported. |
-| `tests/test_manifest_sources.py::test_a_malformed_manifest_is_reported` | A component without `sources` is reported. |
+| `tests/test_manifest_sources.py::test_a_malformed_manifest_is_reported` | A component without `sources` and without `requires` is reported. |
+| `tests/test_manifest_sources.py::test_a_component_may_only_group_others` | A component without `sources` and with `requires` only groups and passes. |
 | `tests/test_provides_required.py::test_a_vhdl_repository_without_provides_fails` | A VHDL repository without the `provides` section fails. |
 | `tests/test_provides_required.py::test_a_missing_paths_yaml_fails_too` | Without `paths.yaml` there is no section either. |
 | `tests/test_provides_required.py::test_a_repository_with_provides_passes` | Declaring the section meets the rule on every kind. |
