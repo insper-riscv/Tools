@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from riscv_tools import (
+    board_generate,
     htif,
     quartus_program,
     rom_writer,
@@ -135,4 +136,9 @@ def full_reconfigure_entry(
     -------
     None
     """
+    generate = cfg["quartus"].get("generate")
+    if generate:
+        board_generate.build(
+            board_generate.request_from_config(root, generate)
+        )
     reconfigure_with_rom(cfg, link, project_dir, root / entry["mif"])

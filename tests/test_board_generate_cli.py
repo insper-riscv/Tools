@@ -9,6 +9,7 @@ from multifpga_support import FIXTURES
 from support import check, check_equal, check_in
 
 from riscv_tools import memory_map
+from riscv_tools.board_generate import project
 from riscv_tools.cli.board_generate_cmd import cmd_board_generate
 from riscv_tools.memory_map import Mismatch
 
@@ -170,7 +171,7 @@ def test_the_top_field_of_the_platform_is_the_default_target(
     def load_platform(_path: Path) -> dict[str, object]:
         return {"generate": {}, "top": "my_top"}
 
-    monkeypatch.setattr("riscv_tools.cli.board_generate_cmd._sources", sources)
+    monkeypatch.setattr(project, "sources_of", sources)
     monkeypatch.setattr(memory_map, "load_platform", load_platform)
     cmd_board_generate(_args(root))
     cmd_board_generate(_args(root, target=["other"]))

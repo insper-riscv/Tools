@@ -7,6 +7,7 @@ from typing import Any
 
 from riscv_tools import (
     bin_to_image,
+    board_generate,
     boot_memory,
     htif,
     quartus_program,
@@ -17,10 +18,10 @@ from riscv_tools import (
     uart_console,
 )
 from riscv_tools import display as display_mod
-from riscv_tools.cli.board_generate_cmd import cmd_board_generate
 from riscv_tools.cli.common import jtag_link, project_root
 from riscv_tools.quartus_program.core import DEFAULT_SEED
 from riscv_tools.settings import load_config
+from riscv_tools.sources import SourcesError
 
 
 def cmd_write_rom(args: argparse.Namespace) -> None:
@@ -231,9 +232,9 @@ def _generate_project(
 ) -> None:
     """Escreve o projeto gerado da plataforma antes de compilá-lo.
 
-    É o `board generate` de sempre (a placa vem do `--board` global ou
-    do `platform.yaml`), de modo que o `program` nunca compila um
-    arquivo de projeto escrito à mão.
+    É o mesmo caminho do `board generate` (a placa vem do `--board`
+    global ou do `platform.yaml`), de modo que o `program` nunca compila
+    um arquivo de projeto escrito à mão.
 
     Parameters
     ----------
@@ -244,24 +245,19 @@ def _generate_project(
     options : CompileOptions
         As opções de compilação, de onde vem a semente.
     """
-    cmd_board_generate(
-        argparse.Namespace(
-            root=args.root,
-            platform=generate["platform"],
-            select_board=getattr(args, "select_board", None),
-            out=generate.get("out", "build"),
-            boards_dir=generate.get("boards_dir"),
-            chips_dir=generate.get("chips_dir"),
-            target=[],
-            seed=DEFAULT_SEED if options.seed is None else options.seed,
-            accept_inferred_pins=bool(generate.get("accept_inferred_pins")),
-            check=False,
-            hand_qsf=None,
-            hand_sdc=None,
-            hand_pll=None,
-            ignore_source=[],
+    seed = DEFAULT_SEED if options.seed is None else options.seed
+    try:
+        built = board_generate.build(
+            board_generate.request_from_config(
+                project_root(args),
+                generate,
+                getattr(args, "select_board", None),
+                seed,
+            )
         )
-    )
+    except (ValueError, SourcesError) as error:
+        sys.exit(f"program: {error}")
+    print(f"project written to {built.folder}")
 
 
 def cmd_program(args: argparse.Namespace) -> None:

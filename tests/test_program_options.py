@@ -21,7 +21,8 @@ from support import (
     write_config,
 )
 
-from riscv_tools import quartus_program
+from riscv_tools import board_generate, quartus_program
+from riscv_tools.board_generate import Generated, ProjectRequest, ProjectResult
 from riscv_tools.cli import board_cmd
 from riscv_tools.jtag import JtagLink
 from riscv_tools.quartus_program import (
@@ -337,16 +338,17 @@ def test_program_writes_the_generated_project_first(
 ) -> None:
     """With `quartus.generate` the project is written, then compiled."""
     order: list[str] = []
-    seen: list[argparse.Namespace] = []
+    seen: list[ProjectRequest] = []
 
-    def generated(args: argparse.Namespace) -> None:
+    def built(request: ProjectRequest) -> ProjectResult:
         order.append("generate")
-        seen.append(args)
+        seen.append(request)
+        return ProjectResult(Generated("p", "p", {}), tmp_path / "build" / "p")
 
     def compiled(*_args: object, **_kw: object) -> None:
         order.append("compile")
 
-    monkeypatch.setattr(board_cmd, "cmd_board_generate", generated)
+    monkeypatch.setattr(board_generate, "build", built)
     monkeypatch.setattr(quartus_program, "full_reconfigure", compiled)
     args = _args(tmp_path, compile_only=True, seed=3)
     write_config(

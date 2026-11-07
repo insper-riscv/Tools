@@ -18,6 +18,8 @@ Chama cada gerador e junta o texto, sem escrever conteúdo próprio. A pasta de 
 
 O mapa de memória (pacote VHDL, linker, `.specs` e cabeçalhos) não é gerado aqui: o comando chama o mesmo código do `generate-memory-map` para a plataforma e escreve os arquivos nos caminhos de `generate`. O projeto fica em `<saída>/<plataforma>-<placa>/`. O comando de compilação é o `program` (ver [quartus_program](quartus_program.md)).
 
+O módulo `project` (`build`) é o único caminho da geração: o `board generate`, o `program` (com a chave `quartus.generate` da configuração) e o orquestrador de testes na placa, antes de reconfigurá-la, escrevem o projeto e o mapa de memória por ele, e nunca por um segundo código.
+
 ## 3. Uso
 
 ```bash
