@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any
 
 from riscv_tools import (
-    board_generate,
     htif,
     quartus_program,
     rom_writer,
@@ -138,6 +137,10 @@ def full_reconfigure_entry(
     """
     generate = cfg["quartus"].get("generate")
     if generate:
+        # Late: `board_generate` imports the board catalog, whose reader
+        # imports this package for the defaults of the configuration.
+        from riscv_tools import board_generate  # noqa: PLC0415
+
         board_generate.build(
             board_generate.request_from_config(root, generate)
         )

@@ -31,10 +31,13 @@ A chave `needs` mora ao lado de `sources` e `requires` no `paths.yaml` do reposi
 | V15 | E | Mais saídas de PLL (relógios distintos mais o relógio da SDRAM) que a placa oferece |
 | V16 | E | Pino `inferred` em uso sem `--accept-inferred-pins` |
 | V17 | E | A cadeia JTAG lida do cabo não é a da placa |
-| V18 | W | Família sem arquivo de calibração, ou capacidade `null` na placa |
+| V11 | E ou W | Blocos de RAM que as memórias emuladas e as caches pedem, acima da capacidade (E) ou acima de 85 % dela (W) |
+| V12 | E | Lógica estimada acima da capacidade, só em família com erro máximo de validação até 10 % |
+| V13 | W | Lógica estimada entre 85 % e 100 % da capacidade |
+| V18 | W | Família sem arquivo de calibração, ou capacidade `null` na placa, ou coeficiente `null` de um termo do perfil |
 | V19 | E | Largura do barramento que o backend não sabe fatiar |
 
-As regras V11 a V14 (cabimento) pertencem ao estimador.
+As regras V11 a V13 rodam o estimador de [fit_estimate](fit_estimate.md) sobre o perfil, as caches, os periféricos e as memórias da plataforma, com a tabela de calibração da família da placa. A região emulada conta uma potência de dois de bytes, porque a largura do endereço decide os blocos. Sem o campo `profile` na plataforma, ou sem a tabela, nada é estimado. A V14 (pinos e PLLs) fica com o relatório do Quartus.
 
 ### 3.1. Detalhes
 
@@ -73,6 +76,7 @@ As regras V11 a V14 (cabimento) pertencem ao estimador.
 | `tests/test_board_check.py::test_v18_family_without_calibration` | V18, família |
 | `tests/test_board_check.py::test_v18_capacity_that_is_not_known` | V18, capacidade `null` |
 | `tests/test_board_check.py::test_v19_bus_width_the_backend_cannot_slice` | V19, três larguras |
+| `tests/test_board_fit.py` | V11 a V13 com tabela fictícia, V18 de coeficiente `null`, tabela inválida (V1) e o relatório do `capacity.json` |
 | `tests/test_board_check.py::test_the_catalog_check_finds_what_a_board_cites_wrongly` | Sinal citado que não existe e pino repetido |
 | `tests/test_board_check.py::test_the_catalog_check_passes_a_consistent_catalog` | Catálogo consistente passa |
 | `tests/test_board_check.py::test_the_subcommands_exit_with_the_findings` | `check-memory-map` e `check-boards` saem com status 1 |

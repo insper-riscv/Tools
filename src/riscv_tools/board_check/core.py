@@ -9,6 +9,8 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from riscv_tools.board_check.context import Context, external_regions
 from riscv_tools.board_check.findings import Finding, error
 from riscv_tools.board_check.rules_board import (
@@ -23,6 +25,7 @@ from riscv_tools.board_check.rules_devices import (
     rule_v10,
     rule_v19,
 )
+from riscv_tools.board_check.rules_fit import capacity_report, rule_fit
 from riscv_tools.board_check.rules_roles import rule_io, rule_v4
 from riscv_tools.board_schema import (
     Board,
@@ -37,6 +40,7 @@ from riscv_tools.board_schema import (
     parse_platform_fields,
 )
 from riscv_tools.board_schema.platform_fields import read_platform_file
+from riscv_tools.fit_estimate.table import CalibrationTable, load_table
 from riscv_tools.sources import SourcesError, closure_needs
 
 RULES = (
@@ -52,6 +56,7 @@ RULES = (
     rule_v16,
     rule_v18,
     rule_v19,
+    rule_fit,
 )
 KNOWN_SHOWN = 12
 
@@ -162,6 +167,35 @@ def _calibrated(catalog: Catalog, family: Family) -> bool:
     )
 
 
+def _table(
+    catalog: Catalog, family: Family
+) -> tuple[CalibrationTable | None, list[Finding]]:
+    """Read the calibration table of the family.
+
+    Parameters
+    ----------
+    catalog : Catalog
+        The catalog.
+    family : Family
+        The family.
+
+    Returns
+    -------
+    tuple of (CalibrationTable or None, list of Finding)
+        The table, None when the family names no file, it is absent or
+        it is invalid, and the V1 error of an invalid one.
+    """
+    if not _calibrated(catalog, family):
+        return None, []
+    path = catalog.boards / str(family.calibration)
+    try:
+        return load_table(path), []
+    except (ValueError, yaml.YAMLError) as bad:
+        return None, [
+            error("V1", f"calibration of family '{family.family}': {bad}")
+        ]
+
+
 def _not_found(missing: NotFoundError, board_name: str) -> Finding:
     """Word the error of a board or a family the catalog lacks.
 
@@ -230,6 +264,7 @@ def _context(
         [m.chip for m in board.memories.values() if m.chip],
     )
     pins, problems = _pins(catalog, board_name, board)
+    table, bad_table = _table(catalog, family)
     ctx = Context(
         platform,
         fields,
@@ -241,8 +276,9 @@ def _context(
         _calibrated(catalog, family),
         accept_inferred_pins,
         external_regions(platform),
+        table,
     )
-    return ctx, found + problems
+    return ctx, found + problems + bad_table
 
 
 def _needs(
@@ -345,3 +381,33 @@ def check_platform_file(
         root,
         accept_inferred_pins=accept_inferred_pins,
     )
+
+
+def fit_report(
+    platform: dict[str, Any], board_name: str, catalog: Catalog
+) -> tuple[dict[str, Any] | None, list[Finding]]:
+    """Estimate the fit of a platform on one board.
+
+    Parameters
+    ----------
+    platform : dict of str to Any
+        The loaded platform.
+    board_name : str
+        The board.
+    catalog : Catalog
+        The catalog.
+
+    Returns
+    -------
+    tuple of (dict or None, list of Finding)
+        The report of `capacity.json`, None when the family has no
+        calibration, and the findings of the fit (V11 to V13, V18).
+    """
+    try:
+        fields = parse_platform_fields(platform)
+    except SchemaError as bad:
+        return None, [error("schema", f"platform {p}") for p in bad.problems]
+    ctx, found = _context(platform, fields, board_name, catalog, True)
+    if ctx is None:
+        return None, found
+    return capacity_report(ctx), rule_fit(ctx)
