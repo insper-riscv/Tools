@@ -17,6 +17,9 @@ _PHASE_STEPS = 8
 _N_MAX = 8
 _M_MAX = 512
 _C_MAX = 511
+# Frequência é escrita com seis casas (`76.923077`); o divisor atende
+# quando a saída arredonda para o valor pedido (meia unidade da casa).
+_MHZ_TOLERANCE = Fraction(1, 2_000_000)
 
 
 def _divider(vco: Fraction, mhz: Fraction) -> int | None:
@@ -27,17 +30,21 @@ def _divider(vco: Fraction, mhz: Fraction) -> int | None:
     vco : Fraction
         Frequência do VCO.
     mhz : Fraction
-        Frequência pedida.
+        Frequência pedida, com no máximo seis casas decimais.
 
     Returns
     -------
     int or None
-        `vco / mhz` se é inteiro de 1 a 511, senão `None`.
+        O inteiro de 1 a 511 mais próximo de `vco / mhz`, quando a
+        saída `vco / divisor` arredonda para a frequência pedida; senão
+        `None`.
     """
-    ratio = vco / mhz
-    if ratio.denominator != 1 or not 1 <= ratio <= _C_MAX:
+    divider = round(vco / mhz)
+    if not 1 <= divider <= _C_MAX:
         return None
-    return int(ratio)
+    if abs(vco / divider - mhz) > _MHZ_TOLERANCE:
+        return None
+    return divider
 
 
 def _phase_ok(vco: Fraction, phase_ps: int) -> bool:

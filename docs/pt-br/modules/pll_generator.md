@@ -12,7 +12,7 @@ Para a referência $f_{ref}$ e os relógios pedidos, `solve` busca o menor VCO $
 
 $$ \frac{f_{vco}}{f_i} \in \{1, \dots, 511\} \quad \text{e} \quad \phi_i \in \mathbb{Z} \cdot \frac{1}{8 f_{vco}} $$
 
-para cada saída $i$. A segunda condição diz que a fase é múltiplo de um oitavo do período do VCO, e para a DE0-CV ela escolhe o VCO de 1000 MHz (passo de 125 ps), o mesmo do PLL escrito à mão. Sem solução, ou com mais saídas que `outputs_max`, o erro nomeia os pedidos (V7 e V15).
+para cada saída $i$, com o divisor aceito quando $f_{vco}/d$ arredonda para a frequência pedida, que se escreve com seis casas (76,923077 MHz é $1000/13$). A segunda condição diz que a fase é múltiplo de um oitavo do período do VCO, e para a DE0-CV ela escolhe o VCO de 1000 MHz (passo de 125 ps), o mesmo do PLL escrito à mão. Sem solução, ou com mais saídas que `outputs_max`, o erro nomeia os pedidos (V7 e V15).
 
 ## 3. Primitiva por família
 

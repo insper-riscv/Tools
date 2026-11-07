@@ -5,10 +5,12 @@ import os
 import sys
 from pathlib import Path
 
+from riscv_tools import memory_map
 from riscv_tools.board_equivalence import HandWritten, compare
 from riscv_tools.board_generate import (
     Generated,
     GenerateRequest,
+    check_project,
     generate,
     write_project,
 )
@@ -79,12 +81,75 @@ def _compare(args: argparse.Namespace, result: Generated) -> bool:
     return report.equivalent
 
 
+def _memory_map(root: Path, platform: Path, check: bool) -> list[str]:
+    """Escreve ou confere os arquivos do mapa de memória da plataforma.
+
+    É o mesmo caminho do `generate-memory-map`: o `board generate` não
+    reimplementa o pacote do mapa, o linker nem os cabeçalhos.
+
+    Parameters
+    ----------
+    root : Path
+        A raiz do espaço de trabalho.
+    platform : Path
+        O `platform.yaml`.
+    check : bool
+        Verdadeiro compara com o disco em vez de escrever.
+
+    Returns
+    -------
+    list of str
+        Os problemas achados com `check`; vazio sem a seção `generate`.
+    """
+    if "generate" not in memory_map.load_platform(platform):
+        return []
+    if check:
+        _, problems = memory_map.check_all(platform, root)
+        return [str(problem) for problem in problems]
+    for path in memory_map.write_all(platform, root):
+        print(f"generated: {path.relative_to(root)}")
+    return []
+
+
+def _check_or_write(
+    args: argparse.Namespace, root: Path, out: Path, result: Generated
+) -> list[str]:
+    """Escreve o projeto e o mapa, ou só os confere com `--check`.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Uses args.check and args.platform.
+    root : Path
+        A raiz do espaço de trabalho.
+    out : Path
+        A pasta de saída.
+    result : Generated
+        O projeto gerado.
+
+    Returns
+    -------
+    list of str
+        Os problemas da conferência; vazio ao escrever.
+    """
+    platform = root / args.platform
+    if args.check:
+        return check_project(out, result) + _memory_map(root, platform, True)
+    folder = write_project(out, result)
+    print(f"project written to {folder}")
+    _memory_map(root, platform, False)
+    return []
+
+
 def cmd_board_generate(args: argparse.Namespace) -> None:
     """Implement `riscv-tools board generate`.
 
     Writes the Quartus project of a platform on a board under
-    `--out/<platform>-<board>/`; with `--hand-qsf`, `--hand-sdc` and
-    `--hand-pll` it also prints the equivalence report against the
+    `--out/<platform>-<board>/` and, through the same code as
+    `generate-memory-map`, the files of the memory map the platform
+    asks for under `generate`; with `--check` it writes nothing and
+    fails when a file on disk differs. With `--hand-qsf`, `--hand-sdc`
+    and `--hand-pll` it also prints the equivalence report against the
     hand-written files. Doesn't touch args.config.
 
     Parameters
@@ -125,7 +190,10 @@ def cmd_board_generate(args: argparse.Namespace) -> None:
         sys.exit(2)
     for warning in result.warnings:
         print(warning, file=sys.stderr)
-    folder = write_project(out, result)
-    print(f"project written to {folder}")
+    problems = _check_or_write(args, root, out, result)
+    if problems:
+        for problem in problems:
+            print(f"board generate: {problem}", file=sys.stderr)
+        sys.exit(1)
     if args.hand_qsf and not _compare(args, result):
         sys.exit(1)
