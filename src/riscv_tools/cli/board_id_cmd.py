@@ -32,6 +32,7 @@ from riscv_tools.board.select import (
     select_board,
 )
 from riscv_tools.board.usb import list_cable_users, read_usb
+from riscv_tools.board.usb_only import UsbOnly, usb_only
 from riscv_tools.cli.common import project_root
 
 
@@ -80,8 +81,8 @@ def _fail(error: BoardError) -> None:
     sys.exit(3 if isinstance(error, BoardBusyError) else 2)
 
 
-def _scan_json(reports: list[CableReport]) -> str:
-    """Write the scan as JSON."""
+def _scan_json(reports: list[CableReport], only: list[UsbOnly]) -> str:
+    """Write the scan as JSON, the USB-only boards after the cables."""
     return json.dumps(
         [
             {
@@ -93,13 +94,22 @@ def _scan_json(reports: list[CableReport]) -> str:
                 "problem": r.problem,
             }
             for r in reports
+        ]
+        + [
+            {
+                "cable": None,
+                "usb_id": o.usb_id,
+                "boards": [o.board],
+                "problem": f"on the USB without a chain: {o.state}",
+            }
+            for o in only
         ],
         indent=2,
     )
 
 
-def _print_scan(reports: list[CableReport]) -> None:
-    """Print the scan as text, one block per cable."""
+def _print_scan(reports: list[CableReport], only: list[UsbOnly]) -> None:
+    """Print the scan as text: the cables, then the USB-only boards."""
     for report in reports:
         chain = " ".join(d.idcode for d in report.cable.devices) or "-"
         known = ", ".join(report.boards) or "unknown"
@@ -108,6 +118,9 @@ def _print_scan(reports: list[CableReport]) -> None:
         print(f"  board: {known}  inventory: {entry}")
         if report.problem:
             print(f"  problem: {report.problem}")
+    for item in only:
+        print(f"usb {item.usb_id}  board: {item.board}")
+        print(f"  no chain yet: {item.state}")
 
 
 def _save_inventory(
@@ -140,10 +153,11 @@ def cmd_board_scan(args: argparse.Namespace) -> None:
     """
     env = _environment(args)
     reports = scan(env.cables, env.boards, env.inventory, env.resolve_port)
+    only = usb_only(env.boards, read_usb(), reports)
     if args.json:
-        print(_scan_json(reports))
+        print(_scan_json(reports, only))
     else:
-        _print_scan(reports)
+        _print_scan(reports, only)
     if args.save:
         _save_inventory(args, env, reports)
 

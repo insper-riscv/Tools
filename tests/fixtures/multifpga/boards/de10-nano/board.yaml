@@ -14,7 +14,7 @@ jtag:
     - {id: "09fb:6810", state: "depois da carga do firmware do cabo", confirmed: inferred}
   chain:
     - {name: "SOCVHPS", idcode: "4BA00477", hps: true, confirmed: inferred}
-    - {name: "5CSEBA6", idcode: "02D020DD", fpga: true,  confirmed: inferred}
+    - {name: "5CSE(BA6|MA6)/..", idcode: "02D020DD", fpga: true,  confirmed: manual}
 resources:
   logic:       {unit: alm, total: 41910}
   block_ram:   {kind: m10k, blocks: 557, bits_per_block: 10240}
@@ -37,7 +37,7 @@ console:
 pins: pins.yaml
 notes:
   - "A cadeia JTAG tem dois dispositivos, o HPS (DAP do ARM) e o FPGA, e precisa formar um laco fechado para o Quartus ver o FPGA. O erro 209025 (silicon ID) reportado em foruns e tratado removendo o HPS da cadeia no programador; o doctor do Tools so sugere, nunca aplica."
-  - "Os IDCODEs vem de um topico de forum (fonte secundaria), os IDs USB do cabo II sao inferidos; nada foi lido do cabo nesta placa."
+  - "O IDCODE 02D020DD do 5CSEBA6 vem do banco de dispositivos do Quartus 25.1 (pgm_parts.txt) e o do HPS (4BA00477) e o padrao do DAP do ARM; os IDs USB do cabo II sao inferidos, e nada foi lido do cabo nesta placa. O nome do FPGA na cadeia e o padrao que o jtagconfig imprime, inferido do exemplo do Quartus."
   - "Sem memoria ligada ao fabric: a DDR3 pertence ao HPS e so serve ao fabric depois do preloader (decisao DM4: limitar a placa a memoria emulada). Nao ha SDRAM, SRAM nem FLASH de usuario."
   - "A UART USB e do HPS, nao do fabric; o console do SoC e a JTAG UART. ARDUINO_IO[0] (RXD) e ARDUINO_IO[1] (TXD) servem a um adaptador externo."
   - "O MSEL de fabrica (FPPx32) delega a configuracao ao HPS a partir do cartao SD; a carga por JTAG continua sendo o caminho de desenvolvimento."
