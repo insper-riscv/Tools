@@ -494,3 +494,21 @@ def test_a_table_is_verified_on_another_device(tmp_path: Path) -> None:
     check(content["max_pct"] > content["anchored_max_pct"])
     with pytest.raises(ValueError, match="no record"):
         cal.verify_table(plan, table, records, "nope")
+
+
+def test_the_table_ratio_is_fit_over_synthesis(tmp_path: Path) -> None:
+    """A fitter smaller than the synthesis gives a ratio below one."""
+    plan = cal.load_profile_list(write_plan(tmp_path))
+    coefficients: dict[str, float | None] = {"core.rv32i": 1000.0}
+    records = {
+        definition.id: synthetic_record(definition, coefficients)
+        for definition in plan.profiles
+        if definition.id == "base"
+    }
+    records["base"]["fit_result"] = {"logic": 880}
+    content = cal.fit_table(plan, records)
+    check_equal(content["error"]["map_to_fit_ratio"], 0.88)
+    table = fe.table_from_mapping(content, fe.DEFAULT_VOCABULARY)
+    spec = cal.spec_of(plan.profiles[0])
+    total, _ = fe.estimate_logic(spec, table, 10240)
+    check_equal(round(total * table.map_to_fit_ratio), 880)
