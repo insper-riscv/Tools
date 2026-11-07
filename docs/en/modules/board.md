@@ -39,7 +39,7 @@ boards:
 - {id: de2-115-ws, board: de2-115, usb_path: "pci-0000:00:14.0-usb-0:3"}
 ```
 
-Without the file, a board with a single candidate is still identified, and the `host` is the short machine name or the value of `RISCV_TOOLS_HOST`. The command `board scan --save` records the certain cables; a cable with several candidates asks for `--assign PORT=BOARD`.
+Without the file, a board with a single candidate is still identified, and the `host` is the short machine name or the value of `RISCV_TOOLS_HOST`. The command `board scan --save` records the certain cables; a cable with several candidates asks for `--assign PORT=BOARD`. When the cable of a board moves to another port, the new cable takes the port of the only entry of the same board left without a cable, and the `id` stays.
 
 ## 4. Subcommands
 
@@ -102,6 +102,8 @@ The DE0-Nano-SoC has the same cable and the same HPS, and is told apart by the F
 `riscv-tools` builds the `JtagLink` through the selection when `quartus.jtag_device` is not set, or when `--board` or `--board-id` is given. With `jtag_device` and neither option, the cable is the one that lists its IDCODE, or the one that `--cable` forces, as long as its chain lists the IDCODE. The keys `quartus.board` (identifier or `auto`) and `quartus.boards` (list that `auto` may take) come from the `platform.yaml`.
 
 ## 10. Tests
+
+The observation of each case on hardware is in [Board identification in the laboratory](../board-identification-lab.md).
 
 The tests use fixtures of `jtagconfig` (`tests/fixtures/jtagconfig`), of `lsusb` and of board packages (`tests/fixtures/boards`), with no board or Quartus. They cover cases 1, 2, 4, 5, 6, 7, 8 and 9, the precedence, the inventory registration, the lock against an external `flock`, the subcommands end to end and the handling of the DE10-Nano and the MKR Vidor.
 
