@@ -18,7 +18,7 @@ from riscv_tools.board import (
 )
 from riscv_tools.board.doctor import FAIL, Check, missing_tool, run_doctor
 from riscv_tools.board.inventory import USER_FILE, dump_inventory
-from riscv_tools.board.register import register
+from riscv_tools.board.register import MOVED, register
 from riscv_tools.board.runtime import (
     boards_directories,
     build_environment,
@@ -135,7 +135,10 @@ def _save_inventory(
     target.write_text(dump_inventory(saved), encoding="utf-8")
     print(f"inventory saved: {target}")
     for note in notes:
-        print(f"not saved: {note}", file=sys.stderr)
+        if note.startswith(MOVED):
+            print(note)
+        else:
+            print(f"not saved: {note}", file=sys.stderr)
 
 
 def cmd_board_scan(args: argparse.Namespace) -> None:

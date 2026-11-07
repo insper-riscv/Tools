@@ -243,6 +243,16 @@ def run_doctor(
     """
     reports = env.reports()
     checks = [Check("jtagconfig", OK, f"{len(env.cables)} cable(s) listed")]
+    if not env.boards:
+        checks.append(
+            Check(
+                "board packages",
+                FAIL,
+                "no board package was found, so no cable can be identified",
+                "pass --boards-dir, or set RISCV_TOOLS_BOARDS, or run from "
+                "the root of the Insper-RISC-V",
+            )
+        )
     if not env.cables:
         checks.append(
             Check(

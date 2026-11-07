@@ -176,8 +176,11 @@ def parse_inventory(data: Any, host: str | None = None) -> Inventory:
     BoardError
         The file is malformed or repeats an id or a port.
     """
+    if data is not None and not isinstance(data, dict):
+        raise BoardError("inventory: the file must be a mapping")
     doc = cast(dict[str, Any], data or {})
-    entries = tuple(_entry(e) for e in doc.get("boards", []))
+    raw = cast(list[Any], doc.get("boards") or [])
+    entries = tuple(_entry(e) for e in raw)
     ids = [e.id for e in entries]
     ports = [e.usb_path for e in entries if e.usb_path]
     if len(set(ids)) != len(ids) or len(set(ports)) != len(ports):

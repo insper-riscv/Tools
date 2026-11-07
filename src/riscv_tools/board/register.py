@@ -5,6 +5,9 @@ from dataclasses import replace
 from riscv_tools.board.inventory import Inventory, InventoryEntry
 from riscv_tools.board.scan import CableReport
 
+MOVED = "moved: "
+"""Start of the note of an entry that took its moved cable's port."""
+
 
 def _new_id(board: str, host: str, taken: set[str]) -> str:
     """Pick the id of a new entry: `<board>-<host>`, numbered."""
@@ -25,6 +28,24 @@ def _board_for(
     if chosen is not None:
         return chosen if chosen in report.candidates else None
     return report.candidates[0] if len(report.candidates) == 1 else None
+
+
+def _stale_entry(
+    entries: list[InventoryEntry], reports: list[CableReport], board: str
+) -> int | None:
+    """Find the one entry of a board whose port has no cable now.
+
+    A board whose cable moved to another port leaves an entry that no
+    cable answers; the new port takes its place. More than one such
+    entry would be a guess, and it returns None.
+    """
+    present = {r.port for r in reports if r.port is not None}
+    stale = [
+        i
+        for i, e in enumerate(entries)
+        if e.board == board and e.usb_path and e.usb_path not in present
+    ]
+    return stale[0] if len(stale) == 1 else None
 
 
 def register(
@@ -51,7 +72,9 @@ def register(
     Returns
     -------
     tuple of (Inventory, list of str)
-        The new inventory and one note per cable that was left out.
+        The new inventory and one note per cable left out, or per
+        entry that took the port of its moved cable (the note starts
+        with `MOVED`).
     """
     entries = list(inventory.entries)
     taken = {e.id for e in entries}
@@ -68,6 +91,14 @@ def register(
             notes.append(
                 f"{report.cable.name} at {report.port} may be {options}: "
                 f"say which with --assign {report.port}=BOARD"
+            )
+            continue
+        moved = _stale_entry(entries, reports, board)
+        if moved is not None:
+            old = entries[moved]
+            entries[moved] = replace(old, usb_path=report.port)
+            notes.append(
+                f"{MOVED}{old.id} from {old.usb_path} to {report.port}"
             )
             continue
         ident = _new_id(board, inventory.host, taken)

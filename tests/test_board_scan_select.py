@@ -14,8 +14,8 @@ from riscv_tools.board import (
     scan,
     select_board,
 )
-from riscv_tools.board.inventory import Inventory
-from riscv_tools.board.register import register
+from riscv_tools.board.inventory import Inventory, parse_inventory
+from riscv_tools.board.register import MOVED, register
 from riscv_tools.jtag.hardware import parse_jtagconfig, same_idcode
 
 DE0CV = InventoryEntry("de0-cv-ws", "de0-cv", "pci-0000:00:14.0-usb-0:2")
@@ -301,3 +301,33 @@ def test_the_scan_reports_candidates_and_problems() -> None:
     report = scan(env.cables, env.boards, env.inventory, env.resolve_port)[0]
     check_equal(report.candidates, (), "no candidate")
     check_equal(report.problem is not None, True, "problem")
+
+
+def test_register_moves_the_entry_of_a_board_whose_cable_moved() -> None:
+    """The one stale entry of the board takes the new port, no twin."""
+    stale = (
+        InventoryEntry("de2-115-ws", "de2-115", "pci-0000:00:14.0-usb-0:7"),
+    )
+    env = host("four-cables", stale)
+    saved, notes = register(env.inventory, env.reports(), {})
+    moved = next(e for e in saved.entries if e.board == "de2-115")
+    check_equal(moved.id, "de2-115-ws", "the id stays")
+    check_equal(moved.usb_path, "pci-0000:00:14.0-usb-0:3", "the new port")
+    check_equal(sum(e.board == "de2-115" for e in saved.entries), 1, "no twin")
+    check_equal(
+        [n for n in notes if n.startswith(MOVED)],
+        [
+            "moved: de2-115-ws from pci-0000:00:14.0-usb-0:7 to "
+            "pci-0000:00:14.0-usb-0:3"
+        ],
+        "the note",
+    )
+
+
+def test_an_empty_boards_list_in_the_inventory_is_an_empty_inventory() -> None:
+    """`boards:` with no value is not a crash."""
+    check_equal(
+        parse_inventory({"host": "x", "boards": None}).entries, (), "empty"
+    )
+    with pytest.raises(BoardError, match="must be a mapping"):
+        parse_inventory(["a"])
