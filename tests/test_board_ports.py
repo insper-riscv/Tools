@@ -141,8 +141,10 @@ def test_the_clock_plan_of_the_de0_cv() -> None:
         [c.role for c in plan.roles], ["mem", "mem_pin", "fetch", "core"]
     )
     check_equal(_clock(plan, "mem_pin").phase_ps, 4000)
-    check_equal(_clock(plan, "core").phase_ps, 8250)
-    check_equal(_clock(plan, "core").period_ns, Fraction(20))
+    check_equal(_clock(plan, "core").phase_ps, 7500)
+    check_equal(
+        _clock(plan, "core").period_ns, Fraction(1000_000_000, 76923077)
+    )
     check_equal(plan.min_period_ns, Fraction(10))
     check_equal(plan.index("core"), 3)
 

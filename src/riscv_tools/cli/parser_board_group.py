@@ -33,6 +33,12 @@ def add_board_group(sub: Any) -> None:
     )
     p.add_argument("--seed", type=int, default=5)
     p.add_argument("--accept-inferred-pins", action="store_true")
+    p.add_argument(
+        "--check",
+        action="store_true",
+        help="write nothing; fail when the project or the memory map "
+        "files on disk differ from what would be generated",
+    )
     p.add_argument("--hand-qsf", default=None)
     p.add_argument("--hand-sdc", default=None)
     p.add_argument("--hand-pll", default=None)

@@ -16,7 +16,7 @@ Calls each generator and joins the text, writing no content of its own. The outp
 | `<platform>_<board>.qpf` and `.qsf` | `quartus_project`, with the pins of `pin_assignments` |
 | `chip_<chip>_pkg.vhd` | `chip_package`, one per board chip |
 
-The project lives in `<out>/<platform>-<board>/`. The compile command is `program` (see [quartus_program](quartus_program.md)).
+The memory map (VHDL package, linker script, `.specs` and headers) is not generated here: the command calls the same code as `generate-memory-map` for the platform and writes the files at the paths of `generate`. The project lives in `<out>/<platform>-<board>/`. The compile command is `program` (see [quartus_program](quartus_program.md)).
 
 ## 3. Usage
 
@@ -33,6 +33,7 @@ uv run riscv-tools --root <workspace> board generate \
 | `--target` | Component whose source closure goes in the `.qsf`; repeatable |
 | `--seed` | Seed of the `.qsf`, default 5 |
 | `--accept-inferred-pins` | Accept building with an `inferred` pin |
+| `--check` | Write nothing; exit with status 1 when the project or a memory map file on disk differs from what would be generated |
 | `--hand-qsf`, `--hand-sdc`, `--hand-pll`, `--ignore-source` | Print the [board_equivalence](board_equivalence.md) report against the hand-written files |
 
 Warnings (unmeasured `DRAM_CLK` phase, missing optional role, backend without an entity) go to `stderr`. Exits with status 2 when an input is invalid, and with status 1 when the equivalence report finds a loss.

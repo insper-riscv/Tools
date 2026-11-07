@@ -79,22 +79,26 @@ _IDLE_CONNECTIONS = (
 )
 
 
-def _ratio(out: Fraction, reference: Fraction) -> tuple[int, int]:
+def _ratio(solution: PllSolution, divider: int) -> tuple[int, int]:
     """Dá o multiplicador e o divisor de uma saída.
+
+    A razão sai dos contadores do PLL (`M / (N C)`), e não da frequência
+    pedida: uma frequência escrita com seis casas, como 76,923077 MHz,
+    não tem razão inteira pequena, mas o contador de 13 tem.
 
     Parameters
     ----------
-    out : Fraction
-        Frequência da saída.
-    reference : Fraction
-        Frequência de entrada.
+    solution : PllSolution
+        Os contadores.
+    divider : int
+        Divisor `C` da saída.
 
     Returns
     -------
     tuple of (int, int)
         Multiplicador e divisor da razão irredutível.
     """
-    ratio = out / reference
+    ratio = Fraction(solution.m, solution.n * divider)
     return ratio.numerator, ratio.denominator
 
 
@@ -113,7 +117,7 @@ def _output_parameters(solution: PllSolution) -> list[str]:
     """
     lines: list[str] = []
     for out in solution.outputs:
-        mult, div = _ratio(out.mhz, solution.reference_mhz)
+        mult, div = _ratio(solution, out.divider)
         lines += [
             f"\t\t.clk{out.index}_divide_by({div}),",
             f"\t\t.clk{out.index}_duty_cycle(50),",

@@ -12,8 +12,8 @@ memory:
   icache: {enabled: true, size_bits: 32768}
   dcache: {enabled: true, size_bits: 32768}
 clocks:
-  core:  {mhz: 50, phase_ps: 8250}
-  fetch: {mhz: 50, phase_ps: 0}
+  core:  {mhz: 76.923077, phase_ps: 7500}
+  fetch: {mhz: 76.923077, phase_ps: 0}
   mem:   {mhz: 100}
 console: jtag
 io:

@@ -123,7 +123,7 @@ interrupts:
   mtime_hz: 1000000    # taxa com que o mtime do CLINT conta
 ```
 
-O `mtime` do CLINT é um contador próprio, ajustado por `mtime_hz`, e é independente do CSR `time` da Zicntr, que o núcleo atende. O `clock_hz` precisa ser múltiplo de `mtime_hz`, o perfil precisa ligar `has_interrupts`, e a lista `peripherals` precisa ter o `CLINT`; a ausência de qualquer um deles é um erro antes de gerar e no `check-memory-map`.
+O `mtime` do CLINT é um contador próprio, ajustado por `mtime_hz`, e é independente do CSR `time` da Zicntr, que o núcleo atende. Com `clocks.core` na plataforma o `clock_hz` é omitido e vale o relógio do núcleo arredondado para um número inteiro de ciclos por incremento; escrito, ele precisa ser esse valor. O `clock_hz` precisa ser múltiplo de `mtime_hz`, o perfil precisa ligar `has_interrupts`, e a lista `peripherals` precisa ter o `CLINT`; a ausência de qualquer um deles é um erro antes de gerar e no `check-memory-map`.
 
 | Saída | Constantes |
 | :--- | :--- |
@@ -155,24 +155,22 @@ Identificadores repetidos, fora de 1 a 1023, `priority_bits` fora de 1 a 32 e ja
 
 $$ \text{msip} = base, \quad \text{mtimecmp} = base + \texttt{0x4000}, \quad \text{mtime} = base + \texttt{0xBFF8} $$
 
-## O relógio do controlador da SDRAM
+## Os relógios da plataforma
 
-Uma plataforma com SDRAM descreve na seção `sdram` o relógio do controlador e a fase do pino `DRAM_CLK` contra ele. Os dois valores vêm da PLL da plataforma e do relatório de tempo do Quartus, e a seção é a fonte única deles.
+A seção `clocks` do `platform.yaml` é a fonte única das frequências: o PLL, o `.sdc` e o pacote VHDL saem dela (ver [pll_generator](pll_generator.md)). O mapa de memória lê dela o relógio do controlador da SDRAM e o do núcleo.
 
 ```yaml
-sdram:
-  clock_hz: 100000000       # relógio do controlador (saída 0 da PLL)
-  dram_clk_phase_ps: 4000   # fase de DRAM_CLK contra ele (saída 1 da PLL)
+clocks:
+  core:  {mhz: 76.923077, phase_ps: 7500}  # relógio do núcleo
+  mem:   {mhz: 100}                        # relógio do controlador da SDRAM
 ```
 
 | Saída | Conteúdo |
 | :--- | :--- |
-| Pacote VHDL (`vhdl`) | `SDRAM_CLOCK_HZ` e `SDRAM_TCK_PS`, o período em picossegundos com que o controlador e o modelo do chip convertem os tempos do chip em ciclos |
-| Símbolos dos `checks` | `SDRAM.clock_mhz`, `SDRAM.tck_ps` e `SDRAM.dram_clk_phase_ps`, que mantêm o arquivo da PLL igual ao mapa |
+| Pacote VHDL (`vhdl`) | `SDRAM_CLOCK_HZ` e `SDRAM_TCK_PS` de `clocks.mem`, o período em picossegundos com que o controlador e o modelo do chip convertem os tempos do chip em ciclos |
+| Símbolos dos `checks` | `CLOCKS.mem_mhz`, `CLOCKS.mem_tck_ps`, `CLOCKS.core_mhz` (arredondado) e `CLOCKS.core_phase_ps` |
 
-O `clock_hz` precisa ter período inteiro em picossegundos e a fase precisa ficar dentro de um período; os dois campos são obrigatórios, e a falta de qualquer um é um erro antes de gerar e no `check-memory-map`.
-
-A seção opcional `pll` guarda a fase do relógio do núcleo (saída 3 da PLL) em `core_phase_ps`, que só os `checks` usam (`PLL.core_phase_ps`).
+Todo relógio declarado precisa de `mhz` positivo, e `clocks.mem` precisa ter período inteiro em picossegundos; a falta ou o excesso é um erro antes de gerar e no `check-memory-map`. A fase do pino `DRAM_CLK` pertence à placa (`memories.sdram.clk_phase_ps` do `board.yaml`).
 
 ## As memórias e as caches da plataforma
 

@@ -310,3 +310,30 @@ def write_project(out_dir: Path, generated: Generated) -> Path:
     for name, text in generated.files.items():
         (project / name).write_text(text, encoding="utf-8")
     return project
+
+
+def check_project(out_dir: Path, generated: Generated) -> list[str]:
+    """Compara os arquivos gerados com os da pasta de saída.
+
+    Parameters
+    ----------
+    out_dir : Path
+        A pasta de saída.
+    generated : Generated
+        O resultado de `generate`.
+
+    Returns
+    -------
+    list of str
+        Um problema por arquivo ausente ou diferente; vazio quando a
+        pasta está em dia.
+    """
+    project = out_dir / generated.folder
+    problems: list[str] = []
+    for name, text in generated.files.items():
+        path = project / name
+        if not path.is_file():
+            problems.append(f"{path}: missing")
+        elif path.read_text(encoding="utf-8") != text:
+            problems.append(f"{path}: out of date")
+    return problems

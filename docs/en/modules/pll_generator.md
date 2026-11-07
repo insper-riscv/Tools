@@ -12,7 +12,7 @@ For the reference $f_{ref}$ and the requested clocks, `solve` searches for the l
 
 $$ \frac{f_{vco}}{f_i} \in \{1, \dots, 511\} \quad \text{and} \quad \phi_i \in \mathbb{Z} \cdot \frac{1}{8 f_{vco}} $$
 
-for each output $i$. The second condition says the phase is a multiple of one eighth of the VCO period, and for the DE0-CV it picks the 1000 MHz VCO (125 ps step), the same as the hand-written PLL. With no solution, or with more outputs than `outputs_max`, the error names the requests (V7 and V15).
+for each output $i$, a divider being accepted when $f_{vco}/d$ rounds to the requested frequency, which is written with six decimals (76.923077 MHz is $1000/13$). The second condition says the phase is a multiple of one eighth of the VCO period, and for the DE0-CV it picks the 1000 MHz VCO (125 ps step), the same as the hand-written PLL. With no solution, or with more outputs than `outputs_max`, the error names the requests (V7 and V15).
 
 ## 3. Primitive per family
 

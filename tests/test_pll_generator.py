@@ -34,7 +34,7 @@ def test_the_de0_cv_clocks_solve_to_the_1000_mhz_vco() -> None:
     solution = solve(reference, roles, CYCLONE_V)
     check_equal(solution.vco_mhz, 1000)
     check_equal((solution.n, solution.m), (1, 20))
-    check_equal([o.divider for o in solution.outputs], [10, 10, 20, 20])
+    check_equal([o.divider for o in solution.outputs], [10, 10, 13, 13])
 
 
 def test_the_text_has_the_parameters_of_the_handwritten_pll() -> None:
@@ -48,8 +48,9 @@ def test_the_text_has_the_parameters_of_the_handwritten_pll() -> None:
         '.reference_clock_frequency("50.000000 MHz")',
         '.output_clock_frequency0("100.000000 MHz")',
         '.phase_shift1("4000 ps")',
-        '.output_clock_frequency2("50.000000 MHz")',
-        '.phase_shift3("8250 ps")',
+        '.output_clock_frequency2("76.923077 MHz")',
+        '.output_clock_frequency3("76.923077 MHz")',
+        '.phase_shift3("7500 ps")',
         ".number_of_clocks(4)",
         "module pll_x (",
     ):
@@ -92,7 +93,9 @@ def test_altpll_writes_the_measured_primitive() -> None:
         ".clk0_multiply_by(2)",
         ".clk0_divide_by(1)",
         '.clk1_phase_shift("4000")',
-        '.clk3_phase_shift("8250")',
+        '.clk3_phase_shift("7500")',
+        ".clk3_multiply_by(20)",
+        ".clk3_divide_by(13)",
         '.port_clk3("PORT_USED")',
         '.port_clk4("PORT_UNUSED")',
         "assign outclk_3 = clk_bus[3];",

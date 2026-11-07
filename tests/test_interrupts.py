@@ -80,6 +80,20 @@ def test_the_header_has_the_registers_of_the_clint(
     )
 
 
+def test_the_tick_follows_the_core_clock(tmp_path: Path) -> None:
+    """With `clocks.core` the clock rate is that clock rounded."""
+    clocks = {"core": {"mhz": 76.923077, "phase_ps": 7500}}
+    section = {"mtime_hz": 1000000}
+    path = _write(tmp_path, clocks=clocks, interrupts=section)
+    text = render_all(path, tmp_path)[tmp_path / "gen/irq_pkg.vhd"]
+    check_in("constant CLOCK_HZ          : positive := 77000000;", text)
+    check_in("constant CLINT_TICK_CYCLES : positive := 77;", text)
+    stale = {"clock_hz": 50000000, "mtime_hz": 1000000}
+    path = _write(tmp_path, clocks=clocks, interrupts=stale)
+    with pytest.raises(ValueError, match="leave clock_hz out"):
+        render_all(path, tmp_path)
+
+
 def test_without_the_section_nothing_is_added(tmp_path: Path) -> None:
     """Without `interrupts` there are no constants and no macros."""
     path = _write(tmp_path, interrupts=None, extras=[])
