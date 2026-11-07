@@ -45,6 +45,9 @@ QSF_FILE = re.compile(
     re.M,
 )
 INTERRUPT_PERIPHERALS = ("CLINT", "PLIC")
+QSF_DEVICE = re.compile(
+    r"^set_global_assignment\s+-name\s+DEVICE\s+(\S+)", re.M
+)
 QUARTUS_TIMEOUT_S = 3600
 Log = Callable[[str], None]
 
@@ -408,6 +411,12 @@ def generate_project(
     return projects[0].parent, projects[0].stem
 
 
+def _device(qsf: Path) -> str | None:
+    """Read the device a settings file targets."""
+    found = QSF_DEVICE.search(qsf.read_text(encoding="utf-8"))
+    return found.group(1) if found else None
+
+
 def _project(
     plan: ProfileList, work: Path, riscv_tools: Sequence[str]
 ) -> tuple[Path, str, Path]:
@@ -494,6 +503,7 @@ def run_synthesis(
         tail = "\n".join(done.stdout.splitlines()[-15:])
         msg = f"{definition.id}: synthesis failed\n{tail}"
         raise RuntimeError(msg)
+    command[:] = [Path(item).name if "/" in item else item for item in command]
     return command, done.stdout
 
 
@@ -585,7 +595,8 @@ def record_of(
         What the synthesis reported.
     facts : mapping
         ``sources_hash``, ``revisions``, ``added_constants``,
-        ``command`` and ``elapsed_s``.
+        ``command``, ``elapsed_s`` and ``device`` (from the settings
+        file when the summary does not name it).
     fitted : ResourceUsage, optional
         What the fitter reported; adds ``fit_result``.
 
@@ -723,6 +734,7 @@ def measure(
             "added_constants": added,
             "command": command,
             "elapsed_s": round(time.monotonic() - started),
+            "device": usage.meta.get("device") or _device(qsf),
         }
         settings.out_dir.mkdir(parents=True, exist_ok=True)
         target.write_text(
