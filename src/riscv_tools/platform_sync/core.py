@@ -28,7 +28,6 @@ PATH_KEYS: tuple[tuple[str, ...], ...] = (
     ("paths", "boot_memory_linker_script"),
     ("paths", "sources"),
     ("emulator", "sources"),
-    ("freq_sweep", "pll_file"),
     ("quartus", "project_dir"),
     ("quartus", "generate", "platform"),
     ("quartus", "generate", "out"),

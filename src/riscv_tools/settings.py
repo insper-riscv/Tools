@@ -15,7 +15,6 @@ import yaml
 from riscv_tools.c_to_asm.__config__ import DEFAULTS as _C_TO_ASM_DEFAULTS
 from riscv_tools.certify.__config__ import DEFAULTS as _CERTIFY_DEFAULTS
 from riscv_tools.compiler.__config__ import DEFAULTS as _COMPILER_DEFAULTS
-from riscv_tools.freq_sweep.__config__ import DEFAULTS as _FREQ_SWEEP_DEFAULTS
 from riscv_tools.golden_generator.__config__ import (
     DEFAULTS as _GOLDEN_GENERATOR_DEFAULTS,
 )
@@ -46,7 +45,6 @@ _MODULE_DEFAULTS = [
     _QUARTUS_PROGRAM_DEFAULTS,
     _ORCHESTRATOR_DEFAULTS,
     _SIM_RUNNER_DEFAULTS,
-    _FREQ_SWEEP_DEFAULTS,
     _CERTIFY_DEFAULTS,
     _RUN_LOG_DEFAULTS,
 ]
