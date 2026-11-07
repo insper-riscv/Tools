@@ -134,7 +134,7 @@ def _read_component(
     sources = _strings(body.get("sources"))
     requires = _strings(body.get("requires"))
     needs = _strings(body.get("needs"))
-    if not sources and not requires:
+    if sources is None or (not sources and not requires):
         problems.append(f"{name}: `sources` is a non-empty list of paths")
     if requires is None:
         problems.append(f"{name}: `requires` is a list of names")
@@ -147,7 +147,7 @@ def _read_component(
             for item in needs
             if item not in NEED_TYPES
         )
-    if not sources or requires is None or needs is None:
+    if sources is None or requires is None or needs is None:
         return None
     return Component(tuple(sources), tuple(requires), tuple(needs))
 
