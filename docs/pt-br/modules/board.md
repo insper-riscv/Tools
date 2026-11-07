@@ -39,7 +39,7 @@ boards:
 - {id: de2-115-ws, board: de2-115, usb_path: "pci-0000:00:14.0-usb-0:3"}
 ```
 
-Sem o arquivo, uma placa com uma só candidata ainda é identificada, e o `host` é o nome curto da máquina ou o valor de `RISCV_TOOLS_HOST`. O comando `board scan --save` grava os cabos certos; um cabo com várias candidatas pede `--assign PORTA=PLACA`.
+Sem o arquivo, uma placa com uma só candidata ainda é identificada, e o `host` é o nome curto da máquina ou o valor de `RISCV_TOOLS_HOST`. O comando `board scan --save` grava os cabos certos; um cabo com várias candidatas pede `--assign PORTA=PLACA`. Quando o cabo de uma placa muda de porta, o cabo novo toma a porta da única entrada da mesma placa que ficou sem cabo, e o `id` se mantém.
 
 ## 4. Subcomandos
 
@@ -102,6 +102,8 @@ O `board scan` também lista as placas que a USB mostra sem cadeia legível (`us
 `riscv-tools` monta o `JtagLink` pela seleção quando `quartus.jtag_device` não está definido, ou quando `--board` ou `--board-id` é dado. Com `jtag_device` e sem essas opções, o cabo é o que lista o IDCODE dele, ou o que `--cable` força, desde que a cadeia dele liste o IDCODE. As chaves `quartus.board` (identificador ou `auto`) e `quartus.boards` (lista que o `auto` pode tomar) vêm do `platform.yaml`.
 
 ## 10. Testes
+
+A observação de cada caso em hardware está em [Identificação da placa no laboratório](../board-identification-lab.md).
 
 Os testes usam fixtures do `jtagconfig` (`tests/fixtures/jtagconfig`), do `lsusb` e de pacotes de placa (`tests/fixtures/boards`), sem placa nem Quartus. Cobrem os casos 1, 2, 4, 5, 6, 7, 8 e 9, a precedência, o registro no inventário, a trava com um `flock` externo, os subcomandos de ponta a ponta e o tratamento da DE10-Nano e da MKR Vidor.
 

@@ -1,5 +1,7 @@
 """DE10-Nano and MKR Vidor 4000, by fixtures only."""
 
+from dataclasses import replace
+
 import yaml
 from board_support import FIXTURES, host
 from multifpga_support import BOARDS
@@ -116,6 +118,14 @@ def test_the_doctor_flags_a_broken_chain_and_stray_processes() -> None:
     check_equal(levels["process 4242"], WARN, "process")
     none = run_doctor(host("empty"), [], [])
     check_equal(_levels(none)["cables"], FAIL, "no cable")
+
+
+def test_the_doctor_says_when_no_board_package_was_found() -> None:
+    """With no catalog the failure names the catalog, not case 7."""
+    env = replace(host("four-cables"), boards={})
+    check_equal(
+        _levels(run_doctor(env, [], []))["board packages"], FAIL, "catalog"
+    )
 
 
 def test_the_vidor_on_the_usb_is_listed_without_a_chain() -> None:

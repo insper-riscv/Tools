@@ -6,11 +6,11 @@ Estima se um perfil cabe numa placa e julga o resultado. A estimativa soma o cus
 
 As constantes são do Tools e não há opção para forçar o resultado.
 
-| Utilização $ de um recurso | Resultado |
+| Utilização $u$ de um recurso | Resultado |
 | :--- | :--- |
-|  \le 0{,}85$ | passa |
-| /bin/bash{,}85 < u \le 1{,}00$ | aviso (a estimativa erra algumas unidades percentuais; só o ajuste decide) |
-|  > 1{,}00$ | erro |
+| $u \le 0{,}85$ | passa |
+| $0{,}85 < u \le 1{,}00$ | aviso (a estimativa erra algumas unidades percentuais; só o ajuste decide) |
+| $u > 1{,}00$ | erro |
 
 A lógica estimada só falha quando a família está validada, isto é, o erro máximo de validação da tabela é de até 10 %. Antes disso o resultado é o aviso V18 e o ajuste decide.
 
@@ -32,7 +32,7 @@ O custo lógico estimado é
 
 $$ \hat{L} = r \left( L_{nucleo} + \sum_e L_e + L_{hpm}(n, w) + \sum_c L_c(s_c) + \sum_p L_p + \sum_b L_b \right) $$
 
-com {hpm} = a_0 + a_1 n + a_2 n w$,  = c_0 + c_1 s_c$ e $ a razão entre o ajuste e a síntese (`map_to_fit_ratio`, 1 quando não medida). Os blocos de RAM são
+com $L_{hpm} = a_0 + a_1 n + a_2 n w$, $L_c = c_0 + c_1 s_c$ e $r$ a razão entre o ajuste e a síntese (`map_to_fit_ratio`, 1 quando não medida). Os blocos de RAM são
 
 $$ N_{blocos} = \sum_m \left\lceil \frac{8 s_m}{b_{bloco}} \right\rceil + N_{caches} + N_{regs} $$
 
