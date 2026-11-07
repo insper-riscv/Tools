@@ -2,11 +2,12 @@
 	nor_rd_addr <= std_logic_vector(unsigned(fx_addr) - to_unsigned(ROM_BASE_KIB * 1024, 32));
 	nor_cmd_addr <= std_logic_vector(unsigned(fcmd_addr) - to_unsigned(ROM_BASE_KIB * 1024, 32));
 
+	-- O setor do controlador é o menor do chip (os de boot de 8 KiB): um comando de apagar com o endereço alinhado a ele serve ao setor de boot e ao uniforme.
 	-- Backend de dispositivo da FLASH: controlador do chip NOR de 8 bits no clock do núcleo (leitura em página e comandos K4).
 	nor_ctrl_inst : entity work.nor_flash_ctrl
 		generic map (
 			clk_period_ns => {period_ns}, margin_ns => {margin_ns},
-			size_bytes => work.{chip}.SIZE_BYTES, sector_bytes => work.{chip}.SECTOR_BYTES, page_bytes => 256,
+			size_bytes => work.{chip}.SIZE_BYTES, sector_bytes => work.{chip}.BOOT_SECTOR_BYTES, page_bytes => 256,
 			base_addr => std_logic_vector(to_unsigned(ROM_BASE_KIB * 1024, 32)),
 			t_acc_ns => work.{chip}.ACCESS_NS, t_pacc_ns => work.{chip}.PAGE_ACCESS_NS, t_wc_ns => work.{chip}.WRITE_CYCLE_NS,
 			t_wp_ns => work.{chip}.WRITE_PULSE_NS, t_wph_ns => work.{chip}.WRITE_HIGH_NS, t_ds_ns => work.{chip}.DATA_SETUP_NS,

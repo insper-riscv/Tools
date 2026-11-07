@@ -17,9 +17,9 @@ CFG = {
 
 
 def test_the_layout_keeps_the_job_below_the_image() -> None:
-    """The job sits 16 bytes before the image, inside the RAM."""
+    """The job sits 32 bytes before the image, inside the RAM."""
     layout = nor_program.layout_of(CFG)
-    check_equal(layout.image - layout.job, 16)
+    check_equal(layout.image - layout.job, 32)
     check_equal(layout.ram_end, 0x44000000)
     check_equal(layout.program, 0x40100000)
 
