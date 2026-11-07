@@ -511,4 +511,7 @@ def test_the_table_ratio_is_fit_over_synthesis(tmp_path: Path) -> None:
     table = fe.table_from_mapping(content, fe.DEFAULT_VOCABULARY)
     spec = cal.spec_of(plan.profiles[0])
     total, _ = fe.estimate_logic(spec, table, 10240)
-    check_equal(round(total * table.map_to_fit_ratio), 880)
+    ratio = table.map_to_fit_ratio
+    if ratio is None:
+        pytest.fail("the table has no ratio")
+    check_equal(round(total * ratio), 880)
