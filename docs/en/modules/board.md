@@ -93,6 +93,10 @@ The DE10-Nano uses the USB-Blaster II, with the cable `DE-SoC [USB-1]` and a cha
 
 The MKR Vidor 4000 only has the USB of the SAMD21 (`2341:8056`). The `doctor` says that the `USBBlaster` sketch must be loaded into the SAMD21 through the bootloader mode, and the tools do not write the sketch.
 
+The DE0-Nano-SoC has the same cable and the same HPS, and is told apart by the FPGA IDCODE (`02D010DD` instead of `02D020DD`).
+
+`board scan` also lists the boards the USB shows without a readable chain (`usb_only`). The rule reads the IDs of `jtag.usb` of each package, so a new board with a cable of its own needs no code. The plain USB-Blaster ID (`09fb:6001`) names no board, a board that some cable already presents is not listed, and neither are the IDs it shares with another board (the two DE-SoC boards).
+
 ## 9. Configuration integration
 
 `riscv-tools` builds the `JtagLink` through the selection when `quartus.jtag_device` is not set, or when `--board` or `--board-id` is given. With `jtag_device` and neither option, the cable is the one that lists its IDCODE, or the one that `--cable` forces, as long as its chain lists the IDCODE. The keys `quartus.board` (identifier or `auto`) and `quartus.boards` (list that `auto` may take) come from the `platform.yaml`.

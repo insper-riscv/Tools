@@ -23,9 +23,13 @@ fixtures:
     caso: um cabo com nós de outros tipos (ROM/RAM/Constant ao lado de Virtual JTAG), em ordem de índice não crescente
   - arquivo: vidor_emulated_usb_blaster.txt
     origem: inferido
-    fonte: Plans/Multi-FPGA/placas/mkr-vidor-4000.md (USB-Blaster emulado pelo SAMD21); IDCODE 020F10DD do 10CL016 e o padrão do nome são deduções
+    fonte: Plans/Multi-FPGA/placas/mkr-vidor-4000.md (USB-Blaster emulado pelo SAMD21); o IDCODE 020F20DD do 10CL016 vem do pgm_parts.txt do Quartus 25.1 e o padrão do nome é dedução
     caso: cabo emulado pelo sketch USBBlaster do SAMD21 com o FPGA Cyclone 10 LP da Vidor
   - arquivo: no_hardware.txt
     origem: inferido
     fonte: texto da mensagem do jtagconfig sem cabo, de memória do Quartus; sem cabo nenhum o laboratório não reproduz
     caso: nenhum cabo visível
+  - arquivo: de0-nano-soc.txt
+    origem: inferido
+    fonte: Plans/Multi-FPGA/placas/de0-nano-soc.md (cadeia HPS e FPGA, cabo DE-SoC); IDCODE 02D010DD do pgm_parts.txt do Quartus 25.1, padrão do nome por analogia com a DE10-Nano
+    caso: a DE0-Nano-SoC, que compartilha cabo e HPS com a DE10-Nano e se distingue pelo IDCODE do FPGA
