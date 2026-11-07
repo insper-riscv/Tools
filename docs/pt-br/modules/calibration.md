@@ -9,7 +9,7 @@ Para cada perfil da lista o laço executa, nesta ordem:
 1. copia o projeto para uma pasta de trabalho (o projeto original nunca muda);
 2. escreve o perfil no `platform.yaml` da cópia (perfil, `extras`, tamanhos das caches) e regenera o pacote do mapa de memória com `generate-memory-map`;
 3. completa o pacote com as constantes das interrupções que o topo ainda lê quando o perfil não tem interrupções;
-4. com `project.board`, escreve o projeto da placa com `riscv-tools --board <placa> board generate --target ...`, de modo que o pacote do mapa de memória da cópia entra no `.qsf` como fonte;
+4. com `project.board`, escreve o projeto da placa com `riscv-tools --board <placa> board generate`, de modo que o pacote do mapa de memória da cópia entra no `.qsf` como fonte (as fontes vêm do campo `top` da plataforma, ou de `project.targets` da lista de perfis, que vira `--target`);
 5. calcula o hash das fontes que o Quartus lê (as do `.qsf` e o `platform.yaml`);
 6. toma o travamento da máquina (`/tmp/quartus-<máquina>.lock`, o mesmo das outras trilhas) e roda `quartus_sh -t <script> <semente> <map|fit> [GENERIC=valor ...]`, em que o script é o do projeto ou o `compile.tcl` de `program --stop-after`;
 7. lê o `*.map.rpt` e o `*.map.summary` (e, com `fit`, o `*.fit.rpt` e o `*.fit.summary`) e grava um registro YAML.

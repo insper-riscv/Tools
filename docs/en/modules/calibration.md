@@ -9,7 +9,7 @@ For each profile of the list the loop does, in this order:
 1. copies the project to a work folder (the original project never changes);
 2. writes the profile into the `platform.yaml` of the copy (profile, `extras`, cache sizes) and regenerates the memory map package with `generate-memory-map`;
 3. completes the package with the interrupt constants that the top still reads when the profile has no interrupts;
-4. with `project.board`, writes the board project with `riscv-tools --board <board> board generate --target ...`, so the memory map package of the copy enters the `.qsf` as a source;
+4. with `project.board`, writes the board project with `riscv-tools --board <board> board generate`, so the memory map package of the copy enters the `.qsf` as a source (the sources come from the `top` field of the platform, or from `project.targets` of the profile list, which becomes `--target`);
 5. hashes the sources the Quartus reads (those of the `.qsf` and the `platform.yaml`);
 6. takes the machine lock (`/tmp/quartus-<machine>.lock`, the same one the other tracks use) and runs `quartus_sh -t <script> <seed> <map|fit> [GENERIC=value ...]`, where the script is the project's or the `compile.tcl` of `program --stop-after`;
 7. reads `*.map.rpt` and `*.map.summary` (and, with `fit`, `*.fit.rpt` and `*.fit.summary`) and writes a YAML record.
