@@ -128,6 +128,7 @@ def parse_family(raw: Any, label: str = "family") -> Family:
     flash = top.text("onchip_flash", nullable=True, choices=ONCHIP_FLASH_IPS)
     fmax = _fmax(top)
     calibration = top.text("calibration", required=False, nullable=True)
+    slew_rate = top.flag("slew_rate", required=False, default=True)
     top.done()
     raise_if(problems)
     return Family(
@@ -142,4 +143,5 @@ def parse_family(raw: Any, label: str = "family") -> Family:
         flash,
         fmax,
         calibration,
+        slew_rate,
     )

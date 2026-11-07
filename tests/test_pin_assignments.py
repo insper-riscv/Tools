@@ -50,6 +50,14 @@ def test_slow_outputs_get_the_slew_and_current_assignments() -> None:
     check_not_in("SLEW_RATE 1 -to DRAM", text)
 
 
+def test_a_family_that_refuses_the_slew_rate_keeps_the_current() -> None:
+    """The MAX 10 fitter refuses the slew rate on 3.3 V LVTTL pins."""
+    ports = build_ports(inputs_of("de10-lite")).ports
+    text = render_pins(ports, accept_inferred=True, slew_rate=False)
+    check_in("CURRENT_STRENGTH_NEW DEFAULT -to LEDR\n", text)
+    check_not_in("SLEW_RATE", text)
+
+
 def test_an_inferred_pin_is_refused_without_the_option() -> None:
     """V16: the message names the pin and the signal."""
     inputs = inputs_of("de2-115")

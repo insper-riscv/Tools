@@ -16,3 +16,4 @@ onchip_flash: altera_onchip_flash
 fmax:
   core_mhz_by_grade: {C8: null, I7: null}
 calibration: null
+slew_rate: false

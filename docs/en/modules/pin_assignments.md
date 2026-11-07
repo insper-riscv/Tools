@@ -11,7 +11,7 @@ It is the only place that writes `set_location_assignment` and the per-instance 
 | Role | Assignments |
 | :--- | :--- |
 | `sdram` | `FAST_OUTPUT_REGISTER` on outputs and bidirectionals; `FAST_OUTPUT_ENABLE_REGISTER`, `FAST_INPUT_REGISTER` and `PAD_TO_INPUT_REGISTER_DELAY 0` on bidirectionals; none on the pin clock |
-| `leds`, `display` | `CURRENT_STRENGTH_NEW DEFAULT` and `SLEW_RATE 1` |
+| `leds`, `display` | `CURRENT_STRENGTH_NEW DEFAULT` and `SLEW_RATE 1`; a family with `slew_rate: false` (MAX 10, whose fitter refuses the option on 3.3-V LVTTL pins) gets only the first |
 
 ## 3. Refusals
 
@@ -26,7 +26,7 @@ Only the signals of the ports in use enter the check, so the pin aliases of `con
 
 | Test | What it checks |
 | :--- | :--- |
-| `tests/test_pin_assignments.py` | Locations and standards, I/O registers and LED assignments derived from the role, V16 and repeated pin |
+| `tests/test_pin_assignments.py` | Locations and standards, I/O registers and LED assignments derived from the role, family without slew rate, V16 and repeated pin |
 
 ---
 

@@ -240,3 +240,16 @@ def test_the_files_are_written_under_the_project_folder(
 def test_the_generation_is_deterministic() -> None:
     """Two runs give the same text."""
     check_equal(generated("de0-cv").files, generated("de0-cv").files)
+
+
+def test_only_the_max_10_project_omits_the_slew_rate() -> None:
+    """The MAX 10 fitter refuses `SLEW_RATE`; the others keep it."""
+    for name, slew in (
+        ("de10-lite", False),
+        ("de0-cv", True),
+        ("de2-115", True),
+    ):
+        files = generated(name).files
+        qsf = next(t for n, t in files.items() if n.endswith(".qsf"))
+        check_in("CURRENT_STRENGTH_NEW DEFAULT", qsf)
+        check_equal("SLEW_RATE 1" in qsf, slew)

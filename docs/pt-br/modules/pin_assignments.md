@@ -11,7 +11,7 @@ Escreve as atribuições de pino e de padrão de E/S do `.qsf`, derivando as dem
 | Papel | Atribuições |
 | :--- | :--- |
 | `sdram` | `FAST_OUTPUT_REGISTER` nas saídas e bidirecionais; `FAST_OUTPUT_ENABLE_REGISTER`, `FAST_INPUT_REGISTER` e `PAD_TO_INPUT_REGISTER_DELAY 0` nos bidirecionais; nenhuma no relógio do pino |
-| `leds`, `display` | `CURRENT_STRENGTH_NEW DEFAULT` e `SLEW_RATE 1` |
+| `leds`, `display` | `CURRENT_STRENGTH_NEW DEFAULT` e `SLEW_RATE 1`; a família com `slew_rate: false` (MAX 10, cujo ajuste recusa a opção nos pinos 3.3-V LVTTL) recebe só a primeira |
 
 ## 3. Recusas
 
@@ -26,7 +26,7 @@ Só os sinais das portas usadas entram na checagem, de modo que os apelidos de p
 
 | Teste | O que verifica |
 | :--- | :--- |
-| `tests/test_pin_assignments.py` | Posições e padrões, registradores de E/S e atribuições de LED derivados do papel, V16 e pino repetido |
+| `tests/test_pin_assignments.py` | Posições e padrões, registradores de E/S e atribuições de LED derivados do papel, família sem variação de tensão lenta, V16 e pino repetido |
 
 ---
 

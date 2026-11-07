@@ -103,13 +103,15 @@ def _registers(port: Port) -> list[str]:
     return out
 
 
-def _port_lines(port: Port) -> list[str]:
+def _port_lines(port: Port, slew_rate: bool = True) -> list[str]:
     """Escreve as linhas de uma porta.
 
     Parameters
     ----------
     port : Port
         A porta.
+    slew_rate : bool, optional
+        Se a família aceita a opção de variação de tensão lenta.
 
     Returns
     -------
@@ -123,14 +125,17 @@ def _port_lines(port: Port) -> list[str]:
     if port.role == "sdram":
         lines += _registers(port)
     if port.role in _SLOW_ROLES:
-        lines += [
-            f"{name} CURRENT_STRENGTH_NEW DEFAULT -to {port.name}",
-            f"{name} SLEW_RATE 1 -to {port.name}",
-        ]
+        lines.append(f"{name} CURRENT_STRENGTH_NEW DEFAULT -to {port.name}")
+        if slew_rate:
+            lines.append(f"{name} SLEW_RATE 1 -to {port.name}")
     return lines
 
 
-def render_pins(ports: tuple[Port, ...], accept_inferred: bool = False) -> str:
+def render_pins(
+    ports: tuple[Port, ...],
+    accept_inferred: bool = False,
+    slew_rate: bool = True,
+) -> str:
     """Escreve o bloco de pinos do `.qsf`.
 
     Parameters
@@ -139,6 +144,9 @@ def render_pins(ports: tuple[Port, ...], accept_inferred: bool = False) -> str:
         As portas do topo, na ordem em que aparecem.
     accept_inferred : bool, optional
         Aceita construir com pino `inferred`, por padrão False.
+    slew_rate : bool, optional
+        Escreve a variação de tensão lenta dos papéis lentos; a família
+        que recusa a opção (MAX 10) passa False.
 
     Returns
     -------
@@ -154,5 +162,9 @@ def render_pins(ports: tuple[Port, ...], accept_inferred: bool = False) -> str:
     lines: list[str] = []
     for port in ports:
         if not port.alias:
-            lines += ["", f"# {port.role}: {port.name}", *_port_lines(port)]
+            lines += [
+                "",
+                f"# {port.role}: {port.name}",
+                *_port_lines(port, slew_rate),
+            ]
     return "\n".join(lines) + "\n"

@@ -208,7 +208,11 @@ def _qsf_and_qpf(
         ),
         extra=(
             *rendered.qsf_lines,
-            *render_pins(ports.ports, request.accept_inferred).splitlines(),
+            *render_pins(
+                ports.ports,
+                request.accept_inferred,
+                bool(inputs.family.get("slew_rate", True)),
+            ).splitlines(),
         ),
     )
     return {

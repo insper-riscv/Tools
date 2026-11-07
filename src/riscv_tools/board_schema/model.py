@@ -54,6 +54,9 @@ class Family:
         for a grade that was not measured.
     calibration : str or None
         The calibration file, relative to the catalog of boards.
+    slew_rate : bool
+        Whether the family accepts the `SLEW_RATE` option on the
+        3.3 V LVTTL pins (the MAX 10 fitter refuses it).
     """
 
     family: str
@@ -67,6 +70,7 @@ class Family:
     onchip_flash: str | None
     fmax_by_grade: dict[str, float | None]
     calibration: str | None
+    slew_rate: bool = True
 
 
 @dataclass(frozen=True)

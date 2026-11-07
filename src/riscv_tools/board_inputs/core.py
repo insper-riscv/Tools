@@ -116,12 +116,13 @@ def family_view(family: Family) -> dict[str, Any]:
     Returns
     -------
     dict of {str: Any}
-        `quartus_family` e a seção `pll`.
+        `quartus_family`, `slew_rate` e a seção `pll`.
     """
     pll = family.pll
     return {
         "family": family.family,
         "quartus_family": family.quartus_family,
+        "slew_rate": family.slew_rate,
         "pll": {
             "ip": pll.ip,
             "vco_mhz": list(pll.vco_mhz),
