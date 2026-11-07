@@ -208,6 +208,7 @@ def _qsf_and_qpf(
         ),
         extra=(
             *rendered.qsf_lines,
+            *cast("list[str]", inputs.family.get("qsf") or []),
             *render_pins(
                 ports.ports,
                 request.accept_inferred,
