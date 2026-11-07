@@ -17,9 +17,7 @@ from riscv_tools import (
     uart_console,
 )
 from riscv_tools import display as display_mod
-from riscv_tools.board_inputs import board_idcode
 from riscv_tools.cli.common import jtag_link, project_root
-from riscv_tools.jtag import detect_jtag_hardware
 from riscv_tools.settings import load_config
 
 
@@ -201,36 +199,26 @@ def _boot_init(
 
 
 def _cable(
-    args: argparse.Namespace,
-    cfg: dict[str, Any],
-    root: Path,
-    options: quartus_program.CompileOptions,
+    cfg: dict[str, Any], options: quartus_program.CompileOptions
 ) -> str:
     """Escolhe o cabo de programação.
 
     Parameters
     ----------
-    args : argparse.Namespace
-        Uses args.board and args.boards_dir.
     cfg : dict of {str: Any}
         A configuração do projeto.
-    root : Path
-        A raiz do projeto.
     options : CompileOptions
         As opções; sem programar não há cabo.
 
     Returns
     -------
     str
-        O nome do cabo, ou vazio quando a placa não é programada. Com
-        `--board` vale o IDCODE da placa; sem ele, o do projeto.
+        O nome do cabo, ou vazio quando a placa não é programada. A
+        escolha é a do `jtag_link`, que obedece a `--board`,
+        `--board-id` e `--cable` globais.
     """
     if not options.programs:
         return ""
-    if args.board:
-        boards = Path(args.boards_dir) if args.boards_dir else root / "boards"
-        idcode = board_idcode(boards, args.board)
-        return detect_jtag_hardware(f"0x{idcode}")
     return jtag_link(cfg).hardware_name
 
 
@@ -240,16 +228,15 @@ def cmd_program(args: argparse.Namespace) -> None:
     Compiles the Quartus project (with the .mif baked in as the ROM's
     init_file, when given) and programs the board, the slow "full
     reconfigure" path. `--seed`, `--generic`, `--stop-after` and
-    `--compile-only` replace the per-platform `*_synth.tcl` scripts, and
-    `--board` picks the cable by the IDCODE of that board.
+    `--compile-only` replace the per-platform `*_synth.tcl` scripts; the
+    global `--board` picks the cable by the IDCODE of that board.
 
     Parameters
     ----------
     args : argparse.Namespace
         Parsed CLI arguments: uses args.config, args.root, args.mif,
-        args.board, args.boards_dir, args.project_dir,
-        args.project_name, args.seed, args.generic, args.stop_after,
-        args.compile_only.
+        args.project_dir, args.project_name, args.seed, args.generic,
+        args.stop_after, args.compile_only.
 
     Returns
     -------
@@ -277,7 +264,7 @@ def cmd_program(args: argparse.Namespace) -> None:
     )
     quartus_program.full_reconfigure(
         project=quartus_program.QuartusProject(
-            hardware_name=_cable(args, cfg, root, options),
+            hardware_name=_cable(cfg, options),
             project_dir=root / (args.project_dir or quartus["project_dir"]),
             project_name=name,
             sof_file=sof,

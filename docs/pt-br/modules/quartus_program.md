@@ -21,7 +21,7 @@ O `program` aceita, além do `.mif`, as opções abaixo. Sem nenhuma delas o flu
 | `--generic NOME=VALOR` | Troca um generic inteiro do topo só nesta compilação, sem gravar no `.qsf`; repetível |
 | `--stop-after map\|fit\|sta` | Para depois da síntese, do ajuste ou da análise de tempo; não programa a placa |
 | `--compile-only` | Compila o fluxo inteiro e não programa a placa |
-| `--board NOME` | Escolhe o cabo pelo IDCODE do FPGA de `boards/<NOME>/board.yaml` (`--boards-dir` troca a pasta) |
+| `--board NOME` (global) | Escolhe o cabo pelo IDCODE do FPGA da placa, pela seleção de placas do `jtag_link` |
 | `--project-dir`, `--project-name` | Projeto Quartus no lugar de `quartus.project_dir` e `quartus.project_name`, para um projeto escrito por `board generate`; o `.sof` é `output_files/<nome>.sof` |
 
 O `.mif` só é obrigatório quando a placa é programada. Com `--compile-only` ou `--stop-after`, nenhum cabo é consultado.

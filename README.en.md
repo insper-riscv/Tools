@@ -19,6 +19,7 @@ It is designed to run on a workstation with all the tools installed, or inside t
 | `c_to_asm`           | .c -> human-readable RISC-V assembly (`gcc -S`), for inspecting codegen | [docs/modules/c_to_asm.md](docs/en/modules/c_to_asm.md) |
 | `boot_memory`           | Builds the fixed, shared bootloader, once, reused across every test | [docs/modules/boot_memory.md](docs/en/modules/boot_memory.md) |
 | `jtag`               | Live JTAG cable detection, generic `.tcl` runner            | [docs/modules/jtag.md](docs/en/modules/jtag.md) |
+| `board`              | Board identification, selection and lock through JTAG       | [docs/modules/board.md](docs/en/modules/board.md) |
 | `mem_edit`           | Generic In-System Memory Content Editor primitives (read/write word, write-full, dump) | [docs/modules/mem_edit.md](docs/en/modules/mem_edit.md) |
 | `flash_loader`       | Write the one-copy internal FLASH through the JTAG loader   | [docs/modules/flash_loader.md](docs/en/modules/flash_loader.md) |
 | `flash_image`        | Packs a program into the image of a FLASH bank (header, CRC, version), checks the image and sends it over the JTAG UART | [docs/modules/flash_image.md](docs/en/modules/flash_image.md) |
@@ -44,10 +45,15 @@ It is designed to run on a workstation with all the tools installed, or inside t
 | `tree_check`         | Fails when the tree of a repository strays from the layout all of them share: standard files, language pairs, `.vhd` in `src/`, Common-Components at `src/common`, folder names, the `provides` manifest and the coverage of tests and proofs | [docs/modules/tree_check.md](docs/en/modules/tree_check.md) |
 | `sources`            | Prints the ordered list of the files of a target, read from the `provides` manifests of the repositories | [docs/modules/sources.md](docs/en/modules/sources.md) |
 | `vhdl_style`         | Fails when a `.vhd` breaks the style guide of the project (header, `i_`/`o_` prefixes, a docstring per declaration, no `component`, `port map` by name); leaves out `vendor/` and the Quartus IPs | [docs/modules/vhdl_style.md](docs/en/modules/vhdl_style.md) |
+| `board_schema`       | Reads and checks the `board.yaml`, the `pins.yaml`, the family and the chip of the board catalog and the new `platform.yaml` fields | [docs/modules/board_schema.md](docs/en/modules/board_schema.md) |
+| `board_check`        | Checks what the platform requires against what the boards offer (rules V1 to V19) | [docs/modules/board_check.md](docs/en/modules/board_check.md) |
 | `platform_sync`      | Writes the `config.yaml` of a platform for the project that consumes it, with the submodule folder in front of each of its paths | [docs/modules/platform_sync.md](docs/en/modules/platform_sync.md) |
 | `profiles`           | Lists the valid profiles of a core from its extensions and the rules between them (M and Zmmul never coexist, Zicntr and Zihpm imply Zicsr) | [docs/modules/profiles.md](docs/en/modules/profiles.md) |
 | `freq_sweep`         | Rewrite a PLL source's clock frequency/phase offsets: the mechanism `orchestrator`'s frequency sweep edits with | [docs/modules/freq_sweep.md](docs/en/modules/freq_sweep.md) |
 | `timing_paths`       | Lists the worst setup paths of a compiled Quartus project, by register | [docs/modules/timing_paths.md](docs/en/modules/timing_paths.md) |
+| `quartus_reports`    | Reads the Quartus resource summaries (`*.map.summary`, `*.map.rpt`, `*.fit.summary`, `*.fit.rpt`) of every family | [docs/modules/quartus_reports.md](docs/en/modules/quartus_reports.md) |
+| `fit_estimate`       | Estimates whether a profile fits a board with the calibration table of the family and judges the fit report (passes up to 85 %, warns up to 100 %, errors above; V11 to V14 and V18) | [docs/modules/fit_estimate.md](docs/en/modules/fit_estimate.md) |
+| `calibration`        | Measures the profiles of a family with the compile command of the project (`quartus_map`) and fits the coefficients of the estimator by least squares | [docs/modules/calibration.md](docs/en/modules/calibration.md) |
 | `run_log`            | Rotates and tees a run's full console output into a persistent per-kind log history | [docs/modules/run_log.md](docs/en/modules/run_log.md) |
 | `board_inputs` | Reads the `platform.yaml`, `board.yaml`, `pins.yaml`, family and chips a generator consumes | [docs/modules/board_inputs.md](docs/en/modules/board_inputs.md) |
 | `board_ports` | Builds the ports of a board top (name, width, direction and pin of each bit) from the roles | [docs/modules/board_ports.md](docs/en/modules/board_ports.md) |
@@ -92,7 +98,7 @@ uv run riscv-tools --config /path/to/project/config.yaml sim
 uv run riscv-tools --config /path/to/project/config.yaml sim --only test-a,test-b
 ```
 
-See `riscv-tools --help` for the full subcommand list (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `check-paths`, `check-tree`, `sources`, `check-vhdl-style`, `platform`, `flash-image`, `timing-paths`, `board generate`, and `freq-sweep`).
+See `riscv-tools --help` for the full subcommand list (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `check-paths`, `check-boards`, `check-tree`, `sources`, `check-vhdl-style`, `platform`, `flash-image`, `timing-paths`, `board generate`, and `freq-sweep`).
 
 ```bash
 # vhdl-sort needs no --config; pure file-content analysis, e.g. wired

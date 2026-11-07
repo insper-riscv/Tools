@@ -26,7 +26,7 @@ o que dá 10 ns para a DE0-CV a 50 MHz de núcleo e 100 MHz de controlador, e ac
 
 ## 4. Nó dos relógios do PLL
 
-O nome do nó vem do campo `pll.clock_node_pattern` da família, com `{instance}` e `{index}`. Uma família sem o padrão (`altpll` ainda sem medição) falha com `SdcError`.
+O nome do nó vem do campo `pll.clock_node_pattern` da família, com `<instance>` e `[N]`, trocados pelo nome da instância do PLL e pelo índice da saída. Uma família sem o padrão (`altpll` ainda sem medição) falha com `SdcError`.
 
 ## 5. Testes
 

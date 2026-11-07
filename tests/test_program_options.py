@@ -23,6 +23,7 @@ from support import (
 
 from riscv_tools import quartus_program
 from riscv_tools.cli import board_cmd
+from riscv_tools.jtag import JtagLink
 from riscv_tools.quartus_program import (
     CompileOptions,
     QuartusProject,
@@ -268,8 +269,6 @@ def _args(tmp_path: Path, **changes: object) -> argparse.Namespace:
         "config": str(_config(tmp_path)),
         "root": str(tmp_path),
         "mif": None,
-        "board": None,
-        "boards_dir": None,
         "project_dir": None,
         "project_name": None,
         "seed": None,
@@ -298,7 +297,7 @@ def test_program_compile_only_needs_no_mif_and_no_cable(
     def no_cable(*_args: object) -> str:
         pytest.fail("no cable expected")
 
-    monkeypatch.setattr(board_cmd, "detect_jtag_hardware", no_cable)
+    monkeypatch.setattr(board_cmd, "jtag_link", no_cable)
     board_cmd.cmd_program(
         _args(tmp_path, compile_only=True, seed=4, generic=["HPM_COUNTERS=4"])
     )
@@ -309,26 +308,21 @@ def test_program_compile_only_needs_no_mif_and_no_cable(
     check_equal(options.generics, (("HPM_COUNTERS", 4),))
 
 
-def test_program_picks_the_cable_by_the_board_idcode(
+def test_program_programs_through_the_selected_cable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`--board` reads the IDCODE of boards/<name>/board.yaml."""
-    asked: list[str | None] = []
-
-    def fake_detect(device: str | None = None) -> str:
-        asked.append(device)
-        return "USB-Blaster [1-2]"
-
+    """Programming takes the cable the board selection picked."""
     calls: list[QuartusProject] = []
-    monkeypatch.setattr(board_cmd, "detect_jtag_hardware", fake_detect)
+
+    def link(_cfg: object) -> JtagLink:
+        return JtagLink("USB-Blaster [1-2]", "dev", 0)
 
     def record(project: QuartusProject, *_args: object, **_kw: object) -> None:
         calls.append(project)
 
+    monkeypatch.setattr(board_cmd, "jtag_link", link)
     monkeypatch.setattr(quartus_program, "full_reconfigure", record)
-    shutil.copytree(FIXTURES / "boards", tmp_path / "boards")
-    board_cmd.cmd_program(_args(tmp_path, mif="rom.mif", board="de0-cv"))
-    check_equal(asked, ["0x02B050DD"])
+    board_cmd.cmd_program(_args(tmp_path, mif="rom.mif"))
     check_equal(calls[0].hardware_name, "USB-Blaster [1-2]")
 
 

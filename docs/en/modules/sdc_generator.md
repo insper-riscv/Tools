@@ -26,7 +26,7 @@ which gives 10 ns for the DE0-CV at 50 MHz core and 100 MHz controller, and foll
 
 ## 4. PLL clock nodes
 
-The node name comes from the family field `pll.clock_node_pattern`, with `{instance}` and `{index}`. A family without the pattern (`altpll` still unmeasured) fails with `SdcError`.
+The node name comes from the family field `pll.clock_node_pattern`, with `<instance>` and `[N]`, replaced by the PLL instance name and the output index. A family without the pattern (`altpll` still unmeasured) fails with `SdcError`.
 
 ## 5. Tests
 

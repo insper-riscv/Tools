@@ -12,7 +12,7 @@ jtag:
 resources:
   logic:       {unit: alm, total: 18480}
   block_ram:   {kind: m10k, blocks: 308, bits_per_block: 10240}
-  multipliers: {kind: dsp18x18, total: 132}
+  multipliers: {kind: dsp_block, total: 66}
   plls: 4
   user_pins: null
 clocks:

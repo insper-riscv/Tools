@@ -1,3 +1,5 @@
+# SDRAM da DE0-CV e da DE10-Lite (ISSI IS42S16320D-7, 512 Mbit, 32M x 16). Os valores são os de sdram_pkg.vhd e de
+# de0-cv.sdc, que passam a existir só neste arquivo. Esquema: Plans/Multi-FPGA/02-ESQUEMAS-PLATFORM-E-BOARD.md, seção 4.
 chip: IS42S16320D-7
 kind: sdram
 organization: {words: 33554432, width: 16, banks: 4, row_bits: 13, col_bits: 10}

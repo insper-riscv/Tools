@@ -1,0 +1,2 @@
+1) USB-Blaster [1-3]
+  020F70DD   10CL120(Y|Z)/EP3C120/..

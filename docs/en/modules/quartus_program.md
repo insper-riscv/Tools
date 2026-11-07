@@ -21,7 +21,7 @@ The slow "base" path: a full `quartus_sh --flow compile` followed by `quartus_pg
 | `--generic NAME=VALUE` | Changes an integer top-level generic for this compile only, without writing it to the `.qsf`; repeatable |
 | `--stop-after map\|fit\|sta` | Stops after synthesis, fitting or timing analysis; the board is not programmed |
 | `--compile-only` | Runs the whole flow and does not program the board |
-| `--board NAME` | Picks the cable by the FPGA IDCODE of `boards/<NAME>/board.yaml` (`--boards-dir` changes the folder) |
+| `--board NAME` (global) | Picks the cable by the FPGA IDCODE of the board, through the board selection of `jtag_link` |
 | `--project-dir`, `--project-name` | Quartus project in place of `quartus.project_dir` and `quartus.project_name`, for a project written by `board generate`; the `.sof` is `output_files/<name>.sof` |
 
 The `.mif` is required only when the board is programmed. With `--compile-only` or `--stop-after`, no cable is consulted.

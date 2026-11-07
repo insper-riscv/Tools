@@ -59,7 +59,9 @@ def _node(pattern: str | None, index: int) -> str:
         raise SdcError(
             "family pll.clock_node_pattern is missing (measurement M.0.2)"
         )
-    return pattern.format(instance=PLL_INSTANCE, index=index)
+    return pattern.replace("<instance>", PLL_INSTANCE).replace(
+        "[N]", f"[{index}]"
+    )
 
 
 def _targets(ports: list[Port], direction: tuple[str, ...]) -> str:

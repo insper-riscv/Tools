@@ -4,7 +4,7 @@ Lê o `platform.yaml`, o `board.yaml`, o `pins.yaml`, a família e os chips que 
 
 ## 1. Função
 
-Reúne num só objeto (`BoardInputs`) os arquivos de dados de uma plataforma numa placa. Lê só os campos que os geradores usam e recusa o que falta com uma mensagem que nomeia o arquivo. A validação completa de tipos é a do módulo de esquemas e o substitui sem mudar quem o chama.
+Reúne num só objeto (`BoardInputs`) os arquivos de dados de uma plataforma numa placa. A leitura e a validação de `board.yaml`, `pins.yaml`, família e chip são as do `board_schema` (`Catalog`); este módulo escolhe a placa, carrega o que a plataforma usa e entrega os registros tipados como mapas (`board_view`, `family_view`, `chip_view`) que os geradores consomem. Um erro do catálogo vira `InputError`.
 
 ## 2. Arquivos lidos
 
@@ -13,17 +13,17 @@ Reúne num só objeto (`BoardInputs`) os arquivos de dados de uma plataforma num
 | `platform.yaml` | Caminho dado |
 | `board.yaml` e `pins.yaml` | `<boards>/<placa>/` |
 | Família | `<boards>/families/<família>.yaml` |
-| Chip | `<chips>/<chip>.yaml`, com a cadeia `extends` mesclada em profundidade e ciclo recusado |
+| Chip | `<chips>/<chip>.yaml`, só os chips de tempo (`sdram`, `sram`, `nor`), com `extends` resolvido pelo catálogo |
 
 ## 3. Escolha da placa
 
-A placa vem da linha de comando, do campo `board` da plataforma ou da única entrada de `boards`. Com várias entradas e `board: auto`, o pedido falha pedindo `--board`. A função `board_idcode` devolve o IDCODE da entrada `fpga: true` da cadeia JTAG, que o `program --board` usa para escolher o cabo.
+A placa vem da linha de comando, do campo `board` da plataforma ou da única entrada de `boards`. Com várias entradas e `board: auto`, o pedido falha pedindo `--board`.
 
 ## 4. Testes
 
 | Teste | O que verifica |
 | :--- | :--- |
-| `tests/test_board_inputs.py` | Carga das seis placas, herança de chip, ciclo, escolha da placa, V1 e IDCODE |
+| `tests/test_board_inputs.py` | Carga das seis placas, herança de chip, chips de tempo, escolha da placa e V1 |
 
 ---
 

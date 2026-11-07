@@ -145,9 +145,11 @@ set_global_assignment -name VHDL_FILE ../../../Memory/src/RAM/SoC/sdram/sdram_ar
 set_global_assignment -name QIP_FILE ../../../Memory/src/ROM/Cyclone-V/boot_memory.qip
 set_global_assignment -name QIP_FILE ../../../Memory/src/ROM/Cyclone-V/flash.qip
 set_global_assignment -name QIP_FILE ../../../Memory/src/ROM/Cyclone-V/flash_loader.qip
+set_global_assignment -name VHDL_FILE ../../../Common-Components/src/altera/virtual_jtag.vhd
 set_global_assignment -name VHDL_FILE ../../../Memory/src/cache/SoC/flash_cmd_port.vhd
 set_global_assignment -name VHDL_FILE ../../../Memory/src/cache/SoC/dcache.vhd
 set_global_assignment -name VHDL_FILE ../../../Memory/src/cache/SoC/icache.vhd
+set_global_assignment -name VHDL_FILE ../../../Memory/src/latency/SoC/latency_counter.vhd
 set_global_assignment -name VHDL_FILE ../../../Memory/src/cache/SoC/flash_chip.vhd
 set_global_assignment -name VHDL_FILE ../../../Memory/src/cache/SoC/flash_arbiter.vhd
 set_global_assignment -name VHDL_FILE ../../../Memory/src/cache/SoC/mem_region_router.vhd

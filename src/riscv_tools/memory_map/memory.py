@@ -49,8 +49,8 @@ ROUTER_WINDOW_KIB = 1024
 PAGE = 4096
 
 _FIELDS = {
-    "rom": ("external",),
-    "ram": ("external",),
+    "rom": ("external", "backend", "device", "latency", "sector_bytes"),
+    "ram": ("external", "backend", "device", "latency"),
     "icache": ("enabled", "size_bits"),
     "dcache": ("enabled", "size_bits"),
 }

@@ -8,6 +8,10 @@ The target is a component, written as `<repository>/<component>`; a name without
 
 The manifests read are the one of the root itself and the ones of the repositories mounted below it: the submodules of `.gitmodules` and `src/common`. A repository seen twice keeps the first folder found. The files of a submodule never come from the folder listing of the root, only from the manifest of the submodule itself, and a `requires: <repository>/<component>` follows into that manifest when the other repository declares `provides`. The manifest format is in [tree_check](tree_check.md).
 
+## Board resources
+
+A component may declare in `needs` the board resource types it depends on (`block_ram`, `sdram`, `sram`, `nor`, `onchip_flash`, `serial_flash`, `vjtag`). The file listing ignores the key. The board validator walks the same closure and unites the `needs` of the components it reaches (see [board_check](board_check.md)).
+
 ## Errors
 
 The command exits with status 2 and a `sources:` line when a manifest is malformed, when the repository or the component of a target or of a `requires` is not found, and when the requirements form a cycle.

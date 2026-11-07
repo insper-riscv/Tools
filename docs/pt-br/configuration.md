@@ -50,7 +50,9 @@ Não há divisão `tests_real_dir`/`tests_sim_dir`/`golden_dir`: todo teste em `
 
 | Chave | Padrão | Usada por |
 |---|---|---|
-| `jtag_device` | **obrigatória** | `jtag`: a string de IDCODE JTAG da própria FPGA. O nome do cabo (`USB-Blaster [...]`) é detectado em tempo real, já que muda entre reboots |
+| `jtag_device` | opcional | `jtag`: a string de IDCODE JTAG da própria FPGA. O nome do cabo (`USB-Blaster [...]`) é detectado em tempo real, já que muda entre reboots. Sem ela, a placa é selecionada pelo módulo [`board`](modules/board.md) |
+| `board` | opcional | `jtag`: identificador da placa ou `auto`; vale quando `jtag_device` não está definido |
+| `boards` | opcional | `jtag`: lista de placas que `auto` pode tomar |
 | `sdram_debug_instance` | `0` | `jtag`: índice da instância do Virtual JTAG da porta de depuração da SDRAM; uma plataforma que também tem o carregador da FLASH dá outro índice à porta |
 | `project_dir` | **obrigatória** | `quartus_program`: caminho do diretório do projeto Quartus |
 | `project_name` | **obrigatória** | `quartus_program`: passado a `quartus_sh --flow compile` |

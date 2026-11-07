@@ -1,0 +1,70 @@
+# Dados da regra `purity` do `check-tree`: o que não pode aparecer fora
+# das pastas de fornecedor e dos dados de placa. Uma lista só por
+# assunto; o `paths.yaml` do repositório acrescenta termos, pastas e
+# exceções na seção `tree.purity`, sem tocar neste arquivo.
+#
+# Um termo casa sem diferença de maiúsculas, com um limite de palavra à
+# esquerda (nem letra nem dígito antes). `-` e espaço no termo casam
+# hífen, sublinhado, espaço ou nada; `_` casa só o sublinhado. À direita
+# o termo não pode ser seguido de letra, a não ser que termine em `*`.
+
+# Pastas onde o nome de fornecedor, família ou placa é esperado.
+vendor_folders: [altera, boards]
+
+# Extensões de arquivo que a regra lê.
+suffixes: [.vhd, .vhdl, .v, .sv, .vh]
+
+terms:
+  # Primitivas, bibliotecas e generics de fornecedor.
+  primitives:
+    - altsyncram*
+    - altpll*
+    - altera_*
+    - altufm*
+    - altddio*
+    - sld_virtual_jtag*
+    - sld_signaltap*
+    - intended_device_family
+  # Famílias de FPGA.
+  families:
+    - cyclone*
+    - max 10
+    - max10
+    - stratix*
+    - arria*
+    - agilex*
+  # Placas do catálogo.
+  boards:
+    - de0-cv*
+    - de0-nano*
+    - de1-soc*
+    - de2-115*
+    - de10-lite*
+    - de10-nano*
+    - de10-standard*
+    - mkr vidor*
+    - vidor 4000
+    - terasic
+  # Dispositivos e chips de placa.
+  devices:
+    - 5ceba4*
+    - 5cseba6*
+    - ep4ce*
+    - ep3c*
+    - 10cl0*
+    - 10cl1*
+    - 10m50*
+    - samd21*
+  # IDCODE de JTAG de cada dispositivo.
+  idcodes:
+    - 02b050dd
+    - 020f10dd
+    - 020f30dd
+    - 020f70dd
+    - 031050dd
+    - 02d020dd
+    - 4ba00477
+
+# Exceções comuns a todos os repositórios (caminho ou padrão, com a
+# justificativa). Vazia: cada repositório declara as suas.
+exceptions: {}

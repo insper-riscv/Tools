@@ -1,9 +1,9 @@
-"""Lê os arquivos de dados de uma plataforma e de uma placa.
+"""Reúne os dados dos geradores pelo catálogo do `board_schema`.
 
-Os esquemas são os do documento 02 do plano Multi-FPGA. Este módulo lê
-só os campos que os geradores consomem e recusa o que falta com uma
-mensagem que nomeia o arquivo; a validação completa de tipos é a do
-módulo de esquemas e substitui esta leitura sem mudar quem a chama.
+A leitura e a validação dos arquivos são as do `board_schema` (um só
+leitor de `board.yaml`, `pins.yaml`, família e chip). Este módulo só
+escolhe a placa, carrega o que a plataforma usa e entrega os registros
+tipados na forma de mapas que os geradores consomem.
 """
 
 from dataclasses import dataclass
@@ -12,37 +12,24 @@ from typing import Any, cast
 
 import yaml
 
+from riscv_tools.board_schema import (
+    Board,
+    Catalog,
+    Chip,
+    Family,
+    NotFoundError,
+    Pin,
+    SchemaError,
+)
+
 # Chaves de `board.memories` que citam um chip do catálogo de tempos.
 CHIP_KEYS = ("sdram", "sram", "nor")
+# Um sinal do `pins.yaml` é o registro `Pin` do `board_schema`.
+PinSignal = Pin
 
 
 class InputError(ValueError):
-    """Um arquivo de dados falta ou está malformado."""
-
-
-@dataclass(frozen=True)
-class PinSignal:
-    """Um sinal do `pins.yaml` de uma placa.
-
-    Attributes
-    ----------
-    name : str
-        Nome do sinal, com índice entre colchetes quando é barramento.
-    pin : str
-        Pino do dispositivo, sem prefixo.
-    io_standard : str
-        Padrão de E/S do Quartus.
-    direction : str
-        `in`, `out` ou `inout`.
-    confirmed : str
-        Selo de certeza: `manual`, `repo` ou `inferred`.
-    """
-
-    name: str
-    pin: str
-    io_standard: str
-    direction: str
-    confirmed: str
+    """Um arquivo de dados falta ou não segue o esquema."""
 
 
 @dataclass(frozen=True)
@@ -54,151 +41,121 @@ class BoardInputs:
     platform : dict of {str: Any}
         O `platform.yaml`.
     board : dict of {str: Any}
-        O `board.yaml`.
-    signals : dict of {str: PinSignal}
+        O `board.yaml` na forma de mapa (ver `board_view`).
+    signals : dict of {str: Pin}
         Os sinais do `pins.yaml`, por nome, na ordem do arquivo.
     family : dict of {str: Any}
-        O arquivo da família da placa.
+        A família da placa na forma de mapa.
     chips : dict of {str: dict of {str: Any}}
-        Os chips que a placa cita, por nome, com `extends` resolvido.
+        Os chips que a placa cita, por nome.
     """
 
     platform: dict[str, Any]
     board: dict[str, Any]
-    signals: dict[str, PinSignal]
+    signals: dict[str, Pin]
     family: dict[str, Any]
     chips: dict[str, dict[str, Any]]
 
 
-def _read_mapping(path: Path) -> dict[str, Any]:
-    """Lê um arquivo YAML que deve ser um mapa.
+def board_view(board: Board) -> dict[str, Any]:
+    """Escreve o registro da placa como mapa.
 
     Parameters
     ----------
-    path : Path
-        O arquivo.
+    board : Board
+        A placa lida pelo `board_schema`.
 
     Returns
     -------
     dict of {str: Any}
-        O conteúdo.
-
-    Raises
-    ------
-    InputError
-        Se o arquivo não existe ou não é um mapa.
+        Os campos que os geradores leem, com os nomes do `board.yaml`.
     """
-    if not path.is_file():
-        raise InputError(f"{path}: file not found")
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict):
-        raise InputError(f"{path}: not a YAML mapping")
-    return cast(dict[str, Any], data)
+    clocks = board.clocks
+    uart = board.console.uart
+    return {
+        "board": board.board,
+        "family": board.family,
+        "device": board.device,
+        "clocks": {
+            "inputs": [
+                {"name": c.name, "signal": c.signal, "mhz": c.mhz}
+                for c in clocks.inputs
+            ],
+            "reference": clocks.reference,
+            "reset": {
+                "signal": clocks.reset_signal,
+                "active": clocks.reset_active,
+            },
+        },
+        "io": {
+            role: {"signals": spec.signals, "active": spec.active}
+            for role, spec in board.io.items()
+        },
+        "memories": {
+            kind: {
+                "chip": mem.chip,
+                "chips": mem.chips,
+                "bus_width": mem.bus_width,
+                "signals": list(mem.signals),
+                "clk_phase_ps": mem.clk_phase_ps,
+            }
+            for kind, mem in board.memories.items()
+        },
+        "console": {"uart": {"rx": uart[0], "tx": uart[1]} if uart else {}},
+    }
 
 
-def _merge(base: dict[str, Any], child: dict[str, Any]) -> dict[str, Any]:
-    """Mescla dois mapas, com o filho valendo sobre o pai.
+def family_view(family: Family) -> dict[str, Any]:
+    """Escreve o registro da família como mapa.
 
     Parameters
     ----------
-    base : dict of {str: Any}
-        O mapa herdado.
-    child : dict of {str: Any}
-        O mapa que herda.
+    family : Family
+        A família lida pelo `board_schema`.
 
     Returns
     -------
     dict of {str: Any}
-        O resultado, sem alterar os argumentos.
+        `quartus_family` e a seção `pll`.
     """
-    out = dict(base)
-    for key, value in child.items():
-        inherited = out.get(key)
-        if isinstance(value, dict) and isinstance(inherited, dict):
-            out[key] = _merge(
-                cast(dict[str, Any], inherited), cast(dict[str, Any], value)
-            )
-        else:
-            out[key] = value
-    return out
+    pll = family.pll
+    return {
+        "family": family.family,
+        "quartus_family": family.quartus_family,
+        "pll": {
+            "ip": pll.ip,
+            "vco_mhz": list(pll.vco_mhz),
+            "clock_node_pattern": pll.clock_node_pattern,
+            "outputs_max": pll.outputs_max,
+        },
+    }
 
 
-def load_chip(chips_dir: Path, name: str) -> dict[str, Any]:
-    """Lê um chip do catálogo e resolve a cadeia `extends`.
+def chip_view(chip: Chip) -> dict[str, Any]:
+    """Escreve o registro do chip como mapa, sem os campos ausentes.
 
     Parameters
     ----------
-    chips_dir : Path
-        A pasta do catálogo de chips.
-    name : str
-        O nome do chip, que é o nome do arquivo sem `.yaml`.
+    chip : Chip
+        O chip lido pelo `board_schema`, com `extends` resolvido.
 
     Returns
     -------
     dict of {str: Any}
-        Os campos do chip, com os herdados já mesclados.
-
-    Raises
-    ------
-    InputError
-        Se um arquivo falta ou a cadeia `extends` forma um ciclo.
+        Os campos do catálogo que existem para o chip.
     """
-    seen: list[str] = []
-    chain: list[dict[str, Any]] = []
-    current: str | None = name
-    while current is not None:
-        if current in seen:
-            raise InputError(f"chip {current!r}: extends cycle {seen}")
-        seen.append(current)
-        data = _read_mapping(chips_dir / f"{current}.yaml")
-        chain.append(data)
-        parent = data.get("extends")
-        current = str(parent) if parent else None
-    merged: dict[str, Any] = {}
-    for data in reversed(chain):
-        merged = _merge(merged, data)
-    merged.pop("extends", None)
-    merged["chip"] = name
-    return merged
-
-
-def _signals(pins_file: Path) -> dict[str, PinSignal]:
-    """Lê os sinais de um `pins.yaml`.
-
-    Parameters
-    ----------
-    pins_file : Path
-        O arquivo.
-
-    Returns
-    -------
-    dict of {str: PinSignal}
-        Os sinais por nome, na ordem do arquivo.
-
-    Raises
-    ------
-    InputError
-        Se um sinal não tem os campos obrigatórios ou se repete.
-    """
-    data = _read_mapping(pins_file)
-    out: dict[str, PinSignal] = {}
-    for entry in cast(list[dict[str, Any]], data.get("signals") or []):
-        try:
-            signal = PinSignal(
-                name=str(entry["name"]),
-                pin=str(entry["pin"]),
-                io_standard=str(entry["io_standard"]),
-                direction=str(entry["direction"]),
-                confirmed=str(entry.get("confirmed", "inferred")),
-            )
-        except KeyError as error:
-            raise InputError(
-                f"{pins_file}: signal without {error} in {entry}"
-            ) from error
-        if signal.name in out:
-            raise InputError(f"{pins_file}: signal {signal.name} repeated")
-        out[signal.name] = signal
-    return out
+    fields: dict[str, Any] = {
+        "chip": chip.chip,
+        "kind": chip.kind,
+        "organization": dict(chip.organization),
+        "timing": dict(chip.timing),
+        "io_timing": dict(chip.io_timing),
+        "max_mhz": chip.max_mhz,
+        "cas_latency": chip.cas_latency,
+        "sector_bytes": chip.sector_bytes,
+        "boot_sector_bytes": chip.boot_sector_bytes,
+    }
+    return {k: v for k, v in fields.items() if v is not None}
 
 
 def resolve_board_name(platform: dict[str, Any], board: str | None) -> str:
@@ -236,6 +193,32 @@ def resolve_board_name(platform: dict[str, Any], board: str | None) -> str:
     )
 
 
+def _read_platform(path: Path) -> dict[str, Any]:
+    """Lê o `platform.yaml`.
+
+    Parameters
+    ----------
+    path : Path
+        O arquivo.
+
+    Returns
+    -------
+    dict of {str: Any}
+        O conteúdo.
+
+    Raises
+    ------
+    InputError
+        Se o arquivo falta ou não é um mapa.
+    """
+    if not path.is_file():
+        raise InputError(f"{path}: file not found")
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise InputError(f"{path}: not a YAML mapping")
+    return cast(dict[str, Any], data)
+
+
 def load_inputs(
     platform_file: Path,
     board: str | None,
@@ -263,66 +246,32 @@ def load_inputs(
     Raises
     ------
     InputError
-        Se a placa, a família ou um chip não existe.
+        Se a placa, a família ou um chip não existe ou não segue o
+        esquema.
     """
-    platform = _read_mapping(platform_file)
+    platform = _read_platform(platform_file)
     name = resolve_board_name(platform, board)
-    board_dir = boards_dir / name
-    if not board_dir.is_dir():
-        known = sorted(
-            p.name
-            for p in boards_dir.iterdir()
-            if (p / "board.yaml").is_file()
-        )
+    catalog = Catalog(boards_dir, chips_dir)
+    try:
+        spec = catalog.load_board(name)
+        pins = catalog.load_pins(name, spec)
+        family = catalog.load_family(spec.family)
+        chips = {
+            str(mem.chip): chip_view(catalog.load_chip(mem.chip))
+            for kind, mem in spec.memories.items()
+            if kind in CHIP_KEYS and mem.chip
+        }
+    except NotFoundError as error:
         raise InputError(
-            f"board {name!r} not found in {boards_dir} (known: {known})"
-        )
-    data = _read_mapping(board_dir / "board.yaml")
-    family = _read_mapping(
-        boards_dir / "families" / f"{data.get('family')}.yaml"
-    )
-    memories = cast(dict[str, Any], data.get("memories") or {})
-    chips = {
-        str(memories[key]["chip"]): load_chip(
-            chips_dir, str(memories[key]["chip"])
-        )
-        for key in CHIP_KEYS
-        if key in memories and memories[key].get("chip")
-    }
-    pins_file = board_dir / str(data.get("pins", "pins.yaml"))
+            f"{error.kind} {error.name!r} not found in {boards_dir} "
+            f"(known: {error.known})"
+        ) from error
+    except SchemaError as error:
+        raise InputError(str(error)) from error
     return BoardInputs(
-        platform=platform,
-        board=data,
-        signals=_signals(pins_file),
-        family=family,
-        chips=chips,
+        platform,
+        board_view(spec),
+        {pin.name: pin for pin in pins},
+        family_view(family),
+        chips,
     )
-
-
-def board_idcode(boards_dir: Path, name: str) -> str:
-    """Lê o IDCODE do FPGA de uma placa, para escolher o cabo.
-
-    Parameters
-    ----------
-    boards_dir : Path
-        A pasta `boards/`.
-    name : str
-        A placa.
-
-    Returns
-    -------
-    str
-        O IDCODE da entrada `fpga: true` da cadeia JTAG.
-
-    Raises
-    ------
-    InputError
-        Se a placa ou o IDCODE não existe.
-    """
-    data = _read_mapping(boards_dir / name / "board.yaml")
-    jtag = cast(dict[str, Any], data.get("jtag") or {})
-    chain = cast(list[dict[str, Any]], jtag.get("chain") or [])
-    for entry in chain:
-        if entry.get("fpga"):
-            return str(entry["idcode"]).upper()
-    raise InputError(f"board {name!r}: jtag.chain has no fpga entry")

@@ -28,7 +28,7 @@ uv run riscv-tools --root <espaço de trabalho> board generate \
 
 | Opção | Efeito |
 | :--- | :--- |
-| `--board` | Placa; sem ela vale o campo `board` ou a única entrada de `boards` |
+| `--board` (global) | Placa; sem ela vale o campo `board` ou a única entrada de `boards` |
 | `--boards-dir`, `--chips-dir` | Padrões `<raiz>/boards` e `<raiz>/Memory/chips` |
 | `--target` | Componente cujo fecho de fontes entra no `.qsf`; repetível |
 | `--seed` | Semente do `.qsf`, padrão 5 |

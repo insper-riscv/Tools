@@ -125,17 +125,6 @@ def add_board_commands(sub: Any) -> None:
         "(required unless --compile-only or --stop-after)",
     )
     p.add_argument(
-        "--board",
-        default=None,
-        help="board of boards/<name>/board.yaml: its FPGA IDCODE picks the "
-        "cable",
-    )
-    p.add_argument(
-        "--boards-dir",
-        default=None,
-        help="the boards/ folder (default: <root>/boards)",
-    )
-    p.add_argument(
         "--project-dir",
         default=None,
         help="Quartus project folder, in place of quartus.project_dir "

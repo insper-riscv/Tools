@@ -1,3 +1,4 @@
+# FLASH paralela NOR da DE2-115 (Spansion S29GL064N90, 64 Mbit, ligada em 8 bits). Sufixo da peça não verificado.
 chip: S29GL064N90
 kind: nor
 organization: {words: 8388608, width: 8}

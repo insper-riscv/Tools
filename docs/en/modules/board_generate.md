@@ -28,7 +28,7 @@ uv run riscv-tools --root <workspace> board generate \
 
 | Option | Effect |
 | :--- | :--- |
-| `--board` | Board; without it the `board` field or the single `boards` entry applies |
+| `--board` (global) | Board; without it the `board` field or the single `boards` entry applies |
 | `--boards-dir`, `--chips-dir` | Defaults `<root>/boards` and `<root>/Memory/chips` |
 | `--target` | Component whose source closure goes in the `.qsf`; repeatable |
 | `--seed` | Seed of the `.qsf`, default 5 |

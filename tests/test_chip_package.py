@@ -1,15 +1,24 @@
 """Tests for chip_package."""
 
+from pathlib import Path
+from typing import Any
+
 import pytest
 from multifpga_support import CHIPS
 from support import check_equal, check_in, check_not_in
 
-from riscv_tools.board_inputs import InputError, load_chip
+from riscv_tools.board_inputs import InputError, chip_view
+from riscv_tools.board_schema import Catalog
 from riscv_tools.chip_package import (
     chip_io_delays,
     package_name,
     render_chip_package,
 )
+
+
+def load_chip(chips: Path, name: str) -> dict[str, Any]:
+    """Read a chip of the catalog as the generators see it."""
+    return chip_view(Catalog(chips, chips).load_chip(name))
 
 
 def test_the_package_name_is_a_vhdl_identifier() -> None:
