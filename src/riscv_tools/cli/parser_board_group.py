@@ -29,7 +29,8 @@ def add_board_group(sub: Any) -> None:
         "--target",
         action="append",
         default=[],
-        help="component whose source closure goes in the .qsf; repeatable",
+        help="component whose source closure goes in the .qsf; repeatable "
+        "(default: the `top` field of the platform)",
     )
     p.add_argument("--seed", type=int, default=5)
     p.add_argument("--accept-inferred-pins", action="store_true")

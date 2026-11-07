@@ -30,7 +30,7 @@ uv run riscv-tools --root <espaço de trabalho> board generate \
 | :--- | :--- |
 | `--board` (global) | Placa; sem ela vale o campo `board` ou a única entrada de `boards` |
 | `--boards-dir`, `--chips-dir` | Padrões `<raiz>/boards` e `<raiz>/Memory/chips` |
-| `--target` | Componente cujo fecho de fontes entra no `.qsf`; repetível |
+| `--target` | Componente cujo fecho de fontes entra no `.qsf`; repetível; sem ele vale o campo `top` do `platform.yaml` |
 | `--seed` | Semente do `.qsf`, padrão 5 |
 | `--accept-inferred-pins` | Aceita construir com pino `inferred` |
 | `--check` | Não escreve nada; sai com status 1 quando o projeto ou um arquivo do mapa de memória no disco difere do que seria gerado |

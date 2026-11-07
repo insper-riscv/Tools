@@ -30,7 +30,7 @@ uv run riscv-tools --root <workspace> board generate \
 | :--- | :--- |
 | `--board` (global) | Board; without it the `board` field or the single `boards` entry applies |
 | `--boards-dir`, `--chips-dir` | Defaults `<root>/boards` and `<root>/Memory/chips` |
-| `--target` | Component whose source closure goes in the `.qsf`; repeatable |
+| `--target` | Component whose source closure goes in the `.qsf`; repeatable; without it the `top` field of the `platform.yaml` applies |
 | `--seed` | Seed of the `.qsf`, default 5 |
 | `--accept-inferred-pins` | Accept building with an `inferred` pin |
 | `--check` | Write nothing; exit with status 1 when the project or a memory map file on disk differs from what would be generated |

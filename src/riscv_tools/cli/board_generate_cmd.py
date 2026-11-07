@@ -4,6 +4,7 @@ import argparse
 import os
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 from riscv_tools import memory_map
 from riscv_tools.board_equivalence import HandWritten, compare
@@ -79,6 +80,29 @@ def _compare(args: argparse.Namespace, result: Generated) -> bool:
     )
     print(report.render(), end="")
     return report.equivalent
+
+
+def _targets(args: argparse.Namespace, platform: Path) -> list[str]:
+    """Escolhe os componentes cujo fecho de fontes entra no `.qsf`.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Uses args.target.
+    platform : Path
+        O `platform.yaml`, cujo campo `top` vale sem `--target`.
+
+    Returns
+    -------
+    list of str
+        Os `--target` dados ou, sem eles, o `top` da plataforma.
+    """
+    if args.target:
+        return list(args.target)
+    top: Any = memory_map.load_platform(platform).get("top") or []
+    if isinstance(top, str):
+        return [top]
+    return [str(item) for item in cast("list[Any]", top)]
 
 
 def _memory_map(root: Path, platform: Path, check: bool) -> list[str]:
@@ -180,7 +204,7 @@ def cmd_board_generate(args: argparse.Namespace) -> None:
                 args.select_board,
                 boards,
                 chips,
-                _sources(root, args.target, project),
+                _sources(root, _targets(args, root / args.platform), project),
                 args.accept_inferred_pins,
                 args.seed,
             )

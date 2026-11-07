@@ -152,3 +152,26 @@ def test_the_memory_map_goes_through_generate_memory_map(
     check_in("generated: m.vhd", capsys.readouterr().out)
     cmd_board_generate(_args(root, check=True))
     check_equal(len(written), 1)
+
+
+def test_the_top_field_of_the_platform_is_the_default_target(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Without `--target` the closure is that of the `top` field."""
+    root = _root(tmp_path)
+    seen: list[list[str]] = []
+
+    def sources(
+        _root: Path, targets: list[str], _project: Path
+    ) -> tuple[str, ...]:
+        seen.append(targets)
+        return ()
+
+    def load_platform(_path: Path) -> dict[str, object]:
+        return {"generate": {}, "top": "my_top"}
+
+    monkeypatch.setattr("riscv_tools.cli.board_generate_cmd._sources", sources)
+    monkeypatch.setattr(memory_map, "load_platform", load_platform)
+    cmd_board_generate(_args(root))
+    cmd_board_generate(_args(root, target=["other"]))
+    check_equal(seen, [["my_top"], ["other"]])
