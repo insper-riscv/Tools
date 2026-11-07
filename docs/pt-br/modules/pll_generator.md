@@ -27,7 +27,7 @@ A escolha segue a medição de síntese por família: o `altera_pll` só sinteti
 
 | Teste | O que verifica |
 | :--- | :--- |
-| `tests/test_pll_generator.py` | VCO de 1000 MHz da DE0-CV, texto igual ao PLL à mão, fase fora do passo, divisor inexistente, V15 e o ponto de extensão `altpll` |
+| `tests/test_pll_generator.py` | VCO de 1000 MHz da DE0-CV, texto igual ao PLL à mão, fase fora do passo, divisor inexistente, V15 e o escritor `altpll` |
 
 ---
 
