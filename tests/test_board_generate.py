@@ -115,6 +115,8 @@ def test_the_de0_cv_top_keeps_the_timing_cuts_and_the_update_path() -> None:
     top = " ".join(_top("de0-cv").split())
     for fragment in (
         "registered_irqs => true",
+        "has_access_faults => HAS_ACCESS_FAULTS",
+        "periph_slots => PERIPH_SLOTS",
         "fast_icache_select => true",
         "has_dcache_bypass => true, bypass_page => RAM_LAST_PAGE",
         "has_flash_ctrl => true, flash_ctrl_id => 3",

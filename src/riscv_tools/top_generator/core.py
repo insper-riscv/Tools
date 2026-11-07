@@ -475,10 +475,15 @@ def _timing_generics(spec: TopSpec) -> list[str]:
     list of str
         As linhas: interrupções registradas, seleção rápida da cache de
         instruções (com o relógio de busca defasado do núcleo), página
-        da RAM fora da cache de dados e controlador de FLASH.
+        da RAM fora da cache de dados, falhas de acesso com as janelas
+        válidas do mapa e controlador de FLASH.
     """
     staggered = spec.plan.get("fetch") is not None
-    out = ["registered_irqs => true"]
+    out = [
+        "registered_irqs => true",
+        "has_access_faults => HAS_ACCESS_FAULTS",
+        "periph_slots => PERIPH_SLOTS",
+    ]
     if staggered:
         out.append("fast_icache_select => true")
     if "ram" in _external(spec):
