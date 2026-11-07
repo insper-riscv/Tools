@@ -21,3 +21,18 @@ io:
   switches: {count: 10, need: optional}
   keys:     {count: 4,  need: optional}
   display:  {count: 6,  need: optional}
+generate:
+  vhdl: {path: de0_cv_map_pkg.vhd, package: de0_cv_map_pkg, rom: FLASH, ram: RAM}
+peripherals:
+  - {name: FLASH_CTRL, base: 0xB0000000, id: 3}
+  - {name: UART,    base: 0xC0000000, id: 4}
+  - {name: DISPLAY, base: 0xD0000000, id: 5}
+  - {name: CLINT,   base: 0xE0000000, id: 6}
+  - {name: PLIC,    base: 0xF0000000, id: 7, size: 4M}
+interrupts:
+  clock_hz: 50000000
+  mtime_hz: 1000000
+  plic: {priority_bits: 3}
+  sources:
+    - {name: UART_JTAG, id: 2}
+    - {name: FLASH,     id: 6}

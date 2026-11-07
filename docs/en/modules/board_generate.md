@@ -23,7 +23,7 @@ The project lives in `<out>/<platform>-<board>/`. The compile command is `progra
 ```bash
 uv run riscv-tools --root <workspace> board generate \
     --platform <platform>.yaml --board de0-cv --out build \
-    --target de0_cv_top
+    --target de0_cv_map --target soc --target Memory/flash_chip
 ```
 
 | Option | Effect |
@@ -35,7 +35,7 @@ uv run riscv-tools --root <workspace> board generate \
 | `--accept-inferred-pins` | Accept building with an `inferred` pin |
 | `--hand-qsf`, `--hand-sdc`, `--hand-pll`, `--ignore-source` | Print the [board_equivalence](board_equivalence.md) report against the hand-written files |
 
-Exits with status 2 when an input is invalid, and with status 1 when the equivalence report finds a loss.
+Warnings (unmeasured `DRAM_CLK` phase, missing optional role, backend without an entity) go to `stderr`. Exits with status 2 when an input is invalid, and with status 1 when the equivalence report finds a loss.
 
 ## 4. Tests
 

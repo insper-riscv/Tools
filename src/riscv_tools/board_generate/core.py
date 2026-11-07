@@ -250,12 +250,23 @@ def generate(request: GenerateRequest) -> Generated:
     if not pll_info:
         raise InputError(f"family {inputs.board['family']!r}: no pll section")
     rendered, _ = generate_pll(
-        f"{stem}_pll", plan.reference_mhz, plan.roles, pll_info
+        f"{stem}_pll",
+        plan.reference_mhz,
+        plan.roles,
+        pll_info,
+        str(inputs.family["quartus_family"]),
     )
     chip_files, packages = _chip_files(inputs)
     top = top_name(platform_name, board_name)
-    spec = TopSpec(
-        inputs.platform, plan, ports.ports, rendered.module, top, packages
+    rendered_top = render_top(
+        TopSpec(
+            inputs.platform,
+            plan,
+            ports.ports,
+            rendered.module,
+            top,
+            packages,
+        )
     )
     files = {
         f"{stem}_pll{rendered.suffix}": rendered.text,
@@ -265,7 +276,7 @@ def generate(request: GenerateRequest) -> Generated:
             _sdram_delays(inputs, plan.get("mem_pin") is not None),
             cast("str | None", pll_info.get("clock_node_pattern")),
         ),
-        f"{top}.vhd": render_top(spec),
+        f"{top}.vhd": rendered_top.text,
         **chip_files,
         **_qsf_and_qpf(
             inputs, request, stem, (rendered, tuple(chip_files), ports)
@@ -275,7 +286,7 @@ def generate(request: GenerateRequest) -> Generated:
         stem,
         f"{platform_name}-{board_name}",
         files,
-        [*plan.warnings, *ports.warnings],
+        [*plan.warnings, *ports.warnings, *rendered_top.warnings],
     )
 
 

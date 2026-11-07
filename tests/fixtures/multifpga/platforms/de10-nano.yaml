@@ -14,3 +14,5 @@ memory:
 clocks:
   core: {mhz: 50, phase_ps: 0}
 console: jtag
+generate:
+  vhdl: {path: de10_nano_map_pkg.vhd, package: de10_nano_map_pkg, rom: FLASH, ram: RAM}

@@ -1,6 +1,6 @@
 # `pll_generator`
 
-Computes the PLL counters and writes the family primitive (`altera_pll` ready, `altpll` as an extension point).
+Computes the PLL counters and writes the family primitive (`altera_pll` on Cyclone V and `altpll` on the others).
 
 ## 1. Purpose
 
@@ -18,10 +18,10 @@ for each output $i$. The second condition says the phase is a multiple of one ei
 
 | Family IP | Writer |
 | :--- | :--- |
-| `altera_pll` (Cyclone V, Cyclone V SoC) | Ready, with the compensation, reset and bandwidth instance assignments |
-| `altpll` (Cyclone IV E, MAX 10, Cyclone 10 LP) | Extension point: without a writer, `PllIpPendingError` points at the missing measurement |
+| `altera_pll` (Cyclone V, which includes the DE10-Nano) | Per-output parameters and the compensation, reset and bandwidth instance assignments |
+| `altpll` (Cyclone IV E, MAX 10, Cyclone 10 LP) | Multiplier/divider ratio and phase per output, family in `intended_device_family`, inner instance `altpll_component` |
 
-Whoever writes `altpll` calls `register_renderer("altpll", function)`, with a function `(module, solution) -> RenderedPll`. The rest of the flow does not change.
+The choice follows the per-family synthesis measurement: `altera_pll` only synthesizes on Cyclone V (error 12024 on the others), and `altpll` synthesizes on all four. Both writers share the VCO, divider and phase computation (`solve`) and register in `RENDERERS`. Another primitive enters through `register_renderer(ip, function)`, with a function `(module, solution, family) -> RenderedPll`; an IP without a writer fails with `PllIpPendingError`.
 
 ## 4. Tests
 

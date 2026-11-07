@@ -10,6 +10,8 @@ from riscv_tools.board_clocks import ClockRole, clock_plan
 from riscv_tools.pll_generator import (
     PllError,
     PllIpPendingError,
+    PllSolution,
+    RenderedPll,
     generate_pll,
     register_renderer,
     renderer_for,
@@ -38,7 +40,9 @@ def test_the_de0_cv_clocks_solve_to_the_1000_mhz_vco() -> None:
 def test_the_text_has_the_parameters_of_the_handwritten_pll() -> None:
     """Frequencies, phases and output order of sdram_platform_pll.v."""
     reference, roles = _de0_cv()
-    rendered, _ = generate_pll("pll_x", reference, roles, CYCLONE_V)
+    rendered, _ = generate_pll(
+        "pll_x", reference, roles, CYCLONE_V, "Cyclone V"
+    )
     text = rendered.text
     for fragment in (
         '.reference_clock_frequency("50.000000 MHz")',
@@ -76,25 +80,45 @@ def test_more_outputs_than_the_family_gives_are_refused() -> None:
         solve(reference, roles, CYCLONE_V | {"outputs_max": 3})
 
 
-def test_altpll_is_the_extension_point() -> None:
-    """Without a renderer altpll fails clearly; with one it works."""
+def test_altpll_writes_the_measured_primitive() -> None:
+    """The altpll text has the parameters of the M.0.2 project."""
     reference, roles = _de0_cv()
     altpll = {"ip": "altpll", "vco_mhz": [600, 1300], "outputs_max": 5}
-    with pytest.raises(PllIpPendingError, match=r"M\.0\.2"):
-        generate_pll("p", reference, roles, altpll)
+    rendered, _ = generate_pll("p", reference, roles, altpll, "Cyclone IV E")
+    text = rendered.text
+    for fragment in (
+        '.intended_device_family("Cyclone IV E")',
+        ".inclk0_input_frequency(20000)",
+        ".clk0_multiply_by(2)",
+        ".clk0_divide_by(1)",
+        '.clk1_phase_shift("4000")',
+        '.clk3_phase_shift("8250")',
+        '.port_clk3("PORT_USED")',
+        '.port_clk4("PORT_UNUSED")',
+        "assign outclk_3 = clk_bus[3];",
+        ") altpll_component (",
+    ):
+        check_in(fragment, text)
+    check_equal(rendered.qsf_lines, ())
+
+
+def test_an_unknown_primitive_is_the_extension_point() -> None:
+    """A primitive without a renderer fails; a registered one works."""
+    reference, roles = _de0_cv()
+    other = {"ip": "other_pll", "vco_mhz": [600, 1300], "outputs_max": 5}
+    with pytest.raises(PllIpPendingError, match="register_renderer"):
+        generate_pll("p", reference, roles, other, "X")
     calls: list[str] = []
 
-    def fake(
-        module: str, _solution: pll_core.PllSolution
-    ) -> pll_core.RenderedPll:
+    def fake(module: str, _solution: PllSolution, _family: str) -> RenderedPll:
         calls.append(module)
-        return pll_core.RenderedPll(module, ".v", "fake", ())
+        return RenderedPll(module, ".v", "fake", ())
 
-    register_renderer("altpll", fake)
+    register_renderer("other_pll", fake)
     try:
-        rendered, _ = generate_pll("p", reference, roles, altpll)
+        rendered, _ = generate_pll("p", reference, roles, other, "X")
         check_equal(rendered.text, "fake")
         check_equal(calls, ["p"])
-        check(renderer_for("altpll") is fake)
+        check(renderer_for("other_pll") is fake)
     finally:
-        del pll_core.RENDERERS["altpll"]
+        del pll_core.RENDERERS["other_pll"]

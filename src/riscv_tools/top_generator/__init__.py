@@ -1,5 +1,10 @@
-"""Gera o topo fino de uma placa."""
+"""Gera o topo fino da placa."""
 
-from riscv_tools.top_generator.core import TopSpec, render_top, top_name
+from riscv_tools.top_generator.core import (
+    RenderedTop,
+    TopSpec,
+    render_top,
+    top_name,
+)
 
-__all__ = ["TopSpec", "render_top", "top_name"]
+__all__ = ["RenderedTop", "TopSpec", "render_top", "top_name"]

@@ -14,3 +14,5 @@ memory:
 clocks:
   core: {mhz: 48, phase_ps: 0}
 console: jtag
+generate:
+  vhdl: {path: mkr_vidor_4000_map_pkg.vhd, package: mkr_vidor_4000_map_pkg, rom: FLASH, ram: RAM}

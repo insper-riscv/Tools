@@ -104,13 +104,15 @@ def cmd_board_generate(args: argparse.Namespace) -> None:
     chips = root / (args.chips_dir or "Memory/chips")
     try:
         probe = generate(
-            GenerateRequest(root / args.platform, args.board, boards, chips)
+            GenerateRequest(
+                root / args.platform, args.select_board, boards, chips
+            )
         )
         project = out / probe.folder
         result = generate(
             GenerateRequest(
                 root / args.platform,
-                args.board,
+                args.select_board,
                 boards,
                 chips,
                 _sources(root, args.target, project),

@@ -18,3 +18,5 @@ console: jtag
 io:
   leds: {count: 8, need: required}
   display: {count: 6, need: optional}
+generate:
+  vhdl: {path: de0_nano_map_pkg.vhd, package: de0_nano_map_pkg, rom: FLASH, ram: RAM}

@@ -23,7 +23,7 @@ O projeto fica em `<saída>/<plataforma>-<placa>/`. O comando de compilação é
 ```bash
 uv run riscv-tools --root <espaço de trabalho> board generate \
     --platform <plataforma>.yaml --board de0-cv --out build \
-    --target de0_cv_top
+    --target de0_cv_map --target soc --target Memory/flash_chip
 ```
 
 | Opção | Efeito |
@@ -35,7 +35,7 @@ uv run riscv-tools --root <espaço de trabalho> board generate \
 | `--accept-inferred-pins` | Aceita construir com pino `inferred` |
 | `--hand-qsf`, `--hand-sdc`, `--hand-pll`, `--ignore-source` | Imprimem o relatório de [board_equivalence](board_equivalence.md) contra os arquivos escritos à mão |
 
-Sai com status 2 quando uma entrada é inválida, e com status 1 quando o relatório de equivalência acha uma perda.
+Os avisos (fase do `DRAM_CLK` não medida, papel opcional ausente, backend sem entidade) saem em `stderr`. Sai com status 2 quando uma entrada é inválida, e com status 1 quando o relatório de equivalência acha uma perda.
 
 ## 4. Testes
 

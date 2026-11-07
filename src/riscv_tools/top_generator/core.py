@@ -1,44 +1,65 @@
-"""Escreve o topo da placa, que só liga PLL, SoC, backends e pinos.
+"""Escreve o topo da placa: só liga PLL, SoC, backends e pinos.
 
-Contrato assumido com o SoC e os backends (documento 01, K1 a K9). Os
-nomes de entidade e de porta ficam todos nas constantes abaixo, para
-que ajustá-los ao `soc` e aos backends que o Memory publicar seja uma
-troca neste arquivo e em nenhum outro.
+O topo instancia a entidade `soc` do Insper-RISC-V, com os generics
+lidos do pacote do mapa da plataforma (o pacote que o
+`generate-memory-map` escreve), e um backend por região externa, feito
+das entidades do Memory (ver `backends`). Os nomes e as portas são os
+reais dessas entidades.
 
-| Entidade | Papel |
-| :--- | :--- |
-| `soc` | Núcleo, caches, interconector e periféricos, sem pino |
-| `emulated_memory` | Backend `emulado` de uma região (K3 sob K2) |
-| `sdram_backend` | Backend `dispositivo/sdram` (K2 sobre pinos) |
-| `device_backend` | Backends `sram` e `nor` (K2 sobre pinos) |
-| `tristate_buffer_1bit` | Anel de pinos de três estados |
+Ligação dos papéis ao SoC.
+
+- `switches` e `keys`: pinos de GPIO, portas `inout` ligadas direto a
+  `io_switches` e `io_keys`, com a polaridade no generic `*_active_low`.
+- `display`: `o_display_hex` fatiado em uma porta de 7 bits por dígito,
+  na polaridade `display_active_low`.
+- `leds`: o SoC não exporta LEDs, e os pinos ficam no nível apagado.
+- console `jtag`: nó `virtual_jtag` de índice 1 nas portas `i_uart_*`.
+- console `pinos`: portas `rx` e `tx` da placa em `i_uart_rx` e
+  `o_uart_tx`.
 """
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, cast
 
 from riscv_tools.board_clocks import PLL_INSTANCE, ClockPlan
 from riscv_tools.board_ports import Port
-from riscv_tools.memory_map import evaluate
+from riscv_tools.top_generator import backends
 
 SOC_ENTITY = "soc"
-EMULATED_ENTITY = "emulated_memory"
-SDRAM_ENTITY = "sdram_backend"
-DEVICE_ENTITY = "device_backend"
-TRISTATE_ENTITY = "tristate_buffer_1bit"
-# Região do mapa que cada região externa do platform.yaml ocupa.
-_REGION_NAME = {"rom": "FLASH", "ram": "RAM"}
-_REGION_SIGNALS = (
-    ("addr", 32),
-    ("wdata", 32),
-    ("be", 4),
-    ("rden", 1),
-    ("wren", 1),
-    ("rdata", 32),
-    ("ready", 1),
-)
+# Índice do nó Virtual JTAG da UART; o 0 é o carregador da FLASH e o 3
+# a depuração da SDRAM.
+UART_JTAG_INSTANCE = 1
 _SDRAM_ACTIVE_LOW = ("cas", "ras", "we", "cs")
+# Valores do SoC sem interrupções, que o pacote do mapa não traz.
+_NO_INTERRUPTS = {
+    "clint_tick_cycles": "1",
+    "plic_n_sources": "6",
+    "plic_priority_bits": "3",
+    "plic_addr_width": "20",
+}
+_PLIC_FROM_PACKAGE = {
+    "clint_tick_cycles": "CLINT_TICK_CYCLES",
+    "plic_n_sources": "PLIC_N_SOURCES",
+    "plic_priority_bits": "PLIC_PRIORITY_BITS",
+    "plic_addr_width": "PLIC_ADDR_WIDTH",
+}
+_EXTENSIONS = (
+    "has_zicsr",
+    "has_zicntr",
+    "has_zihpm",
+    "has_zimop",
+    "has_zicond",
+    "has_zihintntl",
+    "has_zihintpause",
+    "has_m",
+    "has_zmmul",
+    "has_zifencei",
+    "has_zicclsm",
+    "has_interrupts",
+    "has_sscofpmf",
+    "has_e",
+)
 
 
 @dataclass(frozen=True)
@@ -69,6 +90,22 @@ class TopSpec:
     chip_packages: dict[str, str]
 
 
+@dataclass(frozen=True)
+class RenderedTop:
+    """O topo escrito e os avisos achados.
+
+    Attributes
+    ----------
+    text : str
+        O arquivo `.vhd`.
+    warnings : list of str
+        Backends e papéis que o topo não pôde ligar.
+    """
+
+    text: str
+    warnings: list[str] = field(default_factory=lambda: [])
+
+
 def top_name(platform: str, board: str) -> str:
     """Dá o nome da entidade do topo.
 
@@ -85,38 +122,6 @@ def top_name(platform: str, board: str) -> str:
         `<plataforma>_<placa>_top` com `_` no lugar de `-`.
     """
     return re.sub(r"[^a-z0-9]+", "_", f"{platform}_{board}_top".lower())
-
-
-def _dir(signal: str) -> str:
-    """Dá o prefixo de direção de um sinal de região no lado do SoC.
-
-    Parameters
-    ----------
-    signal : str
-        `addr`, `rdata` e assim por diante.
-
-    Returns
-    -------
-    str
-        `i` para o que o SoC recebe, `o` para o que ele envia.
-    """
-    return "i" if signal in ("rdata", "ready") else "o"
-
-
-def _back(signal: str) -> str:
-    """Dá o prefixo de direção de um sinal de região no lado do backend.
-
-    Parameters
-    ----------
-    signal : str
-        `addr`, `rdata` e assim por diante.
-
-    Returns
-    -------
-    str
-        O oposto de `_dir`.
-    """
-    return "o" if _dir(signal) == "i" else "i"
 
 
 def _vtype(width: int, vector: bool) -> str:
@@ -137,6 +142,73 @@ def _vtype(width: int, vector: bool) -> str:
     if not vector:
         return "std_logic"
     return f"std_logic_vector({width - 1} downto 0)"
+
+
+def _role(spec: TopSpec, role: str) -> list[Port]:
+    """Filtra as portas de um papel.
+
+    Parameters
+    ----------
+    spec : TopSpec
+        O topo.
+    role : str
+        O papel.
+
+    Returns
+    -------
+    list of Port
+        As portas.
+    """
+    return [p for p in spec.ports if p.role == role]
+
+
+def _package(platform: dict[str, Any]) -> str:
+    """Lê o nome do pacote do mapa da plataforma.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        O `platform.yaml`.
+
+    Returns
+    -------
+    str
+        `generate.vhdl.package`.
+
+    Raises
+    ------
+    ValueError
+        Se a plataforma não declara o pacote.
+    """
+    generate = cast(dict[str, Any], platform.get("generate") or {})
+    vhdl = cast(dict[str, Any], generate.get("vhdl") or {})
+    if "package" not in vhdl:
+        raise ValueError("platform: generate.vhdl.package is required")
+    return str(vhdl["package"])
+
+
+def _external(spec: TopSpec) -> dict[str, tuple[str, str]]:
+    """Lista as regiões externas e seus backends.
+
+    Parameters
+    ----------
+    spec : TopSpec
+        O topo.
+
+    Returns
+    -------
+    dict of {str: tuple of (str, str)}
+        Para `rom` e `ram`: o backend e o dispositivo.
+    """
+    memory = cast(dict[str, Any], spec.platform.get("memory") or {})
+    out: dict[str, tuple[str, str]] = {}
+    for key in ("rom", "ram"):
+        fields = memory.get(key)
+        if isinstance(fields, dict):
+            f = cast(dict[str, Any], fields)
+            if f.get("external"):
+                out[key] = (str(f.get("backend")), str(f.get("device", "")))
+    return out
 
 
 def _entity(spec: TopSpec) -> list[str]:
@@ -166,62 +238,20 @@ def _entity(spec: TopSpec) -> list[str]:
     lines.append("\tport (")
     body: list[str] = []
     for port in (p for p in spec.ports if not p.alias):
+        # Chaves e botões são pinos de GPIO: o SoC os liga como inout.
+        gpio = port.role in ("switches", "keys")
         mode = {"in": "in   ", "out": "out  ", "inout": "inout"}[
-            port.direction
+            "inout" if gpio else port.direction
         ]
         body.append(
             f"\t\t-- Porta {port.role} da placa.\n"
             f"\t\t{port.name} : {mode} {_vtype(port.width, port.vector)}"
         )
-    lines += [";\n".join(body), "\t);", "end entity;", ""]
-    return lines
-
-
-def _role(spec: TopSpec, role: str) -> list[Port]:
-    """Filtra as portas de um papel.
-
-    Parameters
-    ----------
-    spec : TopSpec
-        O topo.
-    role : str
-        O papel.
-
-    Returns
-    -------
-    list of Port
-        As portas.
-    """
-    return [p for p in spec.ports if p.role == role]
-
-
-def _external(spec: TopSpec) -> list[tuple[str, str, str]]:
-    """Lista as regiões externas e seus backends.
-
-    Parameters
-    ----------
-    spec : TopSpec
-        O topo.
-
-    Returns
-    -------
-    list of tuple of (str, str, str)
-        Nome da região (`rom`, `ram`), backend e dispositivo.
-    """
-    memory = cast(dict[str, Any], spec.platform.get("memory") or {})
-    out: list[tuple[str, str, str]] = []
-    for key in ("rom", "ram"):
-        fields = memory.get(key)
-        if isinstance(fields, dict) and cast(dict[str, Any], fields).get(
-            "external"
-        ):
-            f = cast(dict[str, Any], fields)
-            out.append((key, str(f.get("backend")), str(f.get("device", ""))))
-    return out
+    return [*lines, ";\n".join(body), "\t);", "end entity;", ""]
 
 
 def _declarations(spec: TopSpec) -> list[str]:
-    """Escreve os sinais da arquitetura.
+    """Escreve os sinais comuns da arquitetura.
 
     Parameters
     ----------
@@ -233,39 +263,70 @@ def _declarations(spec: TopSpec) -> list[str]:
     list of str
         As linhas.
     """
+    outs = "".join(
+        f"\t\t\toutclk_{i} : out std_logic;\n"
+        for i in range(len(spec.plan.roles))
+    )
     lines = [
+        "\t-- O PLL é um módulo Verilog, instanciado por componente.",
+        f"\tcomponent {spec.pll_module} is",
+        "\t\tport (",
+        "\t\t\trefclk : in std_logic;",
+        "\t\t\trst    : in std_logic;",
+        outs + "\t\t\tlocked : out std_logic",
+        "\t\t);",
+        "\tend component;",
+        "",
         "\t-- Relógios por papel (K7) e travamento do PLL.",
         "\tsignal clk_core, clk_fetch, clk_mem, clk_mem_pin : std_logic;",
         "\tsignal pll_locked : std_logic;",
-        "\t-- Reset do usuário normalizado para ativo em '1' e reset do SoC.",
+        "\t-- Reset do usuário ativo em '1' e reset do SoC.",
         "\tsignal reset_active, rst_async, soc_rst : std_logic;",
         '\tsignal rst_sr : std_logic_vector(1 downto 0) := "11";',
+        "\t-- Faces do SoC.",
+        "\tsignal if_addr : std_logic_vector(29 downto 0);",
+        "\tsignal if_rden : std_logic;",
+        "\tsignal boot_data : std_logic_vector(31 downto 0);",
     ]
-    lines.extend(
-        f"\tsignal soc_{port.name.lower()} : {_vtype(port.width, True)};"
-        for port in spec.ports
-        if port.role in ("leds", "switches", "keys")
-    )
     digits = _role(spec, "display")
     if digits:
         lines.append(
-            f"\tsignal soc_display : {_vtype(7 * len(digits), True)};"
+            f"\tsignal display_hex : {_vtype(7 * len(digits), True)};"
         )
-    for region, _, _ in _external(spec):
-        for sig, width in _REGION_SIGNALS:
-            lines.append(
-                f"\tsignal {region}_{sig} : {_vtype(width, width > 1)};"
-            )
+    if _role(spec, "uart") == [] and _console(spec) == "jtag":
+        lines += [
+            "\tsignal uart_tck, uart_tdi, uart_tdo : std_logic;",
+            "\tsignal uart_ir_in : std_logic_vector(1 downto 0);",
+            "\tsignal uart_cdr, uart_sdr, uart_udr, uart_uir : std_logic;",
+        ]
     return lines
 
 
-def _pll_instance(spec: TopSpec) -> list[str]:
+def _console(spec: TopSpec) -> str:
+    """Lê o console da plataforma.
+
+    Parameters
+    ----------
+    spec : TopSpec
+        O topo.
+
+    Returns
+    -------
+    str
+        `jtag` ou `pinos`.
+    """
+    return str(spec.platform.get("console", "jtag"))
+
+
+def _pll_and_reset(spec: TopSpec, has_halt: bool) -> list[str]:
     """Escreve a instância do PLL e a lógica de reset.
 
     Parameters
     ----------
     spec : TopSpec
         O topo.
+    has_halt : bool
+        Se o carregador da FLASH segura o núcleo em reset.
 
     Returns
     -------
@@ -286,10 +347,11 @@ def _pll_instance(spec: TopSpec) -> list[str]:
         for role in ("fetch", "mem")
         if spec.plan.get(role) is None
     ]
+    halt = " or flash_halt" if has_halt else ""
     return [
         f"\treset_active <= {expr};",
         *aliases,
-        f"\t{PLL_INSTANCE} : entity work.{spec.pll_module}",
+        f"\t{PLL_INSTANCE} : {spec.pll_module}",
         "\t\tport map (" + ", ".join(maps) + ");",
         "",
         "\t-- O SoC sai do reset dois ciclos de core depois do PLL travar.",
@@ -302,13 +364,17 @@ def _pll_instance(spec: TopSpec) -> list[str]:
         "\t\t\trst_sr <= rst_sr(0) & '0';",
         "\t\tend if;",
         "\tend process;",
-        "\tsoc_rst <= rst_sr(1);",
+        f"\tsoc_rst <= rst_sr(1){halt};",
         "",
     ]
 
 
-def _polarity(spec: TopSpec) -> list[str]:
-    """Escreve a normalização de polaridade dos papéis de E/S (K8).
+def _interrupt_generics(spec: TopSpec) -> list[str]:
+    """Escreve os generics de interrupção do SoC.
+
+    Os valores vêm do pacote do mapa quando a plataforma tem PLIC e são
+    os padrões do SoC caso contrário, de modo que as constantes
+    `PLIC_*` e `CLINT_*` nunca são lidas de um pacote que não as tem.
 
     Parameters
     ----------
@@ -318,23 +384,218 @@ def _polarity(spec: TopSpec) -> list[str]:
     Returns
     -------
     list of str
-        As linhas.
+        As associações de generic.
     """
-    lines = ["\t-- Polaridade normalizada para ativo em '1' (K8)."]
-    for port in spec.ports:
-        invert = "not " if port.active == "low" else ""
-        name = port.name
-        if port.role in ("switches", "keys"):
-            lines.append(f"\tsoc_{name.lower()} <= {invert}{name};")
-        elif port.role == "leds":
-            lines.append(f"\t{name} <= {invert}soc_{name.lower()};")
-    for i, port in enumerate(_role(spec, "display")):
-        invert = "not " if port.active == "low" else ""
-        lines.append(
-            f"\t{port.name} <= {invert}soc_display"
-            f"({7 * i + 6} downto {7 * i});"
-        )
-    return [*lines, ""]
+    section = cast(dict[str, Any], spec.platform.get("interrupts") or {})
+    wired = "sources" in section or "plic" in section
+    values = _PLIC_FROM_PACKAGE if wired else _NO_INTERRUPTS
+    return [f"{name} => {value}" for name, value in values.items()]
+
+
+def _soc_generics(spec: TopSpec) -> list[str]:
+    """Monta os generics do SoC.
+
+    Parameters
+    ----------
+    spec : TopSpec
+        O topo.
+
+    Returns
+    -------
+    list of str
+        As associações de generic.
+    """
+    external = _external(spec)
+    generics = [
+        "boot_memory_size_bytes => BOOT_MEMORY_SIZE_BYTES",
+        "rom_end_kib => ROM_END_KIB",
+        "ram_base_kib => RAM_BASE_KIB",
+        "ram_end_kib => RAM_END_KIB",
+        "ext_base_kib => EXT_BASE_KIB",
+        "periph_base_kib => PERIPH_BASE_KIB",
+        f"rom_external => {str('rom' in external).lower()}",
+        f"ram_external => {str('ram' in external).lower()}",
+        "has_icache => HAS_ICACHE",
+        "has_dcache => HAS_DCACHE",
+        "icache_size_bits => ICACHE_SIZE_BITS",
+        "dcache_size_bits => DCACHE_SIZE_BITS",
+        *(f"{name} => {name.upper()}" for name in _EXTENSIONS),
+        *_interrupt_generics(spec),
+        f"clint_id => {_peripheral_id(spec.platform, 'CLINT', 6)}",
+        f"plic_id => {_peripheral_id(spec.platform, 'PLIC', 7)}",
+    ]
+    if "zihpm" in str(spec.platform.get("profile", "")).lower():
+        generics += ["hpm_counters => HPM_COUNTERS", "hpm_width => HPM_WIDTH"]
+    return generics + _role_generics(spec)
+
+
+def _peripheral_id(platform: dict[str, Any], name: str, default: int) -> int:
+    """Lê o índice da janela de um periférico.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        O `platform.yaml`.
+    name : str
+        O periférico.
+    default : int
+        O índice quando a plataforma não o lista.
+
+    Returns
+    -------
+    int
+        O `id` do periférico.
+    """
+    for entry in cast(list[dict[str, Any]], platform.get("peripherals") or []):
+        if entry.get("name") == name:
+            return int(entry["id"])
+    return default
+
+
+def _role_generics(spec: TopSpec) -> list[str]:
+    """Monta os generics dos papéis de E/S e do console.
+
+    Parameters
+    ----------
+    spec : TopSpec
+        O topo.
+
+    Returns
+    -------
+    list of str
+        As associações de generic, com largura e polaridade por papel.
+    """
+    out: list[str] = []
+    for role, name, default_id in (
+        ("switches", "SWITCHES", 1),
+        ("keys", "KEYS", 2),
+    ):
+        ports = _role(spec, role)
+        out += [
+            f"has_{role} => {str(bool(ports)).lower()}",
+            f"{role}_id => {_peripheral_id(spec.platform, name, default_id)}",
+        ]
+        if ports:
+            out += [
+                f"{role}_width => {ports[0].width}",
+                f"{role}_active_low => "
+                f"{str(ports[0].active == 'low').lower()}",
+            ]
+    digits = _role(spec, "display")
+    out += [
+        f"has_display => {str(bool(digits)).lower()}",
+        f"display_id => {_peripheral_id(spec.platform, 'DISPLAY', 5)}",
+    ]
+    if digits:
+        out += [
+            f"display_digits => {len(digits)}",
+            f"display_active_low => {str(digits[0].active == 'low').lower()}",
+        ]
+    uart_id = _peripheral_id(spec.platform, "UART", 4)
+    jtag = _console(spec) == "jtag"
+    out += [
+        f"has_uart_jtag => {str(jtag).lower()}",
+        f"uart_jtag_id => {uart_id}",
+        f"has_uart_pins => {str(not jtag).lower()}",
+        f"uart_pins_id => {uart_id}",
+    ]
+    return out
+
+
+def _soc_ports(spec: TopSpec) -> list[str]:
+    """Monta as portas do SoC.
+
+    Parameters
+    ----------
+    spec : TopSpec
+        O topo.
+
+    Returns
+    -------
+    list of str
+        As associações de porta.
+    """
+    external = _external(spec)
+    maps = [
+        "i_clk_core => clk_core",
+        "i_clk_fetch => clk_fetch",
+        "i_rst => soc_rst",
+        "o_if_addr => if_addr",
+        "o_if_rden => if_rden",
+        "i_boot_data => boot_data",
+    ]
+    if "rom" in external:
+        maps += [
+            "o_flash_addr => fl_addr",
+            "o_flash_rden => fl_rden",
+            "o_flash_line => fl_line",
+            "o_flash_advance => fl_adv",
+            "i_flash_ready => fl_ready",
+            "i_flash_busy => fl_busy",
+            "i_flash_rdata => fl_rdata",
+            "i_flash_rdata_x => fl_rdx",
+        ]
+    if "ram" in external:
+        maps += [
+            "o_ramd_addr => rd_addr",
+            "o_ramd_wdata => rd_wdata",
+            "o_ramd_byteena => rd_be",
+            "o_ramd_rden => rd_rden",
+            "o_ramd_wren => rd_wren",
+            "o_ramd_line => rd_line",
+            "o_ramd_advance => rd_adv",
+            "o_ramd_wdata_x => rd_wdx",
+            "i_ramd_ready => rd_ready",
+            "i_ramd_rdata => rd_rdata",
+            "i_ramd_rdata_x => rd_rdx",
+            "o_rami_addr => ri_addr",
+            "o_rami_rden => ri_rden",
+            "o_rami_line => ri_line",
+            "o_rami_advance => ri_adv",
+            "i_rami_ready => ri_ready",
+            "i_rami_rdata => ri_rdata",
+            "i_rami_rdata_x => ri_rdx",
+        ]
+    return maps + _role_ports(spec)
+
+
+def _role_ports(spec: TopSpec) -> list[str]:
+    """Monta as portas do SoC dos papéis de E/S e do console.
+
+    Parameters
+    ----------
+    spec : TopSpec
+        O topo.
+
+    Returns
+    -------
+    list of str
+        As associações de porta.
+    """
+    maps = [
+        f"io_{port.role} => {port.name}"
+        for port in _role(spec, "switches") + _role(spec, "keys")
+    ]
+    if _role(spec, "display"):
+        maps.append("o_display_hex => display_hex")
+    if _console(spec) == "jtag":
+        maps += [
+            "i_uart_tck => uart_tck",
+            "i_uart_tdi => uart_tdi",
+            "o_uart_tdo => uart_tdo",
+            "i_uart_ir_in => uart_ir_in",
+            "i_uart_state_cdr => uart_cdr",
+            "i_uart_state_sdr => uart_sdr",
+            "i_uart_state_udr => uart_udr",
+            "i_uart_state_uir => uart_uir",
+        ]
+    else:
+        uart = _role(spec, "uart")
+        maps += [
+            f"i_uart_rx => {uart[0].name}",
+            f"o_uart_tx => {uart[1].name}",
+        ]
+    return maps
 
 
 def _soc_instance(spec: TopSpec) -> list[str]:
@@ -350,95 +611,50 @@ def _soc_instance(spec: TopSpec) -> list[str]:
     list of str
         As linhas.
     """
-    profile = str(spec.platform.get("profile", "")).lower()
-    maps = [
-        "i_clk_core => clk_core",
-        "i_clk_fetch => clk_fetch",
-        "i_clk_mem => clk_mem",
-        "i_rst => soc_rst",
+    generics = ",\n".join(f"\t\t\t{g}" for g in _soc_generics(spec))
+    ports = ",\n".join(f"\t\t\t{m}" for m in _soc_ports(spec))
+    return [
+        f"\tsoc_inst : entity work.{SOC_ENTITY}",
+        f"\t\tgeneric map (\n{generics}\n\t\t)",
+        f"\t\tport map (\n{ports}\n\t\t);",
+        "",
     ]
-    for port in spec.ports:
-        if port.role == "leds":
-            maps.append(f"o_leds => soc_{port.name.lower()}")
-        elif port.role in ("switches", "keys"):
-            maps.append(f"i_{port.role} => soc_{port.name.lower()}")
-    if _role(spec, "display"):
-        maps.append("o_display => soc_display")
-    for region, _, _ in _external(spec):
-        maps += [
-            f"{_dir(sig)}_{region}_{sig} => {region}_{sig}"
-            for sig, _ in _REGION_SIGNALS
-        ]
-    lines = [f"\tsoc_inst : entity work.{SOC_ENTITY}"]
-    if "zihpm" in profile:
-        lines.append(
-            "\t\tgeneric map (HPM_COUNTERS => HPM_COUNTERS, "
-            "HPM_WIDTH => HPM_WIDTH)"
-        )
-    lines.append("\t\tport map (")
-    lines.append(",\n".join(f"\t\t\t{m}" for m in maps))
-    return [*lines, "\t\t);", ""]
 
 
-def _region_size(spec: TopSpec, region: str) -> int:
-    """Dá o tamanho em bytes da região do mapa de uma região externa.
+def _io_wiring(spec: TopSpec) -> list[str]:
+    """Liga os pinos dos papéis de E/S e do console aos sinais do SoC.
 
     Parameters
     ----------
     spec : TopSpec
         O topo.
-    region : str
-        `rom` ou `ram`.
-
-    Returns
-    -------
-    int
-        O tamanho.
-    """
-    wanted = _REGION_NAME[region]
-    for entry in cast(
-        list[dict[str, Any]], spec.platform.get("regions") or []
-    ):
-        if entry["name"] == wanted:
-            return evaluate(entry["size"])
-    return 0
-
-
-def _emulated(spec: TopSpec, region: str) -> list[str]:
-    """Escreve a instância de um backend emulado.
-
-    Parameters
-    ----------
-    spec : TopSpec
-        O topo.
-    region : str
-        `rom` ou `ram`.
 
     Returns
     -------
     list of str
         As linhas.
     """
-    fields = cast(dict[str, Any], spec.platform["memory"][region])
-    generics = [f"SIZE_BYTES => {_region_size(spec, region)}"]
-    latency = cast(dict[str, Any], fields.get("latency") or {})
-    if latency:
-        generics += [
-            f"FIRST_LATENCY => {latency['first']}",
-            f"NEXT_LATENCY => {latency['next']}",
-        ]
-    if "sector_bytes" in fields:
-        generics.append(f"SECTOR_BYTES => {fields['sector_bytes']}")
-    return [
-        f"\t{region}_backend : entity work.{EMULATED_ENTITY}",
-        "\t\tgeneric map (" + ", ".join(generics) + ")",
-        "\t\tport map (i_clk => clk_core, i_rst => soc_rst, "
-        + ", ".join(
-            f"{_back(s)}_{s} => {region}_{s}" for s, _ in _REGION_SIGNALS
+    lines: list[str] = []
+    for i, port in enumerate(_role(spec, "display")):
+        lines.append(
+            f"\t{port.name} <= display_hex({7 * i + 6} downto {7 * i});"
         )
-        + ");",
-        "",
-    ]
+    for port in _role(spec, "leds"):
+        off = "'1'" if port.active == "low" else "'0'"
+        lines.append(f"\t{port.name} <= (others => {off});")
+    if _console(spec) == "jtag":
+        lines += [
+            "",
+            "\t-- Console pela JTAG: nó Virtual JTAG da UART.",
+            "\tuart_vjtag : entity work.virtual_jtag",
+            f"\t\tgeneric map (instance_index => {UART_JTAG_INSTANCE}, "
+            'auto_instance_index => "NO", ir_width => 2)',
+            "\t\tport map (o_tck => uart_tck, o_tdi => uart_tdi, "
+            "i_tdo => uart_tdo, o_ir_in => uart_ir_in,",
+            "\t\t\to_state_cdr => uart_cdr, o_state_sdr => uart_sdr, "
+            "o_state_udr => uart_udr, o_state_uir => uart_uir);",
+        ]
+    return [*lines, ""]
 
 
 def _sdram_key(name: str) -> str:
@@ -461,170 +677,124 @@ def _sdram_key(name: str) -> str:
     return key
 
 
-def _sdram_pin_maps(pin_map: dict[str, Port]) -> list[str]:
-    """Liga os sinais de comando e de máscara do backend aos pinos.
+def _sdram_backend(spec: TopSpec, notes: list[str]) -> tuple[list[str], str]:
+    """Escreve o backend de SDRAM, se o controlador suporta a placa.
+
+    Parameters
+    ----------
+    spec : TopSpec
+        O topo.
+    notes : list of str
+        Recebe os avisos.
+
+    Returns
+    -------
+    tuple of (list of str, str)
+        Os sinais e o corpo, vazios quando o controlador de hoje não
+        serve (largura de dados diferente de 16 bits).
+    """
+    pin_map = {_sdram_key(p.name): p for p in _role(spec, "sdram")}
+    dq = pin_map["dq"]
+    if dq.width != backends.SDRAM_DQ_WIDTH:
+        notes.append(
+            f"W sdram data width {dq.width} needs the generalized "
+            "sdram_ctrl (M.1.6); no SDRAM backend was instantiated"
+        )
+        return [], ""
+    skip = ("dq", "clk", "ldqm", "udqm", "dqm")
+    pins = ",\n".join(
+        f"\t\t\to_dram_{key} => {port.name}"
+        for key, port in pin_map.items()
+        if key not in skip
+    )
+    dqm_lines = _dqm_assignments(pin_map)
+    mem = spec.plan.get("mem")
+    tck_ps = round(float(mem.period_ns) * 1000) if mem else 0
+    fields = {
+        "dq": dq.width,
+        "dqm": 2,
+        "tck_ps": tck_ps,
+        "chip": spec.chip_packages.get("sdram", ""),
+        "pins": pins,
+        "dq_name": dq.name,
+        "dq_hi": dq.width - 1,
+    }
+    body = backends.template("sdram_body").format(**fields)
+    clk = pin_map.get("clk")
+    extra = [f"\t{clk.name} <= clk_mem_pin;"] if clk else []
+    return (
+        backends.template("sdram_signals")
+        .format(**fields)
+        .rstrip()
+        .split("\n"),
+        body + "\n".join([*dqm_lines, *extra]) + "\n",
+    )
+
+
+def _dqm_assignments(pin_map: dict[str, Port]) -> list[str]:
+    """Liga a máscara de bytes interna aos pinos da placa.
 
     Parameters
     ----------
     pin_map : dict of {str: Port}
-        As portas de SDRAM por tipo (`addr`, `ldqm`, ...).
+        As portas de SDRAM por tipo.
 
     Returns
     -------
     list of str
-        As associações de porta, sem o dado (`dq`) e sem o relógio.
+        `DRAM_LDQM <= dqm(0)` e assim por diante.
     """
-    maps = [
-        f"o_dram_{key} => {port.name}"
-        for key, port in pin_map.items()
-        if key not in ("dq", "clk", "ldqm", "udqm", "dqm")
-    ]
     if "dqm" in pin_map:
-        maps.append(f"o_dram_dqm => {pin_map['dqm'].name}")
-    elif "ldqm" in pin_map:
-        maps.append("o_dram_dqm(1 downto 0) => dqm_pins")
-    else:
-        maps.append("o_dram_dqm => open")
-    return maps
+        return [f"\t{pin_map['dqm'].name} <= dqm;"]
+    return [
+        f"\t{pin_map[key].name} <= dqm({i});"
+        for i, key in enumerate(("ldqm", "udqm"))
+        if key in pin_map
+    ]
 
 
-def _sdram(spec: TopSpec, region: str) -> list[str]:
-    """Escreve o backend de SDRAM e o anel de três estados do DQ.
+def _region_backend(
+    spec: TopSpec, region: str, notes: list[str]
+) -> tuple[list[str], str]:
+    """Escreve o backend de uma região externa.
 
     Parameters
     ----------
     spec : TopSpec
         O topo.
     region : str
-        A região (`ram`).
+        `rom` ou `ram`.
+    notes : list of str
+        Recebe os avisos.
 
     Returns
     -------
-    list of str
-        As linhas.
+    tuple of (list of str, str)
+        Sinais e corpo; vazios quando não há entidade para o backend.
     """
-    ports = _role(spec, "sdram")
-    pin_map = {_sdram_key(p.name): p for p in ports}
-    dq = pin_map["dq"]
-    maps = ["i_clk => clk_mem", "i_rst => soc_rst"]
-    maps += [f"{_back(s)}_{s} => {region}_{s}" for s, _ in _REGION_SIGNALS]
-    maps += _sdram_pin_maps(pin_map)
-    maps += [
-        "o_dram_dq_out => dq_out",
-        "o_dram_dq_oe => dq_oe",
-        "i_dram_dq_in => dq_in",
-    ]
-    chip = spec.chip_packages.get("sdram", "")
-    lines = [
-        f"\tsdram_inst : entity work.{SDRAM_ENTITY}",
-        f"\t\tgeneric map (DQ_WIDTH => {dq.width})",
-        "\t\tport map (",
-        ",\n".join(f"\t\t\t{m}" for m in maps),
-        "\t\t);",
-        "",
-        f"\t-- Anel de pinos: um buffer de três estados por bit de {dq.name}.",
-        f"\tgen_dq : for i in 0 to {dq.width - 1} generate",
-        f"\t\tdq_tri : entity work.{TRISTATE_ENTITY}",
-        "\t\t\tport map (i_d => dq_out(i), i_enable => dq_oe, "
-        f"o_d => {dq.name}(i));",
-        "\tend generate;",
-        f"\tdq_in <= {dq.name};",
-    ]
-    if "ldqm" in pin_map and "udqm" in pin_map:
-        lines += [
-            f"\t{pin_map['ldqm'].name} <= dqm_pins(0);",
-            f"\t{pin_map['udqm'].name} <= dqm_pins(1);",
-        ]
-    if "clk" in pin_map:
-        lines.append(f"\t{pin_map['clk'].name} <= clk_mem_pin;")
-    if chip:
-        lines.append(f"\t-- Tempos do chip: pacote {chip}.")
-    return [*lines, ""]
+    backend, device = _external(spec)[region]
+    fields = cast(dict[str, Any], spec.platform["memory"][region])
+    latency = cast(dict[str, Any], fields.get("latency") or {})
+    if region == "rom" and backend == "emulado":
+        body = backends.template("flash_body").format(
+            first=latency.get("first", 24), nxt=latency.get("next", 4)
+        )
+        return backends.template("flash_signals").rstrip().split("\n"), body
+    if region == "ram" and backend == "emulado":
+        body = backends.template("ram_body").format(
+            latency=latency.get("first", 0)
+        )
+        return backends.template("ram_signals").rstrip().split("\n"), body
+    if region == "ram" and device == "sdram":
+        return _sdram_backend(spec, notes)
+    notes.append(
+        f"W region {region}: backend {backend} {device} has no entity yet "
+        "(M.5); the region was left idle"
+    )
+    return [], ""
 
 
-def _device(spec: TopSpec, region: str, kind: str) -> list[str]:
-    """Escreve o backend de SRAM ou de NOR.
-
-    Parameters
-    ----------
-    spec : TopSpec
-        O topo.
-    region : str
-        A região.
-    kind : str
-        `sram` ou `nor`.
-
-    Returns
-    -------
-    list of str
-        As linhas.
-    """
-    maps = ["i_clk => clk_mem", "i_rst => soc_rst"]
-    maps += [f"{_back(s)}_{s} => {region}_{s}" for s, _ in _REGION_SIGNALS]
-    for port in _role(spec, kind):
-        prefix = "i" if port.direction == "in" else "o"
-        maps.append(f"{prefix}_pin_{port.name.lower()} => {port.name}")
-    return [
-        f"\t{kind}_inst : entity work.{DEVICE_ENTITY}",
-        f'\t\tgeneric map (KIND => "{kind}")',
-        "\t\tport map (",
-        ",\n".join(f"\t\t\t{m}" for m in maps),
-        "\t\t);",
-        "",
-    ]
-
-
-def _backends(spec: TopSpec) -> list[str]:
-    """Escreve uma instância de backend por região externa.
-
-    Parameters
-    ----------
-    spec : TopSpec
-        O topo.
-
-    Returns
-    -------
-    list of str
-        As linhas.
-    """
-    lines: list[str] = []
-    for region, backend, device in _external(spec):
-        if backend == "emulado":
-            lines += _emulated(spec, region)
-        elif device == "sdram":
-            lines += _sdram(spec, region)
-        else:
-            lines += _device(spec, region, device)
-    return lines
-
-
-def _extra_signals(spec: TopSpec) -> list[str]:
-    """Declara os sinais do anel de pinos de SDRAM.
-
-    Parameters
-    ----------
-    spec : TopSpec
-        O topo.
-
-    Returns
-    -------
-    list of str
-        As linhas, vazias sem SDRAM.
-    """
-    sdram = _role(spec, "sdram")
-    dq = [p for p in sdram if _sdram_key(p.name) == "dq"]
-    if not dq:
-        return []
-    width = dq[0].width
-    return [
-        "\t-- Dados da SDRAM separados em saída, habilitação e entrada.",
-        f"\tsignal dq_out, dq_in : std_logic_vector({width - 1} downto 0);",
-        "\tsignal dq_oe : std_logic;",
-        "\tsignal dqm_pins : std_logic_vector(1 downto 0);",
-    ]
-
-
-def render_top(spec: TopSpec) -> str:
+def render_top(spec: TopSpec) -> RenderedTop:
     """Escreve o topo da placa.
 
     Parameters
@@ -634,9 +804,18 @@ def render_top(spec: TopSpec) -> str:
 
     Returns
     -------
-    str
-        O texto do arquivo `.vhd`.
+    RenderedTop
+        O texto do arquivo `.vhd` e os avisos.
     """
+    notes: list[str] = []
+    signals: list[str] = []
+    bodies: list[str] = []
+    for region in _external(spec):
+        sigs, body = _region_backend(spec, region, notes)
+        signals += sigs
+        bodies.append(body)
+    has_halt = "flash_halt" in "\n".join(signals)
+    package = _package(spec.platform)
     header = [
         "-- " + "=" * 77,
         f"-- Topo da placa {spec.entity} (arquivo gerado, não edite)",
@@ -646,19 +825,32 @@ def render_top(spec: TopSpec) -> str:
         "",
         "library ieee;",
         "use ieee.std_logic_1164.all;",
+        "use work.utils_pkg.all;",
+        f"use work.{package}.all;",
         "",
     ]
     arch = [
         f"architecture structural of {spec.entity} is",
         *_declarations(spec),
-        *_extra_signals(spec),
+        *signals,
         "begin",
         "",
-        *_pll_instance(spec),
-        *_polarity(spec),
+        *_pll_and_reset(spec, has_halt),
         *_soc_instance(spec),
-        *_backends(spec),
+        "\t-- Boot memory: bloco do FPGA lido pela busca de instrução.",
+        "\tboot_inst : entity work.boot_memory",
+        "\t\tgeneric map (size_bytes => BOOT_MEMORY_SIZE_BYTES)",
+        "\t\tport map (",
+        "\t\t\ti_address => if_addr(log2_exact(BOOT_MEMORY_SIZE_BYTES) - 1 "
+        "downto 2), i_clk => clk_fetch,",
+        "\t\t\ti_rden => if_rden, i_wren => '0', "
+        "i_data => (others => '0'), o_q => boot_data",
+        "\t\t);",
+        "",
+        *_io_wiring(spec),
+        *bodies,
         "end architecture;",
         "",
     ]
-    return "\n".join([*header, *_entity(spec), *arch])
+    text = "\n".join([*header, *_entity(spec), *arch])
+    return RenderedTop(text, notes)

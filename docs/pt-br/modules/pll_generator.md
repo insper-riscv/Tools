@@ -1,6 +1,6 @@
 # `pll_generator`
 
-Calcula os contadores do PLL e escreve a primitiva da família (`altera_pll` pronta, `altpll` como ponto de extensão).
+Calcula os contadores do PLL e escreve a primitiva da família (`altera_pll` na Cyclone V e `altpll` nas demais).
 
 ## 1. Função
 
@@ -18,10 +18,10 @@ para cada saída $i$. A segunda condição diz que a fase é múltiplo de um oit
 
 | IP da família | Escritor |
 | :--- | :--- |
-| `altera_pll` (Cyclone V, Cyclone V SoC) | Pronto, com as atribuições de instância de compensação, reset e largura de banda |
-| `altpll` (Cyclone IV E, MAX 10, Cyclone 10 LP) | Ponto de extensão: sem escritor, `PllIpPendingError` indica a medição que falta |
+| `altera_pll` (Cyclone V, que inclui a DE10-Nano) | Parâmetros por saída e atribuições de instância de compensação, reset e largura de banda |
+| `altpll` (Cyclone IV E, MAX 10, Cyclone 10 LP) | Razão multiplicador/divisor e fase por saída, família no `intended_device_family`, instância interna `altpll_component` |
 
-Quem escrever o `altpll` chama `register_renderer("altpll", função)`, com a função `(módulo, solução) -> RenderedPll`. O resto do fluxo não muda.
+A escolha segue a medição de síntese por família: o `altera_pll` só sintetiza na Cyclone V (erro 12024 nas outras), e o `altpll` sintetiza nas quatro. Os dois escritores compartilham o cálculo de VCO, divisores e fase (`solve`) e registram-se em `RENDERERS`. Outra primitiva entra por `register_renderer(ip, função)`, com a função `(módulo, solução, família) -> RenderedPll`; um IP sem escritor falha com `PllIpPendingError`.
 
 ## 4. Testes
 

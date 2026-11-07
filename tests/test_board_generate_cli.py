@@ -25,7 +25,7 @@ def _args(root: Path, **changes: object) -> argparse.Namespace:
     base: dict[str, object] = {
         "root": str(root),
         "platform": "platforms/de0-cv.yaml",
-        "board": None,
+        "select_board": None,
         "out": "build",
         "boards_dir": None,
         "chips_dir": None,
@@ -87,5 +87,5 @@ def test_an_invalid_input_exits_with_status_two(tmp_path: Path) -> None:
     """An unknown board is an input error, status 2."""
     root = _root(tmp_path)
     with pytest.raises(SystemExit) as caught:
-        cmd_board_generate(_args(root, board="de2-116"))
+        cmd_board_generate(_args(root, select_board="de2-116"))
     check_equal(caught.value.code, 2)

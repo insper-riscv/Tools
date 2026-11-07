@@ -18,3 +18,5 @@ console: jtag
 io:
   leds: {count: 18, need: required}
   display: {count: 8, need: optional}
+generate:
+  vhdl: {path: de2_115_map_pkg.vhd, package: de2_115_map_pkg, rom: FLASH, ram: RAM}
