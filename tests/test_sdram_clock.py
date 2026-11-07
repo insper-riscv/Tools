@@ -130,3 +130,49 @@ def test_a_check_ties_the_pll_file_to_the_section(tmp_path: Path) -> None:
     (tmp_path / "pll.v").write_text(PLL.replace("4000", "3000"))
     _, found = check_memory_map(path, tmp_path)
     check_equal([m.check for m in found], ["phase"])
+
+
+def test_the_core_frequency_is_a_symbol_of_the_checks(tmp_path: Path) -> None:
+    """The `pll` section names the whole MHz of the core clock."""
+    check = {
+        "name": "core frequency",
+        "file": "pll.v",
+        "pattern": r'output_clock_frequency3\("(\d+)\.',
+        "expect": "PLL.core_clock_mhz",
+    }
+    path = _write(tmp_path, pll={"core_clock_hz": 76923077}, checks=[check])
+    (tmp_path / "pll.v").write_text(
+        '.output_clock_frequency3("76.923077 MHz"),\n'
+    )
+    check_equal(check_memory_map(path, tmp_path)[1], [])
+    (tmp_path / "pll.v").write_text(
+        '.output_clock_frequency3("50.000000 MHz"),\n'
+    )
+    check_equal(
+        [m.check for m in check_memory_map(path, tmp_path)[1]],
+        ["core frequency"],
+    )
+
+
+def test_the_tick_is_a_symbol_of_the_checks(tmp_path: Path) -> None:
+    """The `interrupts` section names the cycles per `mtime` tick."""
+    check = {
+        "name": "tick",
+        "file": "hdr.h",
+        "pattern": r"RV32_TICK_CYCLES\s+(\d+)",
+        "expect": "INTERRUPTS.tick_cycles",
+    }
+    path = _write(
+        tmp_path,
+        interrupts={"clock_hz": 77000000, "mtime_hz": 1000000},
+        peripherals=[
+            {"name": "CLINT", "base": "0xE0000000", "id": 6, "size": "64K"}
+        ],
+        checks=[check],
+    )
+    (tmp_path / "hdr.h").write_text("#define RV32_TICK_CYCLES 77\n")
+    check_equal(check_memory_map(path, tmp_path)[1], [])
+    (tmp_path / "hdr.h").write_text("#define RV32_TICK_CYCLES 50\n")
+    check_equal(
+        [m.check for m in check_memory_map(path, tmp_path)[1]], ["tick"]
+    )

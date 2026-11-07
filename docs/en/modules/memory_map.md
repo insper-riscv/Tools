@@ -172,7 +172,7 @@ sdram:
 
 `clock_hz` must have a whole period in picoseconds and the phase must lie inside one period; both fields are required, and the absence of either is an error before generating and in `check-memory-map`.
 
-The optional `pll` section holds the phase of the core clock (PLL output 3) in `core_phase_ps`, which only the `checks` use (`PLL.core_phase_ps`).
+The optional `pll` section holds the phase of the core clock (PLL output 3) in `core_phase_ps` and its frequency in `core_clock_hz`, which only the `checks` use (`PLL.core_phase_ps`, `PLL.core_clock_mhz`, the whole MHz). The `interrupts` section names `INTERRUPTS.tick_cycles`, the clock cycles per `mtime` tick, for the checks.
 
 ## The memories and caches of the platform
 

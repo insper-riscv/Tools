@@ -89,6 +89,25 @@ def declared(platform: dict[str, Any]) -> bool:
     return bool(platform_dict(platform, "interrupts"))
 
 
+def symbols(platform: dict[str, Any]) -> dict[str, int]:
+    """Name the tick of the `interrupts` section for the checks.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+
+    Returns
+    -------
+    dict of {str: int}
+        `INTERRUPTS.tick_cycles` (clock cycles per `mtime` tick); empty
+        without the section.
+    """
+    if not declared(platform):
+        return {}
+    return {"INTERRUPTS.tick_cycles": tick_cycles(platform)}
+
+
 def _rates(platform: dict[str, Any]) -> tuple[int, int]:
     """Read the clock rate and the tick rate of the section.
 

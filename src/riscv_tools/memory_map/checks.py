@@ -160,6 +160,7 @@ def check_memory_map(
         symbols(platform)
         | banks.symbols(platform)
         | sdram_clock.symbols(platform)
+        | interrupts.symbols(platform)
     )
     checks = platform_list(platform, "checks")
     for check in checks:
