@@ -129,6 +129,7 @@ def parse_family(raw: Any, label: str = "family") -> Family:
     fmax = _fmax(top)
     calibration = top.text("calibration", required=False, nullable=True)
     slew_rate = top.flag("slew_rate", required=False, default=True)
+    qsf = tuple(top.texts("qsf", required=False))
     top.done()
     raise_if(problems)
     return Family(
@@ -144,4 +145,5 @@ def parse_family(raw: Any, label: str = "family") -> Family:
         fmax,
         calibration,
         slew_rate,
+        qsf,
     )

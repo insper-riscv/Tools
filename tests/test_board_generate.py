@@ -284,3 +284,12 @@ def test_only_the_cyclone_v_projects_keep_the_slew_rate() -> None:
         qsf = next(t for n, t in files.items() if n.endswith(".qsf"))
         check_in("CURRENT_STRENGTH_NEW DEFAULT", qsf)
         check_equal("SLEW_RATE 1" in qsf, slew)
+
+
+def test_the_family_assignments_go_to_the_qsf() -> None:
+    """The `qsf` lines of the MAX 10 family reach its projects only."""
+    line = "INTERNAL_FLASH_UPDATE_MODE SINGLE_IMAGE_WITH_ERAM"
+    for name, expected in (("de10-lite", True), ("de0-cv", False)):
+        files = generated(name).files
+        qsf = next(t for n, t in files.items() if n.endswith(".qsf"))
+        check_equal(line in qsf, expected)
