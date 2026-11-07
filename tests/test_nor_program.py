@@ -32,11 +32,12 @@ def test_the_data_of_the_programmer_ends_at_the_stdout_buffer() -> None:
 
 def test_the_bank_image_is_the_header_and_the_payload_in_whole_pages() -> None:
     """The size in the header gives the end; the page is 256 bytes."""
-    words = [0xFFFFFFFF] * 2048
+    words = [0] * 2048
     words[1024 : 1024 + 5] = [0x52564946, 300, 0, 1, 0]
     image = nor_program.load_bank_image(words, 0x1000)
     check_equal(len(image), 768)
     check_equal(image[:4], bytes.fromhex("46495652"))
+    check_equal(image[256 + 300 :], b"\xff" * (768 - 556))
 
 
 def test_an_image_without_header_page_is_refused() -> None:

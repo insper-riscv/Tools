@@ -178,10 +178,13 @@ def load_bank_image(words: list[int], rom_base: int) -> bytes:
     if len(words) <= first + _HEADER_PAYLOAD_WORD:
         raise ValueError("the FLASH image has no header page")
     size = words[first + _HEADER_PAYLOAD_WORD]
-    total = -(-(_HEADER_BYTES + size) // _PAGE) * _PAGE
-    chunk = words[first : first + total // _WORD]
-    chunk += [0xFFFFFFFF] * (total // _WORD - len(chunk))
-    return b"".join(w.to_bytes(_WORD, "little") for w in chunk)
+    used = _HEADER_BYTES + size
+    data = b"".join(
+        w.to_bytes(_WORD, "little")
+        for w in words[first : first + -(-used // _WORD)]
+    )[:used]
+    # O resto da página fica em 0xFF, que a gravação pula.
+    return data + b"\xff" * (-len(data) % _PAGE)
 
 
 def words_of(data: bytes) -> list[int]:
