@@ -120,3 +120,28 @@ def test_a_check_ties_the_pll_file_to_the_section(tmp_path: Path) -> None:
     (tmp_path / "pll.v").write_text(PLL.replace("100", "133"))
     _, found = check_memory_map(path, tmp_path)
     check_equal([m.check for m in found], ["frequency"])
+
+
+def test_the_tick_is_a_symbol_of_the_checks(tmp_path: Path) -> None:
+    """The `interrupts` section names the cycles per `mtime` tick."""
+    check = {
+        "name": "tick",
+        "file": "hdr.h",
+        "pattern": r"RV32_TICK_CYCLES\s+(\d+)",
+        "expect": "INTERRUPTS.tick_cycles",
+    }
+    path = _write(
+        tmp_path,
+        extras=["Interrupts"],
+        interrupts={"mtime_hz": 1000000},
+        peripherals=[
+            {"name": "CLINT", "base": "0xE0000000", "id": 6, "size": "64K"}
+        ],
+        checks=[check],
+    )
+    (tmp_path / "hdr.h").write_text("#define RV32_TICK_CYCLES 77\n")
+    check_equal(check_memory_map(path, tmp_path)[1], [])
+    (tmp_path / "hdr.h").write_text("#define RV32_TICK_CYCLES 50\n")
+    check_equal(
+        [m.check for m in check_memory_map(path, tmp_path)[1]], ["tick"]
+    )

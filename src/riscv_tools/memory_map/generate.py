@@ -609,6 +609,7 @@ def render_all(platform_file: Path, root: Path) -> dict[Path, str]:
         symbols(platform)
         | banks.symbols(platform)
         | sdram_clock.symbols(platform)
+        | interrupts.symbols(platform)
     )
     try:
         source = str(platform_file.relative_to(root))

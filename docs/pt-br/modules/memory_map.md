@@ -170,7 +170,7 @@ clocks:
 | Pacote VHDL (`vhdl`) | `SDRAM_CLOCK_HZ` e `SDRAM_TCK_PS` de `clocks.mem`, o período em picossegundos com que o controlador e o modelo do chip convertem os tempos do chip em ciclos |
 | Símbolos dos `checks` | `CLOCKS.mem_mhz`, `CLOCKS.mem_tck_ps`, `CLOCKS.core_mhz` (arredondado) e `CLOCKS.core_phase_ps` |
 
-Todo relógio declarado precisa de `mhz` positivo, e `clocks.mem` precisa ter período inteiro em picossegundos; a falta ou o excesso é um erro antes de gerar e no `check-memory-map`. A fase do pino `DRAM_CLK` pertence à placa (`memories.sdram.clk_phase_ps` do `board.yaml`).
+Todo relógio declarado precisa de `mhz` positivo, e `clocks.mem` precisa ter período inteiro em picossegundos; a falta ou o excesso é um erro antes de gerar e no `check-memory-map`. A fase do pino `DRAM_CLK` pertence à placa (`memories.sdram.clk_phase_ps` do `board.yaml`). A seção `interrupts` nomeia `INTERRUPTS.tick_cycles`, os ciclos de clock por incremento do `mtime`, para os `checks`.
 
 ## As memórias e as caches da plataforma
 
