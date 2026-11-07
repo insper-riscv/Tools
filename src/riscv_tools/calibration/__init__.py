@@ -1,9 +1,11 @@
 """Measure the area of a family's profiles and fit the estimator."""
 
 from riscv_tools.calibration.fit import (
+    fit_ratio_check,
     fit_table,
     known_fit_check,
     load_records,
+    verify_table,
     write_table,
 )
 from riscv_tools.calibration.harness import (
@@ -24,6 +26,7 @@ __all__ = [
     "ProfileDef",
     "ProfileList",
     "Settings",
+    "fit_ratio_check",
     "fit_table",
     "known_fit_check",
     "load_profile_list",
@@ -33,5 +36,6 @@ __all__ = [
     "parse_profile_name",
     "run_all",
     "spec_of",
+    "verify_table",
     "write_table",
 ]

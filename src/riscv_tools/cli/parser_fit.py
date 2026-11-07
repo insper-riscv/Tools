@@ -21,7 +21,7 @@ def add_fit_commands(sub: Any) -> None:
         description="Measure the profiles of a family with the project's "
         "synthesis (run) or fit the estimator from the records (fit)",
     )
-    p.add_argument("action", choices=["run", "fit"])
+    p.add_argument("action", choices=["run", "fit", "verify"])
     p.add_argument(
         "--profiles",
         required=True,
@@ -32,7 +32,10 @@ def add_fit_commands(sub: Any) -> None:
         required=True,
         help="Directory of the raw records (relative to --root)",
     )
-    p.add_argument("--table", help="fit: calibration file to write")
+    p.add_argument(
+        "--table",
+        help="fit: calibration file to write; verify: table to check",
+    )
     p.add_argument(
         "--work-dir",
         help="run: directory of the throwaway project copies "
@@ -48,7 +51,22 @@ def add_fit_commands(sub: Any) -> None:
         default="riscv-tools",
         help="run: command that starts riscv-tools for the generator",
     )
+    p.add_argument(
+        "--anchor",
+        default="p1_rv32i",
+        help="verify: profile that fixes the shift of the core term",
+    )
+    p.add_argument(
+        "--output", help="verify: file to write the comparison (YAML)"
+    )
     p.add_argument("--quartus-sh", default="quartus_sh")
+    p.add_argument(
+        "--stop-after",
+        choices=["map", "fit"],
+        default="map",
+        help="run: last stage; fit also records what the fitter reports "
+        "(the ratio between the fitter and the synthesis)",
+    )
     p.add_argument("--only", help="run: comma list of profile ids")
     p.add_argument(
         "--keep", action="store_true", help="run: keep the work copies"

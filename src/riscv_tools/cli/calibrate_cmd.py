@@ -6,6 +6,7 @@ import socket
 import sys
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from riscv_tools import calibration, fit_estimate, quartus_reports
 from riscv_tools.cli.common import project_root
@@ -16,61 +17,85 @@ def _log(message: str) -> None:
     print(message, flush=True)
 
 
-def cmd_calibrate(args: argparse.Namespace) -> None:
-    """Implement `riscv-tools calibrate run|fit`.
+def _run(args: argparse.Namespace, root: Path, plan: Any) -> None:
+    """Measure the profiles (`calibrate run`)."""
+    settings = calibration.Settings(
+        project=root,
+        work_dir=Path(
+            args.work_dir or Path(tempfile.gettempdir()) / "calibration"
+        ),
+        out_dir=root / args.raw,
+        lock=Path(
+            args.lock
+            or Path(tempfile.gettempdir()) / f"quartus-{_host()}.lock"
+        ),
+        riscv_tools=tuple(shlex.split(args.riscv_tools)),
+        quartus_sh=args.quartus_sh,
+        keep=args.keep,
+        stop_after=args.stop_after,
+        log=_log,
+    )
+    only: list[str] = args.only.split(",") if args.only else []
+    calibration.run_all(plan, settings, only)
 
-    ``run`` measures the profiles of a family with the compile script of
-    the project in synthesis only and writes one raw record per profile;
-    ``fit`` reads the records and writes the calibration table of the
-    family. Doesn't touch args.config.
 
-    Parameters
-    ----------
-    args : argparse.Namespace
-        Parsed CLI arguments: uses args.action, args.profiles, args.raw,
-        args.table, args.work_dir, args.lock, args.riscv_tools,
-        args.quartus_sh, args.only, args.keep and args.root.
-
-    Returns
-    -------
-    None
-        Prints the progress; exits with status 1 on a failed
-        measurement or fit.
-    """
-    root = project_root(args)
-    plan = calibration.load_profile_list(root / args.profiles)
-    raw = root / args.raw
-    try:
-        if args.action == "run":
-            settings = calibration.Settings(
-                project=root,
-                work_dir=Path(
-                    args.work_dir
-                    or Path(tempfile.gettempdir()) / "calibration"
-                ),
-                out_dir=raw,
-                lock=Path(
-                    args.lock
-                    or Path(tempfile.gettempdir()) / f"quartus-{_host()}.lock"
-                ),
-                riscv_tools=tuple(shlex.split(args.riscv_tools)),
-                quartus_sh=args.quartus_sh,
-                keep=args.keep,
-                log=_log,
-            )
-            only: list[str] = args.only.split(",") if args.only else []
-            calibration.run_all(plan, settings, only)
-            return
-        content = calibration.fit_table(plan, calibration.load_records(raw))
-        calibration.write_table(content, root / args.table)
-    except (RuntimeError, ValueError) as error:
-        print(f"calibrate: {error}", file=sys.stderr)
-        sys.exit(1)
+def _fit(args: argparse.Namespace, root: Path, plan: Any) -> None:
+    """Write the table of the family (`calibrate fit`)."""
+    records = calibration.load_records(root / args.raw)
+    content = calibration.fit_table(plan, records)
+    calibration.write_table(content, root / args.table)
     error_pct = content["error"]
     print(
         f"calibration written: {args.table} (rms "
         f"{error_pct['rms_pct']}%, holdout max {error_pct['max_pct']}%)"
     )
+
+
+def _verify(args: argparse.Namespace, root: Path, plan: Any) -> None:
+    """Compare the table with another device (`calibrate verify`)."""
+    table = fit_estimate.load_table(
+        root / args.table, fit_estimate.DEFAULT_VOCABULARY
+    )
+    records = calibration.load_records(root / args.raw)
+    content = calibration.verify_table(plan, table, records, args.anchor)
+    calibration.write_table(content, root / args.output)
+    print(
+        f"verification written: {args.output} (anchored max "
+        f"{content['anchored_max_pct']}%, as is {content['max_pct']}%)"
+    )
+
+
+def cmd_calibrate(args: argparse.Namespace) -> None:
+    """Implement `riscv-tools calibrate run|fit|verify`.
+
+    ``run`` measures the profiles of a family with the compile command
+    of the project and writes a raw record per profile; ``fit`` reads
+    the records and writes the calibration table of the family;
+    ``verify`` compares that table with the records of another device
+    of the family. Doesn't touch args.config.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed CLI arguments: uses args.action, args.profiles, args.raw,
+        args.table, args.output, args.anchor, args.work_dir, args.lock,
+        args.riscv_tools, args.quartus_sh, args.stop_after, args.only,
+        args.keep and args.root.
+
+    Returns
+    -------
+    None
+        Prints the progress; exits with status 1 on a failed
+        measurement, fit or verification.
+    """
+    root = project_root(args)
+    plan = calibration.load_profile_list(root / args.profiles)
+    action = {"run": _run, "fit": _fit, "verify": _verify}[args.action]
+    try:
+        action(args, root, plan)
+    except (RuntimeError, ValueError) as error:
+        print(f"calibrate: {error}", file=sys.stderr)
+        sys.exit(1)
 
 
 def _host() -> str:

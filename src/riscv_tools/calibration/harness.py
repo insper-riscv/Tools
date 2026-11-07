@@ -26,8 +26,10 @@ from typing import Any, cast
 import yaml
 
 from riscv_tools.calibration.profiles import ProfileDef, ProfileList
+from riscv_tools.quartus_program.core import CompileOptions, compile_command
 from riscv_tools.quartus_reports import (
     ResourceUsage,
+    parse_fit_report,
     parse_map_report,
     succeeded,
 )
@@ -43,6 +45,9 @@ QSF_FILE = re.compile(
     re.M,
 )
 INTERRUPT_PERIPHERALS = ("CLINT", "PLIC")
+QSF_DEVICE = re.compile(
+    r"^set_global_assignment\s+-name\s+DEVICE\s+(\S+)", re.M
+)
 QUARTUS_TIMEOUT_S = 3600
 Log = Callable[[str], None]
 
@@ -73,6 +78,10 @@ class Settings:
         Keep the work copies (for debugging).
     log : callable
         Receives progress messages.
+    stop_after : str
+        ``"map"`` (synthesis only) or ``"fit"``; with ``"fit"`` the
+        record also carries what the fitter reported, to measure the
+        ratio between the two.
     """
 
     project: Path
@@ -83,6 +92,7 @@ class Settings:
     quartus_sh: str = "quartus_sh"
     keep: bool = False
     log: Log = field(default=_no_log)
+    stop_after: str = "map"
 
 
 @contextmanager
@@ -345,13 +355,91 @@ def materialize(
     return complete_package(package, reference)
 
 
+def generate_project(
+    plan: ProfileList, work: Path, riscv_tools: Sequence[str]
+) -> tuple[Path, str]:
+    """Write the Quartus project of the board with ``board generate``.
+
+    The package of the memory map of the work copy is a source of the
+    project: it is the component named in ``plan.targets``.
+
+    Parameters
+    ----------
+    plan : ProfileList
+        The family's plan, with ``board`` and ``targets``.
+    work : Path
+        Work copy of the project.
+    riscv_tools : sequence of str
+        Command that starts ``riscv-tools``.
+
+    Returns
+    -------
+    tuple
+        The folder of the generated project and the name of its
+        revision.
+
+    Raises
+    ------
+    RuntimeError
+        When the generator fails or leaves no project file.
+    """
+    out = work / "build"
+    done = subprocess.run(
+        [
+            *riscv_tools,
+            "--root",
+            str(work),
+            "--board",
+            plan.board,
+            "board",
+            "generate",
+            "--platform",
+            plan.platform,
+            "--out",
+            str(out),
+            "--accept-inferred-pins",
+            *(item for name in plan.targets for item in ("--target", name)),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    projects = sorted(out.glob("*/*.qpf"))
+    if done.returncode != 0 or len(projects) != 1:
+        msg = f"board generate failed: {done.stdout}{done.stderr}"
+        raise RuntimeError(msg)
+    return projects[0].parent, projects[0].stem
+
+
+def _device(qsf: Path) -> str | None:
+    """Read the device a settings file targets."""
+    found = QSF_DEVICE.search(qsf.read_text(encoding="utf-8"))
+    return found.group(1) if found else None
+
+
+def _project(
+    plan: ProfileList, work: Path, riscv_tools: Sequence[str]
+) -> tuple[Path, str, Path]:
+    """Find the folder, the revision and the settings file of a run."""
+    if plan.board:
+        folder, revision = generate_project(plan, work, riscv_tools)
+        return folder, revision, folder / f"{revision}.qsf"
+    qsf = work / plan.qsf
+    return (work / plan.synth).parent, qsf.stem, qsf
+
+
 def run_synthesis(
     plan: ProfileList,
     definition: ProfileDef,
     work: Path,
-    quartus_sh: str,
+    settings: Settings,
+    project: tuple[Path, str] | None = None,
 ) -> tuple[list[str], str]:
-    """Run the compile script of the project in synthesis only.
+    """Run the compile command of the project up to the stop point.
+
+    With a hand-written project this is its script; with a generated
+    one it is the single compile script that ``program --stop-after``
+    runs, so there is no other way to synthesize.
 
     Parameters
     ----------
@@ -361,8 +449,10 @@ def run_synthesis(
         The profile; its generics go to the script as ``NAME=value``.
     work : Path
         Work copy of the project.
-    quartus_sh : str
-        The ``quartus_sh`` executable.
+    settings : Settings
+        Gives the ``quartus_sh`` executable and the stop point.
+    project : tuple, optional
+        Folder and revision of a generated project.
 
     Returns
     -------
@@ -374,19 +464,33 @@ def run_synthesis(
     RuntimeError
         When the script fails or times out.
     """
-    script = work / plan.synth
-    command = [
-        quartus_sh,
-        "-t",
-        script.name,
-        str(plan.seed),
-        "map",
-        *(f"{k}={v}" for k, v in definition.generics.items()),
-    ]
+    if project is not None:
+        folder, revision = project
+        command = compile_command(
+            revision,
+            CompileOptions(
+                seed=plan.seed,
+                generics=tuple(definition.generics.items()),
+                stop_after=settings.stop_after,
+                compile_only=True,
+            ),
+        )
+        command[0] = settings.quartus_sh
+    else:
+        script = work / plan.synth
+        folder = script.parent
+        command = [
+            settings.quartus_sh,
+            "-t",
+            script.name,
+            str(plan.seed),
+            settings.stop_after,
+            *(f"{k}={v}" for k, v in definition.generics.items()),
+        ]
     try:
         done = subprocess.run(
             command,
-            cwd=script.parent,
+            cwd=folder,
             capture_output=True,
             text=True,
             check=False,
@@ -399,18 +503,17 @@ def run_synthesis(
         tail = "\n".join(done.stdout.splitlines()[-15:])
         msg = f"{definition.id}: synthesis failed\n{tail}"
         raise RuntimeError(msg)
+    command[:] = [Path(item).name if "/" in item else item for item in command]
     return command, done.stdout
 
 
-def read_synthesis(work: Path, plan: ProfileList) -> ResourceUsage:
-    """Read the synthesis reports a run left next to the script.
+def read_synthesis(folder: Path) -> ResourceUsage:
+    """Read the synthesis reports a run left next to the project.
 
     Parameters
     ----------
-    work : Path
-        Work copy of the project.
-    plan : ProfileList
-        The family's plan.
+    folder : Path
+        Folder of the Quartus project (its ``output_files`` has them).
 
     Returns
     -------
@@ -422,7 +525,7 @@ def read_synthesis(work: Path, plan: ProfileList) -> ResourceUsage:
     RuntimeError
         When the report is missing or the synthesis did not succeed.
     """
-    output = (work / plan.synth).parent / "output_files"
+    output = folder / "output_files"
     reports = sorted(output.glob("*.map.rpt"))
     if not reports:
         msg = f"no map.rpt in {output}"
@@ -439,11 +542,46 @@ def read_synthesis(work: Path, plan: ProfileList) -> ResourceUsage:
     return usage
 
 
+def read_fit(folder: Path) -> ResourceUsage:
+    """Read the fitter reports a run left next to the project.
+
+    Parameters
+    ----------
+    folder : Path
+        Folder of the Quartus project.
+
+    Returns
+    -------
+    ResourceUsage
+        The resources after the fitter.
+
+    Raises
+    ------
+    RuntimeError
+        When the report is missing or the fitter did not succeed.
+    """
+    output = folder / "output_files"
+    reports = sorted(output.glob("*.fit.rpt"))
+    summaries = sorted(output.glob("*.fit.summary"))
+    if not reports:
+        msg = f"no fit.rpt in {output}"
+        raise RuntimeError(msg)
+    usage = parse_fit_report(
+        reports[0].read_text(encoding="utf-8", errors="replace"),
+        summaries[0].read_text(encoding="utf-8") if summaries else None,
+    )
+    if not succeeded(usage) or usage.logic is None:
+        msg = f"{reports[0]}: fitter did not succeed"
+        raise RuntimeError(msg)
+    return usage
+
+
 def record_of(
     plan: ProfileList,
     definition: ProfileDef,
     usage: ResourceUsage,
     facts: Mapping[str, Any],
+    fitted: ResourceUsage | None = None,
 ) -> dict[str, Any]:
     """Build the raw record of a measurement.
 
@@ -457,7 +595,10 @@ def record_of(
         What the synthesis reported.
     facts : mapping
         ``sources_hash``, ``revisions``, ``added_constants``,
-        ``command`` and ``elapsed_s``.
+        ``command``, ``elapsed_s`` and ``device`` (from the settings
+        file when the summary does not name it).
+    fitted : ResourceUsage, optional
+        What the fitter reported; adds ``fit_result``.
 
     Returns
     -------
@@ -468,7 +609,7 @@ def record_of(
     def amount(value: Any) -> int | None:
         return None if value is None else int(value.used)
 
-    return {
+    record = {
         "id": definition.id,
         "group": definition.group,
         "family": plan.family,
@@ -504,10 +645,29 @@ def record_of(
             if item.depth <= 1
         ],
     }
+    if fitted is not None:
+        record["fit_result"] = {
+            "logic": amount(fitted.logic),
+            "registers": fitted.registers,
+            "ram_bits": amount(fitted.ram_bits),
+            "multipliers": amount(fitted.multipliers),
+            "plls": amount(fitted.plls),
+            "pins": amount(fitted.pins),
+        }
+    return record
 
 
-def is_current(path: Path, seed: int, digest: str, generics: Any) -> bool:
-    """Tell whether a record already holds this exact measurement."""
+def is_current(
+    path: Path,
+    seed: int,
+    digest: str,
+    generics: Any,
+    with_fit: bool = False,
+) -> bool:
+    """Tell whether a record already holds this exact measurement.
+
+    A run that stops after the fitter needs the fitter's numbers too.
+    """
     if not path.exists():
         return False
     old = cast(
@@ -517,6 +677,7 @@ def is_current(path: Path, seed: int, digest: str, generics: Any) -> bool:
         old.get("sources_hash") == digest
         and old.get("seed") == seed
         and old.get("generics") == dict(generics)
+        and (not with_fit or "fit_result" in old)
     )
 
 
@@ -548,31 +709,38 @@ def measure(
     copy_project(settings.project, work)
     try:
         added = materialize(plan, definition, work, settings.riscv_tools)
-        digest = sources_hash(
-            work,
-            work / plan.qsf,
-            [work / plan.platform],
-        )
+        folder, revision, qsf = _project(plan, work, settings.riscv_tools)
+        digest = sources_hash(work, qsf, [work / plan.platform])
         target = settings.out_dir / f"{definition.id}.yaml"
-        if is_current(target, plan.seed, digest, definition.generics):
+        with_fit = settings.stop_after == "fit"
+        if is_current(
+            target, plan.seed, digest, definition.generics, with_fit
+        ):
             return "current"
         started = time.monotonic()
         with machine_lock(settings.lock, settings.log):
             command, _ = run_synthesis(
-                plan, definition, work, settings.quartus_sh
+                plan,
+                definition,
+                work,
+                settings,
+                (folder, revision) if plan.board else None,
             )
-        usage = read_synthesis(work, plan)
+        usage = read_synthesis(folder)
+        fitted = read_fit(folder) if with_fit else None
         facts = {
             "sources_hash": digest,
             "revisions": revisions(settings.project),
             "added_constants": added,
             "command": command,
             "elapsed_s": round(time.monotonic() - started),
+            "device": usage.meta.get("device") or _device(qsf),
         }
         settings.out_dir.mkdir(parents=True, exist_ok=True)
         target.write_text(
             yaml.safe_dump(
-                record_of(plan, definition, usage, facts), sort_keys=False
+                record_of(plan, definition, usage, facts, fitted),
+                sort_keys=False,
             ),
             encoding="utf-8",
         )
