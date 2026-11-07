@@ -5,6 +5,7 @@ from riscv_tools.calibration.fit import (
     fit_table,
     known_fit_check,
     load_records,
+    verify_table,
     write_table,
 )
 from riscv_tools.calibration.harness import (
@@ -35,5 +36,6 @@ __all__ = [
     "parse_profile_name",
     "run_all",
     "spec_of",
+    "verify_table",
     "write_table",
 ]

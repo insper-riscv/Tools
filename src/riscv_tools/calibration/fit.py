@@ -306,6 +306,88 @@ def fit_table(
     return result
 
 
+def verify_table(
+    plan: ProfileList,
+    table: CalibrationTable,
+    records: Mapping[str, Mapping[str, Any]],
+    anchor: str,
+) -> dict[str, Any]:
+    """Compare a table with profiles measured on another device.
+
+    The table of a family is a fit of one device and one top. A second
+    device of the same family (another size, other memories) shifts the
+    core term by the part of the top that differs, and the increments of
+    the extensions and caches must still hold. So each profile is
+    compared twice: with the table as it is (``error_pct``) and with the
+    core term moved by the difference measured on the ``anchor`` profile
+    (``anchored_error_pct``).
+
+    Parameters
+    ----------
+    plan : ProfileList
+        The profiles measured on the second device.
+    table : CalibrationTable
+        The table of the family, fitted on the first device.
+    records : mapping
+        Raw records of the second device by profile id.
+    anchor : str
+        Id of the profile that fixes the shift.
+
+    Returns
+    -------
+    dict of {str: Any}
+        The shift, the residuals and the errors of both comparisons.
+
+    Raises
+    ------
+    ValueError
+        When the anchor has no record.
+    """
+    rows = _rows(plan, records)
+    predicted: dict[str, float] = {}
+    for definition, _, _ in rows:
+        value, _ = estimate_logic(
+            spec_of(definition), table, plan.bits_per_block
+        )
+        predicted[definition.id] = value
+    measured = {d.id: logic for d, _, logic in rows}
+    if anchor not in measured:
+        msg = f"the anchor profile '{anchor}' has no record"
+        raise ValueError(msg)
+    shift = measured[anchor] - predicted[anchor]
+    residuals: list[dict[str, Any]] = []
+    for definition, _, logic in rows:
+        raw = predicted[definition.id]
+        residuals.append(
+            {
+                "id": definition.id,
+                "measured": logic,
+                "predicted": round(raw, 1),
+                "error_pct": round(PERCENT * (raw - logic) / logic, 3),
+                "anchored_predicted": round(raw + shift, 1),
+                "anchored_error_pct": round(
+                    PERCENT * (raw + shift - logic) / logic, 3
+                ),
+            }
+        )
+    others = [r for r in residuals if r["id"] != anchor]
+    return {
+        "family": plan.family,
+        "anchor": anchor,
+        "shift": round(shift, 1),
+        "profiles": len(residuals),
+        "max_pct": max(abs(r["error_pct"]) for r in others),
+        "anchored_max_pct": max(abs(r["anchored_error_pct"]) for r in others),
+        "anchored_rms_pct": round(
+            math.sqrt(
+                sum(r["anchored_error_pct"] ** 2 for r in others) / len(others)
+            ),
+            3,
+        ),
+        "residuals": residuals,
+    }
+
+
 def _description(
     plan: ProfileList,
     records: Mapping[str, Mapping[str, Any]],

@@ -467,3 +467,30 @@ def test_the_machine_lock_is_exclusive(tmp_path: Path) -> None:
             fcntl.flock(other, fcntl.LOCK_EX | fcntl.LOCK_NB)
         other.close()
     check_equal(waited, [])
+
+
+def test_a_table_is_verified_on_another_device(tmp_path: Path) -> None:
+    """The anchor profile shifts away the difference of the top."""
+    plan = cal.load_profile_list(write_plan(tmp_path))
+    coefficients: dict[str, float | None] = {
+        "core.rv32i": 1000.0,
+        "extensions.M": 200.0,
+        "extensions.Zicsr": 100.0,
+    }
+    table = fe.CalibrationTable("demo", "alm", coefficients)
+    records = {
+        definition.id: synthetic_record(definition, coefficients)
+        for definition in plan.profiles
+        if definition.id in ("base", "mul", "csr")
+    }
+    for item in records.values():
+        item["result"]["logic"] += 300
+    records["csr"]["result"]["logic"] += 30
+    content = cal.verify_table(plan, table, records, "base")
+    check_equal(content["shift"], 300.0)
+    check_equal(content["profiles"], 3)
+    csr = next(r for r in content["residuals"] if r["id"] == "csr")
+    check_equal(csr["anchored_error_pct"], -1.84)
+    check(content["max_pct"] > content["anchored_max_pct"])
+    with pytest.raises(ValueError, match="no record"):
+        cal.verify_table(plan, table, records, "nope")

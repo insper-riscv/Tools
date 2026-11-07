@@ -39,6 +39,10 @@ The model is linear in the coefficients, and the fit is a least squares over the
 
 The recorded error holds the root mean square error over the fit profiles (`rms_pct`), the largest absolute error over the validation ones (`max_pct`) and the ratio between the fit and the synthesis estimate (`map_to_fit_ratio`). The ratio is the mean of `fit_result.logic` over `result.logic` of the records that carry `fit_result` (`fit_ratio_check`); with none, the known range of the full profile applies (`known_fit` of the profile list, used on the Cyclone V).
 
+## Verification on another device
+
+The table of a family is the fit of one device and one top. `calibrate verify` compares the table with profiles measured on another device of the same family (its profile list carries its `board`). Each profile is compared twice: with the table as it is (`error_pct`) and with the core term moved by the difference measured on the anchor profile (`anchored_error_pct`, default `p1_rv32i`), so the part of the top that changes from one board to the other leaves the account and the increments of the extensions and caches remain. The result carries the shift (`shift`), the largest error and the root mean square error of the profiles other than the anchor.
+
 ## Functions
 
 | Function | Does |
@@ -48,6 +52,7 @@ The recorded error holds the root mean square error over the fit profiles (`rms_
 | `measure(plan, profile, settings)` | measures one profile and writes the record |
 | `machine_lock(file)` | exclusive lock of the machine (`flock`) |
 | `load_records(folder)`, `fit_table(plan, records)`, `write_table(content, file)` | fits and writes the calibration table |
+| `verify_table(plan, table, records, anchor)` | compares the table with the records of another device |
 | `fit_ratio_check(plan, records)` | fit over synthesis ratio measured on the records with `fit_result` |
 
 ## Command
@@ -55,6 +60,7 @@ The recorded error holds the root mean square error over the fit profiles (`rms_
 ```bash
 riscv-tools --root <Insper-RISC-V> calibrate run --profiles boards/calibration/profiles/cyclone-v.yaml --raw boards/calibration/raw/cyclone-v [--only id1,id2] [--stop-after map|fit] [--riscv-tools "<command>"] [--work-dir FOLDER] [--lock FILE] [--keep]
 riscv-tools --root <Insper-RISC-V> calibrate fit --profiles boards/calibration/profiles/cyclone-v.yaml --raw boards/calibration/raw/cyclone-v --table boards/calibration/cyclone-v.yaml
+riscv-tools --root <Insper-RISC-V> calibrate verify --profiles boards/calibration/profiles/verify-de0-nano.yaml --raw boards/calibration/raw/verify-de0-nano --table boards/calibration/cyclone-iv-e.yaml --output boards/calibration/verification/de0-nano.yaml [--anchor p1_rv32i]
 ```
 
 ## Tests
