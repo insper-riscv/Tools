@@ -122,21 +122,6 @@ With `flash_image` the image starts at the base of the bank: the 256-byte header
 
 The templates of `parameters`, `run_files` and `env` are `{hex_path}` and `{mif_path}` (the test's image, for whichever `image` selects; the other is empty), and `{boot_memory_hex_path}` and `{boot_memory_mif_path}` (the boot memory's, the same for every test).
 
-### `freq_sweep:` (only needed for `riscv-tools freq-sweep`)
-
-Describes the *shape* of your PLL source's parameter strings: none of these have a sane cross-project default, since PLL megafunction instance names/parameter conventions are project-specific. See [finding-fmax.md](finding-fmax.md) for what this is for and how to run a sweep.
-
-| Key | Default | Used by |
-|---|---|---|
-| `pll_file` | **required** | `freq_sweep`/`orchestrator`: path (relative to your project root) to the Verilog/VHDL PLL source rewritten before each candidate frequency's compile |
-| `phase_count` | `1` | `freq_sweep`: how many equally phase-spaced clock outputs the PLL instance has (e.g. `3` for a 0/120/240-degree three-way PLL). `1` (a plain single-phase PLL) covers most projects |
-| `freq_param_template` | `output_clock_frequency{idx}` | `freq_sweep`: `{idx}`-templated (0-indexed) parameter name searched for and rewritten. Matches Quartus' `altpll` megafunction; override for a different megafunction/instance naming |
-| `phase_param_template` | `phase_shift{idx}` | `freq_sweep`: same idea, for the phase-offset parameter |
-| `freq_unit` | `MHz` | `freq_sweep`: literal unit suffix written after the frequency value, e.g. `.output_clock_frequency0("10.000000 MHz")`. Only controls the string suffix: the period/phase-offset math itself always assumes MHz-in/ps-out, matching Quartus' `altpll` convention |
-| `phase_unit` | `ps` | `freq_sweep`: same idea, for the phase value |
-
-`riscv-tools freq-sweep <mif> --golden <golden.json>` reuses `quartus.*` and `memory.ram_base` from the `quartus:`/`memory:` sections above for the compile, program, dump and compare at each candidate frequency (see [finding-fmax.md](finding-fmax.md)).
-
 ### `act:` (only needed for `riscv-tools certify` and `certify-board`)
 
 | Key | Default | Used by |

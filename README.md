@@ -36,7 +36,7 @@ Ele foi projetado para rodar em uma workstation com todas as ferramentas instala
 | `golden_generator`   | Gera um golden JSON dinamicamente rodando um ELF no Spike   | [docs/modules/golden_generator.md](docs/pt-br/modules/golden_generator.md) |
 | `spike_exec`         | Prepara e dispara execuções do Spike: preflight, símbolos do ELF, linha de comando (compartilhado por `golden_generator` e `spike_run`) | [docs/modules/spike_exec.md](docs/pt-br/modules/spike_exec.md) |
 | `spike_run`          | Roda cada teste compilado até o fim no Spike e reporta PASS/FAIL pelo veredito HTIF, sem hardware | [docs/modules/spike_run.md](docs/pt-br/modules/spike_run.md) |
-| `orchestrator`       | Compõe os módulos acima numa rodada completa de testes em hardware real, ou num sweep de frequência de clock para achar a Fmax | [docs/modules/orchestrator.md](docs/pt-br/modules/orchestrator.md) |
+| `orchestrator`       | Compõe os módulos acima numa rodada completa de testes em hardware real | [docs/modules/orchestrator.md](docs/pt-br/modules/orchestrator.md) |
 | `sim_runner`         | Dirige a simulação cocotb/GHDL: a contraparte de simulação do `orchestrator` (precisa do extra `sim`) | [docs/modules/sim_runner.md](docs/pt-br/modules/sim_runner.md) |
 | `certify`            | Compila e roda a suíte de certificação arquitetural ACT4 sob cocotb/GHDL | [docs/modules/certify.md](docs/pt-br/modules/certify.md) |
 | `vhdl_sort`          | Ordena topologicamente fontes VHDL por dependência de entidade/pacote, para o `-a` do GHDL | [docs/modules/vhdl_sort.md](docs/pt-br/modules/vhdl_sort.md) |
@@ -49,7 +49,6 @@ Ele foi projetado para rodar em uma workstation com todas as ferramentas instala
 | `board_check`        | Confere o que a plataforma exige contra o que as placas oferecem (regras V1 a V19) | [docs/modules/board_check.md](docs/pt-br/modules/board_check.md) |
 | `platform_sync`      | Escreve o `config.yaml` de uma plataforma para o projeto que a consome, com a pasta do submódulo na frente de cada caminho dela | [docs/modules/platform_sync.md](docs/pt-br/modules/platform_sync.md) |
 | `profiles`           | Lista os perfis válidos de um core a partir das extensões e das regras entre elas (M e Zmmul não coexistem, Zicntr e Zihpm implicam Zicsr) | [docs/modules/profiles.md](docs/pt-br/modules/profiles.md) |
-| `freq_sweep`         | Reescreve a frequência de clock e as defasagens de um fonte de PLL: o mecanismo com que o sweep de frequência do `orchestrator` edita | [docs/modules/freq_sweep.md](docs/pt-br/modules/freq_sweep.md) |
 | `timing_paths`       | Lista os piores caminhos de setup de um projeto do Quartus compilado, por registrador | [docs/modules/timing_paths.md](docs/pt-br/modules/timing_paths.md) |
 | `quartus_reports`    | Lê os resumos de recursos do Quartus (`*.map.summary`, `*.map.rpt`, `*.fit.summary`, `*.fit.rpt`) de todas as famílias | [docs/modules/quartus_reports.md](docs/pt-br/modules/quartus_reports.md) |
 | `fit_estimate`       | Estima se um perfil cabe numa placa com a tabela de calibração da família e julga o relatório do ajuste (passa até 85 %, aviso até 100 %, erro acima; V11 a V14 e V18) | [docs/modules/fit_estimate.md](docs/pt-br/modules/fit_estimate.md) |
@@ -76,7 +75,6 @@ Ele foi projetado para rodar em uma workstation com todas as ferramentas instala
 - [Criando um teste em C](docs/pt-br/creating-a-c-test.md)
 - [Criando um teste em ASM](docs/pt-br/creating-an-asm-test.md)
 - [Gerando um golden JSON pelo Spike](docs/pt-br/generating-a-golden.md)
-- [Achando a Fmax (sweep de frequência de clock)](docs/pt-br/finding-fmax.md)
 - [Criando um workflow do GitHub Actions por tarefa](docs/pt-br/github-actions.md)
 
 ## Uso
@@ -98,20 +96,12 @@ uv run riscv-tools --config /path/to/project/config.yaml sim
 uv run riscv-tools --config /path/to/project/config.yaml sim --only test-a,test-b
 ```
 
-Veja `riscv-tools --help` para a lista completa de subcomandos (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `check-paths`, `check-boards`, `check-tree`, `sources`, `check-vhdl-style`, `platform`, `flash-image`, `timing-paths`, `board generate`, `freq-sweep`, `calibrate` e `check-fit`).
+Veja `riscv-tools --help` para a lista completa de subcomandos (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `check-paths`, `check-boards`, `check-tree`, `sources`, `check-vhdl-style`, `platform`, `flash-image`, `timing-paths`, `board generate`, `calibrate` e `check-fit`).
 
 ```bash
 # vhdl-sort não precisa de --config; é só análise do conteúdo dos arquivos,
 # por exemplo ligado ao alvo de checagem de sintaxe VHDL de um Makefile:
 uv run riscv-tools vhdl-sort src/**/*.vhd
-
-# freq-sweep: acha a Fmax editando o PLL e fazendo uma recompilação +
-# reprogramação + comparação da RAM completas a cada frequência candidata.
-# Veja docs/pt-br/finding-fmax.md.
-uv run riscv-tools --config /path/to/project/config.yaml freq-sweep \
-    build/real/full.mif --golden golden/full.json --start 1 --stop 30 --step 2
-uv run riscv-tools --config /path/to/project/config.yaml freq-sweep \
-    build/real/full.mif --golden golden/full.json --binary --low 1 --high 50
 ```
 
 ## Desenvolvimento

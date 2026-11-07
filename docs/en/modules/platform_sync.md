@@ -9,7 +9,6 @@ Writes the `config.yaml` of a platform for the project that consumes it. A platf
 | `toolchain.specs` | The GCC specs file of the platform |
 | `paths.boot_memory`, `paths.boot_memory_linker_script` | Source and linker script of the BOOT_MEMORY |
 | `paths.sources`, `emulator.sources` | C and assembly sources of the runtime and of the Spike substitute |
-| `freq_sweep.pll_file` | PLL source that the frequency sweep rewrites |
 | `quartus.project_dir` | The Quartus project folder |
 | `quartus.generate.platform`, `.out`, `.boards_dir`, `.chips_dir` | Platform, output folder and catalogs of the project that `program` generates with `board generate` before compiling |
 | `sim.vhdl_sources`, `sim.python_path` | VHDL sources of the simulation top and the testbench folder |

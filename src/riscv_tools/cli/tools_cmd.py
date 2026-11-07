@@ -8,14 +8,12 @@ from pathlib import Path
 from riscv_tools import (
     board_check,
     memory_map,
-    orchestrator,
     path_check,
     profiles,
     vhdl_sort,
 )
 from riscv_tools import timing_paths as timing_paths_mod
-from riscv_tools.cli.common import jtag_link, project_root
-from riscv_tools.orchestrator.sweep import SweepJob
+from riscv_tools.cli.common import project_root
 from riscv_tools.settings import load_config
 
 
@@ -275,68 +273,3 @@ def cmd_timing_paths(args: argparse.Namespace) -> None:
     if args.out:
         Path(args.out).write_text(table, encoding="utf-8")
     print(table, end="")
-
-
-def cmd_freq_sweep(args: argparse.Namespace) -> None:
-    """Implement `riscv-tools freq-sweep`.
-
-    Finds the board's Fmax for a fixed test program by sweeping or
-    binary-searching candidate clock frequencies, with a full recompile,
-    reprogram and RAM compare at each one.
-
-    Parameters
-    ----------
-    args : argparse.Namespace
-        Parsed CLI arguments: uses args.config, args.root, args.mif,
-        args.golden, args.binary, args.start/args.stop/args.step
-        (linear mode), args.low/args.high (binary mode), args.out
-        (results JSON path; default
-        <build_dir>/freq_sweep/freq_sweep_results.json).
-
-    Returns
-    -------
-    None
-        Writes results to args.out and prints a summary. Exits the
-        process with status 1 if no candidate frequency passed.
-    """
-    cfg = load_config(args.config)
-    root = project_root(args)
-    link = jtag_link(cfg)
-    project_dir = root / cfg["quartus"]["project_dir"]
-    build_dir = root / cfg["paths"]["build_dir"] / "freq_sweep"
-    build_dir.mkdir(parents=True, exist_ok=True)
-    # documented as relative to the project root, not to the cwd
-    cfg["freq_sweep"]["pll_file"] = str(root / cfg["freq_sweep"]["pll_file"])
-
-    job = SweepJob(
-        cfg=cfg,
-        link=link,
-        mif_path=Path(args.mif),
-        golden_path=Path(args.golden),
-        project_dir=project_dir,
-        build_dir=build_dir,
-    )
-
-    if args.binary:
-        results = orchestrator.run_freq_sweep_binary(job, args.low, args.high)
-    else:
-        results = orchestrator.run_freq_sweep_linear(
-            job, args.start, args.stop, args.step
-        )
-
-    out_path = (
-        Path(args.out) if args.out else build_dir / "freq_sweep_results.json"
-    )
-    out_path.write_text(json.dumps(results, indent=2), encoding="utf-8")
-    print(f"Wrote {out_path}")
-
-    print("\n=== Summary ===")
-    for r in results:
-        print(f"  {r['freq_mhz']:>8} MHz : {r['status']}")
-
-    passes = [r["freq_mhz"] for r in results if r["status"] == "pass"]
-    if passes:
-        print(f"Highest passing frequency: {max(passes)} MHz")
-    else:
-        print("No candidate frequency passed", file=sys.stderr)
-        sys.exit(1)

@@ -1,6 +1,6 @@
 # `orchestrator`
 
-Compõe todos os outros módulos de hardware real numa rodada completa de testes, ou num sweep de frequência de clock para achar a Fmax. É a contraparte em hardware real do [`sim_runner`](sim_runner.md), que dirige o mesmo tipo de execução contra a simulação cocotb/GHDL em vez de uma placa física.
+Compõe todos os outros módulos de hardware real numa rodada completa de testes. É a contraparte em hardware real do [`sim_runner`](sim_runner.md), que dirige o mesmo tipo de execução contra a simulação cocotb/GHDL em vez de uma placa física.
 
 ## Rodando uma suíte
 
@@ -27,10 +27,6 @@ Uma falha cujo próprio texto de erro combina com uma assinatura conhecida de ha
 
 Por padrão, isso interrompe a suíte e retorna, salvando o progresso para que uma nova execução simples depois retome do passo que falhou em vez de repetir os testes já concluídos. Passar `wait_for_hardware=True` faz, em vez disso, imprimir a mesma mensagem e consultar o `jtag.jtag_chain_healthy` (veja [`jtag`](jtag.md)) a cada poucos segundos até a chain se recuperar sozinha, por exemplo depois de alguém desligar e ligar fisicamente a placa, e então retomar automaticamente sem uma nova invocação separada. Pensado para uma sessão interativa que alguém está acompanhando; o CI mantém o comportamento padrão de parar e sair, já que nada ali conseguiria desligar e ligar uma placa por conta própria.
 
-## Sweep de frequência
-
-Acha a maior frequência de clock (Fmax) em que um design ainda passa na sua suíte de testes, reescrevendo o PLL (veja [`freq_sweep`](freq_sweep.md)) e fazendo uma recompilação + reprogramação + comparação completas em cada frequência candidata. Passo a passo completo: [docs/finding-fmax.md](../finding-fmax.md).
-
 ## Configuração
 
 | Chave | Significado |
@@ -54,8 +50,6 @@ uv run riscv-tools --config /path/to/project/config.yaml run
 uv run riscv-tools --config /path/to/project/config.yaml run --wait-for-hardware
 uv run riscv-tools --config /path/to/project/config.yaml run --only test-a,test-b
 uv run riscv-tools --config /path/to/project/config.yaml run --exclude uart-echo,uart-tx
-uv run riscv-tools --config /path/to/project/config.yaml freq-sweep \
-    build/real/full.mif --golden golden/full.json --start 1 --stop 30 --step 2
 ```
 
 ---

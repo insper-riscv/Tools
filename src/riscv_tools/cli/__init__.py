@@ -24,7 +24,6 @@ from riscv_tools.cli.suite_cmd import cmd_run, cmd_sim, filter_manifest
 from riscv_tools.cli.tools_cmd import (
     cmd_check_memory_map,
     cmd_check_paths,
-    cmd_freq_sweep,
     cmd_generate_memory_map,
     cmd_profiles,
     cmd_timing_paths,
@@ -40,7 +39,6 @@ __all__ = [
     "cmd_console",
     "cmd_display",
     "cmd_dump_ram",
-    "cmd_freq_sweep",
     "cmd_generate_golden",
     "cmd_generate_header",
     "cmd_generate_memory_map",
