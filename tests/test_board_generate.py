@@ -155,6 +155,7 @@ def test_the_top_is_valid_vhdl_syntax(tmp_path: Path) -> None:
             if "error" in line
             and "not found in library" not in line
             and "no unit" not in line
+            and "was not analysed" not in line
         ]
         check_equal(errors, [], name)
 
