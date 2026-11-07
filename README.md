@@ -59,7 +59,7 @@ Ele foi projetado para rodar em uma workstation com todas as ferramentas instala
 | `board_clocks` | Decide os relógios por papel (`mem`, `mem_pin`, `fetch`, `core`) com frequência e fase | [docs/modules/board_clocks.md](docs/pt-br/modules/board_clocks.md) |
 | `chip_package` | Gera o pacote VHDL com os tempos de um chip do catálogo e entrega os atrasos de E/S ao `.sdc` | [docs/modules/chip_package.md](docs/pt-br/modules/chip_package.md) |
 | `pin_assignments` | Escreve as atribuições de pino e de padrão de E/S do `.qsf`, derivando as demais do papel | [docs/modules/pin_assignments.md](docs/pt-br/modules/pin_assignments.md) |
-| `pll_generator` | Calcula os contadores do PLL e escreve a primitiva da família (`altera_pll` pronta, `altpll` como ponto de extensão) | [docs/modules/pll_generator.md](docs/pt-br/modules/pll_generator.md) |
+| `pll_generator` | Calcula os contadores do PLL e escreve a primitiva da família (`altera_pll` na Cyclone V e `altpll` nas demais famílias) | [docs/modules/pll_generator.md](docs/pt-br/modules/pll_generator.md) |
 | `sdc_generator` | Gera o `.sdc` com relógios, atrasos de E/S do chip, caminhos de leitura e cruzamentos de domínio | [docs/modules/sdc_generator.md](docs/pt-br/modules/sdc_generator.md) |
 | `quartus_project` | Gera o `.qpf` e o `.qsf` (sem os pinos) com família, dispositivo e a lista de fontes | [docs/modules/quartus_project.md](docs/pt-br/modules/quartus_project.md) |
 | `top_generator` | Gera o topo fino da placa, que só liga o PLL, o SoC, um backend por região e o anel de pinos | [docs/modules/top_generator.md](docs/pt-br/modules/top_generator.md) |
@@ -76,6 +76,7 @@ Ele foi projetado para rodar em uma workstation com todas as ferramentas instala
 - [Criando um teste em ASM](docs/pt-br/creating-an-asm-test.md)
 - [Gerando um golden JSON pelo Spike](docs/pt-br/generating-a-golden.md)
 - [Criando um workflow do GitHub Actions por tarefa](docs/pt-br/github-actions.md)
+- [Adicionando uma placa nova](https://github.com/insper-riscv/Insper-RISC-V/blob/main/docs/pt-br/guide/adicionar-placa.md), guia do Insper-RISC-V que usa os comandos `check-boards`, `check-memory-map`, `board`, `program` e `calibrate`
 
 ## Uso
 

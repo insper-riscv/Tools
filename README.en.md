@@ -59,7 +59,7 @@ It is designed to run on a workstation with all the tools installed, or inside t
 | `board_clocks` | Decides the clocks by role (`mem`, `mem_pin`, `fetch`, `core`) with frequency and phase | [docs/modules/board_clocks.md](docs/en/modules/board_clocks.md) |
 | `chip_package` | Generates the VHDL package with the timings of a catalog chip and hands the I/O delays to the `.sdc` | [docs/modules/chip_package.md](docs/en/modules/chip_package.md) |
 | `pin_assignments` | Writes the pin and I/O standard assignments of the `.qsf`, deriving the others from the role | [docs/modules/pin_assignments.md](docs/en/modules/pin_assignments.md) |
-| `pll_generator` | Computes the PLL counters and writes the family primitive (`altera_pll` ready, `altpll` as an extension point) | [docs/modules/pll_generator.md](docs/en/modules/pll_generator.md) |
+| `pll_generator` | Computes the PLL counters and writes the family primitive (`altera_pll` on Cyclone V and `altpll` on the other families) | [docs/modules/pll_generator.md](docs/en/modules/pll_generator.md) |
 | `sdc_generator` | Generates the `.sdc` with clocks, chip I/O delays, read paths and domain crossings | [docs/modules/sdc_generator.md](docs/en/modules/sdc_generator.md) |
 | `quartus_project` | Generates the `.qpf` and the `.qsf` (without pins) with family, device and the source list | [docs/modules/quartus_project.md](docs/en/modules/quartus_project.md) |
 | `top_generator` | Generates the thin board top, which only wires the PLL, the SoC, one backend per region and the pin ring | [docs/modules/top_generator.md](docs/en/modules/top_generator.md) |
@@ -76,6 +76,7 @@ It is designed to run on a workstation with all the tools installed, or inside t
 - [Creating a test in ASM](docs/en/creating-an-asm-test.md)
 - [Generating a golden JSON via Spike](docs/en/generating-a-golden.md)
 - [Creating a GitHub Actions workflow per task](docs/en/github-actions.md)
+- [Adding a new board](https://github.com/insper-riscv/Insper-RISC-V/blob/main/docs/pt-br/guide/adicionar-placa.md), an Insper-RISC-V guide (in Portuguese) that uses the commands `check-boards`, `check-memory-map`, `board`, `program` and `calibrate`
 
 ## Usage
 

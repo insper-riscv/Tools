@@ -6,11 +6,11 @@ Estimates whether a profile fits a board and judges the result. The estimate add
 
 The constants belong to the Tools and there is no option to force the result.
 
-| Utilization $ of a resource | Result |
+| Utilization $u$ of a resource | Result |
 | :--- | :--- |
-|  \le 0.85$ | passes |
-| /bin/bash.85 < u \le 1.00$ | warning (the estimate is off by a few percentage points; only the fit decides) |
-|  > 1.00$ | error |
+| $u \le 0.85$ | passes |
+| $0.85 < u \le 1.00$ | warning (the estimate is off by a few percentage points; only the fit decides) |
+| $u > 1.00$ | error |
 
 The estimated logic only fails when the family is validated, that is, the maximum validation error of the table is up to 10 %. Before that the result is the V18 warning and the fit decides.
 
@@ -32,7 +32,7 @@ The estimated logic cost is
 
 $$ \hat{L} = r \left( L_{core} + \sum_e L_e + L_{hpm}(n, w) + \sum_c L_c(s_c) + \sum_p L_p + \sum_b L_b \right) $$
 
-with {hpm} = a_0 + a_1 n + a_2 n w$,  = c_0 + c_1 s_c$ and $ the ratio between the fit and the synthesis (`map_to_fit_ratio`, 1 when not measured). The RAM blocks are
+with $L_{hpm} = a_0 + a_1 n + a_2 n w$, $L_c = c_0 + c_1 s_c$ and $r$ the ratio between the fit and the synthesis (`map_to_fit_ratio`, 1 when not measured). The RAM blocks are
 
 $$ N_{blocks} = \sum_m \left\lceil \frac{8 s_m}{b_{block}} \right\rceil + N_{caches} + N_{regs} $$
 

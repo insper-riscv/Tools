@@ -27,7 +27,7 @@ The choice follows the per-family synthesis measurement: `altera_pll` only synth
 
 | Test | What it checks |
 | :--- | :--- |
-| `tests/test_pll_generator.py` | DE0-CV 1000 MHz VCO, text equal to the hand-written PLL, phase off the step, missing divider, V15 and the `altpll` extension point |
+| `tests/test_pll_generator.py` | DE0-CV 1000 MHz VCO, text equal to the hand-written PLL, phase off the step, missing divider, V15 and the `altpll` writer |
 
 ---
 
