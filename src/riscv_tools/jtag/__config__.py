@@ -24,5 +24,6 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         # the only instance of a platform without the FLASH loader; a
         # platform with both gives the debug port another index.
         "sdram_debug_instance": 0,
+        "display_digits": 6,
     },
 }

@@ -45,6 +45,7 @@ def jtag_link(cfg: dict[str, Any]) -> JtagLink:
             hardware_name=selection.cable,
             device_name=selection.device,
             sdram_instance=quartus["sdram_debug_instance"],
+            display_digits=quartus.get("display_digits", 6),
         )
     return JtagLink(
         hardware_name=detect_jtag_hardware(
@@ -52,6 +53,7 @@ def jtag_link(cfg: dict[str, Any]) -> JtagLink:
         ),
         device_name=quartus["jtag_device"],
         sdram_instance=quartus["sdram_debug_instance"],
+        display_digits=quartus.get("display_digits", 6),
     )
 
 
