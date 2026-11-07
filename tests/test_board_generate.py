@@ -104,6 +104,32 @@ def test_the_soc_generics_come_from_the_map_package() -> None:
         check_in(fragment, top)
 
 
+def test_the_de0_cv_top_keeps_the_timing_cuts_and_the_update_path() -> None:
+    """The board top asks the soc for the cuts of the hand top."""
+    top = " ".join(_top("de0-cv").split())
+    for fragment in (
+        "registered_irqs => true",
+        "fast_icache_select => true",
+        "has_dcache_bypass => true, bypass_page => RAM_LAST_PAGE",
+        "has_flash_ctrl => true, flash_ctrl_id => 3",
+        "o_flash_cmd_valid => fcmd_valid",
+        "i_inval_valid => fcmd_inval_valid",
+        "flash_cmd_inst : entity work.flash_cmd_port",
+        "sector_bytes => 4096",
+        "i_address_b => st_address_b",
+        "st_wren_b <= ld_wren_b when flash_halt = '1' else fcmd_b_we;",
+    ):
+        check_in(fragment, top)
+
+
+def test_a_flash_without_the_update_controller_has_no_command_chip() -> None:
+    """Only a platform with FLASH_CTRL gets the command chip."""
+    top = " ".join(_top("de10-nano").split())
+    check_not_in("flash_cmd_port", top)
+    check_not_in("has_flash_ctrl", top)
+    check_in("i_address_b => ld_address_b", top)
+
+
 def test_a_platform_without_interrupts_never_reads_the_plic_package() -> None:
     """The PLIC and CLINT constants are always emitted, as literals."""
     top = " ".join(_top("de10-nano").split())

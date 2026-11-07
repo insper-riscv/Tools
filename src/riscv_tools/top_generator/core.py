@@ -211,6 +211,29 @@ def _external(spec: TopSpec) -> dict[str, tuple[str, str]]:
     return out
 
 
+def _flash_ctrl_id(spec: TopSpec) -> int | None:
+    """Dá a janela do controlador de FLASH da atualização de programa.
+
+    Parameters
+    ----------
+    spec : TopSpec
+        O topo.
+
+    Returns
+    -------
+    int or None
+        O `id` do periférico `FLASH_CTRL` quando a FLASH é emulada e a
+        plataforma o declara; senão `None`.
+    """
+    if _external(spec).get("rom", ("", ""))[0] != "emulado":
+        return None
+    for item in cast(list[Any], spec.platform.get("peripherals") or []):
+        fields = cast(dict[str, Any], item)
+        if fields.get("name") == "FLASH_CTRL":
+            return int(fields["id"])
+    return None
+
+
 def _entity(spec: TopSpec) -> list[str]:
     """Escreve a entidade.
 
@@ -426,7 +449,34 @@ def _soc_generics(spec: TopSpec) -> list[str]:
     ]
     if "zihpm" in str(spec.platform.get("profile", "")).lower():
         generics += ["hpm_counters => HPM_COUNTERS", "hpm_width => HPM_WIDTH"]
-    return generics + _role_generics(spec)
+    return generics + _timing_generics(spec) + _role_generics(spec)
+
+
+def _timing_generics(spec: TopSpec) -> list[str]:
+    """Monta os generics do SoC que cortam caminho crítico da placa.
+
+    Parameters
+    ----------
+    spec : TopSpec
+        O topo.
+
+    Returns
+    -------
+    list of str
+        As linhas: interrupções registradas, seleção rápida da cache de
+        instruções (com o relógio de busca defasado do núcleo), página
+        da RAM fora da cache de dados e controlador de FLASH.
+    """
+    staggered = spec.plan.get("fetch") is not None
+    out = ["registered_irqs => true"]
+    if staggered:
+        out.append("fast_icache_select => true")
+    if "ram" in _external(spec):
+        out += ["has_dcache_bypass => true", "bypass_page => RAM_LAST_PAGE"]
+    ctrl = _flash_ctrl_id(spec)
+    if ctrl is not None:
+        out += ["has_flash_ctrl => true", f"flash_ctrl_id => {ctrl}"]
+    return out
 
 
 def _peripheral_id(platform: dict[str, Any], name: str, default: int) -> int:
@@ -535,6 +585,20 @@ def _soc_ports(spec: TopSpec) -> list[str]:
             "i_flash_rdata => fl_rdata",
             "i_flash_rdata_x => fl_rdx",
         ]
+        if _flash_ctrl_id(spec) is not None:
+            maps += [
+                "o_flash_cmd_valid => fcmd_valid",
+                "o_flash_cmd_op => fcmd_op",
+                "o_flash_cmd_addr => fcmd_addr",
+                "i_flash_cmd_busy => fcmd_busy",
+                "i_flash_cmd_wel => fcmd_wel",
+                "i_flash_cmd_refused => fcmd_refused",
+                "i_flash_buf_idx => fcmd_buf_idx",
+                "o_flash_buf_data => fcmd_buf_data",
+                "i_inval_valid => fcmd_inval_valid",
+                "i_inval_first => fcmd_inval_first",
+                "i_inval_last => fcmd_inval_last",
+            ]
     if "ram" in external:
         maps += [
             "o_ramd_addr => rd_addr",
@@ -753,6 +817,49 @@ def _dqm_assignments(pin_map: dict[str, Port]) -> list[str]:
     ]
 
 
+def _flash_backend(
+    spec: TopSpec, fields: dict[str, Any], latency: dict[str, Any]
+) -> tuple[list[str], str]:
+    """Escreve o backend emulado da FLASH.
+
+    Com o periférico `FLASH_CTRL`, acrescenta o chip de comandos
+    (apagar, gravar, proteger) na porta B do armazenamento, que o
+    carregador da JTAG toma enquanto o núcleo está parado.
+
+    Parameters
+    ----------
+    spec : TopSpec
+        O topo.
+    fields : dict of {str: Any}
+        O `memory.rom` da plataforma.
+    latency : dict of {str: Any}
+        A latência da FLASH emulada.
+
+    Returns
+    -------
+    tuple of (list of str, str)
+        Sinais e corpo.
+    """
+    updatable = _flash_ctrl_id(spec) is not None
+    names = ("st_address_b", "st_wren_b", "st_data_b")
+    plain = ("ld_address_b", "ld_wren_b", "ld_data_b")
+    addr, wren, data = names if updatable else plain
+    body = backends.template("flash_body").format(
+        first=latency.get("first", 24),
+        nxt=latency.get("next", 4),
+        addr_b=addr,
+        wren_b=wren,
+        data_b=data,
+    )
+    signals = backends.template("flash_signals").rstrip().split("\n")
+    if updatable:
+        body += "\n" + backends.template("flash_cmd_body").format(
+            sector=int(fields.get("sector_bytes", 4096))
+        )
+        signals += backends.template("flash_cmd_signals").rstrip().split("\n")
+    return signals, body
+
+
 def _region_backend(
     spec: TopSpec, region: str, notes: list[str]
 ) -> tuple[list[str], str]:
@@ -776,10 +883,7 @@ def _region_backend(
     fields = cast(dict[str, Any], spec.platform["memory"][region])
     latency = cast(dict[str, Any], fields.get("latency") or {})
     if region == "rom" and backend == "emulado":
-        body = backends.template("flash_body").format(
-            first=latency.get("first", 24), nxt=latency.get("next", 4)
-        )
-        return backends.template("flash_signals").rstrip().split("\n"), body
+        return _flash_backend(spec, fields, latency)
     if region == "ram" and backend == "emulado":
         body = backends.template("ram_body").format(
             latency=latency.get("first", 0)

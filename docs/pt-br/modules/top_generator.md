@@ -15,6 +15,8 @@ O topo gerado não tem lógica além do reset. Ele liga, nesta ordem, as portas 
 | Generics do SoC | Constantes do pacote do mapa (`generate.vhdl.package`); sem PLIC na plataforma, os generics de PLIC e CLINT levam os valores padrão do SoC, de modo que o topo nunca lê constantes que o pacote não tem |
 | Polaridade | Generics `switches_active_low`, `keys_active_low` e `display_active_low` do SoC; chaves e botões são portas `inout` ligadas direto aos pinos do GPIO |
 | Backend `emulado` da FLASH | `flash_chip` (latências de `memory.rom.latency`), `flash` de duas portas, `flash_loader` e `flash_jtag_shell`; o carregador segura o SoC em reset enquanto escreve |
+| Atualização de programa | Com o periférico `FLASH_CTRL`, o SoC leva o controlador (`has_flash_ctrl`) e o backend da FLASH acrescenta o `flash_cmd_port` na porta B do armazenamento, que o carregador toma com o núcleo parado, e devolve a região regravada ao SoC para derrubar as linhas das caches |
+| Cortes de caminho crítico | O topo liga `registered_irqs`, `fast_icache_select` (com o relógio de busca definido) e a página do topo da RAM fora da cache de dados (`RAM_LAST_PAGE`), os mesmos cortes do topo escrito à mão |
 | Backend `emulado` da RAM | `onchip_ram_port` sobre o bloco `ram`, com a latência pedida |
 | Backend `dispositivo/sdram` | Duas pontes (dados e instruções), `sdram_arbiter`, `sdram_dbg_master`, `sdram_jtag_shell`, `sdram_ctrl` e um `tristate_buffer_1bit` por bit do dado em um `generate` |
 

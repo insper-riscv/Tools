@@ -15,6 +15,8 @@ The generated top has no logic besides the reset. It wires, in this order, the b
 | SoC generics | Constants of the map package (`generate.vhdl.package`); without a PLIC in the platform, the PLIC and CLINT generics take the SoC defaults, so the top never reads constants the package lacks |
 | Polarity | The SoC generics `switches_active_low`, `keys_active_low` and `display_active_low`; switches and keys are `inout` ports wired straight to the GPIO pins |
 | `emulado` FLASH backend | `flash_chip` (latencies from `memory.rom.latency`), the dual-port `flash`, `flash_loader` and `flash_jtag_shell`; the loader holds the SoC in reset while it writes |
+| Program update | With the `FLASH_CTRL` peripheral the SoC carries the controller (`has_flash_ctrl`) and the FLASH backend adds the `flash_cmd_port` on port B of the storage, which the loader takes while the core is stopped, and returns the rewritten region to the SoC so it drops the cache lines |
+| Critical path cuts | The top turns on `registered_irqs`, `fast_icache_select` (with the fetch clock defined) and the page at the top of the RAM outside the data cache (`RAM_LAST_PAGE`), the same cuts as the hand-written top |
 | `emulado` RAM backend | `onchip_ram_port` over the `ram` block, with the requested latency |
 | `dispositivo/sdram` backend | Two bridges (data and instruction), `sdram_arbiter`, `sdram_dbg_master`, `sdram_jtag_shell`, `sdram_ctrl` and one `tristate_buffer_1bit` per data bit in a `generate` |
 

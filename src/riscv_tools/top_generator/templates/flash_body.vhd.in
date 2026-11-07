@@ -14,8 +14,8 @@
 			i_clk_a => clk_core,
 			i_address_a => fl_mem_addr(log2_exact(ROM_STORAGE_BYTES) - 1 downto 2),
 			i_rden_a => '1', o_q_a => fl_mem_data,
-			i_clk_b => clk_core, i_address_b => ld_address_b,
-			i_rden_b => '1', i_wren_b => ld_wren_b, i_data_b => ld_data_b, o_q_b => fl_b_data
+			i_clk_b => clk_core, i_address_b => {addr_b},
+			i_rden_b => '1', i_wren_b => {wren_b}, i_data_b => {data_b}, o_q_b => fl_b_data
 		);
 
 	flash_loader_inst : entity work.flash_loader
