@@ -1,4 +1,7 @@
 	-- SDRAM: pontes de dados e de instrução, árbitro, mestre de depuração e controlador.
+	-- Largura do barramento de dados e bits do endereço de palavra de 32 bits, da geometria do chip do catálogo.
+	constant SDRAM_DQ : natural := {dq};
+	constant SDRAM_ADDR_BITS : natural := work.sdram_pkg.dram_word_addr_bits(work.{chip}.ROW_BITS, work.{chip}.BANK_BITS, work.{chip}.COL_BITS, {dq});
 	signal rd_addr, rd_wdata, rd_rdata : std_logic_vector(31 downto 0);
 	signal rd_be : std_logic_vector(3 downto 0);
 	signal rd_rden, rd_wren, rd_line, rd_adv, rd_ready : std_logic;
@@ -7,23 +10,23 @@
 	signal ri_rden, ri_line, ri_adv, ri_ready : std_logic;
 	signal ri_rdx : std_logic_vector(95 downto 0);
 	signal a_req, a_ack, a_we, a_line : std_logic;
-	signal a_addr : std_logic_vector(23 downto 0);
+	signal a_addr : std_logic_vector(SDRAM_ADDR_BITS - 1 downto 0);
 	signal a_wdata, a_rdata : std_logic_vector(31 downto 0);
 	signal a_be : std_logic_vector(3 downto 0);
 	signal a_wdx, a_rdx : std_logic_vector(95 downto 0);
 	signal a_bex : std_logic_vector(11 downto 0);
 	signal i_req, i_ack, i_we, i_line : std_logic;
-	signal i_addr : std_logic_vector(23 downto 0);
+	signal i_addr : std_logic_vector(SDRAM_ADDR_BITS - 1 downto 0);
 	signal i_wdata, i_rdata : std_logic_vector(31 downto 0);
 	signal i_be : std_logic_vector(3 downto 0);
 	signal i_wdx, i_rdx : std_logic_vector(95 downto 0);
 	signal i_bex : std_logic_vector(11 downto 0);
 	signal b_req, b_ack, b_we : std_logic;
-	signal b_addr : std_logic_vector(23 downto 0);
+	signal b_addr : std_logic_vector(SDRAM_ADDR_BITS - 1 downto 0);
 	signal b_wdata, b_rdata : std_logic_vector(31 downto 0);
 	signal b_be : std_logic_vector(3 downto 0);
 	signal c_req, c_ack, c_we, c_line, init_done : std_logic;
-	signal c_addr : std_logic_vector(23 downto 0);
+	signal c_addr : std_logic_vector(SDRAM_ADDR_BITS - 1 downto 0);
 	signal c_wdata, c_rdata : std_logic_vector(31 downto 0);
 	signal c_be : std_logic_vector(3 downto 0);
 	signal c_wdx, c_rdx : std_logic_vector(95 downto 0);

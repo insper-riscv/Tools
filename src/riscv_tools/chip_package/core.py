@@ -234,6 +234,11 @@ def _constants(chip: dict[str, Any], burst: int) -> list[tuple[str, str, str]]:
         for key in ("sector_bytes", "boot_sector_bytes")
         if key in chip
     )
+    if kind in ("nor", "sram") and {"words", "width"} <= organization.keys():
+        size = int(organization["words"]) * int(organization["width"]) // 8
+        out.append(
+            ("SIZE_BYTES|Tamanho do chip em bytes.", "natural", str(size))
+        )
     if kind == "sdram":
         out += _sdram_mode(chip, organization, burst)
     return out

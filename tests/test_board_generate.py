@@ -156,15 +156,46 @@ def test_an_emulated_ram_gets_the_block_backend() -> None:
     check_in("flash_chip_inst : entity work.flash_chip", top)
 
 
-def test_a_backend_without_an_entity_warns_and_stays_idle() -> None:
-    """NOR and a 32-bit SDRAM have no entity: warnings, no instance."""
+def test_the_de2_115_gets_the_nor_and_the_32_bit_sdram_backends() -> None:
+    """The NOR controller and the 32-bit SDRAM are instantiated."""
     result = generated("de2-115")
-    text = " ".join(result.warnings)
-    check_in("region rom: backend dispositivo nor has no entity", text)
-    check_in("sdram data width 32 needs the generalized sdram_ctrl", text)
+    check_equal([w for w in result.warnings if "clk_phase_ps" not in w], [])
     top = " ".join(_top("de2-115").split())
-    check_not_in("sdram_ctrl_inst", top)
-    check_not_in("entity work.device_backend", top)
+    check_in("nor_ctrl_inst : entity work.nor_flash_ctrl", top)
+    check_in("sdram_ctrl_inst : entity work.sdram_ctrl", top)
+    check_in("constant SDRAM_DQ : natural := 32;", top)
+    check_in("dq_width => SDRAM_DQ", top)
+    check_in("generic map (addr_bits => SDRAM_ADDR_BITS)", top)
+    check_in("DRAM_DQM <= dqm;", top)
+    check_in("signal dqm : std_logic_vector(4 - 1 downto 0);", top)
+
+
+def test_the_nor_backend_subtracts_the_start_of_the_flash_region() -> None:
+    """The SoC speaks in absolute addresses and the chip in offsets."""
+    top = " ".join(_top("de2-115").split())
+    check_in("nor_rd_addr <= std_logic_vector(unsigned(fx_addr) - ", top)
+    check_in("nor_cmd_addr <= std_logic_vector(unsigned(fcmd_addr) - ", top)
+    check_in(
+        "base_addr => std_logic_vector(to_unsigned(ROM_BASE_KIB * 1024", top
+    )
+    check_in("o_flash_addr => fx_addr", top)
+    check_not_in("o_flash_addr => fl_addr", top)
+
+
+def test_the_nor_pins_are_free_of_timing_requirements() -> None:
+    """The controller counts the cycles of the chip: false paths."""
+    sdc = next(
+        t for n, t in generated("de2-115").files.items() if n.endswith(".sdc")
+    )
+    check_in("set_false_path -from [get_ports {FL_DQ[*]}]", sdc)
+    check_in("set_false_path -from [get_ports {FL_RY}]", sdc)
+    check_in("set_false_path -to   [get_ports {FL_ADDR[*]}]", sdc)
+
+
+def test_the_chip_package_of_the_nor_has_its_size() -> None:
+    """The NOR package carries the size the controller takes."""
+    pkg = generated("de2-115").files["chip_s29gl064n90_pkg.vhd"]
+    check_in("constant SIZE_BYTES : natural := 8388608;", pkg)
 
 
 def test_the_top_is_valid_vhdl_syntax(tmp_path: Path) -> None:
