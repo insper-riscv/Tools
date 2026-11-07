@@ -251,6 +251,7 @@ def _false_paths(ports: tuple[Port, ...]) -> list[str]:
         if p.role in ("reset", "switches", "keys") and not p.alias
     ]
     free_out = [p for p in ports if p.role == "leds"]
+    nor = [p for p in ports if p.role == "nor"]
     displays = " ".join(
         _targets([p], ("out",)) for p in ports if p.role == "display"
     )
@@ -269,6 +270,18 @@ def _false_paths(ports: tuple[Port, ...]) -> list[str]:
     ]
     if displays:
         lines.append(f"set_false_path -to   [get_ports {{{displays}}}]")
+    if nor:
+        lines += [
+            "",
+            "# A FLASH NOR é assíncrona: o controlador conta os ciclos dos",
+            "# tempos do chip, então os pinos dela não têm requisito.",
+        ]
+        for p in nor:
+            names = _targets([p], (p.direction,))
+            if p.direction in ("in", "inout"):
+                lines.append(f"set_false_path -from [get_ports {{{names}}}]")
+            if p.direction in ("out", "inout"):
+                lines.append(f"set_false_path -to   [get_ports {{{names}}}]")
     return lines
 
 

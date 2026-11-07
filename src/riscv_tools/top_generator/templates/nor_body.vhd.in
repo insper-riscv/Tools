@@ -1,0 +1,33 @@
+	-- O deslocamento 0 do chip é o início da região FLASH: o SoC fala em endereço absoluto, o chip em deslocamento.
+	nor_rd_addr <= std_logic_vector(unsigned(fx_addr) - to_unsigned(ROM_BASE_KIB * 1024, 32));
+	nor_cmd_addr <= std_logic_vector(unsigned(fcmd_addr) - to_unsigned(ROM_BASE_KIB * 1024, 32));
+
+	-- Backend de dispositivo da FLASH: controlador do chip NOR de 8 bits no clock do núcleo (leitura em página e comandos K4).
+	nor_ctrl_inst : entity work.nor_flash_ctrl
+		generic map (
+			clk_period_ns => {period_ns}, margin_ns => {margin_ns},
+			size_bytes => work.{chip}.SIZE_BYTES, sector_bytes => work.{chip}.SECTOR_BYTES, page_bytes => 256,
+			base_addr => std_logic_vector(to_unsigned(ROM_BASE_KIB * 1024, 32)),
+			t_acc_ns => work.{chip}.ACCESS_NS, t_pacc_ns => work.{chip}.PAGE_ACCESS_NS, t_wc_ns => work.{chip}.WRITE_CYCLE_NS,
+			t_wp_ns => work.{chip}.WRITE_PULSE_NS, t_wph_ns => work.{chip}.WRITE_HIGH_NS, t_ds_ns => work.{chip}.DATA_SETUP_NS,
+			t_ah_ns => work.{chip}.ADDR_HOLD_NS, t_busy_ns => work.{chip}.BUSY_NS, t_rp_ns => work.{chip}.RESET_PULSE_NS,
+			t_rh_ns => work.{chip}.RESET_READY_NS
+		)
+		port map (
+			i_clk => clk_core, i_rst => soc_rst,
+			i_addr => nor_rd_addr, i_rden => fx_rden, i_line => fx_line, i_advance => fx_adv,
+			o_ready => fx_ready, o_busy => fx_busy, o_rdata => fx_rdata, o_rdata_x => fx_rdx,
+			i_cmd_valid => fcmd_valid, i_cmd_op => fcmd_op, i_cmd_addr => nor_cmd_addr,
+			o_cmd_busy => fcmd_busy, o_wel => fcmd_wel, o_refused => fcmd_refused,
+			o_buf_idx => fcmd_buf_idx, i_buf_data => fcmd_buf_data,
+			o_inval_valid => fcmd_inval_valid, o_inval_first => fcmd_inval_first, o_inval_last => fcmd_inval_last,
+{pins},
+			o_fl_dq => nor_dq_out, o_fl_dq_oe => nor_dq_oe, i_fl_dq => nor_dq_in
+		);
+
+	-- Anel de pinos: um buffer de três estados por bit de {dq_name}.
+	gen_nor_dq : for i in 0 to 7 generate
+		nor_dq_tri : entity work.tristate_buffer_1bit
+			port map (i_d => nor_dq_out(i), i_enable => nor_dq_oe, o_d => {dq_name}(i));
+	end generate;
+	nor_dq_in <= {dq_name};
