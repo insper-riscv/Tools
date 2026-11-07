@@ -31,10 +31,13 @@ The `needs` key sits beside `sources` and `requires` in the `paths.yaml` of the 
 | V15 | E | More PLL outputs (distinct clocks plus the SDRAM clock) than the board offers |
 | V16 | E | `inferred` pin in use without `--accept-inferred-pins` |
 | V17 | E | The JTAG chain read from the cable is not the board's |
-| V18 | W | Family without a calibration file, or `null` capacity on the board |
+| V11 | E or W | Blocks of RAM that the emulated memories and the caches need, above the capacity (E) or above 85 % of it (W) |
+| V12 | E | Estimated logic above the capacity, only for a family whose maximum validation error is up to 10 % |
+| V13 | W | Estimated logic between 85 % and 100 % of the capacity |
+| V18 | W | Family without a calibration file, or `null` capacity on the board, or a `null` coefficient of a term of the profile |
 | V19 | E | Bus width the backend cannot slice |
 
-Rules V11 to V14 (fit) belong to the estimator.
+Rules V11 to V13 run the estimator of [fit_estimate](fit_estimate.md) on the profile, the caches, the peripherals and the memories of the platform, with the calibration table of the family of the board. An emulated region counts a power of two of bytes, because the address width decides the blocks. Without the `profile` field in the platform, or without the table, nothing is estimated. V14 (pins and PLLs) stays with the report of the Quartus.
 
 ### 3.1. Details
 
@@ -73,6 +76,7 @@ Rules V11 to V14 (fit) belong to the estimator.
 | `tests/test_board_check.py::test_v18_family_without_calibration` | V18, family |
 | `tests/test_board_check.py::test_v18_capacity_that_is_not_known` | V18, `null` capacity |
 | `tests/test_board_check.py::test_v19_bus_width_the_backend_cannot_slice` | V19, three widths |
+| `tests/test_board_fit.py` | V11 to V13 with a fictitious table, V18 of a `null` coefficient, an invalid table (V1) and the report of `capacity.json` |
 | `tests/test_board_check.py::test_the_catalog_check_finds_what_a_board_cites_wrongly` | Cited signal that does not exist and repeated pin |
 | `tests/test_board_check.py::test_the_catalog_check_passes_a_consistent_catalog` | A consistent catalog passes |
 | `tests/test_board_check.py::test_the_subcommands_exit_with_the_findings` | `check-memory-map` and `check-boards` exit with status 1 |

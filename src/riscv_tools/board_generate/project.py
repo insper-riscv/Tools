@@ -6,8 +6,9 @@ orquestrador de testes na placa chamam `build`, que escreve (ou, com
 `generate-memory-map` para o pacote do mapa, o linker e os cabeçalhos.
 """
 
+import json
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, cast
 
@@ -19,6 +20,7 @@ from riscv_tools.board_generate.core import (
     generate,
     write_project,
 )
+from riscv_tools.board_inputs import InputError, resolve_board_name
 from riscv_tools.sources import ordered_sources
 
 
@@ -162,6 +164,63 @@ def _memory_map(
     return [], memory_map.write_all(platform, root)
 
 
+def _with_capacity(
+    result: Generated, platform: Path, request: ProjectRequest
+) -> Generated:
+    """Junta ao projeto o relatório de cabimento.
+
+    O cabimento é uma regra do validador (V11 a V13): passar de 100 % de
+    um recurso recusa a geração, e o resto vira aviso. O módulo do
+    validador é importado aqui porque ele importa, pelo leitor de
+    configuração, o pacote que contém este módulo.
+
+    Parameters
+    ----------
+    result : Generated
+        O projeto gerado.
+    platform : Path
+        O `platform.yaml`.
+    request : ProjectRequest
+        O pedido, que dá a placa e as pastas do catálogo.
+
+    Returns
+    -------
+    Generated
+        O projeto com `capacity.json` e os avisos do cabimento, ou ele
+        mesmo quando a família não tem calibração.
+
+    Raises
+    ------
+    InputError
+        Se o perfil passa da capacidade da placa.
+    """
+    from riscv_tools import board_check  # noqa: PLC0415
+    from riscv_tools.board_schema import Catalog  # noqa: PLC0415
+    from riscv_tools.board_schema.platform_fields import (  # noqa: PLC0415
+        read_platform_file,
+    )
+
+    data = read_platform_file(platform)
+    catalog = Catalog(
+        request.root / (request.boards_dir or "boards"),
+        request.root / (request.chips_dir or "Memory/chips"),
+    )
+    report, findings = board_check.fit_report(
+        data, resolve_board_name(data, request.board), catalog
+    )
+    errors = [str(item) for item in findings if item.level == "E"]
+    if errors:
+        raise InputError("; ".join(errors))
+    if report is None:
+        return result
+    text = json.dumps(report, indent=2, ensure_ascii=False) + "\n"
+    return replace(
+        result,
+        files={**result.files, "capacity.json": text},
+        warnings=[*result.warnings, *(str(item) for item in findings)],
+    )
+
+
 def build(request: ProjectRequest) -> ProjectResult:
     """Gera o projeto e o mapa de memória de uma plataforma.
 
@@ -193,16 +252,20 @@ def build(request: ProjectRequest) -> ProjectResult:
     probe = generate(base)
     project = out / probe.folder
     targets = targets_of(platform, request.targets)
-    result = generate(
-        GenerateRequest(
-            platform,
-            request.board,
-            base.boards_dir,
-            base.chips_dir,
-            sources_of(root, targets, project),
-            request.accept_inferred,
-            request.seed,
-        )
+    result = _with_capacity(
+        generate(
+            GenerateRequest(
+                platform,
+                request.board,
+                base.boards_dir,
+                base.chips_dir,
+                sources_of(root, targets, project),
+                request.accept_inferred,
+                request.seed,
+            )
+        ),
+        platform,
+        request,
     )
     if request.check:
         problems = check_project(out, result)

@@ -57,6 +57,10 @@ class Family:
     slew_rate : bool
         Whether the family accepts the `SLEW_RATE` option on the
         3.3 V LVTTL pins (the MAX 10 fitter refuses it).
+    qsf : tuple of str
+        Assignments the `.qsf` of every project of the family carries
+        (the MAX 10 needs its configuration mode for the memories that
+        have an initial content).
     """
 
     family: str
@@ -71,6 +75,7 @@ class Family:
     fmax_by_grade: dict[str, float | None]
     calibration: str | None
     slew_rate: bool = True
+    qsf: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

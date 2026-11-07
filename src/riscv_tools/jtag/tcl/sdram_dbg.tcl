@@ -51,6 +51,9 @@ proc fail {code message} {
 # one shift of the DEBUG register: returns {status word data} of the previous command
 proc shift {op word data be} {
     global INSTANCE
+    # bit 24 of the word address travels in bit 3 of the op (the controller of the 128 MB SDRAM of the DE2-115 uses it;
+    # the 64 MB one ignores it)
+    set op [expr {$op | ((($word >> 24) & 1) << 3)}]
     set v [expr {($op << 60) | ($be << 56) | (($word & 0xFFFFFF) << 32) | ($data & 0xFFFFFFFF)}]
     set r [device_virtual_dr_shift -instance_index $INSTANCE -length 64 \
                -dr_value [format %016llx $v] -value_in_hex]

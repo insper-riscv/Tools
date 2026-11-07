@@ -20,6 +20,7 @@ Ligação dos papéis ao SoC.
   `o_uart_tx`.
 """
 
+import math
 import re
 from dataclasses import dataclass, field
 from typing import Any, cast
@@ -230,7 +231,8 @@ def _flash_ctrl_id(spec: TopSpec) -> int | None:
         O `id` do periférico `FLASH_CTRL` quando a FLASH é emulada e a
         plataforma o declara; senão `None`.
     """
-    if _external(spec).get("rom", ("", ""))[0] != "emulado":
+    backend, device = _external(spec).get("rom", ("", ""))
+    if backend != "emulado" and device != "nor":
         return None
     for item in cast(list[Any], spec.platform.get("peripherals") or []):
         fields = cast(dict[str, Any], item)
@@ -590,15 +592,18 @@ def _soc_ports(spec: TopSpec) -> list[str]:
         "i_boot_data => boot_data",
     ]
     if "rom" in external:
+        # Com a FLASH NOR o prefixo é `fx_`, porque `FL_ADDR` e `FL_DQ`
+        # são portas da placa e o VHDL não distingue maiúsculas.
+        fl = "fx" if external["rom"][1] == "nor" else "fl"
         maps += [
-            "o_flash_addr => fl_addr",
-            "o_flash_rden => fl_rden",
-            "o_flash_line => fl_line",
-            "o_flash_advance => fl_adv",
-            "i_flash_ready => fl_ready",
-            "i_flash_busy => fl_busy",
-            "i_flash_rdata => fl_rdata",
-            "i_flash_rdata_x => fl_rdx",
+            f"o_flash_addr => {fl}_addr",
+            f"o_flash_rden => {fl}_rden",
+            f"o_flash_line => {fl}_line",
+            f"o_flash_advance => {fl}_adv",
+            f"i_flash_ready => {fl}_ready",
+            f"i_flash_busy => {fl}_busy",
+            f"i_flash_rdata => {fl}_rdata",
+            f"i_flash_rdata_x => {fl}_rdx",
         ]
         if _flash_ctrl_id(spec) is not None:
             maps += [
@@ -802,10 +807,10 @@ def _sdram_backend(spec: TopSpec, notes: list[str]) -> tuple[list[str], str]:
     """
     pin_map = {_sdram_key(p.name): p for p in _role(spec, "sdram")}
     dq = pin_map["dq"]
-    if dq.width != backends.SDRAM_DQ_WIDTH:
+    if dq.width not in backends.SDRAM_DQ_WIDTHS:
         notes.append(
-            f"W sdram data width {dq.width} needs the generalized "
-            "sdram_ctrl (M.1.6); no SDRAM backend was instantiated"
+            f"W sdram data width {dq.width} is not one of "
+            f"{backends.SDRAM_DQ_WIDTHS}; no SDRAM backend was instantiated"
         )
         return [], ""
     skip = ("dq", "clk", "ldqm", "udqm", "dqm")
@@ -819,7 +824,7 @@ def _sdram_backend(spec: TopSpec, notes: list[str]) -> tuple[list[str], str]:
     tck_ps = round(float(mem.period_ns) * 1000) if mem else 0
     fields = {
         "dq": dq.width,
-        "dqm": 2,
+        "dqm": dq.width // 8,
         "tck_ps": tck_ps,
         "chip": spec.chip_packages.get("sdram", ""),
         "pins": pins,
@@ -858,6 +863,80 @@ def _dqm_assignments(pin_map: dict[str, Port]) -> list[str]:
         for i, key in enumerate(("ldqm", "udqm"))
         if key in pin_map
     ]
+
+
+_NOR_PIN_MAP = {
+    "addr": "o_fl_addr",
+    "ce_n": "o_fl_ce_n",
+    "oe_n": "o_fl_oe_n",
+    "we_n": "o_fl_we_n",
+    "rst_n": "o_fl_rst_n",
+    "wp_n": "o_fl_wp_n",
+    "ry": "i_fl_ry",
+}
+# Margem somada a cada tempo do chip NOR para o atraso de pino e de
+# placa, em ns.
+_NOR_MARGIN_NS = 5
+# Largura do barramento de dados da FLASH NOR que o controlador atende.
+_NOR_DQ_WIDTH = 8
+
+
+def _nor_key(name: str) -> str:
+    """Classifica uma porta da FLASH NOR pelo sufixo do nome.
+
+    Parameters
+    ----------
+    name : str
+        Nome da porta (`FL_CE_N`).
+
+    Returns
+    -------
+    str
+        `addr`, `dq`, `ce_n` e assim por diante.
+    """
+    return re.sub(r"^fl_?", "", name.lower())
+
+
+def _nor_backend(spec: TopSpec, notes: list[str]) -> tuple[list[str], str]:
+    """Escreve o backend de dispositivo da FLASH NOR de 8 bits.
+
+    Parameters
+    ----------
+    spec : TopSpec
+        O topo.
+    notes : list of str
+        Recebe os avisos.
+
+    Returns
+    -------
+    tuple of (list of str, str)
+        Os sinais e o corpo; vazios quando a placa não tem o chip.
+    """
+    pin_map = {_nor_key(p.name): p for p in _role(spec, "nor")}
+    missing = [key for key in (*_NOR_PIN_MAP, "dq") if key not in pin_map]
+    if missing or pin_map["dq"].width != _NOR_DQ_WIDTH:
+        notes.append(
+            f"W nor pins {missing or 'dq width'} missing or not 8 bits; "
+            "no NOR backend was instantiated"
+        )
+        return [], ""
+    core = spec.plan.get("core")
+    period = math.floor(float(core.period_ns)) if core else 20
+    pins = ",\n".join(
+        f"\t\t\t{formal} => {pin_map[key].name}"
+        for key, formal in _NOR_PIN_MAP.items()
+    )
+    fields = {
+        "period_ns": period,
+        "margin_ns": _NOR_MARGIN_NS,
+        "chip": spec.chip_packages.get("nor", ""),
+        "pins": pins,
+        "dq_name": pin_map["dq"].name,
+    }
+    return (
+        backends.template("nor_signals").rstrip().split("\n"),
+        backends.template("nor_body").format(**fields),
+    )
 
 
 def _flash_backend(
@@ -934,6 +1013,8 @@ def _region_backend(
         return backends.template("ram_signals").rstrip().split("\n"), body
     if region == "ram" and device == "sdram":
         return _sdram_backend(spec, notes)
+    if region == "rom" and device == "nor":
+        return _nor_backend(spec, notes)
     notes.append(
         f"W region {region}: backend {backend} {device} has no entity yet "
         "(M.5); the region was left idle"
@@ -972,6 +1053,7 @@ def render_top(spec: TopSpec) -> RenderedTop:
         "",
         "library ieee;",
         "use ieee.std_logic_1164.all;",
+        "use ieee.numeric_std.all;",
         "use work.utils_pkg.all;",
         f"use work.{package}.all;",
         "",

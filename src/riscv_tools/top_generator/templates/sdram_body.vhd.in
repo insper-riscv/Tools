@@ -11,6 +11,7 @@
 	rst_mem <= rst_mem_sr(1);
 
 	sdram_data_bridge : entity work.sdram_cpu_bridge
+		generic map (addr_bits => SDRAM_ADDR_BITS)
 		port map (
 			i_clk_cpu => clk_core, i_rst_cpu => soc_rst,
 			i_addr => rd_addr, i_wdata => rd_wdata, i_byteena => rd_be,
@@ -23,6 +24,7 @@
 		);
 
 	sdram_instruction_bridge : entity work.sdram_cpu_bridge
+		generic map (addr_bits => SDRAM_ADDR_BITS)
 		port map (
 			i_clk_cpu => clk_core, i_rst_cpu => soc_rst,
 			i_addr => ri_addr, i_wdata => (others => '0'), i_byteena => (others => '0'),
@@ -35,6 +37,7 @@
 		);
 
 	sdram_arbiter_inst : entity work.sdram_arbiter
+		generic map (addr_bits => SDRAM_ADDR_BITS)
 		port map (
 			i_clk => clk_mem, i_rst => rst_mem,
 			i_a_req_tog => a_req, o_a_ack_tog => a_ack, i_a_we => a_we, i_a_addr => a_addr,
@@ -51,6 +54,7 @@
 		);
 
 	sdram_debug_inst : entity work.sdram_dbg_master
+		generic map (addr_bits => SDRAM_ADDR_BITS)
 		port map (
 			i_clk => clk_mem, i_rst => rst_mem,
 			i_cmd_tog => cmd_tog, o_done_tog => done_tog, i_op => d_op, i_be => d_be, i_addr => d_addr, i_data => d_data,
@@ -72,7 +76,8 @@
 			tck_ps => {tck_ps},
 			init_cycles => work.sdram_pkg.cycles(work.{chip}.T_INIT_PS, {tck_ps}),
 			refresh_cycles => work.sdram_pkg.cycles(work.{chip}.T_REFI_PS, {tck_ps}) * 9 / 10,
-			capture_extra => 0, sync_req => false)
+			capture_extra => 0, sync_req => false,
+			dq_width => SDRAM_DQ, row_bits => work.{chip}.ROW_BITS, bank_bits => work.{chip}.BANK_BITS, col_bits => work.{chip}.COL_BITS)
 		port map (
 			i_clk => clk_mem, i_rst => rst_mem,
 			i_req_tog => c_req, o_ack_tog => c_ack, o_init_done => init_done,

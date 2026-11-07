@@ -17,3 +17,6 @@ fmax:
   core_mhz_by_grade: {C8: null, I7: null}
 calibration: null
 slew_rate: false
+# Atribuições do .qsf de todo projeto da família: a MAX 10 só monta o arquivo de programação com as memórias de conteúdo inicial neste modo.
+qsf:
+  - set_global_assignment -name INTERNAL_FLASH_UPDATE_MODE SINGLE_IMAGE_WITH_ERAM
