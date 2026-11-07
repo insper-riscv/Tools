@@ -11,6 +11,7 @@ Writes the `config.yaml` of a platform for the project that consumes it. A platf
 | `paths.sources`, `emulator.sources` | C and assembly sources of the runtime and of the Spike substitute |
 | `freq_sweep.pll_file` | PLL source that the frequency sweep rewrites |
 | `quartus.project_dir` | The Quartus project folder |
+| `quartus.generate.platform`, `.out`, `.boards_dir`, `.chips_dir` | Platform, output folder and catalogs of the project that `program` generates with `board generate` before compiling |
 | `sim.vhdl_sources`, `sim.python_path` | VHDL sources of the simulation top and the testbench folder |
 
 The consumer's paths (`paths.include_dir`, `paths.build_dir`, `paths.c_dir` and `paths.asm_dir`) and the names (`quartus.project_name`) stay as they are. So does an absolute path.

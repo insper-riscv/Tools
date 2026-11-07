@@ -330,3 +330,39 @@ def test_program_without_mif_or_compile_only_fails(tmp_path: Path) -> None:
     """Programming needs the image."""
     with pytest.raises(SystemExit):
         board_cmd.cmd_program(_args(tmp_path))
+
+
+def test_program_writes_the_generated_project_first(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With `quartus.generate` the project is written, then compiled."""
+    order: list[str] = []
+    seen: list[argparse.Namespace] = []
+
+    def generated(args: argparse.Namespace) -> None:
+        order.append("generate")
+        seen.append(args)
+
+    def compiled(*_args: object, **_kw: object) -> None:
+        order.append("compile")
+
+    monkeypatch.setattr(board_cmd, "cmd_board_generate", generated)
+    monkeypatch.setattr(quartus_program, "full_reconfigure", compiled)
+    args = _args(tmp_path, compile_only=True, seed=3)
+    write_config(
+        tmp_path,
+        {
+            "quartus": {
+                "project_dir": "build/p",
+                "project_name": "p",
+                "sof_file": "output_files/p.sof",
+                "rom_mif_target": "rom.mif",
+                "generate": {"platform": "plat.yaml", "out": "build"},
+            }
+        },
+    )
+    board_cmd.cmd_program(args)
+    check_equal(order, ["generate", "compile"])
+    check_equal(seen[0].platform, "plat.yaml")
+    check_equal(seen[0].out, "build")
+    check_equal(seen[0].seed, 3)

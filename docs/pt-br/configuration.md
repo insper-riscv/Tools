@@ -58,6 +58,7 @@ Não há divisão `tests_real_dir`/`tests_sim_dir`/`golden_dir`: todo teste em `
 | `project_name` | **obrigatória** | `quartus_program`: passado a `quartus_sh --flow compile` |
 | `sof_file` | **obrigatória** | `quartus_program`: caminho (relativo a `project_dir`) do `.sof` compilado, passado ao `quartus_pgm` |
 | `rom_mif_target` | **obrigatória** | `quartus_program`: caminho (relativo a `project_dir`) de onde a megafunção da ROM lê o `init_file` na compilação |
+| `generate` | opcional | `program`: `platform`, `out` e, se preciso, `boards_dir`, `chips_dir` e `accept_inferred_pins`; com ela o `program` roda o `board generate` da plataforma antes de compilar, e `project_dir` aponta o projeto gerado em `out` |
 | `stale_cache_dirs` | `[db, incremental_db, output_files, simulation]` | `quartus_program`: diretórios (relativos a `project_dir`) apagados antes de toda compilação, já que o `init_file` de uma ROM não é um fonte rastreado do projeto |
 | `rom_mem_instances` | `[0]` | `rom_writer`: índice(s) da instância do In-System Memory Content Editor da ROM (uma lista; um projeto com mais de uma cópia física da ROM, por exemplo uma por porta de leitura quando uma memória dual-port verdadeira não está disponível, lista todas, mantidas em sincronia a cada escrita) |
 | `rom_write_method` | `mem_edit` | `rom_writer`: `mem_edit` grava cada instância pelo In-System Memory Content Editor e exige o pulso do `fromhost` depois; `jtag_loader` grava a única cópia da FLASH pelo [carregador JTAG](modules/flash_loader.md) com o núcleo parado e o reinicia sozinho |

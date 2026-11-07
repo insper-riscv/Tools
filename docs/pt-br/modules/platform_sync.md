@@ -11,6 +11,7 @@ Escreve o `config.yaml` de uma plataforma para o projeto que a consome. Uma plat
 | `paths.sources`, `emulator.sources` | Fontes C e assembly do runtime e do substituto do Spike |
 | `freq_sweep.pll_file` | Fonte da PLL que a varredura de frequência reescreve |
 | `quartus.project_dir` | Pasta do projeto do Quartus |
+| `quartus.generate.platform`, `.out`, `.boards_dir`, `.chips_dir` | Plataforma, pasta de saída e catálogos do projeto que o `program` gera com o `board generate` antes de compilar |
 | `sim.vhdl_sources`, `sim.python_path` | Fontes VHDL do topo de simulação e pasta do testbench |
 
 Os caminhos do consumidor (`paths.include_dir`, `paths.build_dir`, `paths.c_dir` e `paths.asm_dir`) e os nomes (`quartus.project_name`) ficam como estão. Um caminho absoluto também.

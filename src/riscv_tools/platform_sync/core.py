@@ -30,6 +30,10 @@ PATH_KEYS: tuple[tuple[str, ...], ...] = (
     ("emulator", "sources"),
     ("freq_sweep", "pll_file"),
     ("quartus", "project_dir"),
+    ("quartus", "generate", "platform"),
+    ("quartus", "generate", "out"),
+    ("quartus", "generate", "boards_dir"),
+    ("quartus", "generate", "chips_dir"),
     ("sim", "vhdl_sources"),
     ("sim", "python_path"),
 )

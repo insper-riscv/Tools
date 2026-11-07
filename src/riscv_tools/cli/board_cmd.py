@@ -17,7 +17,9 @@ from riscv_tools import (
     uart_console,
 )
 from riscv_tools import display as display_mod
+from riscv_tools.cli.board_generate_cmd import cmd_board_generate
 from riscv_tools.cli.common import jtag_link, project_root
+from riscv_tools.quartus_program.core import DEFAULT_SEED
 from riscv_tools.settings import load_config
 
 
@@ -222,6 +224,46 @@ def _cable(
     return jtag_link(cfg).hardware_name
 
 
+def _generate_project(
+    args: argparse.Namespace,
+    generate: dict[str, Any],
+    options: quartus_program.CompileOptions,
+) -> None:
+    """Escreve o projeto gerado da plataforma antes de compilá-lo.
+
+    É o `board generate` de sempre (a placa vem do `--board` global ou
+    do `platform.yaml`), de modo que o `program` nunca compila um
+    arquivo de projeto escrito à mão.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Uses args.root and args.select_board.
+    generate : dict of {str: Any}
+        A chave `quartus.generate` da configuração.
+    options : CompileOptions
+        As opções de compilação, de onde vem a semente.
+    """
+    cmd_board_generate(
+        argparse.Namespace(
+            root=args.root,
+            platform=generate["platform"],
+            select_board=getattr(args, "select_board", None),
+            out=generate.get("out", "build"),
+            boards_dir=generate.get("boards_dir"),
+            chips_dir=generate.get("chips_dir"),
+            target=[],
+            seed=DEFAULT_SEED if options.seed is None else options.seed,
+            accept_inferred_pins=bool(generate.get("accept_inferred_pins")),
+            check=False,
+            hand_qsf=None,
+            hand_sdc=None,
+            hand_pll=None,
+            ignore_source=[],
+        )
+    )
+
+
 def cmd_program(args: argparse.Namespace) -> None:
     """Implement `riscv-tools program`.
 
@@ -256,6 +298,8 @@ def cmd_program(args: argparse.Namespace) -> None:
             "--stop-after is given"
         )
     quartus = cfg["quartus"]
+    if quartus.get("generate"):
+        _generate_project(args, quartus["generate"], options)
     name = args.project_name or quartus["project_name"]
     sof = (
         f"output_files/{name}.sof"
