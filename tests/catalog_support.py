@@ -196,7 +196,9 @@ def write_catalog(
         {"board": data["board"], "device": "DEV", "signals": pins or default},
     )
     (root / "boards" / "calibration").mkdir(parents=True, exist_ok=True)
-    (root / "boards" / "calibration" / "fam.yaml").write_text("family: fam\n")
+    (root / "boards" / "calibration" / "fam.yaml").write_text(
+        "family: fam\nunit: le\n"
+    )
 
 
 def fresh_platform() -> dict[str, Any]:

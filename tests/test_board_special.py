@@ -1,11 +1,14 @@
 """DE10-Nano and MKR Vidor 4000, by fixtures only."""
 
+import yaml
 from board_support import FIXTURES, host
+from multifpga_support import BOARDS
 from support import check_equal
 
 from riscv_tools.board import Request, select_board
 from riscv_tools.board.doctor import FAIL, OK, WARN, Check, run_doctor
 from riscv_tools.board.usb import parse_lsusb
+from riscv_tools.board.usb_only import usb_only
 from riscv_tools.jtag.hardware import parse_jtagconfig
 
 BLASTER_II_COLD = "Bus 001 Device 007: ID 09fb:6010 Altera DE-SoC\n"
@@ -71,7 +74,7 @@ def test_the_vidor_only_gets_instructions() -> None:
 
 def test_the_vidor_with_the_sketch_is_a_usb_blaster() -> None:
     """With the sketch the emulated blaster is found."""
-    text = "1) USB-Blaster [1-4]\n  020F10DD   10CL016\n"
+    text = "1) USB-Blaster [1-4]\n  020F20DD   10CL016\n"
     base = host("empty")
     env = type(base)(
         base.boards,
@@ -113,3 +116,67 @@ def test_the_doctor_flags_a_broken_chain_and_stray_processes() -> None:
     check_equal(levels["process 4242"], WARN, "process")
     none = run_doctor(host("empty"), [], [])
     check_equal(_levels(none)["cables"], FAIL, "no cable")
+
+
+def test_the_vidor_on_the_usb_is_listed_without_a_chain() -> None:
+    """The SAMD21 in CDC state is the board, with no chain to read."""
+    env = host("empty")
+    found = usb_only(env.boards, parse_lsusb(VIDOR), env.reports())
+    check_equal(
+        [(o.board, o.usb_id) for o in found],
+        [("mkr-vidor-4000", "2341:8056")],
+        "vidor",
+    )
+
+
+def test_a_board_a_cable_explains_is_not_listed_as_usb_only() -> None:
+    """The warm blaster II with its chain is no orphan."""
+    env = host("de10-nano")
+    found = usb_only(env.boards, parse_lsusb(BLASTER_II_WARM), env.reports())
+    check_equal(found, [], "explained")
+
+
+def test_the_cold_blaster_ii_is_listed_for_both_soc_boards() -> None:
+    """Before the firmware loads the id fits both DE-SoC boards."""
+    env = host("empty")
+    found = usb_only(env.boards, parse_lsusb(BLASTER_II_COLD), env.reports())
+    check_equal(
+        [o.board for o in found], ["de0-nano-soc", "de10-nano"], "boards"
+    )
+
+
+def test_a_plain_usb_blaster_names_no_board() -> None:
+    """09fb:6001 is every USB-Blaster, so it never marks a board."""
+    env = host("empty")
+    line = "Bus 001 Device 003: ID 09fb:6001 Altera Blaster\n"
+    check_equal(
+        usb_only(env.boards, parse_lsusb(line), env.reports()), [], "plain"
+    )
+
+
+def test_the_de0_nano_soc_is_told_from_the_de10_nano_by_the_fpga_idcode() -> (
+    None
+):
+    """Same cable and HPS, different FPGA IDCODE."""
+    chosen = select_board(host("de0-nano-soc"), Request(platform_board="auto"))
+    check_equal(chosen.board, "de0-nano-soc", "board")
+    check_equal(chosen.idcode, "02D010DD", "idcode")
+    check_equal(chosen.device, "@2: 5CSE(BA4|MA4)/.. (0x02D010DD)", "device")
+
+
+def test_the_vidor_pins_have_no_duplicate_ball() -> None:
+    """The schematic resolved the seven balls of the official .qsf."""
+    raw = yaml.safe_load((BOARDS / "mkr-vidor-4000" / "pins.yaml").read_text())
+    balls = [s["pin"] for s in raw["signals"]]
+    check_equal(len(balls), len(set(balls)), "unique balls")
+    check_equal(raw["conflicts"], [], "conflicts")
+    by_ball = {s["pin"]: s["name"] for s in raw["signals"]}
+    check_equal(by_ball["L4"], "bHDMI_SDA", "L4")
+    check_equal(by_ball["R7"], "oFLASH_HOLD", "R7")
+    check_equal(by_ball["T7"], "oFLASH_WP", "T7")
+
+
+def test_the_vidor_chain_idcode_is_the_one_of_the_quartus_database() -> None:
+    """020F20DD is the 10CL016 (and EP3C16), not 020F10DD."""
+    board = host("empty").boards["mkr-vidor-4000"]
+    check_equal(board.jtag.chain[0].idcode, "020F20DD", "idcode")

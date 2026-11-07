@@ -1,0 +1,45 @@
+# Pacote da Terasic DE0-Nano-SoC. Esquema: docs/pt-br/boards/formato.md. Ficha: Plans/Multi-FPGA/placas/de0-nano-soc.md.
+# A placa nao foi vista em nenhuma estacao do laboratorio e este pacote nao foi validado em hardware.
+board: de0-nano-soc
+name: Terasic DE0-Nano-SoC
+family: cyclone-v-soc
+device: 5CSEMA4U23C6N
+speed_grade: C6
+target_level: N1
+jtag:
+  cable: usb-blaster-ii
+  cable_name: "DE-SoC [USB-1]"
+  usb:
+    - {id: "09fb:6010", state: "antes da carga do firmware do cabo", confirmed: inferred}
+    - {id: "09fb:6810", state: "depois da carga do firmware do cabo", confirmed: inferred}
+  chain:
+    - {name: "SOCVHPS", idcode: "4BA00477", hps: true, confirmed: inferred}
+    - {name: "5CSE(BA4|MA4)/..", idcode: "02D010DD", fpga: true, confirmed: manual}
+resources:
+  logic:       {unit: alm, total: 15094}
+  block_ram:   {kind: m10k, blocks: 246, bits_per_block: 10240}
+  multipliers: {kind: dsp_block, total: 84}
+  plls: 5
+  user_pins: null
+clocks:
+  inputs:
+    - {name: fpga_clk1_50, signal: FPGA_CLK1_50, mhz: 50}
+    - {name: fpga_clk2_50, signal: FPGA_CLK2_50, mhz: 50}
+    - {name: fpga_clk3_50, signal: FPGA_CLK3_50, mhz: 50}
+  reference: fpga_clk1_50
+  reset: {signal: "KEY[0]", active: low}
+io:
+  leds:     {signals: "LED[7:0]", active: high}
+  switches: {signals: "SW[3:0]",  active: high}
+  keys:     {signals: "KEY[1:0]", active: low}
+console:
+  default: jtag
+pins: pins.yaml
+notes:
+  - "Mesma cadeia e mesmo cabo da DE10-Nano (HPS e FPGA atras do USB-Blaster II, nome DE-SoC); as duas placas se distinguem pelo IDCODE do FPGA (02D010DD aqui, 02D020DD na DE10-Nano)."
+  - "O IDCODE 02D010DD do 5CSEMA4 vem do banco de dispositivos do Quartus 25.1 (pgm_parts.txt), nao de uma leitura da placa; o HPS (4BA00477) e o padrao do DAP do ARM, e os IDs USB do cabo II sao inferidos."
+  - "Os 40 mil LEs, os 2 460 Kbit de memoria e os 5 PLLs vem do manual (secao 2.2). O total de 15094 ALMs e os 84 blocos DSP sao os da familia Cyclone V SE no membro A4, fora do manual, e ficam inferidos ate o primeiro relatorio do Quartus."
+  - "Sem memoria ligada ao fabric: a DDR3 pertence ao HPS e so serve ao fabric depois do preloader (decisao DM4: limitar a placa a memoria emulada). Nao ha SDRAM, SRAM nem FLASH de usuario; o EPCS e so de configuracao."
+  - "Sem botao de reset de fabric: o reset do SoC e o KEY[0]; KEY3 e KEY4 resetam so o HPS."
+  - "A UART USB e do HPS; o console do SoC e a JTAG UART. ARDUINO_IO[0] (RXD) e ARDUINO_IO[1] (TXD) servem a um adaptador externo."
+  - "O MSEL de fabrica (FPPx32) delega a configuracao ao HPS a partir do cartao SD; a carga por JTAG continua sendo o caminho de desenvolvimento. O manual traz so 3.3V como padrao de E/S."

@@ -2,7 +2,7 @@
 # A faixa do oscilador e o número de saídas do PLL vêm do manual da família; o Fmax é a frequência de núcleo medida por grau
 # (null quando não há medida) e a calibração é o arquivo medido pelo estimador de cabimento (null até existir).
 family: cyclone-v-soc
-quartus_family: Cyclone V SoC
+quartus_family: Cyclone V   # nome que o Quartus 25.1 aceita; "Cyclone V SoC" não existe no get_family_list (medido em M.0.1)
 logic_unit: alm
 pll:
   ip: altera_pll
@@ -14,5 +14,5 @@ memory_ip: altsyncram
 virtual_jtag: true
 onchip_flash: null
 fmax:
-  core_mhz_by_grade: {I7: null}
+  core_mhz_by_grade: {I7: null, C6: null}
 calibration: null

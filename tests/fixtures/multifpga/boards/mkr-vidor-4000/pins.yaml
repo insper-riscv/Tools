@@ -7,16 +7,15 @@ notes:
   - "led_fpga: o LED da placa e do SAMD21 (pino 6), nenhum LED ligado ao FPGA foi achado"
   - "uart_samd21_fpga: o qsf nao nomeia pinos de UART; a UART do PC e do SAMD21, o FPGA a enxerga so pelos pinos bMKR_D (D13 RX e D14 TX no SERCOM5, inferido)"
   - "qspi_chip: modelo da flash QSPI nao consta no datasheet"
-  - "esquematico: PDF ABX00022-schematics.pdf nao foi lido (so o qsf)"
+  - "esquematico: ABX00022-schematics.pdf (paginas 3, 4, 7 e 9 do desenho) lido; os sete pinos que o .qsf oficial atribuia a dois sinais foram resolvidos pela rede que o esquematico liga ao pino, e o sinal perdedor saiu da lista"
+  - "L4: PANEL_SDA (bHDMI_SDA); panel_en nao tem rede no pino e saiu"
+  - "R4: WM_PIO35 (bWM_PIO35); bWM_PIO17 saiu, pois WM_PIO17 vai a um resistor (R24) e nao ao FPGA"
+  - "T4: WM_PIO31 (bWM_PIO31); bWM_PIO16 saiu, pois WM_PIO16 vai a um resistor (R56) e nao ao FPGA"
+  - "R5 e R6: WM_PIO20 e WM_PIO21 (bWM_PIO20, bWM_PIO21); iWM_RTS e iWM_CTS eram segundos nomes dos mesmos pinos e saíram"
+  - "R7 e T7: CFG_HOLD e CFG_WP (oFLASH_HOLD, oFLASH_WP); bWM_PIO25 e bWM_PIO24 saíram, pois a NINA nao chega a esses pinos"
+  - "nomes: o .qsf chama de bWM_PIO2, bWM_PIO3, bWM_PIO4 e bWM_PIO34 os pinos R10, P11, R11 e M6, que o esquematico liga a PEX_PIN1, PEX_PIN3, PEX_PIN5 e PEX_PIN7; o pino e o mesmo, so o nome diverge, e os quatro seguem inferidos"
   - "vccio_padrao: 3.3 V"
-conflicts:
-  - {pin: "L4", signals: ["bHDMI_SDA", "panel_en"]}
-  - {pin: "R4", signals: ["bWM_PIO17", "bWM_PIO35"]}
-  - {pin: "R5", signals: ["bWM_PIO20", "iWM_RTS"]}
-  - {pin: "R6", signals: ["bWM_PIO21", "iWM_CTS"]}
-  - {pin: "R7", signals: ["bWM_PIO25", "oFLASH_HOLD"]}
-  - {pin: "T4", signals: ["bWM_PIO16", "bWM_PIO31"]}
-  - {pin: "T7", signals: ["bWM_PIO24", "oFLASH_WP"]}
+conflicts: []
 signals:
   - {name: "iCLK", pin: "E2", io_standard: "3.3-V LVTTL", direction: "in", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
   - {name: "iRESETn", pin: "E1", io_standard: "3.3-V LVTTL", direction: "in", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
@@ -62,8 +61,8 @@ signals:
   - {name: "iFLASH_MISO", pin: "H2", io_standard: "3.3-V LVTTL", direction: "in", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
   - {name: "oFLASH_SCK", pin: "H1", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
   - {name: "oFLASH_CS", pin: "D2", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
-  - {name: "oFLASH_HOLD", pin: "R7", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido); pino duplicado no .qsf oficial (ver conflicts)"}
-  - {name: "oFLASH_WP", pin: "T7", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido); pino duplicado no .qsf oficial (ver conflicts)"}
+  - {name: "oFLASH_HOLD", pin: "R7", io_standard: "3.3-V LVTTL", direction: "out", source: "esquematico ABX00022, rede CFG_HOLD", confirmed: "manual"}
+  - {name: "oFLASH_WP", pin: "T7", io_standard: "3.3-V LVTTL", direction: "out", source: "esquematico ABX00022, rede CFG_WP", confirmed: "manual"}
   - {name: "bMKR_AREF", pin: "B1", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
   - {name: "bMKR_A[0]", pin: "C2", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
   - {name: "bMKR_A[1]", pin: "C3", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
@@ -97,24 +96,18 @@ signals:
   - {name: "bWM_PIO5", pin: "N6", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
   - {name: "bWM_PIO7", pin: "P6", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
   - {name: "bWM_PIO8", pin: "N5", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
-  - {name: "bWM_PIO16", pin: "T4", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido); pino duplicado no .qsf oficial (ver conflicts)"}
-  - {name: "bWM_PIO17", pin: "R4", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido); pino duplicado no .qsf oficial (ver conflicts)"}
   - {name: "bWM_PIO18", pin: "T5", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
-  - {name: "bWM_PIO21", pin: "R6", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido); pino duplicado no .qsf oficial (ver conflicts)"}
-  - {name: "bWM_PIO20", pin: "R5", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido); pino duplicado no .qsf oficial (ver conflicts)"}
-  - {name: "bWM_PIO24", pin: "T7", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido); pino duplicado no .qsf oficial (ver conflicts)"}
-  - {name: "bWM_PIO25", pin: "R7", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido); pino duplicado no .qsf oficial (ver conflicts)"}
+  - {name: "bWM_PIO21", pin: "R6", io_standard: "3.3-V LVTTL", direction: "inout", source: "esquematico ABX00022, rede WM_PIO21", confirmed: "manual"}
+  - {name: "bWM_PIO20", pin: "R5", io_standard: "3.3-V LVTTL", direction: "inout", source: "esquematico ABX00022, rede WM_PIO20", confirmed: "manual"}
   - {name: "bWM_PIO27", pin: "N9", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
   - {name: "bWM_PIO28", pin: "N11", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
   - {name: "bWM_PIO29", pin: "T10", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
-  - {name: "bWM_PIO31", pin: "T4", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido); pino duplicado no .qsf oficial (ver conflicts)"}
+  - {name: "bWM_PIO31", pin: "T4", io_standard: "3.3-V LVTTL", direction: "inout", source: "esquematico ABX00022, rede WM_PIO31", confirmed: "manual"}
   - {name: "bWM_PIO34", pin: "M6", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
-  - {name: "bWM_PIO35", pin: "R4", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido); pino duplicado no .qsf oficial (ver conflicts)"}
+  - {name: "bWM_PIO35", pin: "R4", io_standard: "3.3-V LVTTL", direction: "inout", source: "esquematico ABX00022, rede WM_PIO35", confirmed: "manual"}
   - {name: "bWM_PIO36", pin: "N1", io_standard: "2.5 V", direction: "inout", source: "qsf oficial", confirmed: "repo"}
   - {name: "iWM_TX", pin: "E15", io_standard: "3.3-V LVTTL", direction: "in", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
   - {name: "oWM_RX", pin: "T6", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
-  - {name: "iWM_RTS", pin: "R5", io_standard: "3.3-V LVTTL", direction: "in", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido); pino duplicado no .qsf oficial (ver conflicts)"}
-  - {name: "iWM_CTS", pin: "R6", io_standard: "3.3-V LVTTL", direction: "in", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido); pino duplicado no .qsf oficial (ver conflicts)"}
   - {name: "oWM_RESET", pin: "R1", io_standard: "2.5 V", direction: "out", source: "qsf oficial", confirmed: "repo"}
   - {name: "bPEX_PIN6", pin: "P8", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
   - {name: "bPEX_PIN8", pin: "L7", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
@@ -150,7 +143,7 @@ signals:
   - {name: "oHDMI_CLK", pin: "N15", io_standard: "LVDS", direction: "out", source: "qsf oficial", confirmed: "repo"}
   - {name: "oHDMI_CLK(n)", pin: "N16", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
   - {name: "bHDMI_SCL", pin: "K5", io_standard: "2.5 V", direction: "inout", source: "qsf oficial", confirmed: "repo"}
-  - {name: "bHDMI_SDA", pin: "L4", io_standard: "2.5 V", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "pino duplicado no .qsf oficial (ver conflicts)"}
+  - {name: "bHDMI_SDA", pin: "L4", io_standard: "2.5 V", direction: "inout", source: "esquematico ABX00022, rede PANEL_SDA", confirmed: "manual"}
   - {name: "iHDMI_HPD", pin: "M16", io_standard: "3.3-V LVTTL", direction: "in", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
   - {name: "iMIPI_D[0]", pin: "L2", io_standard: "LVDS", direction: "in", source: "qsf oficial", confirmed: "repo"}
   - {name: "iMIPI_D[1]", pin: "J2", io_standard: "LVDS", direction: "in", source: "qsf oficial", confirmed: "repo"}
@@ -162,4 +155,3 @@ signals:
   - {name: "bMIPI_SCL", pin: "P1", io_standard: "2.5 V", direction: "inout", source: "qsf oficial", confirmed: "repo"}
   - {name: "bMIPI_GP[0]", pin: "M7", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
   - {name: "bMIPI_GP[1]", pin: "P9", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
-  - {name: "panel_en", pin: "L4", io_standard: "2.5 V", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "pino duplicado no .qsf oficial (ver conflicts)"}

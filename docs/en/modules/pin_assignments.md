@@ -11,7 +11,7 @@ It is the only place that writes `set_location_assignment` and the per-instance 
 | Role | Assignments |
 | :--- | :--- |
 | `sdram` | `FAST_OUTPUT_REGISTER` on outputs and bidirectionals; `FAST_OUTPUT_ENABLE_REGISTER`, `FAST_INPUT_REGISTER` and `PAD_TO_INPUT_REGISTER_DELAY 0` on bidirectionals; none on the pin clock |
-| `leds`, `display` | `CURRENT_STRENGTH_NEW DEFAULT` and `SLEW_RATE 1`; a family with `slew_rate: false` (MAX 10, whose fitter refuses the option on 3.3-V LVTTL pins) gets only the first |
+| `leds`, `display` | `CURRENT_STRENGTH_NEW DEFAULT` and `SLEW_RATE 1`; a family with `slew_rate: false` (Cyclone IV E, MAX 10 and Cyclone 10 LP, whose fitter refuses the option on 3.3-V LVTTL pins) gets only the first |
 
 ## 3. Refusals
 

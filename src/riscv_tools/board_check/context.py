@@ -11,6 +11,7 @@ from riscv_tools.board_schema import (
     PlatformBoardFields,
 )
 from riscv_tools.board_schema.platform_fields import MemoryUse
+from riscv_tools.fit_estimate.table import CalibrationTable
 from riscv_tools.memory_map.core import platform_list
 from riscv_tools.memory_map.expressions import evaluate
 
@@ -78,6 +79,10 @@ class Context:
         Whether the calibration file of the family exists.
     accept_inferred_pins : bool
         Whether a pin that is only inferred may be used.
+    regions : list of Region
+        The regions behind the external memories.
+    table : CalibrationTable or None
+        The calibration table of the family; None without the file.
     """
 
     platform: dict[str, Any]
@@ -90,6 +95,7 @@ class Context:
     calibrated: bool = False
     accept_inferred_pins: bool = False
     regions: list[Region] = field(default_factory=lambda: [])
+    table: CalibrationTable | None = None
 
     def used_devices(self) -> dict[str, MemoryUse]:
         """List the memories the platform realizes with a device.

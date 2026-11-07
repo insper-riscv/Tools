@@ -16,6 +16,7 @@ BOARD_NAMES = (
     "de0-nano",
     "de10-lite",
     "de10-nano",
+    "de0-nano-soc",
     "mkr-vidor-4000",
 )
 
