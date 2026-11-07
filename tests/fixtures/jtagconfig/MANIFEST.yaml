@@ -1,0 +1,31 @@
+# Amostras do formato da saída de `jtagconfig` (tarefa M.0.4 do plano Multi-FPGA), completam as do M.4 (four-cables, one-chain, broken, de10-nano, empty, que não se repetem aqui): só entram as que o M.4 não tem, a saída com -n, a de outro host, a Vidor e o texto sem cabo.
+# `origem: medido` é a saída crua do comando no host e na data indicados. `origem: inferido` foi escrita a partir de
+# documentação ou de fórum (campo `fonte`) porque o laboratório não tem o caso: o texto e a posição das linhas devem ser
+# conferidos contra um cabo real quando houver.
+fixtures:
+  - arquivo: pc1_four_cables_nodes.txt
+    origem: medido
+    comando: jtagconfig -n
+    host: PC1 (workstation)
+    data: 2026-11-06
+    caso: o mesmo com a opção -n, que lista os nós da cadeia virtual (Design hash e Virtual JTAG) da DE0-CV programada
+  - arquivo: notebook_one_cable.txt
+    origem: medido
+    comando: jtagconfig
+    host: notebook (M16-R2-Lucas)
+    data: 2026-11-06
+    caso: um cabo e uma cadeia, em outro barramento USB ([3-6])
+  - arquivo: notebook_one_cable_nodes.txt
+    origem: medido
+    comando: jtagconfig -n
+    host: notebook (M16-R2-Lucas)
+    data: 2026-11-06
+    caso: um cabo com nós de outros tipos (ROM/RAM/Constant ao lado de Virtual JTAG), em ordem de índice não crescente
+  - arquivo: vidor_emulated_usb_blaster.txt
+    origem: inferido
+    fonte: Plans/Multi-FPGA/placas/mkr-vidor-4000.md (USB-Blaster emulado pelo SAMD21); IDCODE 020F10DD do 10CL016 e o padrão do nome são deduções
+    caso: cabo emulado pelo sketch USBBlaster do SAMD21 com o FPGA Cyclone 10 LP da Vidor
+  - arquivo: no_hardware.txt
+    origem: inferido
+    fonte: texto da mensagem do jtagconfig sem cabo, de memória do Quartus; sem cabo nenhum o laboratório não reproduz
+    caso: nenhum cabo visível
