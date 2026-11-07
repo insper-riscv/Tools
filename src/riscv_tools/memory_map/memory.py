@@ -44,7 +44,8 @@ from riscv_tools.memory_map.expressions import evaluate
 
 MIN_CACHE_BITS = 256
 DEFAULT_CACHE_BITS = 4096
-CACHE_WINDOW = 64 << 20
+MIN_WINDOW_BITS = 26
+MAX_WINDOW_BITS = 29
 ROUTER_WINDOW_KIB = 1024
 PAGE = 4096
 
@@ -453,6 +454,73 @@ def _region_span(
     return None
 
 
+def _fits(regions: list[tuple[str, int, int]], bits: int) -> bool:
+    """Say whether every region sits inside one aligned window.
+
+    Parameters
+    ----------
+    regions : list of tuple of (str, int, int)
+        The name, base and size of the regions.
+    bits : int
+        The width of the window: it spans `2**bits` bytes.
+
+    Returns
+    -------
+    bool
+        True when no region crosses a multiple of the window.
+    """
+    return all(
+        base >> bits == (base + size - 1) >> bits for _, base, size in regions
+    )
+
+
+def window_bits(
+    rom: tuple[str, int, int] | None, ram: tuple[str, int, int] | None
+) -> int | None:
+    """Find the narrowest tag window that holds the regions.
+
+    Parameters
+    ----------
+    rom : tuple of (str, int, int) or None
+        The ROM region, when named.
+    ram : tuple of (str, int, int) or None
+        The RAM region, when named.
+
+    Returns
+    -------
+    int or None
+        The smallest width from `MIN_WINDOW_BITS` (64 MiB) to
+        `MAX_WINDOW_BITS` (512 MiB) such that each region sits in one
+        aligned window of `2**width` bytes; None when none does.
+    """
+    regions = [r for r in (rom, ram) if r]
+    for bits in range(MIN_WINDOW_BITS, MAX_WINDOW_BITS + 1):
+        if _fits(regions, bits):
+            return bits
+    return None
+
+
+def cache_window_bits(platform: dict[str, Any]) -> int:
+    """Name the tag window that the map of the platform needs.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+
+    Returns
+    -------
+    int
+        The width in bits of the window of the tag of the caches
+        (`MIN_WINDOW_BITS` when no region needs more, and also when the
+        regions fit no window, which `problems` rejects under a cache).
+    """
+    found = window_bits(
+        _region_span(platform, "rom"), _region_span(platform, "ram")
+    )
+    return MIN_WINDOW_BITS if found is None else found
+
+
 def _cache_problems(
     memory: Memory,
     rom: tuple[str, int, int] | None,
@@ -472,18 +540,21 @@ def _cache_problems(
     Returns
     -------
     list of Mismatch
-        A region that does not fit one aligned 64 MiB window, and a
+        A region that fits no aligned window of the cache tag, and a
         ROM larger than the window of the router.
     """
     problems: list[Mismatch] = []
-    if memory.has_icache or memory.has_dcache:
+    if (memory.has_icache or memory.has_dcache) and window_bits(
+        rom, ram
+    ) is None:
         problems += [
             _problem(
-                f"region {name} does not fit one aligned 64 MiB window, "
+                f"region {name} does not fit one aligned "
+                f"{1 << (MAX_WINDOW_BITS - 20)} MiB window, "
                 "which the tag of the caches needs"
             )
             for name, base, size in (r for r in (rom, ram) if r)
-            if base // CACHE_WINDOW != (base + size - 1) // CACHE_WINDOW
+            if not _fits([(name, base, size)], MAX_WINDOW_BITS)
         ]
     if memory.rom_via_port and rom and rom[2] > ROUTER_WINDOW_KIB * 1024:
         problems.append(
@@ -730,13 +801,18 @@ def parameters(platform: dict[str, Any]) -> dict[str, str | bool]:
     -------
     dict of {str: str or bool}
         `ROM_EXTERNAL`, `RAM_EXTERNAL`, `HAS_ICACHE`, `HAS_DCACHE`,
-        `ICACHE_SIZE_BITS` and `DCACHE_SIZE_BITS`; empty without a
-        `memory`.
+        `ICACHE_SIZE_BITS` and `DCACHE_SIZE_BITS`, and
+        `CACHE_WINDOW_BITS` when the map needs a window wider than the
+        default of the caches (64 MiB); empty without a `memory`.
     """
     memory = resolve(platform)
     if memory is None:
         return {}
-    return {
+    window = cache_window_bits(platform)
+    wide = (
+        {"CACHE_WINDOW_BITS": str(window)} if window > MIN_WINDOW_BITS else {}
+    )
+    return wide | {
         "ROM_EXTERNAL": memory.rom_external,
         "RAM_EXTERNAL": memory.ram_external,
         "HAS_ICACHE": memory.has_icache,
@@ -746,20 +822,22 @@ def parameters(platform: dict[str, Any]) -> dict[str, str | bool]:
     }
 
 
-def vhdl_lines(memory: Memory) -> str:
+def vhdl_lines(memory: Memory, window: int = MIN_WINDOW_BITS) -> str:
     """Write the VHDL constants of the caches and of the core port.
 
     Parameters
     ----------
     memory : Memory
         The choice.
+    window : int, optional
+        The width of the tag window (see `cache_window_bits`).
 
     Returns
     -------
     str
         `HAS_ICACHE`, `HAS_DCACHE`, `ICACHE_SIZE_BITS`,
-        `DCACHE_SIZE_BITS`, `ROM_VIA_PORT` and `RAM_VIA_PORT`, each
-        with its comment.
+        `DCACHE_SIZE_BITS`, `CACHE_WINDOW_BITS`, `ROM_VIA_PORT` and
+        `RAM_VIA_PORT`, each with its comment.
     """
     rows = (
         (
@@ -780,6 +858,13 @@ def vhdl_lines(memory: Memory) -> str:
             "DCACHE_SIZE_BITS",
             "positive",
             memory.dcache_size_bits,
+        ),
+        (
+            "Largura da janela de endereços das caches, em bits: a tag guarda "
+            "os bits abaixo dela (26 é 64 MiB, 27 é 128 MiB).",
+            "CACHE_WINDOW_BITS",
+            "natural",
+            window,
         ),
         (
             "A ROM é alcançada pela porta do núcleo (externa ou com cache).",

@@ -97,6 +97,7 @@ def test_the_soc_generics_come_from_the_map_package() -> None:
         "boot_memory_size_bytes => BOOT_MEMORY_SIZE_BYTES",
         "rom_end_kib => ROM_END_KIB",
         "icache_size_bits => ICACHE_SIZE_BITS",
+        "cache_window_bits => CACHE_WINDOW_BITS",
         "has_zihpm => HAS_ZIHPM",
         "clint_tick_cycles => CLINT_TICK_CYCLES",
         "plic_n_sources => PLIC_N_SOURCES",

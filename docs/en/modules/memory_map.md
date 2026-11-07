@@ -207,10 +207,11 @@ The VHDL package gains the constants below. `ROM_VIA_PORT` and `RAM_VIA_PORT` ar
 | `HAS_DCACHE` | boolean | `memory.dcache.enabled` |
 | `ICACHE_SIZE_BITS` | positive | `memory.icache.size_bits`, or 256 without the cache |
 | `DCACHE_SIZE_BITS` | positive | `memory.dcache.size_bits`, or 256 without the cache |
+| `CACHE_WINDOW_BITS` | natural | Smallest width from 26 to 29 such that the ROM and the RAM each fit one aligned window of $2^{\text{width}}$ bytes (26 is 64 MiB, 27 is 128 MiB), derived from the regions |
 | `ROM_VIA_PORT` | boolean | `ROM_EXTERNAL or HAS_ICACHE` |
 | `RAM_VIA_PORT` | boolean | `RAM_EXTERNAL or HAS_DCACHE` |
 
-In the `config.yaml` the same values arrive as `sim.parameters` with the same names (`ROM_EXTERNAL`, `RAM_EXTERNAL`, `HAS_ICACHE`, `HAS_DCACHE`, `ICACHE_SIZE_BITS` and `DCACHE_SIZE_BITS`), and the simulation top must declare the matching generics. Without `config.addr_widths` in the platform, the address widths come from the choice, and the `boot_memory` and each internal memory are listed, since an external memory is a chip sized by the top itself. With `config.addr_widths` listed, the list wins.
+In the `config.yaml` the same values arrive as `sim.parameters` with the same names (`ROM_EXTERNAL`, `RAM_EXTERNAL`, `HAS_ICACHE`, `HAS_DCACHE`, `ICACHE_SIZE_BITS` and `DCACHE_SIZE_BITS`; `CACHE_WINDOW_BITS` only when above 26), and the simulation top must declare the matching generics. Without `config.addr_widths` in the platform, the address widths come from the choice, and the `boot_memory` and each internal memory are listed, since an external memory is a chip sized by the top itself. With `config.addr_widths` listed, the list wins.
 
 ### Validation
 
@@ -218,7 +219,7 @@ In the `config.yaml` the same values arrive as `sim.parameters` with the same na
 | :--- | :--- | :--- |
 | V1 | The four booleans exist and there is no unknown key | Error |
 | V2 | `size_bits` is a power of two and at least 256 | Error |
-| V3 | With any cache, the ROM and the RAM each fit one aligned 64 MiB window | Error |
+| V3 | With any cache, the ROM and the RAM each fit one aligned window of up to 512 MiB (the cache tag keeps the bits below the window) | Error |
 | V4 | With the ROM through the core port, its size fits the 1024 KiB window of the router | Error |
 | V5 | An `exec` region in the RAM needs an external RAM and the ROM through the port (external ROM or instruction cache) | Error |
 | V7 | An `exec` region in the RAM behind the instruction cache needs Zifencei in the profile | Error |

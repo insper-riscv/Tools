@@ -207,10 +207,11 @@ O pacote VHDL ganha as constantes abaixo. `ROM_VIA_PORT` e `RAM_VIA_PORT` são o
 | `HAS_DCACHE` | boolean | `memory.dcache.enabled` |
 | `ICACHE_SIZE_BITS` | positive | `memory.icache.size_bits`, ou 256 sem a cache |
 | `DCACHE_SIZE_BITS` | positive | `memory.dcache.size_bits`, ou 256 sem a cache |
+| `CACHE_WINDOW_BITS` | natural | Menor largura de 26 a 29 tal que a ROM e a RAM cabem cada uma numa janela alinhada de $2^{\text{largura}}$ bytes (26 é 64 MiB, 27 é 128 MiB), derivada das regiões |
 | `ROM_VIA_PORT` | boolean | `ROM_EXTERNAL or HAS_ICACHE` |
 | `RAM_VIA_PORT` | boolean | `RAM_EXTERNAL or HAS_DCACHE` |
 
-No `config.yaml` os mesmos valores chegam como `sim.parameters` com os mesmos nomes (`ROM_EXTERNAL`, `RAM_EXTERNAL`, `HAS_ICACHE`, `HAS_DCACHE`, `ICACHE_SIZE_BITS` e `DCACHE_SIZE_BITS`), e o topo de simulação precisa declarar os genéricos correspondentes. Sem `config.addr_widths` na plataforma, as larguras de endereço vêm da escolha, e saem a `boot_memory` e cada memória interna, já que uma memória externa é um chip dimensionado pelo próprio topo. Com `config.addr_widths` listado, a lista vale.
+No `config.yaml` os mesmos valores chegam como `sim.parameters` com os mesmos nomes (`ROM_EXTERNAL`, `RAM_EXTERNAL`, `HAS_ICACHE`, `HAS_DCACHE`, `ICACHE_SIZE_BITS` e `DCACHE_SIZE_BITS`; `CACHE_WINDOW_BITS` só quando passa de 26), e o topo de simulação precisa declarar os genéricos correspondentes. Sem `config.addr_widths` na plataforma, as larguras de endereço vêm da escolha, e saem a `boot_memory` e cada memória interna, já que uma memória externa é um chip dimensionado pelo próprio topo. Com `config.addr_widths` listado, a lista vale.
 
 ### Validação
 
@@ -218,7 +219,7 @@ No `config.yaml` os mesmos valores chegam como `sim.parameters` com os mesmos no
 | :--- | :--- | :--- |
 | V1 | Os quatro booleanos existem e não há chave desconhecida | Erro |
 | V2 | `size_bits` é potência de dois e vale pelo menos 256 | Erro |
-| V3 | Com alguma cache, a ROM e a RAM cabem cada uma numa janela de 64 MiB alinhada | Erro |
+| V3 | Com alguma cache, a ROM e a RAM cabem cada uma numa janela alinhada de até 512 MiB (a tag das caches guarda os bits abaixo da janela) | Erro |
 | V4 | Com a ROM pela porta do núcleo, o tamanho dela cabe na janela de 1024 KiB do roteador | Erro |
 | V5 | Região `exec` na RAM exige RAM externa e ROM pela porta (ROM externa ou cache de instruções) | Erro |
 | V7 | Região `exec` na RAM atrás da cache de instruções exige Zifencei no perfil | Erro |

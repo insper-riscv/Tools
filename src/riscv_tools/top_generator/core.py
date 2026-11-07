@@ -454,6 +454,7 @@ def _soc_generics(spec: TopSpec) -> list[str]:
         "has_dcache => HAS_DCACHE",
         "icache_size_bits => ICACHE_SIZE_BITS",
         "dcache_size_bits => DCACHE_SIZE_BITS",
+        "cache_window_bits => CACHE_WINDOW_BITS",
         *(f"{name} => {name.upper()}" for name in _EXTENSIONS),
         *_interrupt_generics(spec),
         f"clint_id => {_peripheral_id(spec.platform, 'CLINT', 6)}",
