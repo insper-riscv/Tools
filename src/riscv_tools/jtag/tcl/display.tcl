@@ -36,7 +36,7 @@ proc fail {code message} {
 }
 
 proc scan_register {word} {
-    global INSTANCE
+    global INSTANCE BITS MASK
     set r [device_virtual_dr_shift -instance_index $INSTANCE -length [expr {$BITS + 1}] \
                -dr_value [format %0*x [expr {($BITS + 1 + 3) / 4}] $word] -value_in_hex]
     scan $r %x x
