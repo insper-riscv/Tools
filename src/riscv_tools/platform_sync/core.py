@@ -26,6 +26,7 @@ PATH_KEYS: tuple[tuple[str, ...], ...] = (
     ("toolchain", "specs"),
     ("paths", "boot_memory"),
     ("paths", "boot_memory_linker_script"),
+    ("paths", "nor_programmer"),
     ("paths", "sources"),
     ("emulator", "sources"),
     ("quartus", "project_dir"),

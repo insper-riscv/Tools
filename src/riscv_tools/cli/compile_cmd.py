@@ -9,6 +9,7 @@ from typing import Any
 from riscv_tools import (
     bin_to_image,
     flash_image,
+    nor_program,
 )
 from riscv_tools import c_to_asm as c_to_asm_mod
 from riscv_tools import compiler as compiler_mod
@@ -80,6 +81,11 @@ def cmd_compile(args: argparse.Namespace) -> None:
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
     print(f"Wrote {manifest_path} ({len(manifest)} test(s))")
+    if is_real and cfg["paths"].get("nor_programmer"):
+        built = nor_program.build_programmer(
+            cfg, root, root / cfg["paths"]["build_dir"] / "nor_programmer"
+        )
+        print(f"Wrote {built}")
 
 
 def _select_sources(sources: list[Path], only: list[str] | None) -> list[Path]:
