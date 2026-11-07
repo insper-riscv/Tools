@@ -242,12 +242,12 @@ def test_the_generation_is_deterministic() -> None:
     check_equal(generated("de0-cv").files, generated("de0-cv").files)
 
 
-def test_only_the_max_10_project_omits_the_slew_rate() -> None:
-    """The MAX 10 fitter refuses `SLEW_RATE`; the others keep it."""
+def test_only_the_cyclone_v_projects_keep_the_slew_rate() -> None:
+    """Only the Cyclone V families keep `SLEW_RATE`."""
     for name, slew in (
         ("de10-lite", False),
         ("de0-cv", True),
-        ("de2-115", True),
+        ("de2-115", False),
     ):
         files = generated(name).files
         qsf = next(t for n, t in files.items() if n.endswith(".qsf"))

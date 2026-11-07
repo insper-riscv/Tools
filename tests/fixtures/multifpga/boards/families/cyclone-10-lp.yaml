@@ -16,3 +16,4 @@ onchip_flash: null
 fmax:
   core_mhz_by_grade: {C8: null}
 calibration: null
+slew_rate: false

@@ -11,7 +11,7 @@ Escreve as atribuições de pino e de padrão de E/S do `.qsf`, derivando as dem
 | Papel | Atribuições |
 | :--- | :--- |
 | `sdram` | `FAST_OUTPUT_REGISTER` nas saídas e bidirecionais; `FAST_OUTPUT_ENABLE_REGISTER`, `FAST_INPUT_REGISTER` e `PAD_TO_INPUT_REGISTER_DELAY 0` nos bidirecionais; nenhuma no relógio do pino |
-| `leds`, `display` | `CURRENT_STRENGTH_NEW DEFAULT` e `SLEW_RATE 1`; a família com `slew_rate: false` (MAX 10, cujo ajuste recusa a opção nos pinos 3.3-V LVTTL) recebe só a primeira |
+| `leds`, `display` | `CURRENT_STRENGTH_NEW DEFAULT` e `SLEW_RATE 1`; a família com `slew_rate: false` (Cyclone IV E, MAX 10 e Cyclone 10 LP, cujo ajuste recusa a opção nos pinos 3.3-V LVTTL) recebe só a primeira |
 
 ## 3. Recusas
 
