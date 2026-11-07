@@ -81,9 +81,11 @@ class ProfileList:
     platform : str
         Platform YAML of the project, relative to its root.
     synth : str
-        Compile script of the project, relative to its root.
+        Compile script of the project, relative to its root; empty when
+        the project is written by ``board generate`` (``board`` is set).
     qsf : str
-        Quartus settings file, relative to its root.
+        Quartus settings file, relative to its root; empty with
+        ``board``.
     seed : int
         Seed of the placement passed to the script.
     bits_per_block : int
@@ -96,6 +98,13 @@ class ProfileList:
         ``profile`` and ``alms`` (a range) known after the fit.
     profiles : tuple of ProfileDef
         The profiles.
+    board : str
+        Board of ``boards/``; when set the harness writes the project
+        with ``board generate`` and compiles it with the single compile
+        script of ``program`` instead of the hand-written script.
+    targets : tuple of str
+        Components whose source closure ``board generate`` lists in the
+        project (``--target``), plus the package of the memory map.
     """
 
     family: str
@@ -109,6 +118,8 @@ class ProfileList:
     fixed: dict[str, float]
     known_fit: dict[str, Any]
     profiles: tuple[ProfileDef, ...]
+    board: str = ""
+    targets: tuple[str, ...] = ()
 
 
 def parse_profile_name(name: str) -> tuple[str, frozenset[str]]:
@@ -230,8 +241,8 @@ def load_profile_list(path: Path) -> ProfileList:
             family=str(data["family"]),
             unit=str(data["unit"]),
             platform=str(project["platform"]),
-            synth=str(project["synth"]),
-            qsf=str(project["qsf"]),
+            synth=str(project.get("synth", "")),
+            qsf=str(project.get("qsf", "")),
             seed=int(project.get("seed", 5)),
             bits_per_block=int(data["bits_per_block"]),
             reference_kbit=int(data.get("reference_kbit", 0)),
@@ -240,7 +251,12 @@ def load_profile_list(path: Path) -> ProfileList:
                 cast("Mapping[str, Any]", data.get("known_fit") or {})
             ),
             profiles=profiles,
+            board=str(project.get("board", "")),
+            targets=tuple(str(item) for item in project.get("targets") or ()),
         )
+        if not plan.board and not (plan.synth and plan.qsf):
+            msg = "the project names neither a board nor synth and qsf"
+            raise KeyError(msg)
     except (KeyError, TypeError) as error:
         msg = f"{path}: incomplete profile list ({error!r})"
         raise ValueError(msg) from error

@@ -49,6 +49,13 @@ def add_fit_commands(sub: Any) -> None:
         help="run: command that starts riscv-tools for the generator",
     )
     p.add_argument("--quartus-sh", default="quartus_sh")
+    p.add_argument(
+        "--stop-after",
+        choices=["map", "fit"],
+        default="map",
+        help="run: last stage; fit also records what the fitter reports "
+        "(the ratio between the fitter and the synthesis)",
+    )
     p.add_argument("--only", help="run: comma list of profile ids")
     p.add_argument(
         "--keep", action="store_true", help="run: keep the work copies"

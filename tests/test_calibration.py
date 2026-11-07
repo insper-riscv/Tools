@@ -273,6 +273,14 @@ def write_fake_tools(tmp_path: Path) -> tuple[list[str], Path]:
         "import sys, yaml, pathlib\n"
         "a = sys.argv\n"
         "root = pathlib.Path(a[a.index('--root') + 1])\n"
+        "if 'generate' in a and 'board' in a:\n"
+        "    out = pathlib.Path(a[a.index('--out') + 1]) / 'demo-board'\n"
+        "    out.mkdir(parents=True)\n"
+        "    (out / 'demo_board.qpf').write_text('qpf')\n"
+        "    (out / 'demo_board.qsf').write_text(\n"
+        "        'set_global_assignment -name VHDL_FILE "
+        "../../demo/pkg.vhd\\n')\n"
+        "    sys.exit(0)\n"
         "plat = root / a[a.index('--platform') + 1]\n"
         "d = yaml.safe_load(plat.read_text())\n"
         "pkg = root / d['generate']['vhdl']['path']\n"
@@ -287,6 +295,12 @@ def write_fake_tools(tmp_path: Path) -> tuple[list[str], Path]:
     quartus.write_text(
         "#!/bin/sh\n"
         "mkdir -p output_files\n"
+        'if [ "$5" = fit ] || [ "$4" = fit ] || [ "$3" = fit ]; then\n'
+        "printf 'Fitter Status : Successful - now\\n"
+        "Logic utilization (in ALMs) : 1,000 / 2,000 ( 50 %% )\\n"
+        "Total registers : 7\\n' > output_files/demo.fit.summary\n"
+        "printf '; Fitter Summary ;\\n' > output_files/demo.fit.rpt\n"
+        "fi\n"
         "printf '; Analysis & Synthesis Resource Usage Summary ;\\n"
         "+---+---+\\n; Resource ; Usage ;\\n+---+---+\\n"
         "; Estimate of Logic utilization (ALMs needed) ; 1234 ;\\n"
@@ -342,6 +356,86 @@ def test_the_harness_measures_and_resumes(tmp_path: Path) -> None:
     check_equal(cal.run_all(plan, settings, ["base"]), {"base": "current"})
     with pytest.raises(ValueError, match="unknown profile id"):
         cal.run_all(plan, settings, ["nope"])
+
+
+def test_a_generated_project_is_compiled_with_the_single_script(
+    tmp_path: Path,
+) -> None:
+    """A board plan builds its project and runs `compile.tcl`."""
+    data = dict(PLAN)
+    data["project"] = {
+        "platform": "demo/platform.yaml",
+        "board": "demo-board",
+        "targets": ["soc", "demo_map"],
+        "seed": 7,
+    }
+    path = tmp_path / "board_plan.yaml"
+    path.write_text(yaml.safe_dump(data), encoding="utf-8")
+    plan = cal.load_profile_list(path)
+    check_equal(plan.board, "demo-board")
+    check_equal(plan.targets, ("soc", "demo_map"))
+    riscv_tools, quartus = write_fake_tools(tmp_path)
+    settings = cal.Settings(
+        project=make_project(tmp_path),
+        work_dir=tmp_path / "work",
+        out_dir=tmp_path / "raw",
+        lock=tmp_path / "q.lock",
+        riscv_tools=tuple(riscv_tools),
+        quartus_sh=str(quartus),
+        stop_after="fit",
+    )
+    check_equal(cal.run_all(plan, settings, ["base"]), {"base": "measured"})
+    record = yaml.safe_load((tmp_path / "raw" / "base.yaml").read_text())
+    check_equal(record["seed"], 7)
+    check_equal(record["result"]["logic"], 1234)
+    check_equal(record["fit_result"]["logic"], 1000)
+    check_in("compile.tcl", " ".join(record["command"]))
+    check_equal(record["command"][-3:], ["demo_board", "7", "fit"])
+    check_equal(cal.run_all(plan, settings, ["base"]), {"base": "current"})
+    settings_map = cal.Settings(
+        project=settings.project,
+        work_dir=settings.work_dir,
+        out_dir=settings.out_dir,
+        lock=settings.lock,
+        riscv_tools=settings.riscv_tools,
+        quartus_sh=settings.quartus_sh,
+    )
+    check_equal(cal.run_all(plan, settings_map, ["base"]), {"base": "current"})
+
+
+def test_a_project_needs_a_board_or_a_script(tmp_path: Path) -> None:
+    """A plan with no board and no script is refused."""
+    data = dict(PLAN)
+    data["project"] = {"platform": "demo/platform.yaml"}
+    path = tmp_path / "bad.yaml"
+    path.write_text(yaml.safe_dump(data), encoding="utf-8")
+    with pytest.raises(ValueError, match="incomplete profile list"):
+        cal.load_profile_list(path)
+
+
+def test_the_ratio_comes_from_the_records_with_a_fit(tmp_path: Path) -> None:
+    """The fit over synthesis ratio is the mean over the fitted ones."""
+    plan = cal.load_profile_list(write_plan(tmp_path))
+
+    def record(name: str, mapped: int, fitted: int | None) -> dict[str, Any]:
+        data: dict[str, Any] = {"id": name, "result": {"logic": mapped}}
+        if fitted is not None:
+            data["fit_result"] = {"logic": fitted}
+        return data
+
+    records = {
+        "base": record("base", 1000, 800),
+        "mul": record("mul", 2000, 1700),
+        "csr": record("csr", 3000, None),
+    }
+    check = cal.fit_ratio_check(plan, records)
+    if check is None:
+        pytest.fail("no ratio from the records with a fit")
+    check_equal(check["ratio_low"], 0.8)
+    check_equal(check["ratio_high"], 0.85)
+    check_equal(check["ratio_mid"], 0.825)
+    check_equal(sorted(check["profiles"]), ["base", "mul"])
+    check_equal(cal.fit_ratio_check(plan, {"csr": records["csr"]}), None)
 
 
 def test_a_failed_synthesis_names_the_profile(tmp_path: Path) -> None:

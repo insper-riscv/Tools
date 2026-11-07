@@ -223,6 +223,42 @@ def known_fit_check(
     return None
 
 
+def fit_ratio_check(
+    plan: ProfileList, records: Mapping[str, Mapping[str, Any]]
+) -> dict[str, Any] | None:
+    """Measure the ratio fitter / synthesis over the records with a fit.
+
+    A run that stops after the fitter records what the fitter reported
+    next to the synthesis estimate. The ratio of the family is the mean
+    of fit over synthesis, and the spread is kept so the table shows how
+    far one profile is from it.
+
+    Returns
+    -------
+    dict or None
+        ``profiles``, the ratio of each one, ``ratio_low``,
+        ``ratio_high`` and ``ratio_mid`` (the mean); None when no record
+        carries a fit.
+    """
+    ratios: dict[str, float] = {}
+    for definition in plan.profiles:
+        record = records.get(definition.id)
+        if record is None or "fit_result" not in record:
+            continue
+        mapped = float(record["result"]["logic"])
+        fitted = float(record["fit_result"]["logic"])
+        ratios[definition.id] = round(fitted / mapped, 4)
+    if not ratios:
+        return None
+    values = list(ratios.values())
+    return {
+        "profiles": ratios,
+        "ratio_low": min(values),
+        "ratio_high": max(values),
+        "ratio_mid": round(sum(values) / len(values), 4),
+    }
+
+
 def fit_table(
     plan: ProfileList, records: Mapping[str, Mapping[str, Any]]
 ) -> dict[str, Any]:
@@ -252,7 +288,7 @@ def fit_table(
         msg = "no measured profile to fit"
         raise ValueError(msg)
     coefficients, dependent = _coefficients(plan, fit_rows)
-    check = known_fit_check(plan, rows)
+    check = fit_ratio_check(plan, records) or known_fit_check(plan, rows)
     table = CalibrationTable(plan.family, plan.unit, coefficients)
     residuals, error = _errors(plan, table, rows)
     error["map_to_fit_ratio"] = check["ratio_mid"] if check else None

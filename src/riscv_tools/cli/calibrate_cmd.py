@@ -29,7 +29,8 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
     args : argparse.Namespace
         Parsed CLI arguments: uses args.action, args.profiles, args.raw,
         args.table, args.work_dir, args.lock, args.riscv_tools,
-        args.quartus_sh, args.only, args.keep and args.root.
+        args.quartus_sh, args.stop_after, args.only, args.keep and
+        args.root.
 
     Returns
     -------
@@ -56,6 +57,7 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
                 riscv_tools=tuple(shlex.split(args.riscv_tools)),
                 quartus_sh=args.quartus_sh,
                 keep=args.keep,
+                stop_after=args.stop_after,
                 log=_log,
             )
             only: list[str] = args.only.split(",") if args.only else []
