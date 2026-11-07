@@ -22,7 +22,7 @@ O topo gerado não tem lógica além do reset. Ele liga, nesta ordem, as portas 
 
 ## 3. O que o topo não liga
 
-Um backend sem entidade (`nor`, `sram`, SDRAM de largura diferente de 16 bits) não gera instância: o topo avisa e deixa a região parada. O SoC não exporta o papel de LEDs, e os pinos de LED ficam no nível apagado. O texto de cada backend fica em `templates/`, com os nomes e as portas reais das entidades do Memory.
+Um backend sem entidade (`nor`, `sram`, SDRAM de largura diferente de 16 bits) não gera instância: o topo avisa e deixa a região parada. O SoC não exporta o papel de LEDs: os pinos de LED ficam no nível apagado, menos o primeiro, que acende com a bandeira de falha que o hospedeiro grava no display (nó Virtual JTAG de índice 2). O texto de cada backend fica em `templates/`, com os nomes e as portas reais das entidades do Memory.
 
 ## 4. Testes
 

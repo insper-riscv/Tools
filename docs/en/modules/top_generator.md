@@ -22,7 +22,7 @@ The generated top has no logic besides the reset. It wires, in this order, the b
 
 ## 3. What the top does not wire
 
-A backend without an entity (`nor`, `sram`, an SDRAM whose width is not 16 bits) generates no instance: the top warns and leaves the region idle. The SoC does not export the LED role, and the LED pins stay at the off level. The text of each backend lives in `templates/`, with the real names and ports of the Memory entities.
+A backend without an entity (`nor`, `sram`, an SDRAM whose width is not 16 bits) generates no instance: the top warns and leaves the region idle. The SoC does not export the LED role: the LED pins stay at the off level, except the first one, which lights with the failure flag the host writes to the display (Virtual JTAG node of index 2). The text of each backend lives in `templates/`, with the real names and ports of the Memory entities.
 
 ## 4. Tests
 

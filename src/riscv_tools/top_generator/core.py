@@ -11,8 +11,10 @@ Ligação dos papéis ao SoC.
 - `switches` e `keys`: pinos de GPIO, portas `inout` ligadas direto a
   `io_switches` e `io_keys`, com a polaridade no generic `*_active_low`.
 - `display`: `o_display_hex` fatiado em uma porta de 7 bits por dígito,
-  na polaridade `display_active_low`.
-- `leds`: o SoC não exporta LEDs, e os pinos ficam no nível apagado.
+  na polaridade `display_active_low`, e nó `virtual_jtag` de índice 2
+  nas portas `i_display_*`, pelo qual o hospedeiro grava o registrador.
+- `leds`: o SoC não exporta LEDs; os pinos ficam no nível apagado, menos
+  o primeiro, que acende com a bandeira de falha do display.
 - console `jtag`: nó `virtual_jtag` de índice 1 nas portas `i_uart_*`.
 - console `pinos`: portas `rx` e `tx` da placa em `i_uart_rx` e
   `o_uart_tx`.
@@ -30,6 +32,9 @@ SOC_ENTITY = "soc"
 # Índice do nó Virtual JTAG da UART; o 0 é o carregador da FLASH e o 3
 # a depuração da SDRAM.
 UART_JTAG_INSTANCE = 1
+# Índice do nó Virtual JTAG do display, pelo qual o hospedeiro lê e
+# escreve o registrador e a bandeira de falha.
+DISPLAY_JTAG_INSTANCE = 2
 _SDRAM_ACTIVE_LOW = ("cas", "ras", "we", "cs")
 # Valores do SoC sem interrupções, que o pacote do mapa não traz.
 _NO_INTERRUPTS = {
@@ -313,9 +318,14 @@ def _declarations(spec: TopSpec) -> list[str]:
     ]
     digits = _role(spec, "display")
     if digits:
-        lines.append(
-            f"\tsignal display_hex : {_vtype(7 * len(digits), True)};"
-        )
+        lines += [
+            f"\tsignal display_hex : {_vtype(7 * len(digits), True)};",
+            "\tsignal display_tck, display_tdi, display_tdo : std_logic;",
+            "\tsignal display_ir_in : std_logic_vector(1 downto 0);",
+            "\tsignal display_cdr, display_sdr, display_udr, display_uir"
+            " : std_logic;",
+            "\tsignal display_fail : std_logic;",
+        ]
     if _role(spec, "uart") == [] and _console(spec) == "jtag":
         lines += [
             "\tsignal uart_tck, uart_tdi, uart_tdo : std_logic;",
@@ -641,7 +651,18 @@ def _role_ports(spec: TopSpec) -> list[str]:
         for port in _role(spec, "switches") + _role(spec, "keys")
     ]
     if _role(spec, "display"):
-        maps.append("o_display_hex => display_hex")
+        maps += [
+            "o_display_hex => display_hex",
+            "i_display_tck => display_tck",
+            "i_display_tdi => display_tdi",
+            "o_display_tdo => display_tdo",
+            "i_display_ir_in => display_ir_in",
+            "i_display_state_cdr => display_cdr",
+            "i_display_state_sdr => display_sdr",
+            "i_display_state_udr => display_udr",
+            "i_display_state_uir => display_uir",
+            "o_display_fail => display_fail",
+        ]
     if _console(spec) == "jtag":
         maps += [
             "i_uart_tck => uart_tck",
@@ -703,9 +724,26 @@ def _io_wiring(spec: TopSpec) -> list[str]:
         lines.append(
             f"\t{port.name} <= display_hex({7 * i + 6} downto {7 * i});"
         )
+    has_display = bool(_role(spec, "display"))
     for port in _role(spec, "leds"):
         off = "'1'" if port.active == "low" else "'0'"
-        lines.append(f"\t{port.name} <= (others => {off});")
+        fail = "not display_fail" if port.active == "low" else "display_fail"
+        if has_display:
+            lines.append(f"\t{port.name} <= (0 => {fail}, others => {off});")
+        else:
+            lines.append(f"\t{port.name} <= (others => {off});")
+    if has_display:
+        lines += [
+            "",
+            "\t-- Display pela JTAG: nó Virtual JTAG do registrador.",
+            "\tdisplay_vjtag : entity work.virtual_jtag",
+            f"\t\tgeneric map (instance_index => {DISPLAY_JTAG_INSTANCE}, "
+            'auto_instance_index => "NO", ir_width => 2)',
+            "\t\tport map (o_tck => display_tck, o_tdi => display_tdi, "
+            "i_tdo => display_tdo, o_ir_in => display_ir_in,",
+            "\t\t\to_state_cdr => display_cdr, o_state_sdr => display_sdr, "
+            "o_state_udr => display_udr, o_state_uir => display_uir);",
+        ]
     if _console(spec) == "jtag":
         lines += [
             "",
