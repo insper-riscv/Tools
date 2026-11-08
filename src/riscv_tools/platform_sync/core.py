@@ -20,7 +20,7 @@ from typing import Any, cast
 
 import yaml
 
-from riscv_tools.settings import read_config
+from riscv_tools.config_files import read_config
 
 PATH_KEYS: tuple[tuple[str, ...], ...] = (
     ("toolchain", "specs"),

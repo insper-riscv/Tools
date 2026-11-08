@@ -8,6 +8,8 @@ from support import check_equal
 
 MODULES = [
     "riscv_tools.settings",
+    "riscv_tools.config_files",
+    "riscv_tools.board_generate",
     "riscv_tools.cli",
     "riscv_tools.board_schema",
     "riscv_tools.board_schema.pins",

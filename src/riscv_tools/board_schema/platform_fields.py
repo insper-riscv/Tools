@@ -13,7 +13,7 @@ from typing import Any
 
 from riscv_tools.board_schema.board import IO_ROLES
 from riscv_tools.board_schema.fields import Section, raise_if
-from riscv_tools.settings import read_config
+from riscv_tools.config_files import read_config
 
 BACKENDS = ("emulado", "dispositivo")
 DEVICES = {

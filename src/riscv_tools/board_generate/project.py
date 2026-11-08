@@ -12,7 +12,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, cast
 
-from riscv_tools import memory_map
+from riscv_tools import board_check, memory_map
 from riscv_tools.board_generate.core import (
     Generated,
     GenerateRequest,
@@ -21,6 +21,8 @@ from riscv_tools.board_generate.core import (
     write_project,
 )
 from riscv_tools.board_inputs import InputError, resolve_board_name
+from riscv_tools.board_schema import Catalog
+from riscv_tools.board_schema.platform_fields import read_platform_file
 from riscv_tools.sources import ordered_sources
 
 
@@ -82,8 +84,8 @@ class ProjectResult:
 
     generated: Generated
     folder: Path
-    problems: list[str] = field(default_factory=lambda: [])
-    map_files: list[Path] = field(default_factory=lambda: [])
+    problems: list[str] = field(default_factory=list[str])
+    map_files: list[Path] = field(default_factory=list[Path])
 
 
 def sources_of(
@@ -194,12 +196,6 @@ def _with_capacity(
     InputError
         Se o perfil passa da capacidade da placa.
     """
-    from riscv_tools import board_check  # noqa: PLC0415
-    from riscv_tools.board_schema import Catalog  # noqa: PLC0415
-    from riscv_tools.board_schema.platform_fields import (  # noqa: PLC0415
-        read_platform_file,
-    )
-
     data = read_platform_file(platform)
     catalog = Catalog(
         request.root / (request.boards_dir or "boards"),

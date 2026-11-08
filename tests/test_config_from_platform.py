@@ -12,8 +12,8 @@ from support import (
     check_not_in,
 )
 
+from riscv_tools.config_files import read_config
 from riscv_tools.memory_map import config_from_platform, set_override
-from riscv_tools.settings import read_config
 
 PLATFORM = {
     "regions": MAP_REGIONS,
