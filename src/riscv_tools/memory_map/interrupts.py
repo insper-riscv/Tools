@@ -50,8 +50,8 @@ from typing import Any
 from riscv_tools.memory_map import sdram_clock
 from riscv_tools.memory_map.core import (
     Mismatch,
+    peripheral_list,
     platform_dict,
-    platform_list,
 )
 from riscv_tools.memory_map.expressions import evaluate
 
@@ -203,7 +203,7 @@ def problems(
     if found:
         return found
     found = _clock_problems(platform, section, has_core_clock)
-    names = {str(p["name"]) for p in platform_list(platform, "peripherals")}
+    names = {str(p["name"]) for p in peripheral_list(platform)}
     if CLINT not in names:
         found.append(
             Mismatch("interrupts", "", f"the peripherals have no {CLINT}")
@@ -330,9 +330,7 @@ def _plic_peripheral(platform: dict[str, Any]) -> dict[str, Any]:
     dict of {str: Any}
         The entry named `PLIC`.
     """
-    return next(
-        p for p in platform_list(platform, "peripherals") if p["name"] == PLIC
-    )
+    return next(p for p in peripheral_list(platform) if p["name"] == PLIC)
 
 
 def _plic_dict(platform: dict[str, Any]) -> dict[str, Any]:

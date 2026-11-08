@@ -97,7 +97,7 @@ uv run riscv-tools --config /path/to/project/config.yaml sim
 uv run riscv-tools --config /path/to/project/config.yaml sim --only test-a,test-b
 ```
 
-Veja `riscv-tools --help` para a lista completa de subcomandos (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `check-paths`, `check-boards`, `check-tree`, `sources`, `check-vhdl-style`, `platform`, `flash-image`, `timing-paths`, `board generate`, `calibrate` e `check-fit`).
+Veja `riscv-tools --help` para a lista completa de subcomandos (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `generate-config-pkg`, `check-paths`, `check-boards`, `check-tree`, `sources`, `check-vhdl-style`, `platform`, `flash-image`, `timing-paths`, `board generate`, `calibrate` e `check-fit`).
 
 ```bash
 # vhdl-sort não precisa de --config; é só análise do conteúdo dos arquivos,

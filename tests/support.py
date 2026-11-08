@@ -36,6 +36,29 @@ MAP_RESERVED: dict[str, Any] = {
     "fromhost": {"base": "0x2FFF0", "size": "8"},
 }
 
+
+def profile_matrix(*bases: str) -> dict[str, Any]:
+    """Build a profile specification with the given base names.
+
+    The extensions are Zicsr, Zicntr (which implies Zicsr) and M, and
+    a base whose name ends in `e` sets `has_e`.
+    """
+    extensions: list[dict[str, Any]] = [
+        {"name": "Zicclsm", "generic": "has_zicclsm"},
+        {"name": "Zicsr", "generic": "has_zicsr"},
+        {"name": "Zicntr", "generic": "has_zicntr", "implies": ["has_zicsr"]},
+        {"name": "M", "generic": "has_m", "base_letter": "m"},
+    ]
+    return {
+        "bases": [
+            {"name": name, "generics": {"has_e": name.endswith("e")}}
+            for name in bases
+        ],
+        "extensions": extensions,
+        "mutually_exclusive": [["Zicsr", "Zicntr"]],
+    }
+
+
 C_ADD_SOURCE = (
     '#include "rv32_test.h"\n'
     "int main(void) {\n"

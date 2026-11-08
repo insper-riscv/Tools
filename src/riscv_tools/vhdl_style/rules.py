@@ -17,7 +17,6 @@ from riscv_tools.vhdl_style.declarations import (
 )
 from riscv_tools.vhdl_style.lexer import LineIndex, strip_code
 
-HEADER_WIDTH = 72
 ALLOWED_IEEE = frozenset({"std_logic_1164", "numeric_std"})
 _PORT_PREFIX = {
     "in": "i_",
@@ -117,7 +116,10 @@ def _closes_header(lines: list[str]) -> bool:
 
 
 def rule_header(source: Source) -> list[Violation]:
-    """Require the header block of 72 columns at the top of the file.
+    """Require the header block at the top of the file.
+
+    The block is a line of `=`, the description and a closing line of
+    `=`, of any width.
 
     Parameters
     ----------
@@ -130,18 +132,14 @@ def rule_header(source: Source) -> list[Violation]:
         One violation when the header is missing or incomplete.
     """
     lines = source.lines
-    opens = (
-        bool(lines)
-        and bool(_HEADER_BAR.match(lines[0]))
-        and len(lines[0].rstrip()) >= HEADER_WIDTH
-    )
+    opens = bool(lines) and bool(_HEADER_BAR.match(lines[0]))
     if opens and _closes_header(lines[1:]):
         return []
     return [
         (
             1,
-            "the file must open with a header: a line of `=` of at least "
-            f"{HEADER_WIDTH} columns, the description and a closing line",
+            "the file must open with a header: a line of `=`, the "
+            "description and a closing line",
         )
     ]
 

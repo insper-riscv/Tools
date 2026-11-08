@@ -6,15 +6,18 @@ from typing import Any, cast
 
 import yaml
 
-from riscv_tools.memory_map import banks, interrupts, sdram_clock
+from riscv_tools.memory_map.config_coherence import coherence_problems
 from riscv_tools.memory_map.core import (
     Mismatch,
+    address_bits,
     load_platform,
     platform_list,
 )
 from riscv_tools.memory_map.expressions import evaluate
+from riscv_tools.memory_map.problems import platform_problems
+from riscv_tools.memory_map.profile import resolve, xlen_of
 from riscv_tools.memory_map.symbol_table import symbol_table
-from riscv_tools.memory_map.validation import hex_text, validate_platform
+from riscv_tools.memory_map.validation import hex_text
 
 
 def _read_values(check: dict[str, Any], path: Path) -> list[str]:
@@ -129,10 +132,41 @@ def _compare(
     )
 
 
+def _narrow_generics(
+    platform: dict[str, Any], platform_path: Path
+) -> dict[str, bool | int] | None:
+    """Resolve the profile when `address_bits` is below `xlen`.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+    platform_path : Path
+        The platform YAML, which locates the profile specification.
+
+    Returns
+    -------
+    dict of {str: bool or int} or None
+        The generics of the profile, which V-A5 needs, when the width
+        of the address is below `xlen`; None otherwise (and when the
+        width or the profile name is invalid, which the checks
+        report).
+    """
+    try:
+        narrow = address_bits(platform) < xlen_of(platform)
+    except ValueError:
+        return None
+    return resolve(platform, platform_path)[1] if narrow else None
+
+
 def check_memory_map(
     platform_path: Path, root: Path
 ) -> tuple[int, list[Mismatch]]:
     """Validate a platform's map and check every copy against it.
+
+    When the platform writes both the package of the map and the
+    `config_pkg` (`generate.vhdl` and `generate.config_pkg`), the two
+    files must agree on the constants they both carry.
 
     Parameters
     ----------
@@ -148,16 +182,13 @@ def check_memory_map(
         agree).
     """
     platform = load_platform(platform_path)
-    problems = (
-        validate_platform(platform)
-        + banks.problems(platform)
-        + interrupts.problems(platform)
-        + sdram_clock.problems(platform)
-    )
+    generics = _narrow_generics(platform, platform_path)
+    problems = platform_problems(platform, generics)
     if problems:
         return 0, problems
     table = symbol_table(platform)
     checks = platform_list(platform, "checks")
     for check in checks:
         problems += _run_check(check, root, table)
+    problems += coherence_problems(platform, root)
     return len(checks), problems

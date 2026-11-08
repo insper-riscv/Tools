@@ -37,6 +37,8 @@ from typing import Any, cast
 
 from riscv_tools.memory_map.core import (
     Mismatch,
+    address_bits,
+    peripheral_list,
     platform_dict,
     platform_list,
 )
@@ -513,12 +515,15 @@ def cache_window_bits(platform: dict[str, Any]) -> int:
     int
         The width in bits of the window of the tag of the caches
         (`MIN_WINDOW_BITS` when no region needs more, and also when the
-        regions fit no window, which `problems` rejects under a cache).
+        regions fit no window, which `problems` rejects under a cache),
+        never above `address_bits`: a platform whose address space is
+        narrower than the window has the whole space as its window.
     """
     found = window_bits(
         _region_span(platform, "rom"), _region_span(platform, "ram")
     )
-    return MIN_WINDOW_BITS if found is None else found
+    bits = MIN_WINDOW_BITS if found is None else found
+    return min(bits, address_bits(platform))
 
 
 def _window_problems(
@@ -758,7 +763,7 @@ def notes(platform: dict[str, Any]) -> list[str]:
         )
         if over
     ]
-    if platform_list(platform, "peripherals"):
+    if peripheral_list(platform):
         out.append(
             "peripherals need the external bus path to the "
             "interconnect in every combination"
@@ -829,6 +834,34 @@ def parameters(platform: dict[str, Any]) -> dict[str, str | bool]:
         "ICACHE_SIZE_BITS": str(memory.icache_size_bits),
         "DCACHE_SIZE_BITS": str(memory.dcache_size_bits),
     }
+
+
+def externals(
+    spec: dict[str, Any], memory: Memory | None
+) -> tuple[bool | None, bool | None]:
+    """Find whether the ROM and the RAM are external.
+
+    Parameters
+    ----------
+    spec : dict of {str: Any}
+        The `generate.vhdl` section, which may fix `rom_external` and
+        `ram_external` when the platform has no `memory`.
+    memory : Memory or None
+        The memory choice, which takes over when there is one.
+
+    Returns
+    -------
+    tuple of (bool or None, bool or None)
+        The ROM and the RAM; None where nothing fixes the choice.
+    """
+    if memory is not None:
+        return memory.rom_external, memory.ram_external
+    rom = spec.get("rom_external")
+    ram = spec.get("ram_external")
+    return (
+        None if rom is None else bool(rom),
+        None if ram is None else bool(ram),
+    )
 
 
 def vhdl_lines(memory: Memory, window: int = MIN_WINDOW_BITS) -> str:

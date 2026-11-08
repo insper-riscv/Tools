@@ -5,9 +5,17 @@ in the order the manifest lists them, then its own files in their listed
 order, and no file appears twice. The manifests searched are the one of
 the root itself and the ones of the repositories mounted below it (the
 submodules of `.gitmodules`, and `src/common`).
+
+A unit that a platform generates in place of a default one has the same
+file name in both: the `config_pkg.vhd` of the Common-Components (the
+default package of constants) and the one the platform generates. The
+list keeps one file for each such name, the generated one, in the place
+where the default would have been analyzed, so every unit that uses the
+package still comes after it.
 """
 
 import os
+import posixpath
 from pathlib import Path
 
 from riscv_tools.repo_walk import submodule_paths
@@ -16,6 +24,11 @@ from riscv_tools.tree_check.manifest import (
     Provides,
     load_provides,
 )
+
+# Os arquivos que a plataforma gera no lugar do padrão do repositório de
+# componentes comuns, e o repositório que traz o padrão.
+SWAPPABLE = frozenset({"config_pkg.vhd"})
+DEFAULT_REPOSITORY = "Common-Components"
 
 
 class SourcesError(ValueError):
@@ -150,6 +163,35 @@ class _Walk:
         self.needs: set[str] = set()
         self.done: set[tuple[str, str]] = set()
         self.active: list[tuple[str, str]] = []
+        self.slots: dict[str, tuple[int, str]] = {}
+
+    def _add(self, path: str, repository: str) -> None:
+        """Add a file, unless it is listed already.
+
+        A file of `SWAPPABLE` shares one slot with the others of its
+        name: a file of another repository than the default one takes
+        the slot of the default, and the default never takes the slot of
+        another.
+
+        Parameters
+        ----------
+        path : str
+            The path relative to the workspace root, in POSIX form.
+        repository : str
+            The repository of the component that lists the file.
+        """
+        name = posixpath.basename(path)
+        if name not in SWAPPABLE:
+            if path not in self.result:
+                self.result.append(path)
+            return
+        if name not in self.slots:
+            self.slots[name] = (len(self.result), repository)
+            self.result.append(path)
+        elif repository != DEFAULT_REPOSITORY:
+            index = self.slots[name][0]
+            self.result[index] = path
+            self.slots[name] = (index, repository)
 
     def visit(self, repository: str, component: str) -> None:
         """Add a component after its dependencies.
@@ -180,8 +222,7 @@ class _Walk:
         self.needs.update(item.needs)
         for path in item.sources:
             relative = Path(os.path.relpath(folder / path, self.root))
-            if relative.as_posix() not in self.result:
-                self.result.append(relative.as_posix())
+            self._add(relative.as_posix(), repository)
 
 
 def _walked(root: Path, targets: list[str]) -> _Walk:

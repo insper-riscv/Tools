@@ -1,0 +1,27 @@
+# The bases (RV32I with 32 registers, RV32E with 16) and the extensions of the core and the rules
+# between them; `riscv-tools profiles` expands this file
+# into every valid profile. Each extension names the generic of `core` that turns it on, and the
+# order is the order of the tokens in the name of a profile.
+#
+# Zicntr and Zihpm imply Zicsr (the counters are CSRs), as M implies Zmmul, so the name of a
+# profile with either never cites Zicsr and each is mutually exclusive with it. The two can come
+# together, in the name as `zicntr_zihpm`. Every combination is valid: a core
+# with neither Zicsr nor Zicclsm signals a misaligned access, an ecall, an ebreak and an illegal
+# instruction on its trap output instead of running or handling it.
+bases:
+  - {name: rv32i, generics: {has_e: false}}
+  - {name: rv32e, generics: {has_e: true}}
+extensions:
+  - {name: Zicclsm,  generic: has_zicclsm}
+  - {name: Zicsr,    generic: has_zicsr}
+  - {name: Zicntr,   generic: has_zicntr, implies: [has_zicsr]}
+  - {name: Zihpm,    generic: has_zihpm,  implies: [has_zicsr]}
+  - {name: Zifencei, generic: has_zifencei}
+  - {name: Zimop,    generic: has_zimop}
+  - {name: Zicond,   generic: has_zicond}
+  - {name: Zmmul,    generic: has_zmmul}
+  - {name: M,        generic: has_m, base_letter: m}
+mutually_exclusive:
+  - [M, Zmmul]
+  - [Zicsr, Zicntr]
+  - [Zicsr, Zihpm]

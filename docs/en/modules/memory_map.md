@@ -15,7 +15,7 @@ reserved:                     # words at the top of RAM (inside a ram region)
   stdout:  {base: 0x2FBE0, size: 1K+8}
   tohost:  {base: 0x2FFF0, size: 16}
 boot: {entry: 0x800, wait_restart: 0x100}
-peripherals:                  # base = 0x80000000 | id << 28
+peripherals:                  # base = window | id << (address_bits - 4)
   - {name: GPIO, base: 0xA0000000, id: 2}
 checks:                       # where each copy lives
   - name: config ram base
@@ -31,7 +31,7 @@ checks:                       # where each copy lives
 - **Symbols** in `expect`: `<REGION>.base|size|end|words`, `<reserved>.base|size|end`, `boot.entry|wait_restart`, `<PERIPHERAL>.base|id`.
 - **Numbers** accept hexadecimal, decimal, VHDL-based (`16#800#`), suffixes (`30K`, `0x800u`) and `+ - * /` (exact division), plus `log2()` (exact) and `clog2()` (rounded up, for address widths).
 - A check whose pattern matches nothing **fails** ("the copy moved"); `optional: true` skips a file that is absent. A pattern with several matches must agree at every match.
-- Before the copies are read the map itself is validated: regions and reserved words do not overlap, reserved words sit inside a RAM region, `boot.entry` is in an executable region, `boot.wait_restart` is in the first region, each peripheral base matches its id, and every region ends at or below `0x80000000` (the lower 2 GiB belong to the BOOT_MEMORY, the ROM and the RAM, the upper 2 GiB to the peripherals).
+- Before the copies are read the map itself is validated: regions and reserved words do not overlap, reserved words sit inside a RAM region, `boot.entry` is in an executable region, `boot.wait_restart` is in the first region, each peripheral base matches its id, and every region ends at or below the peripheral window (the lower half of the space belongs to the BOOT_MEMORY, the ROM and the RAM, the upper half to the peripherals; `0x80000000` with 32 bits, see section 9).
 
 ## 2. Generating the files of the map
 
@@ -42,6 +42,7 @@ The same YAML can say, in the `generate` section, which files come out of it, so
 | `specs` | GCC specs file | The linker flags: `__flash`, `__flash_size`, `__ram`, `__ram_size` and `rv32_wait_restart`. The RAM of the linker ends where the reserved word `ram_limit` begins |
 | `boot_ld` | Boot memory linker script | The `boot_memory` memory in the first region and the `RESET_RESERVED` from `boot.wait_restart` |
 | `runtime` | Runtime header (`.h`, also included by `.S`) | `RV32_RAM_END` (end of the `ram` region), `RV32_TOHOST_ADDR`, `RV32_FROMHOST_ADDR` and `RV32_STDOUT_BASE`, from the `reserved` ranges the map has, `RV32_BOOT_ENTRY` (where the boot memory jumps) and `RV32_<NAME>_BASE` for each peripheral; the runtime in C and assembly (`_exit.c`, `stdio.c`, `boot_memory.S`, `spike_exit.S`) uses these names instead of hand-written addresses |
+| `config_pkg` | VHDL package of the constants of the platform | The `config_pkg` of section 10, next to the map package |
 | `vhdl` | VHDL package | The constants `BOOT_MEMORY_BITS`, `BOOT_MEMORY_SIZE_BYTES`, `ROM_BASE_KIB`, `ROM_END_KIB`, `ROM_STORAGE_BYTES`, `RAM_BASE_KIB`, `RAM_END_KIB`, `RAM_STORAGE_BYTES`, `RAM_LAST_PAGE`, `EXT_BASE_KIB` and `PERIPH_BASE_KIB`, the `ROM_EXTERNAL` and `RAM_EXTERNAL` flags (from `generate.vhdl` or from the `memory` section), the cache constants of the `memory` section and, for each peripheral, `<NAME>_BASE` and `<NAME>_ID` |
 
 ```yaml
@@ -94,7 +95,7 @@ The map refuses banks that are not aligned to the 4 KiB sector, that leave no ro
 
 ## 4. The profile of the platform
 
-The platform picks its profile in `profile:` (`rv32im`, `rv32em_zicsr`, ...) and says where the specification of the profiles is in `profiles:`, a path relative to the `platform.yaml` (the `profiles/matrix.yaml` of the Core). The name starts with `rv32i` (32 registers) or `rv32e` (16) and must be one of the profiles of the specification. It gives:
+The platform picks its profile in `profile:` (`rv32im`, `rv32em_zicsr`, ...) and says where the specification of the profiles is in `profiles:`, a path relative to the `platform.yaml` (the `profiles/matrix.yaml` of the Core). The name starts with `rv32i` (32 registers), `rv32e` (16), `rv64i` or `rv64e` and must be one of the profiles of the specification. It gives:
 
 | Output | Content |
 | :--- | :--- |
@@ -257,7 +258,153 @@ config:
 
 `platform sync` writes the values already replaced, so Tests and Certification do not need the `platform.yaml`.
 
-## 9. Tests
+## 9. The width of the physical address
+
+### 9.1. The `address_bits` field
+
+The top-level field `address_bits` of the `platform.yaml` is an integer from 16 to 64 with the width of the physical address. When absent it is 32, and no platform written for 32 bits needs to change. An `rv64...` profile turns on the `IS_64` of the `config_pkg`, and above 32 bits only an `rv64` profile is valid.
+
+```yaml
+address_bits: 24      # optional, 32 by default
+profile: rv32im
+peripherals:          # base = 2**(address_bits - 1) | id << (address_bits - 4)
+  - {name: UART, base: 0xC00000, id: 4}
+```
+
+### 9.2. The peripheral window
+
+The peripheral window is the upper half of the address space, and the id of the peripheral takes the three bits below the window bit.
+
+$$ \text{window} = 2^{\text{address\_bits} - 1}, \quad \text{base} = \text{window} \mid (\text{id} \ll (\text{address\_bits} - 4)) $$
+
+With 32 bits the values are `0x80000000` and `id << 28`, the same as before. The top-level field `periph_window` fixes another base for the window, and the `ext_base` and `periph_base` of `generate.vhdl` still apply only to the package of the map, with the window of the platform as default. `CACHE_WINDOW_BITS` is capped at `address_bits`.
+
+### 9.3. Validations
+
+Each validation is a `platform` problem before generating and in `check-memory-map`, with the name of the field and the cause in the message.
+
+| Rule | Rejection condition |
+| :--- | :--- |
+| V-A1 | `address_bits` is not an integer or is outside 16 to 64 |
+| V-A2 | `address_bits` above 32 with a profile that is not `rv64` |
+| V-A3 | A region (`base + size`) goes past $2^{\text{address\_bits}}$ bytes |
+| V-A4 | A region goes past the peripheral window, the base of a peripheral is not the window with `id << (address_bits - 4)`, or that shift falls outside the space |
+| V-A5 | `address_bits` below `xlen` without `has_access_faults` in the profile (an access above the window must raise an access fault) |
+| V-A6 | `boot.entry` or `boot.wait_restart` outside $2^{\text{address\_bits}}$ |
+
+V-A5 is only checked when the profile is resolved, which `generate-memory-map` and `check-memory-map` always do when `address_bits` is below `xlen`.
+
+### 9.4. Peripherals by offset, id and padding
+
+Each entry of `peripherals` gives its address by `base` (absolute) or by `offset` (in bytes, from the base of the peripheral window), one of the two and never both. The `id` is optional, and `padding` reserves bytes right after the `size`, inside the slot. With `offset` the same YAML holds for any `address_bits`.
+
+```yaml
+address_bits: 32
+peripherals:
+  - {name: UART,  offset: 0x40000000}                           # id 4, derived
+  - {name: PLIC,  offset: 0x70000000, size: 4M, padding: 4M}    # slot 7, 4 MiB of padding
+  - {name: CLINT, base: 0xE0000000, id: 6}                      # absolute form, as before
+```
+
+| Field | Meaning |
+| :--- | :--- |
+| `offset` | Offset of the entry in the peripheral window. The address is the window plus the `offset` |
+| `base` | Absolute address, which must be in the window or above it. The Tools converts it to `offset` |
+| `id` | Index of the slot, from 0 to 7. When absent it is $\lfloor \text{offset} / 2^{\text{address\_bits} - 4} \rfloor$. When present it must be the slot of the `offset` |
+| `size` | Bytes the peripheral decodes |
+| `padding` | Bytes reserved after the `size`. When absent it is the rest of the slot of $2^{\text{address\_bits} - 4}$ bytes |
+
+| Rule | Rejection condition |
+| :--- | :--- |
+| V-P1 | The entry does not have exactly one of `base` and `offset`, or the `base` is below the window |
+| V-P2 | The given `id` is not the slot of the `offset` |
+| V-P3 | The `size` plus the `padding` go past the end of the slot |
+| V-P4 | Two peripherals take the same bytes (`size` plus `padding`) |
+
+The granularity of the peripheral map is the slot: the decoder of the core accepts an address of the window when the bit of the slot is set in `PERIPH_SLOTS`, and the peripheral decodes only the low bits. The padding is recorded as a reserved area with no decoding of its own, so an access to it is handled like any address of an occupied slot, and only a slot with no peripheral raises an access fault.
+
+The symbols of the `checks` gain `<NAME>.offset`. An entry that uses `offset` or `padding` gets the constants `<NAME>_OFFSET`, `<NAME>_SIZE` (zero without `size`) and `<NAME>_PAD` in the map package, in 32 bits like `<NAME>_BASE`, and a value that does not fit 32 bits is refused. Entries with only `base` and `id` get nothing, and the `config_pkg` does not carry them, which keeps the text of the default package of the Common-Components.
+
+## 10. The `config_pkg`
+
+### 10.1. Contents
+
+The `config_pkg` is the VHDL package of constants of a platform, written from the `platform.yaml`. It has the contract of the default package of the Common-Components (`src/config_pkg.vhd`), with the same unit name, constants, types and functions, and only the values change, so the generated version takes its place in the list of sources. With the default values (RV32IM, 32 address bits, no peripherals) the text is identical to the one of the Common-Components, except for the generation header. It is a package of constants, not a generic one, because the Quartus Lite refuses a generic package.
+
+| Group | Constants |
+| :--- | :--- |
+| Base and widths | `IS_64`, `IS_BASE_E`, `ADDR_BITS`, `XLEN`, `REG_BITS`, `NUM_REGS` and the subtypes `word_t`, `reg_t`, `addr_t` and `map_addr_t` |
+| Extensions and caches | One `HAS_<EXTENSION>` per key of the profile (`HAS_M` to `HAS_ACCESS_FAULTS`), `HAS_ICACHE` and `HAS_DCACHE` |
+| Memory | `BOOT_MEMORY_BITS`, the map in bytes of type `map_addr_t` (`ROM_BASE`, `ROM_END`, `RAM_BASE`, `RAM_END`, `EXT_BASE`, `PERIPH_BASE`), `ROM_EXTERNAL`, `RAM_EXTERNAL` and `CACHE_WINDOW_BITS` |
+| Peripherals | One `HAS_<PERIPHERAL>` for `UART`, `UART_PINS`, `UART_JTAG`, `TIMER`, `GPIO`, `DISPLAY`, `SWITCHES`, `KEYS`, `CLINT`, `PLIC` and `FLASH_CTRL` |
+| Composed | `HAS_MULDIV` (`HAS_M or HAS_ZMMUL`), `HAS_ANY_COUNTER` (`HAS_ZICNTR or HAS_ZIHPM`) and `HAS_SSCOF` (`HAS_SSCOFPMF and HAS_ZIHPM and HAS_INTERRUPTS`) |
+| Functions | `isa_string`, the ISA text (`rv32im_zicsr_zicntr`), and `check_isa`, which fails at elaboration when a dependency between constants does not hold |
+
+`map_addr_t` is `unsigned(ADDR_BITS downto 0)`, with one extra bit to represent the exclusive end $2^{\text{ADDR\_BITS}}$. Each address comes out as a hexadecimal literal with the digits that `ADDR_BITS` asks for (eight with 32 bits), so the width holds below and above 32 bits too. `HAS_<PERIPHERAL>` is true when the name is in `peripherals`, and the `UART` counts as `HAS_UART_JTAG` when `console` is `jtag` and as `HAS_UART_PINS` when `console` is `pins`. `ROM_EXTERNAL` and `RAM_EXTERNAL` say that the memory is reached through the port of the core (outside the chip or behind a cache), and have the values of `ROM_VIA_PORT` and `RAM_VIA_PORT` of the map package. The `HAS_E` of the map package is the `IS_BASE_E` here.
+
+`check_isa` checks that the counters, the interrupts and the access faults have `Zicsr`, that `Sscofpmf` has `Zihpm` and interrupts, that `ADDR_BITS` is from 16 to 64 and above 32 only with `IS_64`, and the order of the BOOT_MEMORY, the ROM, the RAM, the external window and the peripheral window inside $2^{\text{ADDR\_BITS}}$. The entities call it once, in an `if check_isa generate`.
+
+### 10.2. Generating it with the map
+
+The key `generate.config_pkg` asks for the file, and `generate-memory-map` writes it (and `--check` compares it) with the others.
+
+```yaml
+generate:
+  vhdl: {path: rtl/map_pkg.vhd, package: map_pkg, rom: FLASH, ram: RAM}
+  config_pkg: {path: rtl/config_pkg.vhd}
+```
+
+A platform without the key does not generate the package, and its files do not change.
+
+### 10.3. Split with the map package
+
+At this stage the `config_pkg` comes next to the map package, which loses no constant. The constants both carry must agree.
+
+| Constant of the `*_map_pkg` | Constant of the `config_pkg` |
+| :--- | :--- |
+| `HAS_E` | `IS_BASE_E` |
+| `HAS_<EXTENSION>`, `HAS_ICACHE`, `HAS_DCACHE`, `BOOT_MEMORY_BITS`, `CACHE_WINDOW_BITS` | The same |
+| `ROM_VIA_PORT`, `RAM_VIA_PORT` | `ROM_EXTERNAL`, `RAM_EXTERNAL` |
+| `ROM_BASE_KIB`, `ROM_END_KIB`, `RAM_BASE_KIB`, `RAM_END_KIB`, `EXT_BASE_KIB`, `PERIPH_BASE_KIB` | `ROM_BASE`, `ROM_END`, `RAM_BASE`, `RAM_END`, `EXT_BASE`, `PERIPH_BASE`, in bytes |
+
+Only the map package has `BOOT_MEMORY_SIZE_BYTES`, the `*_STORAGE_BYTES`, `RAM_LAST_PAGE`, the cache sizes, `ROM_VIA_PORT`, `RAM_VIA_PORT`, the `<NAME>_BASE` and `<NAME>_ID` of each peripheral and the constants of the CLINT, the PLIC and the SDRAM clock. Only the `config_pkg` has the base and the widths, the types, the composed constants, `HAS_<PERIPHERAL>` and the functions, and the map package also has `PERIPH_SLOTS`. A map package does not write a KiB value that does not fit a `natural`, nor the last page of the RAM above 32 bits.
+
+When the platform asks for both files, `check-memory-map` reads both from disk and fails with `config-pkg` for a missing file or for a constant with different values in the two.
+
+### 10.4. Variants for the formal proof
+
+`generate-config-pkg` writes the package of a platform or of a variant of it, with no need for `--config`.
+
+```bash
+uv run riscv-tools --root <project> generate-config-pkg --platform src/platform/platform.yaml
+uv run riscv-tools --root <project> generate-config-pkg --platform src/platform/platform.yaml \
+    --set IS_64=true --set ADDR_BITS=40 --output formal/config_rv64.vhd
+```
+
+| Option | Effect |
+| :--- | :--- |
+| `--platform` | The `platform.yaml` the package comes from |
+| `--set NAME=VALUE` | Replaces `IS_64`, `IS_BASE_E` or a `HAS_*` (`true` or `false`) or `ADDR_BITS` (integer). Repeatable |
+| `--output` | File to write. Without it the package goes to the standard output |
+
+The variant is validated as a platform of its own, with V-A1 to V-A6 for its `ADDR_BITS` and `IS_64`, and the peripherals move to the window of the new width. A name that is not a constant of the package is an error. The header of the file lists the variant.
+
+### 10.5. List of sources
+
+`sources` keeps a single `config_pkg.vhd` in the list. When the file of the Common-Components and the one generated by the platform both appear, the generated one stays, at the position of the default, so every unit that uses it comes after it (see [sources](sources.md)).
+
+### 10.6. Platforms that must declare more
+
+Some platforms need one more declaration so that the generated `config_pkg` reflects their choice.
+
+| Case | What to declare |
+| :--- | :--- |
+| Interrupts without `Zicsr` in the default profile (`check_isa` fails at elaboration) | Generate the variant with `--set HAS_ZICSR=true`, or turn `Zicsr` on in the profile |
+| A `UART` whose connection (pins or JTAG) matters | `console: pins` or `console: jtag`, or the peripheral names `UART_PINS` and `UART_JTAG`. Without that only `HAS_UART` holds |
+| `PERIPH_SLOTS` | Stays only in the map package, which writes it from `peripherals` |
+| Address width below 26 bits with caches | `CACHE_WINDOW_BITS` never goes above `address_bits`, so the tag window is the whole space |
+
+## 11. Tests
 
 | Test | What it verifies |
 | :--- | :--- |
@@ -278,9 +425,12 @@ config:
 | `tests/test_interrupts.py` | The package has `HAS_INTERRUPTS`, `CLOCK_HZ`, `MTIME_HZ` and `CLINT_TICK_CYCLES`, the header has the registers of the CLINT and the rate of `mtime`, and an inconsistent section (rate, missing CLINT, profile without the interrupts) is rejected. |
 | `tests/test_memory_choice.py` | The `memory` section and the `--memory` option make the 16 combinations 16 different packages, the constants and the simulation parameters come from the choice, and rules V1 to V5, V7 and V10 fail with a clear message. |
 | `tests/test_config_from_platform.py` | The `memory` keys, the `tohost` and `stdout` environment and the address widths come from the map, and the map wins over the file and its `extends`. |
+| `tests/test_peripheral_offsets.py` | `offset` and `base` give the same map, the derived `id`, the same `offset` with another `address_bits`, one rejection for each of V-P1 to V-P4 and the `_OFFSET`, `_SIZE` and `_PAD` constants only on relative entries. |
+| `tests/test_address_bits.py` | The `address_bits` field and the derived window, one rejection for each of V-A1 to V-A6, the window fixed by `periph_window`, `resolve` with the `rv64` profiles, `--profile` and the new keys of the `config.yaml`. |
+| `tests/test_config_pkg.py` | The `config_pkg` for 32, 24 and 40 bits, the E base, the variants and what they refuse, the UART by `console`, writing with the map and `--check`, the coherence between the two packages, the command, and the proof that the map package and the `config_pkg` of the DE0-CV do not change. |
 | `tests/test_generate_memory_map.py` | The specs, the linker script and the VHDL package come out of the map; `--check` catches a missing or edited file; an address off the KiB grid and an inconsistent map are rejected; the command writes and checks. |
 
-## 10. Usage
+## 12. Usage
 
 ```bash
 uv run riscv-tools --root <project> check-memory-map --platform platforms/internal-mem.yaml

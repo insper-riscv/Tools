@@ -84,9 +84,15 @@ def test_header_needs_description_and_closing_line(tmp_path: Path) -> None:
     """A header with no description or no closing bar is reported."""
     check_equal(len(_violations(tmp_path, f"{BAR}\n{BAR}\n", "header")), 1)
     check_equal(len(_violations(tmp_path, f"{BAR}\n-- texto\n", "header")), 1)
-    check_equal(
-        len(_violations(tmp_path, "-- =====\n-- t\n-- =====\n", "header")), 1
-    )
+
+
+def test_header_has_no_minimum_width(tmp_path: Path) -> None:
+    """A header of 40 columns passes, as do the ones of 80."""
+    short = "-- " + "=" * 37
+    text = f"{short}\n-- texto\n{short}\n"
+    check_equal(_violations(tmp_path, text, "header"), [])
+    wide = f"{BAR}\n-- texto\n{BAR}\n"
+    check_equal(_violations(tmp_path, wide, "header"), [])
 
 
 def test_libraries_allow_only_the_two_packages(tmp_path: Path) -> None:

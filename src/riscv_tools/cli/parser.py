@@ -26,6 +26,7 @@ _COMMANDS_WITHOUT_CONFIG = frozenset(
         "check-tree",
         "check-vhdl-style",
         "flash-image",
+        "generate-config-pkg",
         "generate-memory-map",
         "platform",
         "profiles",
@@ -39,9 +40,9 @@ Usage: ``riscv-tools --config <config.yaml> <subcommand> ...``.
 Every subcommand takes --config, pointing at the CONSUMING project's
 own config.yaml (memory map, Quartus project paths, toolchain, etc.),
 except `vhdl-sort`, `check-memory-map`, `generate-memory-map`,
-`check-paths`, `check-boards`, `check-tree`, `sources`, `platform` and
-`flash-image` (except `send`), which read only files and need no
-project config at all.
+`generate-config-pkg`, `check-paths`, `check-boards`, `check-tree`,
+`sources`, `platform` and `flash-image` (except `send`), which read
+only files and need no project config at all.
 """
 
 
@@ -69,7 +70,8 @@ def main() -> None:
         default=None,
         help="Path to the consuming project's config.yaml "
         "(required for every subcommand except vhdl-sort, check-memory-map, "
-        "check-paths, check-tree, sources, generate-memory-map and platform)",
+        "check-paths, check-tree, sources, generate-memory-map, "
+        "generate-config-pkg and platform)",
     )
     parser.add_argument(
         "--root",

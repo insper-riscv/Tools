@@ -13,7 +13,8 @@ config:
 
 The base ISA of the platform's `profile` (`i` or `e`) becomes
 `isa.base`, which picks `-march` and `-mabi` of the programs and of the
-boot memory.
+boot memory. A platform with an `address_bits` other than 32 also gives
+`memory.addr_bits`, and one with an `rv64` profile gives `isa.xlen`.
 The values come out as the `memory` keys the tools read
 (`boot_memory_base`, `boot_memory_words`, `rom_base`, `rom_words`,
 `ram_base`, `ram_words`, `tohost_addr` and `fromhost_addr`), as the
@@ -30,6 +31,8 @@ from typing import Any
 from riscv_tools.memory_map import memory as memory_choice
 from riscv_tools.memory_map.banks import bank_list
 from riscv_tools.memory_map.core import (
+    DEFAULT_ADDRESS_BITS,
+    address_bits,
     load_platform,
     platform_dict,
     platform_list,
@@ -37,6 +40,8 @@ from riscv_tools.memory_map.core import (
 )
 from riscv_tools.memory_map.expressions import evaluate
 from riscv_tools.memory_map.profile import SWITCHES, resolve
+
+DEFAULT_XLEN = 32
 
 
 def _width(words: int) -> str:
@@ -146,7 +151,7 @@ def config_from_platform(platform_file: Path) -> dict[str, Any]:
     platform = load_platform(platform_file)
     table = symbols(platform)
     memory = _memory(platform, table)
-    base, generics = resolve(platform, platform_file)
+    base, generics, xlen = resolve(platform, platform_file)
     env = {
         key: f"0x{table[symbol]:08X}"
         for key, symbol in (
@@ -165,6 +170,13 @@ def config_from_platform(platform_file: Path) -> dict[str, Any]:
         "isa": {"base": base},
         "sim": sim,
     }
+    # Só uma plataforma fora do padrão (32 bits de endereço, RV32) leva
+    # as chaves novas, de modo que as demais geram o mesmo arquivo.
+    bits = address_bits(platform)
+    if bits != DEFAULT_ADDRESS_BITS:
+        memory["addr_bits"] = bits
+    if xlen != DEFAULT_XLEN:
+        config["isa"]["xlen"] = xlen
     banks = bank_list(platform)
     if banks:
         config["flash"] = {
