@@ -1,6 +1,6 @@
 [project]
 name = "riscv-tools"
-version = "1.9.9"
+version = "1.10.0"
 description = "CLI do Insper-RISC-V: Compila, simula (GHDL/cocotb), testa e certifica (ACT4) os módulos do core RISC-V RV32 a partir de manifestos YAML."
 license = "Apache-2.0"
 # Capped at <3.15: 3.14 is the newest Python version that cocotb run on.
