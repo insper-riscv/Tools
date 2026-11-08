@@ -25,11 +25,10 @@ import yaml
 
 from riscv_tools.memory_map.expressions import evaluate
 
-PERIPHERAL_ID_SHIFT = 28
 NUM_REGS = {"i": 32, "e": 16}
-
-
-PERIPHERAL_WINDOW_BASE = 0x80000000
+DEFAULT_ADDRESS_BITS = 32
+MIN_ADDRESS_BITS = 16
+MAX_ADDRESS_BITS = 64
 
 
 @dataclass(frozen=True)
@@ -85,6 +84,91 @@ def load_platform(path: Path) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError(f"{path}: not a YAML mapping")
     return cast(dict[str, Any], data)
+
+
+def address_bits(platform: dict[str, Any]) -> int:
+    """Read the width of the physical address of the platform.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform: `address_bits`, an integer from 16 to 64
+        (32 when absent).
+
+    Returns
+    -------
+    int
+        The width in bits.
+
+    Raises
+    ------
+    ValueError
+        If the field is not an integer from 16 to 64.
+    """
+    value = platform.get("address_bits", DEFAULT_ADDRESS_BITS)
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, int)
+        or not MIN_ADDRESS_BITS <= value <= MAX_ADDRESS_BITS
+    ):
+        raise ValueError(
+            f"address_bits must be an integer from {MIN_ADDRESS_BITS} to "
+            f"{MAX_ADDRESS_BITS}, got {value!r}"
+        )
+    return value
+
+
+def periph_window_base(bits: int) -> int:
+    """Name the base of the peripheral window of an address width.
+
+    Parameters
+    ----------
+    bits : int
+        The width of the physical address.
+
+    Returns
+    -------
+    int
+        The upper half of the address space, `1 << (bits - 1)`
+        (`0x80000000` for 32 bits).
+    """
+    return 1 << (bits - 1)
+
+
+def periph_id_shift(bits: int) -> int:
+    """Name the bit where the identifier of a peripheral starts.
+
+    Parameters
+    ----------
+    bits : int
+        The width of the physical address.
+
+    Returns
+    -------
+    int
+        `bits - 4`: the identifier takes the three bits below the
+        window bit (28 for 32 bits).
+    """
+    return bits - 4
+
+
+def periph_window(platform: dict[str, Any]) -> int:
+    """Find the base of the peripheral window of the platform.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform: `periph_window` fixes the base, which
+        otherwise is derived from `address_bits`.
+
+    Returns
+    -------
+    int
+        The base address of the window.
+    """
+    if "periph_window" in platform:
+        return evaluate(platform["periph_window"])
+    return periph_window_base(address_bits(platform))
 
 
 def profile_base(platform: dict[str, Any]) -> str:

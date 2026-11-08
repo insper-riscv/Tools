@@ -6,7 +6,8 @@ hand: the linker flags of the test programs (a GCC specs file), the
 linker script of the boot memory, a C and assembly header with the
 addresses of the words the host shares with the program, and a VHDL
 package with the generics of the core and the base of every
-peripheral.
+peripheral, and the `config_pkg` with the constants of the platform
+(see `riscv_tools.memory_map.config_pkg`).
 
 ```yaml
 generate:
@@ -29,6 +30,8 @@ generate:
     ram_external: false
     ext_base: 0x40000000
     periph_base: 0x80000000
+  config_pkg:
+    path: rtl/config_pkg.vhd
   bank_specs:
     - {path: runtime/bank-b.specs, rom: BANK_B_PAYLOAD, ram: RAM}
   banks_h:
@@ -48,20 +51,24 @@ from typing import Any, cast
 
 from riscv_tools.memory_map import banks, interrupts, sdram_clock
 from riscv_tools.memory_map import memory as memory_choice
+from riscv_tools.memory_map.config_pkg import render_variant, source_name
 from riscv_tools.memory_map.core import (
-    PERIPHERAL_WINDOW_BASE,
     Mismatch,
+    address_bits,
     load_platform,
+    periph_window,
     platform_dict,
     platform_list,
 )
 from riscv_tools.memory_map.expressions import evaluate
-from riscv_tools.memory_map.profile import SWITCHES, resolve
+from riscv_tools.memory_map.problems import platform_problems
+from riscv_tools.memory_map.profile import SWITCHES, resolve, xlen_of
 from riscv_tools.memory_map.symbol_table import symbol_table
-from riscv_tools.memory_map.validation import validate_platform
 
 KIB = 1024
 PAGE = 4096
+MAX_NATURAL = 2**31 - 1
+PAGE_BITS = 20
 
 _SPECS = "\n".join(
     [
@@ -203,11 +210,46 @@ def _kib(value: int, what: str) -> int:
     Raises
     ------
     ValueError
-        If the address is not a whole number of KiB.
+        If the address is not a whole number of KiB, or its KiB do not
+        fit a VHDL `natural` (the `config_pkg` writes such a map in
+        bytes).
     """
     if value % KIB:
         raise ValueError(f"{what} (0x{value:X}) is not a multiple of 1 KiB")
+    if value // KIB > MAX_NATURAL:
+        raise ValueError(
+            f"{what} (0x{value:X}) does not fit a VHDL natural in KiB; "
+            "use the config_pkg, which writes the map in bytes"
+        )
     return value // KIB
+
+
+def _last_page(ram_end: int) -> str:
+    """Write the last 4 KiB page of the RAM as the bits 31:12 of a word.
+
+    Parameters
+    ----------
+    ram_end : int
+        The end of the RAM in bytes.
+
+    Returns
+    -------
+    str
+        The page number in five hexadecimal digits.
+
+    Raises
+    ------
+    ValueError
+        If the page number needs more than 20 bits, which the map
+        package cannot hold (the `config_pkg` has no such constant).
+    """
+    page = (ram_end - PAGE) >> 12
+    if page >> PAGE_BITS:
+        raise ValueError(
+            f"the last page of the RAM (0x{ram_end - PAGE:X}) does not fit "
+            "the 32-bit address of the map package"
+        )
+    return f"{page:05X}"
 
 
 def _power_of_two(value: int) -> int:
@@ -415,34 +457,6 @@ def _external_line(kind: str, value: bool | None) -> str:
     )
 
 
-def _externals(
-    spec: dict[str, Any], memory: memory_choice.Memory | None
-) -> tuple[bool | None, bool | None]:
-    """Find whether the ROM and the RAM are external.
-
-    Parameters
-    ----------
-    spec : dict of {str: Any}
-        The `generate.vhdl` section, which may fix `rom_external` and
-        `ram_external` when the platform has no `memory`.
-    memory : Memory or None
-        The memory choice, which takes over when there is one.
-
-    Returns
-    -------
-    tuple of (bool or None, bool or None)
-        The ROM and the RAM; None where nothing fixes the choice.
-    """
-    if memory is not None:
-        return memory.rom_external, memory.ram_external
-    rom = spec.get("rom_external")
-    ram = spec.get("ram_external")
-    return (
-        None if rom is None else bool(rom),
-        None if ram is None else bool(ram),
-    )
-
-
 def _profile_lines(platform: dict[str, Any], platform_file: Path) -> str:
     """Write the VHDL constants of the platform profile.
 
@@ -460,7 +474,7 @@ def _profile_lines(platform: dict[str, Any], platform_file: Path) -> str:
         profile specification, one `HAS_*` switch per extension of the
         core.
     """
-    base, generics = resolve(platform, platform_file)
+    base, generics, _ = resolve(platform, platform_file)
     lines = (
         "\t-- O perfil é o RV32E (16 registradores); falso é o RV32I (32).\n"
         f"\tconstant HAS_E               : boolean  := "
@@ -492,7 +506,8 @@ def render_vhdl(
     spec : dict of {str: Any}
         The `generate.vhdl` section: `package`, the `rom` and `ram`
         regions, the optional `ext_base` and `periph_base` (both default
-        to the peripheral window, `0x80000000`) and, when the platform
+        to the peripheral window of the platform, `0x80000000` with 32
+        address bits) and, when the platform
         fixes them and has no `memory`, `rom_external` and
         `ram_external`.
     table : dict of {str: int}
@@ -509,9 +524,9 @@ def render_vhdl(
     """
     boot = platform_list(platform, "regions")[0]["name"]
     rom, ram = spec["rom"], spec["ram"]
-    window = evaluate(spec.get("periph_base", PERIPHERAL_WINDOW_BASE))
+    window = evaluate(spec.get("periph_base", periph_window(platform)))
     choice = memory_choice.resolve(platform)
-    rom_external, ram_external = _externals(spec, choice)
+    rom_external, ram_external = memory_choice.externals(spec, choice)
     return _VHDL.format(
         source=source,
         package=spec["package"],
@@ -525,7 +540,7 @@ def render_vhdl(
         ram_base=_kib(table[f"{ram}.base"], f"{ram} base"),
         ram_end=_kib(table[f"{ram}.end"], f"{ram} end"),
         ram_storage=_power_of_two(table[f"{ram}.size"]),
-        last_page=f"{(table[f'{ram}.end'] - PAGE) >> 12:05X}",
+        last_page=_last_page(table[f"{ram}.end"]),
         ram_external=_external_line("RAM", ram_external),
         ext_base=_kib(evaluate(spec.get("ext_base", window)), "ext_base"),
         periph_base=_kib(window, "periph_base"),
@@ -577,6 +592,35 @@ def _bank_files(
     return out
 
 
+def _needs_profile(platform: dict[str, Any], wanted: dict[str, Any]) -> bool:
+    """Say whether the checks and the files need the profile generics.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+    wanted : dict of {str: Any}
+        The `generate` section.
+
+    Returns
+    -------
+    bool
+        True with a `memory` or `interrupts` section, with a
+        `config_pkg` to write, or when `address_bits` is below the
+        register width (V-A5 needs the access faults of the profile).
+    """
+    if (
+        memory_choice.declared(platform)
+        or interrupts.declared(platform)
+        or "config_pkg" in wanted
+    ):
+        return True
+    try:
+        return address_bits(platform) < xlen_of(platform)
+    except ValueError:
+        return False
+
+
 def render_all(platform_file: Path, root: Path) -> dict[Path, str]:
     """Render every file the platform asks to generate.
 
@@ -598,23 +642,15 @@ def render_all(platform_file: Path, root: Path) -> dict[Path, str]:
         If the map is inconsistent or an address is not a whole KiB.
     """
     platform = load_platform(platform_file)
+    wanted = platform_dict(platform, "generate")
     generics = None
-    if memory_choice.declared(platform) or interrupts.declared(platform):
-        _, generics = resolve(platform, platform_file)
-    problems = (
-        validate_platform(platform, generics)
-        + banks.problems(platform)
-        + interrupts.problems(platform, generics)
-        + sdram_clock.problems(platform)
-    )
+    if _needs_profile(platform, wanted):
+        _, generics, _ = resolve(platform, platform_file)
+    problems = platform_problems(platform, generics)
     if problems:
         raise ValueError("; ".join(str(p) for p in problems))
     table = symbol_table(platform)
-    try:
-        source = str(platform_file.relative_to(root))
-    except ValueError:
-        source = platform_file.name
-    wanted = platform_dict(platform, "generate")
+    source = source_name(platform_file, root)
     out: dict[Path, str] = {}
     if "specs" in wanted:
         spec = cast(dict[str, Any], wanted["specs"])
@@ -632,6 +668,11 @@ def render_all(platform_file: Path, root: Path) -> dict[Path, str]:
         spec = cast(dict[str, Any], wanted["vhdl"])
         out[root / spec["path"]] = render_vhdl(
             platform, spec, table, source, platform_file
+        )
+    if "config_pkg" in wanted:
+        spec = cast(dict[str, Any], wanted["config_pkg"])
+        out[root / spec["path"]] = render_variant(
+            platform, platform_file, root
         )
     return out
 

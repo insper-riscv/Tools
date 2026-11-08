@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from riscv_tools.cli.config_pkg_cmd import cmd_generate_config_pkg
 from riscv_tools.cli.flash_image_cmd import cmd_flash_image
 from riscv_tools.cli.parser_util import add_command
 from riscv_tools.cli.platform_cmd import cmd_platform
@@ -96,6 +97,32 @@ def add_tool_commands(sub: Any) -> None:
         "--check",
         action="store_true",
         help="Only compare the generated files with what is on disk",
+    )
+
+    p = add_command(
+        sub,
+        cmd_generate_config_pkg,
+        "generate-config-pkg",
+        description=(
+            "Write the config_pkg (the VHDL package of constants) of a "
+            "platform or of a variant of it"
+        ),
+    )
+    p.add_argument(
+        "--platform",
+        required=True,
+        help="Platform YAML (relative to --root)",
+    )
+    p.add_argument(
+        "--set",
+        action="append",
+        metavar="NAME=VALUE",
+        help="Variant: IS_64, IS_BASE_E or a HAS_* constant take true or "
+        "false and ADDR_BITS an integer (repeatable)",
+    )
+    p.add_argument(
+        "--output",
+        help="File to write (relative to --root); default: standard output",
     )
 
     p = add_command(

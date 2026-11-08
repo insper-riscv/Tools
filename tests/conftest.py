@@ -1,10 +1,12 @@
 """Fixtures shared by the whole test suite."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
 from support import link_bare
+
+from riscv_tools.memory_map import set_override
 
 
 @pytest.fixture
@@ -24,3 +26,11 @@ def build_bare_elf(
         return elf
 
     return build
+
+
+@pytest.fixture(autouse=True)
+def reset_profile_override() -> Iterator[None]:
+    """Run every test with the profile that its platform names."""
+    set_override(None)
+    yield
+    set_override(None)

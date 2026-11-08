@@ -2,7 +2,8 @@
 
 Usage: ``riscv-tools --config <config.yaml> <subcommand> ...``. Every
 subcommand needs the project's config.yaml, except `vhdl-sort`,
-`check-memory-map` and `check-paths`, which only read files.
+`check-memory-map`, `generate-config-pkg` and `check-paths`, which only
+read files.
 """
 
 from riscv_tools.cli.board_cmd import (
@@ -16,6 +17,7 @@ from riscv_tools.cli.board_cmd import (
 )
 from riscv_tools.cli.certify_cmd import cmd_certify, cmd_certify_board
 from riscv_tools.cli.compile_cmd import cmd_compile
+from riscv_tools.cli.config_pkg_cmd import cmd_generate_config_pkg
 from riscv_tools.cli.discovery import discover_tests
 from riscv_tools.cli.golden_cmd import cmd_generate_golden, cmd_generate_header
 from riscv_tools.cli.parser import main
@@ -39,6 +41,7 @@ __all__ = [
     "cmd_console",
     "cmd_display",
     "cmd_dump_ram",
+    "cmd_generate_config_pkg",
     "cmd_generate_golden",
     "cmd_generate_header",
     "cmd_generate_memory_map",

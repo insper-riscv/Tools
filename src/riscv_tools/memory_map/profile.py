@@ -42,6 +42,10 @@ SWITCHES = (
     "has_access_faults",
 )
 
+RV32_XLEN = 32
+RV64_XLEN = 64
+_XLEN_OF_PREFIX = {"rv32": RV32_XLEN, "rv64": RV64_XLEN}
+
 _override: list[str | None] = [None]
 
 
@@ -56,8 +60,8 @@ def set_override(name: str | None) -> None:
     _override[0] = name
 
 
-def _base_of(name: str) -> str:
-    """Read the base letter off the name of a profile.
+def _base_of(name: str) -> tuple[str, int]:
+    """Read the base letter and the register width off a profile name.
 
     Parameters
     ----------
@@ -66,17 +70,60 @@ def _base_of(name: str) -> str:
 
     Returns
     -------
-    str
-        `i` or `e`.
+    tuple of (str, int)
+        The base letter, `i` or `e`, and `xlen`, 32 for the `rv32`
+        prefix and 64 for the `rv64` prefix.
 
     Raises
     ------
     ValueError
-        If the name does not start with `rv32i` or `rv32e`.
+        If the name does not start with `rv32i`, `rv32e`, `rv64i` or
+        `rv64e`.
     """
-    if name[:5] not in ("rv32i", "rv32e"):
-        raise ValueError(f"profile {name!r} must start with rv32i or rv32e")
-    return name[4]
+    xlen = _XLEN_OF_PREFIX.get(name[:4])
+    if xlen is None or name[4:5] not in ("i", "e"):
+        raise ValueError(
+            f"profile {name!r} must start with rv32i, rv32e, rv64i or rv64e"
+        )
+    return name[4], xlen
+
+
+def profile_name(platform: dict[str, Any]) -> str:
+    """Name the profile of the platform, the override included.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+
+    Returns
+    -------
+    str
+        The `--profile` override when there is one, else the `profile`
+        of the platform (`rv32i` when it names none), in lower case.
+    """
+    return str(_override[0] or platform.get("profile", "rv32i")).lower()
+
+
+def xlen_of(platform: dict[str, Any]) -> int:
+    """Read the register width of the platform's profile.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+
+    Returns
+    -------
+    int
+        32 for an `rv32` profile and 64 for an `rv64` one.
+
+    Raises
+    ------
+    ValueError
+        If the profile name has no valid base prefix.
+    """
+    return _base_of(profile_name(platform))[1]
 
 
 def _apply_extras(
@@ -107,8 +154,8 @@ def _apply_extras(
 
 def resolve(
     platform: dict[str, Any], platform_file: Path
-) -> tuple[str, dict[str, bool | int]]:
-    """Find the base ISA and the generics of the platform's profile.
+) -> tuple[str, dict[str, bool | int], int]:
+    """Find the base ISA, the generics and the width of the profile.
 
     Parameters
     ----------
@@ -120,24 +167,26 @@ def resolve(
 
     Returns
     -------
-    tuple of (str, dict)
-        The base letter (`i` or `e`) and the generics of the profile:
-        `num_regs` and the `has_*` switches. Without `profiles` only
-        `num_regs` comes back.
+    tuple of (str, dict, int)
+        The base letter (`i` or `e`), the generics of the profile
+        (`num_regs` and the `has_*` switches; without `profiles` only
+        `num_regs`) and `xlen`, 32 for an `rv32` profile and 64 for an
+        `rv64` one.
 
     Raises
     ------
     ValueError
-        If the name is not a profile of the specification, or the
-        override has no specification to be found in.
+        If the name is not a profile of the specification, has no valid
+        base prefix, or the override has no specification to be found
+        in.
     """
-    name = str(_override[0] or platform.get("profile", "rv32i")).lower()
+    name = profile_name(platform)
     spec_ref = platform.get("profiles")
     if spec_ref is None:
         if _override[0]:
             raise ValueError("--profile needs `profiles:` in the platform")
-        base = _base_of(name)
-        return base, {"num_regs": NUM_REGS[base]}
+        base, xlen = _base_of(name)
+        return base, {"num_regs": NUM_REGS[base]}, xlen
     found = {
         p.name: p
         for p in profiles.expand(
@@ -148,4 +197,5 @@ def resolve(
         raise ValueError(f"{name!r} is not a profile of {spec_ref}")
     generics = dict.fromkeys(SWITCHES, False) | dict(found[name].generics)
     _apply_extras(generics, platform)
-    return _base_of(name), generics
+    base, xlen = _base_of(name)
+    return base, generics, xlen
