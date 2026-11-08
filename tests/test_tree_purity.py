@@ -4,9 +4,14 @@ import argparse
 from pathlib import Path
 
 import pytest
-from support import check_equal, check_false, check_in, check_not_in
+from support import (
+    check_equal,
+    check_false,
+    check_in,
+    check_not_in,
+    run_check_tree_main,
+)
 
-from riscv_tools import cli
 from riscv_tools.cli.tree_cmd import cmd_check_tree
 from riscv_tools.tree_check import check_tree, opt_in_rules, rule_names
 from riscv_tools.tree_check import purity as purity_module
@@ -239,17 +244,4 @@ def test_cmd_check_tree_runs_the_rule(
     (tmp_path / "src/a.vhd").write_text("clean\n")
     cmd_check_tree(args)
     check_in("rules purity", capsys.readouterr().out)
-    monkeypatch.setattr(
-        "sys.argv",
-        [
-            "riscv-tools",
-            "--root",
-            str(tmp_path),
-            "check-tree",
-            "--kind",
-            "memory",
-            "--only",
-            "purity",
-        ],
-    )
-    cli.main()
+    run_check_tree_main(monkeypatch, tmp_path, "memory", "purity")

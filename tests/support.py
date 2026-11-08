@@ -9,9 +9,12 @@ from collections.abc import Container, Sequence
 from pathlib import Path
 from typing import Any
 
+import pytest
 import yaml
 
+from riscv_tools import cli
 from riscv_tools.htif import write_header
+from riscv_tools.memory_map import set_override
 
 GCC = "riscv32-unknown-elf-gcc"
 OBJCOPY = "riscv32-unknown-elf-objcopy"
@@ -222,6 +225,42 @@ def write_rv32_header(root: Path, tohost_addr: int) -> None:
     include_dir = root / "include"
     include_dir.mkdir()
     write_header(tohost_addr, include_dir / "rv32_test.h")
+
+
+def write_zicsr_platform(
+    base: Path, platform: dict[str, Any], **changes: Any
+) -> Path:
+    """Write a Zicsr matrix and the platform with ``changes``."""
+    spec = {
+        "bases": [{"name": "rv32i", "generics": {"num_regs": 32}}],
+        "extensions": [{"name": "Zicsr", "generic": "has_zicsr"}],
+    }
+    (base / "matrix.yaml").write_text(yaml.safe_dump(spec))
+    merged = yaml.safe_load(yaml.safe_dump(platform)) | changes
+    path = base / "platform.yaml"
+    path.write_text(yaml.safe_dump(merged, sort_keys=False))
+    set_override(None)
+    return path
+
+
+def run_check_tree_main(
+    monkeypatch: pytest.MonkeyPatch, root: Path, kind: str, only: str
+) -> None:
+    """Run ``riscv-tools check-tree`` as the command line does."""
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "riscv-tools",
+            "--root",
+            str(root),
+            "check-tree",
+            "--kind",
+            kind,
+            "--only",
+            only,
+        ],
+    )
+    cli.main()
 
 
 def check(condition: object, message: str = "") -> None:

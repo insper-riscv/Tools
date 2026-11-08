@@ -5,9 +5,15 @@ from typing import Any
 
 import pytest
 import yaml
-from support import MAP_REGIONS, MAP_RESERVED, check_in, check_not_in
+from support import (
+    MAP_REGIONS,
+    MAP_RESERVED,
+    check_in,
+    check_not_in,
+    write_zicsr_platform,
+)
 
-from riscv_tools.memory_map import render_all, set_override
+from riscv_tools.memory_map import render_all
 
 PLATFORM: dict[str, Any] = {
     "profile": "rv32i_zicsr",
@@ -36,16 +42,7 @@ PLATFORM: dict[str, Any] = {
 
 def _write(base: Path, **changes: Any) -> Path:
     """Write the matrix and a platform with `changes` applied."""
-    spec = {
-        "bases": [{"name": "rv32i", "generics": {"num_regs": 32}}],
-        "extensions": [{"name": "Zicsr", "generic": "has_zicsr"}],
-    }
-    (base / "matrix.yaml").write_text(yaml.safe_dump(spec))
-    platform = yaml.safe_load(yaml.safe_dump(PLATFORM)) | changes
-    path = base / "platform.yaml"
-    path.write_text(yaml.safe_dump(platform, sort_keys=False))
-    set_override(None)
-    return path
+    return write_zicsr_platform(base, PLATFORM, **changes)
 
 
 def test_the_package_has_the_tick_and_the_switch(tmp_path: Path) -> None:
