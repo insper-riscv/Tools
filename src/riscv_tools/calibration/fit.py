@@ -79,6 +79,41 @@ def _effective(
     return free, fixed_part
 
 
+def _dot(left: Sequence[float], right: Sequence[float]) -> float:
+    """Return the inner product of two vectors."""
+    return sum(a * b for a, b in zip(left, right, strict=True))
+
+
+def _orthogonalize(
+    vector: list[float], basis: Sequence[tuple[str, list[float], list[float]]]
+) -> tuple[list[float], list[float]]:
+    """Remove from a column its components along the basis so far.
+
+    Returns the remainder and the coefficients of the removed parts.
+    """
+    coeffs = [0.0] * len(basis)
+    for index, (_, unit, _) in enumerate(basis):
+        coeffs[index] = _dot(unit, vector)
+        vector = [
+            v - coeffs[index] * u for v, u in zip(vector, unit, strict=True)
+        ]
+    return vector, coeffs
+
+
+def _back_substitute(
+    basis: Sequence[tuple[str, list[float], list[float]]],
+    projections: Sequence[float],
+) -> list[float]:
+    """Solve the upper triangular system the Gram-Schmidt leaves."""
+    solution = [0.0] * len(basis)
+    for i in reversed(range(len(basis))):
+        upper = sum(
+            basis[j][2][i] * solution[j] for j in range(i + 1, len(basis))
+        )
+        solution[i] = (projections[i] - upper) / basis[i][2][i]
+    return solution
+
+
 def _least_squares(
     columns: Sequence[str],
     rows: Sequence[Mapping[str, float]],
@@ -93,31 +128,15 @@ def _least_squares(
     dependent: list[str] = []
     for name in columns:
         vector = [row.get(name, 0.0) for row in rows]
-        scale = math.sqrt(sum(v * v for v in vector))
-        coeffs = [0.0] * len(basis)
-        for index, (_, unit, _) in enumerate(basis):
-            coeffs[index] = sum(
-                a * b for a, b in zip(unit, vector, strict=True)
-            )
-            vector = [
-                v - coeffs[index] * u
-                for v, u in zip(vector, unit, strict=True)
-            ]
-        norm = math.sqrt(sum(v * v for v in vector))
+        scale = math.sqrt(_dot(vector, vector))
+        vector, coeffs = _orthogonalize(vector, basis)
+        norm = math.sqrt(_dot(vector, vector))
         if norm <= EPSILON * max(scale, 1.0):
             dependent.append(name)
             continue
         basis.append((name, [v / norm for v in vector], [*coeffs, norm]))
-    projections = [
-        sum(a * b for a, b in zip(unit, y, strict=True))
-        for _, unit, _ in basis
-    ]
-    solution = [0.0] * len(basis)
-    for i in reversed(range(len(basis))):
-        upper = sum(
-            basis[j][2][i] * solution[j] for j in range(i + 1, len(basis))
-        )
-        solution[i] = (projections[i] - upper) / basis[i][2][i]
+    projections = [_dot(unit, y) for _, unit, _ in basis]
+    solution = _back_substitute(basis, projections)
     return {b[0]: solution[i] for i, b in enumerate(basis)}, dependent
 
 
@@ -155,13 +174,20 @@ def _coefficients(
     coefficients: dict[str, float | None] = dict.fromkeys(sorted(paths))
     coefficients.update({k: round(v, 3) for k, v in solved.items()})
     coefficients.update(plan.fixed)
+    _tie_caches(coefficients, plan)
+    return coefficients, dependent
+
+
+def _tie_caches(
+    coefficients: dict[str, float | None], plan: ProfileList
+) -> None:
+    """Set ``c0`` of each cache from its ``c1`` and the reference."""
     for cache in CACHES:
         c1 = coefficients.get(f"cache.{cache}.c1")
         if c1 is not None:
             coefficients[f"cache.{cache}.c0"] = round(
                 -plan.reference_kbit * c1, 3
             )
-    return coefficients, dependent
 
 
 def _errors(
@@ -186,17 +212,26 @@ def _errors(
                 "missing": list(missing),
             }
         )
+    return residuals, _summary(residuals)
+
+
+def _summary(residuals: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    """Summarize the residuals of the profiles inside the domain."""
     inside = [r for r in residuals if not r["outside"]]
     fit = [r["error_pct"] for r in inside if not r["holdout"]]
     held = [abs(r["error_pct"]) for r in inside if r["holdout"]]
-    error = {
-        "rms_pct": round(math.sqrt(sum(e * e for e in fit) / len(fit)), 3),
+    return {
+        "rms_pct": round(math.sqrt(_dot(fit, fit) / len(fit)), 3),
         "max_fit_pct": round(max(abs(e) for e in fit), 3),
         "max_pct": round(max(held), 3) if held else None,
-        "holdout": [r["id"] for r in residuals if r["holdout"]],
-        "outside": [r["id"] for r in residuals if r["outside"]],
+        "holdout": _ids(residuals, "holdout"),
+        "outside": _ids(residuals, "outside"),
     }
-    return residuals, error
+
+
+def _ids(residuals: Sequence[dict[str, Any]], flag: str) -> list[str]:
+    """Return the ids of the profiles that carry the flag."""
+    return [r["id"] for r in residuals if r[flag]]
 
 
 def known_fit_check(

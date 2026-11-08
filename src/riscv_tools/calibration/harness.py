@@ -708,46 +708,78 @@ def measure(
         shutil.rmtree(work)
     copy_project(settings.project, work)
     try:
-        added = materialize(plan, definition, work, settings.riscv_tools)
-        folder, revision, qsf = _project(plan, work, settings.riscv_tools)
-        digest = sources_hash(work, qsf, [work / plan.platform])
-        target = settings.out_dir / f"{definition.id}.yaml"
-        with_fit = settings.stop_after == "fit"
-        if is_current(
-            target, plan.seed, digest, definition.generics, with_fit
-        ):
-            return "current"
-        started = time.monotonic()
-        with machine_lock(settings.lock, settings.log):
-            command, _ = run_synthesis(
-                plan,
-                definition,
-                work,
-                settings,
-                (folder, revision) if plan.board else None,
-            )
-        usage = read_synthesis(folder)
-        fitted = read_fit(folder) if with_fit else None
-        facts = {
-            "sources_hash": digest,
-            "revisions": revisions(settings.project),
-            "added_constants": added,
-            "command": command,
-            "elapsed_s": round(time.monotonic() - started),
-            "device": usage.meta.get("device") or _device(qsf),
-        }
-        settings.out_dir.mkdir(parents=True, exist_ok=True)
-        target.write_text(
-            yaml.safe_dump(
-                record_of(plan, definition, usage, facts, fitted),
-                sort_keys=False,
-            ),
-            encoding="utf-8",
-        )
+        return _measure_in(plan, definition, settings, work)
     finally:
         if not settings.keep:
             shutil.rmtree(work, ignore_errors=True)
+
+
+def _measure_in(
+    plan: ProfileList,
+    definition: ProfileDef,
+    settings: Settings,
+    work: Path,
+) -> str:
+    """Measure a profile in its project copy and write the record."""
+    added = materialize(plan, definition, work, settings.riscv_tools)
+    project = _project(plan, work, settings.riscv_tools)
+    digest = sources_hash(work, project[2], [work / plan.platform])
+    target = settings.out_dir / f"{definition.id}.yaml"
+    if is_current(
+        target,
+        plan.seed,
+        digest,
+        definition.generics,
+        settings.stop_after == "fit",
+    ):
+        return "current"
+    usage, fitted, command, elapsed = _synthesize(
+        plan, definition, settings, work, project
+    )
+    facts = {
+        "sources_hash": digest,
+        "revisions": revisions(settings.project),
+        "added_constants": added,
+        "command": command,
+        "elapsed_s": elapsed,
+        "device": usage.meta.get("device") or _device(project[2]),
+    }
+    settings.out_dir.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        yaml.safe_dump(
+            record_of(plan, definition, usage, facts, fitted),
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
     return "measured"
+
+
+def _synthesize(
+    plan: ProfileList,
+    definition: ProfileDef,
+    settings: Settings,
+    work: Path,
+    project: tuple[Path, str, Path],
+) -> tuple[ResourceUsage, ResourceUsage | None, list[str], int]:
+    """Run the synthesis under the machine lock and read its reports.
+
+    Returns the usage, the usage after the fitter (None unless the run
+    stops after it), the command and the elapsed seconds.
+    """
+    folder, revision, _ = project
+    started = time.monotonic()
+    with machine_lock(settings.lock, settings.log):
+        command, _ = run_synthesis(
+            plan,
+            definition,
+            work,
+            settings,
+            (folder, revision) if plan.board else None,
+        )
+    usage = read_synthesis(folder)
+    fitted = read_fit(folder) if settings.stop_after == "fit" else None
+    return usage, fitted, command, round(time.monotonic() - started)
 
 
 def run_all(
