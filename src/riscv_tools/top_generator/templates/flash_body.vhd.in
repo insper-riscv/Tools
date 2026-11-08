@@ -1,0 +1,39 @@
+	-- Backend emulado da FLASH: modelo de chip com latência, armazenamento e carregador pela JTAG.
+	flash_chip_inst : entity work.flash_chip
+		generic map (first_latency => {first}, next_latency => {nxt}, size_bytes => ROM_STORAGE_BYTES)
+		port map (
+			i_clk => clk_core, i_rst => soc_rst,
+			i_addr => fl_addr, i_rden => fl_rden, i_line => fl_line, i_advance => fl_adv,
+			o_ready => fl_ready, o_busy => fl_busy, o_rdata => fl_rdata, o_rdata_x => fl_rdx,
+			o_mem_addr => fl_mem_addr, i_mem_data => fl_mem_data
+		);
+
+	flash_store_inst : entity work.flash
+		generic map (size_bytes => ROM_STORAGE_BYTES)
+		port map (
+			i_clk_a => clk_core,
+			i_address_a => fl_mem_addr(log2_exact(ROM_STORAGE_BYTES) - 1 downto 2),
+			i_rden_a => '1', o_q_a => fl_mem_data,
+			i_clk_b => clk_core, i_address_b => {addr_b},
+			i_rden_b => '1', i_wren_b => {wren_b}, i_data_b => {data_b}, o_q_b => fl_b_data
+		);
+
+	flash_loader_inst : entity work.flash_loader
+		generic map (addr_width => log2_exact(ROM_STORAGE_BYTES) - 2)
+		port map (
+			i_clk => clk_core, i_rst => not pll_locked,
+			i_cmd_tog => flash_cmd_tog, o_done_tog => flash_done_tog,
+			i_op => flash_op, i_addr => flash_cmd_addr, i_data => flash_cmd_data,
+			o_rsp_addr => flash_rsp_addr, o_rsp_data => flash_rsp_data, o_rsp_status => flash_rsp_status,
+			o_halt => flash_halt,
+			i_mem_address => (others => '0'), i_mem_rden => '0',
+			o_address_b => ld_address_b, o_rden_b => ld_rden_b, o_wren_b => ld_wren_b,
+			o_data_b => ld_data_b, i_q_b => fl_b_data
+		);
+
+	flash_jtag_inst : entity work.flash_jtag_shell
+		port map (
+			o_cmd_tog => flash_cmd_tog, o_op => flash_op, o_addr => flash_cmd_addr, o_data => flash_cmd_data,
+			i_done_tog => flash_done_tog, i_rsp_addr => flash_rsp_addr,
+			i_rsp_data => flash_rsp_data, i_rsp_status => flash_rsp_status
+		);

@@ -135,4 +135,13 @@ def full_reconfigure_entry(
     -------
     None
     """
+    generate = cfg["quartus"].get("generate")
+    if generate:
+        # Late: `board_generate` imports the board catalog, whose reader
+        # imports this package for the defaults of the configuration.
+        from riscv_tools import board_generate  # noqa: PLC0415
+
+        board_generate.build(
+            board_generate.request_from_config(root, generate)
+        )
     reconfigure_with_rom(cfg, link, project_dir, root / entry["mif"])

@@ -8,6 +8,10 @@ O alvo é um componente, escrito como `<repositório>/<componente>`; um nome sem
 
 Os manifestos lidos são o da própria raiz e os dos repositórios montados abaixo dela: os submódulos do `.gitmodules` e o `src/common`. Um repositório visto duas vezes fica com a primeira pasta encontrada. Os arquivos de um submódulo nunca vêm da listagem de pastas da raiz, só do manifesto do próprio submódulo, e um `requires: <repositório>/<componente>` segue para esse manifesto quando o outro repositório declara `provides`. O formato do manifesto está em [tree_check](tree_check.md).
 
+## Recursos de placa
+
+O componente pode declarar em `needs` os tipos de recurso de placa de que depende (`block_ram`, `sdram`, `sram`, `nor`, `onchip_flash`, `serial_flash`, `vjtag`). A listagem de arquivos ignora a chave. O validador de placas percorre o mesmo fecho e une os `needs` dos componentes alcançados (ver [board_check](board_check.md)).
+
 ## Erros
 
 O comando sai com status 2 e uma linha `sources:` quando um manifesto está malformado, quando o repositório ou o componente de um alvo ou de um `requires` não é encontrado e quando os requisitos formam um ciclo.

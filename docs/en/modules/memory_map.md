@@ -123,7 +123,7 @@ interrupts:
   mtime_hz: 1000000    # rate at which the mtime of the CLINT counts
 ```
 
-The `mtime` of the CLINT is a counter of its own, set by `mtime_hz`, and it is independent of the CSR `time` of Zicntr, which the core serves. `clock_hz` must be a multiple of `mtime_hz`, the profile must turn on `has_interrupts`, and the `peripherals` list must have the `CLINT`; the absence of any of them is an error before generating and in `check-memory-map`.
+The `mtime` of the CLINT is a counter of its own, set by `mtime_hz`, and it is independent of the CSR `time` of Zicntr, which the core serves. With `clocks.core` in the platform `clock_hz` is left out and is the core clock rounded to a whole number of cycles per increment; when written, it must be that value. `clock_hz` must be a multiple of `mtime_hz`, the profile must turn on `has_interrupts`, and the `peripherals` list must have the `CLINT`; the absence of any of them is an error before generating and in `check-memory-map`.
 
 | Output | Constants |
 | :--- | :--- |
@@ -155,24 +155,22 @@ Repeated ids, ids outside 1 to 1023, `priority_bits` outside 1 to 32 and a windo
 
 $$ \text{msip} = base, \quad \text{mtimecmp} = base + \texttt{0x4000}, \quad \text{mtime} = base + \texttt{0xBFF8} $$
 
-## The clock of the SDRAM controller
+## The clocks of the platform
 
-A platform with an SDRAM describes the clock of the controller and the phase of the `DRAM_CLK` pin against it in the `sdram` section. Both values come from the PLL of the platform and from the Quartus timing report, and the section is their single source.
+The `clocks` section of the `platform.yaml` is the single source of the frequencies: the PLL, the `.sdc` and the VHDL package come from it (see [pll_generator](pll_generator.md)). The memory map reads the SDRAM controller clock and the core clock from it.
 
 ```yaml
-sdram:
-  clock_hz: 100000000       # controller clock (PLL output 0)
-  dram_clk_phase_ps: 4000   # phase of DRAM_CLK against it (PLL output 1)
+clocks:
+  core:  {mhz: 76.923077, phase_ps: 7500}  # core clock
+  mem:   {mhz: 100}                        # SDRAM controller clock
 ```
 
 | Output | Content |
 | :--- | :--- |
-| VHDL package (`vhdl`) | `SDRAM_CLOCK_HZ` and `SDRAM_TCK_PS`, the period in picoseconds with which the controller and the chip model convert the chip timings into cycles |
-| `checks` symbols | `SDRAM.clock_mhz`, `SDRAM.tck_ps` and `SDRAM.dram_clk_phase_ps`, which keep the PLL file equal to the map |
+| VHDL package (`vhdl`) | `SDRAM_CLOCK_HZ` and `SDRAM_TCK_PS` from `clocks.mem`, the period in picoseconds with which the controller and the chip model convert the chip timings into cycles |
+| `checks` symbols | `CLOCKS.mem_mhz`, `CLOCKS.mem_tck_ps`, `CLOCKS.core_mhz` (rounded) and `CLOCKS.core_phase_ps` |
 
-`clock_hz` must have a whole period in picoseconds and the phase must lie inside one period; both fields are required, and the absence of either is an error before generating and in `check-memory-map`.
-
-The optional `pll` section holds the phase of the core clock (PLL output 3) in `core_phase_ps` and its frequency in `core_clock_hz`, which only the `checks` use (`PLL.core_phase_ps`, `PLL.core_clock_mhz`, the whole MHz). The `interrupts` section names `INTERRUPTS.tick_cycles`, the clock cycles per `mtime` tick, for the checks.
+Every declared clock needs a positive `mhz`, and `clocks.mem` must have a whole period in picoseconds; a missing or bad value is an error before generating and in `check-memory-map`. The phase of the `DRAM_CLK` pin belongs to the board (`memories.sdram.clk_phase_ps` of the `board.yaml`). The `interrupts` section names `INTERRUPTS.tick_cycles`, the clock cycles per `mtime` tick, for the checks.
 
 ## The memories and caches of the platform
 
@@ -209,10 +207,11 @@ The VHDL package gains the constants below. `ROM_VIA_PORT` and `RAM_VIA_PORT` ar
 | `HAS_DCACHE` | boolean | `memory.dcache.enabled` |
 | `ICACHE_SIZE_BITS` | positive | `memory.icache.size_bits`, or 256 without the cache |
 | `DCACHE_SIZE_BITS` | positive | `memory.dcache.size_bits`, or 256 without the cache |
+| `CACHE_WINDOW_BITS` | natural | Smallest width from 26 to 29 such that the ROM and the RAM each fit one aligned window of $2^{\text{width}}$ bytes (26 is 64 MiB, 27 is 128 MiB), derived from the regions |
 | `ROM_VIA_PORT` | boolean | `ROM_EXTERNAL or HAS_ICACHE` |
 | `RAM_VIA_PORT` | boolean | `RAM_EXTERNAL or HAS_DCACHE` |
 
-In the `config.yaml` the same values arrive as `sim.parameters` with the same names (`ROM_EXTERNAL`, `RAM_EXTERNAL`, `HAS_ICACHE`, `HAS_DCACHE`, `ICACHE_SIZE_BITS` and `DCACHE_SIZE_BITS`), and the simulation top must declare the matching generics. Without `config.addr_widths` in the platform, the address widths come from the choice, and the `boot_memory` and each internal memory are listed, since an external memory is a chip sized by the top itself. With `config.addr_widths` listed, the list wins.
+In the `config.yaml` the same values arrive as `sim.parameters` with the same names (`ROM_EXTERNAL`, `RAM_EXTERNAL`, `HAS_ICACHE`, `HAS_DCACHE`, `ICACHE_SIZE_BITS` and `DCACHE_SIZE_BITS`; `CACHE_WINDOW_BITS` only when above 26), and the simulation top must declare the matching generics. Without `config.addr_widths` in the platform, the address widths come from the choice, and the `boot_memory` and each internal memory are listed, since an external memory is a chip sized by the top itself. With `config.addr_widths` listed, the list wins.
 
 ### Validation
 
@@ -220,7 +219,7 @@ In the `config.yaml` the same values arrive as `sim.parameters` with the same na
 | :--- | :--- | :--- |
 | V1 | The four booleans exist and there is no unknown key | Error |
 | V2 | `size_bits` is a power of two and at least 256 | Error |
-| V3 | With any cache, the ROM and the RAM each fit one aligned 64 MiB window | Error |
+| V3 | With any cache, the ROM and the RAM each fit one aligned window of up to 512 MiB (the cache tag keeps the bits below the window) | Error |
 | V4 | With the ROM through the core port, its size fits the 1024 KiB window of the router | Error |
 | V5 | An `exec` region in the RAM needs an external RAM and the ROM through the port (external ROM or instruction cache) | Error |
 | V7 | An `exec` region in the RAM behind the instruction cache needs Zifencei in the profile | Error |

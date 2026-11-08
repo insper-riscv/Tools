@@ -1,8 +1,9 @@
 """Compile the whole Quartus project and program the board (slow)."""
 
+import re
 import shlex
 import shutil
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from riscv_tools import mem_edit
@@ -12,6 +13,102 @@ from riscv_tools.proc import run_streaming
 # see riscv_tools.proc.run_streaming for the streaming/classification
 # rationale, shared with jtag.link.run.
 _run_captured = run_streaming
+
+# Script de compilação único de todos os projetos, no lugar dos
+# <projeto>_synth.tcl de cada plataforma.
+COMPILE_TCL = Path(__file__).resolve().parent / "tcl" / "compile.tcl"
+STOP_POINTS = ("map", "fit", "sta")
+_GENERIC = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=([0-9]+)$")
+DEFAULT_SEED = 5
+
+
+@dataclass(frozen=True)
+class CompileOptions:
+    """Opções da compilação além do fluxo completo de sempre.
+
+    Attributes
+    ----------
+    seed : int or None
+        Semente do posicionamento; `None` mantém a do projeto.
+    generics : tuple of (str, int)
+        Generics do topo trocados só nesta compilação.
+    stop_after : str or None
+        `map`, `fit` ou `sta`; `None` roda o fluxo inteiro.
+    compile_only : bool
+        Não programa a placa depois de compilar.
+    """
+
+    seed: int | None = None
+    generics: tuple[tuple[str, int], ...] = field(default_factory=tuple)
+    stop_after: str | None = None
+    compile_only: bool = False
+
+    @property
+    def uses_script(self) -> bool:
+        """Diz se a compilação passa pelo script único."""
+        return bool(self.seed is not None or self.generics or self.stop_after)
+
+    @property
+    def programs(self) -> bool:
+        """Diz se a placa é programada depois da compilação."""
+        return not self.compile_only and self.stop_after is None
+
+
+def parse_generics(items: list[str]) -> tuple[tuple[str, int], ...]:
+    """Lê os `NOME=VALOR` da linha de comando.
+
+    Parameters
+    ----------
+    items : list of str
+        Os argumentos `--generic`.
+
+    Returns
+    -------
+    tuple of (str, int)
+        Nome e valor de cada generic.
+
+    Raises
+    ------
+    ValueError
+        Se um argumento não é `NOME=inteiro`.
+    """
+    out: list[tuple[str, int]] = []
+    for item in items:
+        found = _GENERIC.match(item)
+        if found is None:
+            raise ValueError(f"--generic {item!r}: expected NAME=INTEGER")
+        out.append((found.group(1), int(found.group(2))))
+    return tuple(out)
+
+
+def compile_command(project_name: str, options: CompileOptions) -> list[str]:
+    """Monta o comando de compilação.
+
+    Parameters
+    ----------
+    project_name : str
+        A revisão do projeto.
+    options : CompileOptions
+        As opções.
+
+    Returns
+    -------
+    list of str
+        O fluxo direto do Quartus sem opções, ou o script único com
+        semente, ponto de parada e generics.
+    """
+    if not options.uses_script:
+        return ["quartus_sh", "--flow", "compile", project_name]
+    seed = DEFAULT_SEED if options.seed is None else options.seed
+    return [
+        "quartus_sh",
+        "-t",
+        str(COMPILE_TCL),
+        project_name,
+        str(seed),
+        options.stop_after or "full",
+        *(f"{name}={value}" for name, value in options.generics),
+    ]
 
 
 def program_only(hardware_name: str, project_dir: Path, sof_file: str) -> None:
@@ -122,8 +219,9 @@ class MifInit:
 
 def full_reconfigure(
     project: QuartusProject,
-    rom: MifInit,
+    rom: MifInit | None,
     boot_memory: MifInit | None = None,
+    options: CompileOptions | None = None,
 ) -> None:
     """Compile the whole Quartus project and program the board.
 
@@ -136,13 +234,17 @@ def full_reconfigure(
     ----------
     project : QuartusProject
         The Quartus project to compile and program.
-    rom : MifInit
-        The .mif to bake in as the ROM's initial content.
+    rom : MifInit or None
+        The .mif to bake in as the ROM's initial content; None leaves
+        the project's own.
     boot_memory : MifInit, optional
         The .mif to bake in as the shared bootloader's initial content
         (quartus.boot_memory_mif_target), only for a project with a
         BOOT_MEMORY/FLASH/RAM split. It is written only by this full
         compile, never per test.
+    options : CompileOptions, optional
+        Seed, generics, stop point and compile-only; without them the
+        flow is the direct `quartus_sh --flow compile` plus programming.
 
     Returns
     -------
@@ -165,7 +267,8 @@ def full_reconfigure(
     # after quartus_sh fails with "Can't scan JTAG chain" (error 87),
     # whatever the delay between the two, while the same two commands
     # in a single shell succeed.
-    compile_cmd = ["quartus_sh", "--flow", "compile", project.project_name]
+    options = options or CompileOptions()
+    compile_cmd = compile_command(project.project_name, options)
     pgm_cmd = [
         "quartus_pgm",
         "-c",
@@ -175,8 +278,8 @@ def full_reconfigure(
         "-o",
         f"p;{project_dir / project.sof_file}",
     ]
-    script = (
-        f"cd {shlex.quote(str(project_dir))} && {shlex.join(compile_cmd)} && "
-        f"{shlex.join(pgm_cmd)}"
-    )
+    chain = [shlex.join(compile_cmd)]
+    if options.programs:
+        chain.append(shlex.join(pgm_cmd))
+    script = f"cd {shlex.quote(str(project_dir))} && " + " && ".join(chain)
     _run_captured(["bash", "-c", script])

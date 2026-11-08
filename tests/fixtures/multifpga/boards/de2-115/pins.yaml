@@ -1,0 +1,324 @@
+# pins.yaml da placa, no esquema do documento 02, seção 3.3. confirmed: manual (lido no manual) | repo (lido no .qsf do repositório) | inferred (deduzido de fonte de terceiro).
+# Mapa de pinos da Terasic DE2-115 (Cyclone IV E EP4CE115F29C7).
+# Fonte unica: DE2-115 User Manual (Terasic), capitulo 4, tabelas 4-1 a 4-31.
+# URL: https://dcenet.fel.cvut.cz/edu/fpga/de2-115/DE2_115_User_manual.pdf (copia do manual oficial, 116 paginas)
+# Paginas citadas sao as impressas no rodape do PDF.
+# Os padroes de E/S das tabelas dizem apenas "3.3V"; o padrao Quartus recomendado (3.3-V LVTTL) e inferido
+# a partir do exemplo de .qsf do System Builder, que nao foi lido.
+board: de2-115
+device: EP4CE115F29C7
+signals:
+  - {name: "SW[0]", pin: "AB28", io_standard: "2.5 V", direction: "in", source: "Table 4-1, p.35", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "SW[1]", pin: "AC28", io_standard: "2.5 V", direction: "in", source: "Table 4-1, p.35", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "SW[2]", pin: "AC27", io_standard: "2.5 V", direction: "in", source: "Table 4-1, p.35", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "SW[3]", pin: "AD27", io_standard: "2.5 V", direction: "in", source: "Table 4-1, p.35", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "SW[4]", pin: "AB27", io_standard: "2.5 V", direction: "in", source: "Table 4-1, p.35", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "SW[5]", pin: "AC26", io_standard: "2.5 V", direction: "in", source: "Table 4-1, p.35", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "SW[6]", pin: "AD26", io_standard: "2.5 V", direction: "in", source: "Table 4-1, p.35", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "SW[7]", pin: "AB26", io_standard: "2.5 V", direction: "in", source: "Table 4-1, p.35", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "SW[8]", pin: "AC25", io_standard: "2.5 V", direction: "in", source: "Table 4-1, p.35", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "SW[9]", pin: "AB25", io_standard: "2.5 V", direction: "in", source: "Table 4-1, p.35", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "SW[10]", pin: "AC24", io_standard: "2.5 V", direction: "in", source: "Table 4-1, p.35", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "SW[11]", pin: "AB24", io_standard: "2.5 V", direction: "in", source: "Table 4-1, p.35", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "SW[12]", pin: "AB23", io_standard: "2.5 V", direction: "in", source: "Table 4-1, p.35", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "SW[13]", pin: "AA24", io_standard: "2.5 V", direction: "in", source: "Table 4-1, p.35", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "SW[14]", pin: "AA23", io_standard: "2.5 V", direction: "in", source: "Table 4-1, p.35", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "SW[15]", pin: "AA22", io_standard: "2.5 V", direction: "in", source: "Table 4-1, p.35", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "SW[16]", pin: "Y24", io_standard: "2.5 V", direction: "in", source: "Table 4-1, p.35", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "SW[17]", pin: "Y23", io_standard: "2.5 V", direction: "in", source: "Table 4-1, p.35", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "KEY[0]", pin: "M23", io_standard: "2.5 V", direction: "in", source: "Table 4-2, p.35", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "KEY[1]", pin: "M21", io_standard: "2.5 V", direction: "in", source: "Table 4-2, p.35", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "KEY[2]", pin: "N21", io_standard: "2.5 V", direction: "in", source: "Table 4-2, p.35", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "KEY[3]", pin: "R24", io_standard: "2.5 V", direction: "in", source: "Table 4-2, p.35", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "LEDR[0]", pin: "G19", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.35-36", confirmed: "manual"}
+  - {name: "LEDR[1]", pin: "F19", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.35-36", confirmed: "manual"}
+  - {name: "LEDR[2]", pin: "E19", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.35-36", confirmed: "manual"}
+  - {name: "LEDR[3]", pin: "F21", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.35-36", confirmed: "manual"}
+  - {name: "LEDR[4]", pin: "F18", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.35-36", confirmed: "manual"}
+  - {name: "LEDR[5]", pin: "E18", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.35-36", confirmed: "manual"}
+  - {name: "LEDR[6]", pin: "J19", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.35-36", confirmed: "manual"}
+  - {name: "LEDR[7]", pin: "H19", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.35-36", confirmed: "manual"}
+  - {name: "LEDR[8]", pin: "J17", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.35-36", confirmed: "manual"}
+  - {name: "LEDR[9]", pin: "G17", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.35-36", confirmed: "manual"}
+  - {name: "LEDR[10]", pin: "J15", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.35-36", confirmed: "manual"}
+  - {name: "LEDR[11]", pin: "H16", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.35-36", confirmed: "manual"}
+  - {name: "LEDR[12]", pin: "J16", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.35-36", confirmed: "manual"}
+  - {name: "LEDR[13]", pin: "H17", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.35-36", confirmed: "manual"}
+  - {name: "LEDR[14]", pin: "F15", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.35-36", confirmed: "manual"}
+  - {name: "LEDR[15]", pin: "G15", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.35-36", confirmed: "manual"}
+  - {name: "LEDR[16]", pin: "G16", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.35-36", confirmed: "manual"}
+  - {name: "LEDR[17]", pin: "H15", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.35-36", confirmed: "manual"}
+  - {name: "LEDG[0]", pin: "E21", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.36", confirmed: "manual"}
+  - {name: "LEDG[1]", pin: "E22", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.36", confirmed: "manual"}
+  - {name: "LEDG[2]", pin: "E25", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.36", confirmed: "manual"}
+  - {name: "LEDG[3]", pin: "E24", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.36", confirmed: "manual"}
+  - {name: "LEDG[4]", pin: "H21", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.36", confirmed: "manual"}
+  - {name: "LEDG[5]", pin: "G20", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.36", confirmed: "manual"}
+  - {name: "LEDG[6]", pin: "G22", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.36", confirmed: "manual"}
+  - {name: "LEDG[7]", pin: "G21", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.36", confirmed: "manual"}
+  - {name: "LEDG[8]", pin: "F17", io_standard: "2.5 V", direction: "out", source: "Table 4-3, p.36", confirmed: "manual"}
+  - {name: "HEX0[0]", pin: "G18", io_standard: "2.5 V", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual"}
+  - {name: "HEX0[1]", pin: "F22", io_standard: "2.5 V", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual"}
+  - {name: "HEX0[2]", pin: "E17", io_standard: "2.5 V", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual"}
+  - {name: "HEX0[3]", pin: "L26", io_standard: "2.5 V", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "HEX0[4]", pin: "L25", io_standard: "2.5 V", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "HEX0[5]", pin: "J22", io_standard: "2.5 V", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "HEX0[6]", pin: "H22", io_standard: "2.5 V", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "HEX1[0]", pin: "M24", io_standard: "2.5 V", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "HEX1[1]", pin: "Y22", io_standard: "2.5 V", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "HEX1[2]", pin: "W21", io_standard: "2.5 V", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "HEX1[3]", pin: "W22", io_standard: "2.5 V", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "HEX1[4]", pin: "W25", io_standard: "2.5 V", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "HEX1[5]", pin: "U23", io_standard: "2.5 V", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "HEX1[6]", pin: "U24", io_standard: "2.5 V", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "HEX2[0]", pin: "AA25", io_standard: "2.5 V", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "HEX2[1]", pin: "AA26", io_standard: "2.5 V", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "HEX2[2]", pin: "Y25", io_standard: "2.5 V", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "HEX2[3]", pin: "W26", io_standard: "2.5 V", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "HEX2[4]", pin: "Y26", io_standard: "2.5 V", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "HEX2[5]", pin: "W27", io_standard: "2.5 V", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "HEX2[6]", pin: "W28", io_standard: "2.5 V", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "HEX3[0]", pin: "V21", io_standard: "2.5 V", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "HEX3[1]", pin: "U21", io_standard: "2.5 V", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP7 (padrão de fábrica 2,5 V)"}
+  - {name: "HEX3[2]", pin: "AB20", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX3[3]", pin: "AA21", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX3[4]", pin: "AD24", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX3[5]", pin: "AF23", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX3[6]", pin: "Y19", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX4[0]", pin: "AB19", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX4[1]", pin: "AA19", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX4[2]", pin: "AG21", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX4[3]", pin: "AH21", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX4[4]", pin: "AE19", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX4[5]", pin: "AF19", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX4[6]", pin: "AE18", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX5[0]", pin: "AD18", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX5[1]", pin: "AC18", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX5[2]", pin: "AB18", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX5[3]", pin: "AH19", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX5[4]", pin: "AG19", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX5[5]", pin: "AF18", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX5[6]", pin: "AH18", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX6[0]", pin: "AA17", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX6[1]", pin: "AB16", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX6[2]", pin: "AA16", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX6[3]", pin: "AB17", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX6[4]", pin: "AB15", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX6[5]", pin: "AA15", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX6[6]", pin: "AC17", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX7[0]", pin: "AD17", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX7[1]", pin: "AE17", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX7[2]", pin: "AG17", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX7[3]", pin: "AH17", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX7[4]", pin: "AF17", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX7[5]", pin: "AG18", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "HEX7[6]", pin: "AA14", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-4, p.36-38", confirmed: "manual"}
+  - {name: "CLOCK_50", pin: "Y2", io_standard: "3.3-V LVTTL", direction: "in", source: "Table 4-5, p.38", confirmed: "manual"}
+  - {name: "CLOCK2_50", pin: "AG14", io_standard: "3.3-V LVTTL", direction: "in", source: "Table 4-5, p.38", confirmed: "manual"}
+  - {name: "CLOCK3_50", pin: "AG15", io_standard: "3.3-V LVTTL", direction: "in", source: "Table 4-5, p.38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "SMA_CLKOUT", pin: "AE23", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-5, p.38", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "SMA_CLKIN", pin: "AH14", io_standard: "3.3-V LVTTL", direction: "in", source: "Table 4-5, p.38", confirmed: "manual"}
+  - {name: "LCD_DATA[7]", pin: "M5", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-6, p.39-40", confirmed: "manual"}
+  - {name: "LCD_DATA[6]", pin: "M3", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-6, p.39-40", confirmed: "manual"}
+  - {name: "LCD_DATA[5]", pin: "K2", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-6, p.39-40", confirmed: "manual"}
+  - {name: "LCD_DATA[4]", pin: "K1", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-6, p.39-40", confirmed: "manual"}
+  - {name: "LCD_DATA[3]", pin: "K7", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-6, p.39-40", confirmed: "manual"}
+  - {name: "LCD_DATA[2]", pin: "L2", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-6, p.39-40", confirmed: "manual"}
+  - {name: "LCD_DATA[1]", pin: "L1", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-6, p.39-40", confirmed: "manual"}
+  - {name: "LCD_DATA[0]", pin: "L3", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-6, p.39-40", confirmed: "manual"}
+  - {name: "LCD_EN", pin: "L4", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-6, p.39-40", confirmed: "manual"}
+  - {name: "LCD_RW", pin: "M1", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-6, p.39-40", confirmed: "manual"}
+  - {name: "LCD_RS", pin: "M2", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-6, p.39-40", confirmed: "manual"}
+  - {name: "LCD_ON", pin: "L5", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-6, p.39-40", confirmed: "manual"}
+  - {name: "LCD_BLON", pin: "L6", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-6, p.39-40", confirmed: "manual"}
+  - {name: "GPIO[0]", pin: "AB22", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[1]", pin: "AC15", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[2]", pin: "AB21", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[3]", pin: "Y17", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[4]", pin: "AC21", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[5]", pin: "Y16", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[6]", pin: "AD21", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[7]", pin: "AE16", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[8]", pin: "AD15", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[9]", pin: "AE15", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[10]", pin: "AC19", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[11]", pin: "AF16", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[12]", pin: "AD19", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[13]", pin: "AF15", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[14]", pin: "AF24", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[15]", pin: "AE21", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[16]", pin: "AF25", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[17]", pin: "AC22", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[18]", pin: "AE22", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[19]", pin: "AF21", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[20]", pin: "AF22", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[21]", pin: "AD22", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[22]", pin: "AG25", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[23]", pin: "AD25", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[24]", pin: "AH25", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[25]", pin: "AE25", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[26]", pin: "AG22", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[27]", pin: "AE24", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[28]", pin: "AH22", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[29]", pin: "AF26", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[30]", pin: "AE20", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[31]", pin: "AG23", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[32]", pin: "AF20", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[33]", pin: "AH26", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[34]", pin: "AH23", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "GPIO[35]", pin: "AG26", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-12, p.49-50", confirmed: "manual", note: "nível depende do jumper JP6 (padrão de fábrica 3,3 V)"}
+  - {name: "EX_IO[0]", pin: "J10", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-13, p.50", confirmed: "manual"}
+  - {name: "EX_IO[1]", pin: "J14", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-13, p.50", confirmed: "manual"}
+  - {name: "EX_IO[2]", pin: "H13", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-13, p.50", confirmed: "manual"}
+  - {name: "EX_IO[3]", pin: "H14", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-13, p.50", confirmed: "manual"}
+  - {name: "EX_IO[4]", pin: "F14", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-13, p.50", confirmed: "manual"}
+  - {name: "EX_IO[5]", pin: "E10", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-13, p.50", confirmed: "manual"}
+  - {name: "EX_IO[6]", pin: "D9", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-13, p.50", confirmed: "manual"}
+  - {name: "UART_RXD", pin: "G12", io_standard: "3.3-V LVTTL", direction: "in", source: "Table 4-18, p.55", confirmed: "manual"}
+  - {name: "UART_TXD", pin: "G9", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-18, p.55", confirmed: "manual"}
+  - {name: "UART_CTS", pin: "G14", io_standard: "3.3-V LVTTL", direction: "in", source: "Table 4-18, p.55", confirmed: "manual"}
+  - {name: "UART_RTS", pin: "J13", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-18, p.55", confirmed: "manual"}
+  - {name: "SRAM_ADDR[0]", pin: "AB7", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_ADDR[1]", pin: "AD7", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_ADDR[2]", pin: "AE7", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_ADDR[3]", pin: "AC7", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_ADDR[4]", pin: "AB6", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_ADDR[5]", pin: "AE6", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_ADDR[6]", pin: "AB5", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_ADDR[7]", pin: "AC5", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_ADDR[8]", pin: "AF5", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_ADDR[9]", pin: "T7", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_ADDR[10]", pin: "AF2", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_ADDR[11]", pin: "AD3", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_ADDR[12]", pin: "AB4", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_ADDR[13]", pin: "AC3", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_ADDR[14]", pin: "AA4", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_ADDR[15]", pin: "AB11", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_ADDR[16]", pin: "AC11", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_ADDR[17]", pin: "AB9", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_ADDR[18]", pin: "AB8", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_ADDR[19]", pin: "T8", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_DQ[0]", pin: "AH3", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_DQ[1]", pin: "AF4", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_DQ[2]", pin: "AG4", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_DQ[3]", pin: "AH4", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_DQ[4]", pin: "AF6", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_DQ[5]", pin: "AG6", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_DQ[6]", pin: "AH6", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_DQ[7]", pin: "AF7", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_DQ[8]", pin: "AD1", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_DQ[9]", pin: "AD2", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_DQ[10]", pin: "AE2", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_DQ[11]", pin: "AE1", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_DQ[12]", pin: "AE3", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_DQ[13]", pin: "AE4", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_DQ[14]", pin: "AF3", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_DQ[15]", pin: "AG3", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_OE_N", pin: "AD5", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_WE_N", pin: "AE8", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_CE_N", pin: "AF8", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_LB_N", pin: "AD4", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "SRAM_UB_N", pin: "AC4", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-27, p.66-67", confirmed: "manual"}
+  - {name: "DRAM_ADDR[0]", pin: "R6", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_ADDR[1]", pin: "V8", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_ADDR[2]", pin: "U8", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_ADDR[3]", pin: "P1", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_ADDR[4]", pin: "V5", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_ADDR[5]", pin: "W8", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_ADDR[6]", pin: "W7", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_ADDR[7]", pin: "AA7", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_ADDR[8]", pin: "Y5", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_ADDR[9]", pin: "Y6", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_ADDR[10]", pin: "R5", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_ADDR[11]", pin: "AA5", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_ADDR[12]", pin: "Y7", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[0]", pin: "W3", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[1]", pin: "W2", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[2]", pin: "V4", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[3]", pin: "W1", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[4]", pin: "V3", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[5]", pin: "V2", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[6]", pin: "V1", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[7]", pin: "U3", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[8]", pin: "Y3", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[9]", pin: "Y4", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[10]", pin: "AB1", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[11]", pin: "AA3", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[12]", pin: "AB2", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[13]", pin: "AC1", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[14]", pin: "AB3", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[15]", pin: "AC2", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[16]", pin: "M8", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[17]", pin: "L8", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[18]", pin: "P2", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[19]", pin: "N3", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[20]", pin: "N4", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[21]", pin: "M4", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[22]", pin: "M7", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[23]", pin: "L7", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[24]", pin: "U5", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[25]", pin: "R7", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[26]", pin: "R1", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[27]", pin: "R2", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[28]", pin: "R3", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[29]", pin: "T3", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[30]", pin: "U4", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQ[31]", pin: "U1", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_BA[0]", pin: "U7", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_BA[1]", pin: "R4", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQM[0]", pin: "U2", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQM[1]", pin: "W4", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQM[2]", pin: "K8", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_DQM[3]", pin: "N8", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_RAS_N", pin: "U6", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_CAS_N", pin: "V7", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_CKE", pin: "AA6", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_CLK", pin: "AE5", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_WE_N", pin: "V6", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "DRAM_CS_N", pin: "T4", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-28, p.67-68", confirmed: "manual"}
+  - {name: "FL_ADDR[0]", pin: "AG12", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_ADDR[1]", pin: "AH7", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_ADDR[2]", pin: "Y13", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_ADDR[3]", pin: "Y14", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_ADDR[4]", pin: "Y12", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_ADDR[5]", pin: "AA13", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_ADDR[6]", pin: "AA12", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_ADDR[7]", pin: "AB13", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_ADDR[8]", pin: "AB12", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_ADDR[9]", pin: "AB10", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_ADDR[10]", pin: "AE9", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_ADDR[11]", pin: "AF9", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_ADDR[12]", pin: "AA10", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_ADDR[13]", pin: "AD8", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_ADDR[14]", pin: "AC8", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_ADDR[15]", pin: "Y10", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_ADDR[16]", pin: "AA8", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_ADDR[17]", pin: "AH12", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_ADDR[18]", pin: "AC12", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_ADDR[19]", pin: "AD12", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_ADDR[20]", pin: "AE10", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_ADDR[21]", pin: "AD10", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_ADDR[22]", pin: "AD11", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_DQ[0]", pin: "AH8", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_DQ[1]", pin: "AF10", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_DQ[2]", pin: "AG10", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_DQ[3]", pin: "AH10", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_DQ[4]", pin: "AF11", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_DQ[5]", pin: "AG11", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_DQ[6]", pin: "AH11", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_DQ[7]", pin: "AF12", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_CE_N", pin: "AG7", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_OE_N", pin: "AG8", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_RST_N", pin: "AE11", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_RY", pin: "Y1", io_standard: "3.3-V LVTTL", direction: "in", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_WE_N", pin: "AC10", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "FL_WP_N", pin: "AE12", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-29, p.68-69", confirmed: "manual"}
+  - {name: "EEP_I2C_SCLK", pin: "D14", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-30, p.69", confirmed: "manual"}
+  - {name: "EEP_I2C_SDAT", pin: "E14", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-30, p.69", confirmed: "manual"}
+  - {name: "SD_CLK", pin: "AE13", io_standard: "3.3-V LVTTL", direction: "out", source: "Table 4-31, p.69", confirmed: "manual"}
+  - {name: "SD_CMD", pin: "AD14", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-31, p.69", confirmed: "manual"}
+  - {name: "SD_DAT[0]", pin: "AE14", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-31, p.69", confirmed: "manual"}
+  - {name: "SD_DAT[1]", pin: "AF13", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-31, p.69", confirmed: "manual"}
+  - {name: "SD_DAT[2]", pin: "AB14", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-31, p.69", confirmed: "manual"}
+  - {name: "SD_DAT[3]", pin: "AC14", io_standard: "3.3-V LVTTL", direction: "inout", source: "Table 4-31, p.69", confirmed: "manual"}
+  - {name: "SD_WP_N", pin: "AF14", io_standard: "3.3-V LVTTL", direction: "in", source: "Table 4-31, p.69", confirmed: "manual"}

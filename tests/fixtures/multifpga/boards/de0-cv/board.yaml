@@ -1,0 +1,46 @@
+# Pacote da Terasic DE0-CV. Esquema: docs/pt-br/boards/formato.md. Ficha: Plans/Multi-FPGA/placas/de0-cv.md.
+board: de0-cv
+name: Terasic DE0-CV
+family: cyclone-v
+device: 5CEBA4F23C7
+speed_grade: C7
+target_level: N4
+jtag:
+  cable: usb-blaster
+  chain:
+    - {name: "5CE(BA4|FA4)", idcode: "02B050DD", fpga: true, confirmed: measured}
+resources:
+  logic:       {unit: alm, total: 18480}
+  block_ram:   {kind: m10k, blocks: 308, bits_per_block: 10240}
+  multipliers: {kind: dsp_block, total: 66}
+  plls: 4
+  user_pins: null
+clocks:
+  inputs:
+    - {name: clock_50,  signal: CLOCK_50,  mhz: 50}
+    - {name: clock2_50, signal: CLOCK2_50, mhz: 50}
+    - {name: clock3_50, signal: CLOCK3_50, mhz: 50}
+    - {name: clock4_50, signal: CLOCK4_50, mhz: 50}
+  reference: clock_50
+  reset: {signal: FPGA_RESET_N, active: low}
+io:
+  leds:     {signals: "LEDR[9:0]",      active: high}
+  switches: {signals: "SW[9:0]",        active: high}
+  keys:     {signals: "KEY[3:0]",       active: low}
+  display:  {signals: "HEX[5:0][6:0]",  active: low}
+memories:
+  sdram:
+    chip: IS42S16320D-7
+    chips: 1
+    signals: DRAM
+    clk_phase_ps: 4000
+console:
+  default: jtag
+pins: pins.yaml
+notes:
+  - "Sem UART nem ponte USB-UART; o console e a JTAG UART (Virtual JTAG), sem pino."
+  - "Sem FLASH de usuario: o EPCS64 e so de configuracao (AS). A FLASH do SoC e emulada em M10K e carregada pela JTAG."
+  - "Os pinos CLOCK2_50 a CLOCK4_50 sao inferidos (amaranth-boards); o Tools recusa construir com eles sem --accept-inferred-pins."
+  - "Polaridade de LEDR e dos displays HEX vem do amaranth-boards (inferido); a de KEY e FPGA_RESET_N tambem. Nenhuma foi lida no manual."
+  - "Todos os bancos usados sao 3.3-V LVTTL; os pinos 11, 12, 29 e 30 do GPIO_0 sao alimentacao (5 V, GND, 3.3 V, GND)."
+  - "A fase do DRAM_CLK (4000 ps) e o tempo de E/S da SDRAM (setup 1.5 ns, hold 0.8 ns, acesso 5.4 ns, hold de saida 2.5 ns) valem para 100 MHz e vem de platform.yaml e de de0-cv.sdc."

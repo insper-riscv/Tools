@@ -91,6 +91,18 @@ def test_a_malformed_manifest_is_reported(tmp_path: Path) -> None:
     )
 
 
+def test_a_component_may_only_group_others(tmp_path: Path) -> None:
+    """Without sources, a component that requires others is a group."""
+    _write(tmp_path, "src/a.vhd", "entity a is end;\n")
+    _write(
+        tmp_path,
+        "paths.yaml",
+        "provides:\n  a:\n    requires: []\n    sources: [src/a.vhd]\n"
+        "  group:\n    requires: [a]\n    sources: []\n",
+    )
+    check_equal(_manifest(tmp_path), [])
+
+
 def test_the_repository_name_defaults_to_the_folder(tmp_path: Path) -> None:
     """Without `repository`, the root folder names the repository."""
     root = tmp_path / "Mine"

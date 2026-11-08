@@ -529,7 +529,11 @@ def render_vhdl(
         ram_external=_external_line("RAM", ram_external),
         ext_base=_kib(evaluate(spec.get("ext_base", window)), "ext_base"),
         periph_base=_kib(window, "periph_base"),
-        memory="" if choice is None else memory_choice.vhdl_lines(choice),
+        memory=""
+        if choice is None
+        else memory_choice.vhdl_lines(
+            choice, memory_choice.cache_window_bits(platform)
+        ),
         peripherals=_peripheral_lines(platform)
         + interrupts.vhdl_lines(platform)
         + sdram_clock.vhdl_lines(platform),

@@ -1,4 +1,4 @@
-"""Tests for the clock of the SDRAM controller in the platform."""
+"""Tests for the clocks of the platform used by the memory map."""
 
 from pathlib import Path
 from typing import Any
@@ -22,7 +22,10 @@ PLATFORM: dict[str, Any] = {
     "regions": MAP_REGIONS,
     "reserved": MAP_RESERVED,
     "boot": {"entry": "0x800", "wait_restart": "0x100"},
-    "sdram": {"clock_hz": 100000000, "dram_clk_phase_ps": 4000},
+    "clocks": {
+        "core": {"mhz": 76.923077, "phase_ps": 7500},
+        "mem": {"mhz": 100},
+    },
     "generate": {
         "runtime": {"path": "gen/rv32.h", "ram": "RAM"},
         "vhdl": {
@@ -35,9 +38,7 @@ PLATFORM: dict[str, Any] = {
     },
 }
 
-PLL = (
-    '.output_clock_frequency0("100.000000 MHz"),\n.phase_shift1("4000 ps"),\n'
-)
+PLL = '.output_clock_frequency0("100.000000 MHz"),\n'
 
 
 def _write(base: Path, **changes: Any) -> Path:
@@ -62,23 +63,18 @@ def test_the_package_has_the_clock_and_the_period(tmp_path: Path) -> None:
 
 
 def test_without_the_section_nothing_is_added(tmp_path: Path) -> None:
-    """Without `sdram` there are no constants."""
-    files = render_all(_write(tmp_path, sdram=None), tmp_path)
+    """Without `clocks.mem` there are no constants."""
+    files = render_all(_write(tmp_path, clocks=None), tmp_path)
     check_not_in("SDRAM_TCK_PS", files[tmp_path / "gen/clk_pkg.vhd"])
 
 
 @pytest.mark.parametrize(
     ("section", "message"),
     [
-        ({"clock_hz": 100000000}, "dram_clk_phase_ps is missing"),
-        (
-            {"clock_hz": 3000000000, "dram_clk_phase_ps": 0},
-            "no whole period",
-        ),
-        (
-            {"clock_hz": 100000000, "dram_clk_phase_ps": 10000},
-            "not inside one period",
-        ),
+        ({"mem": {}}, "mem.mhz is missing"),
+        ({"mem": {"mhz": 0}}, "mem.mhz is missing or not positive"),
+        ({"mem": {"mhz": 3000000}}, "no whole period"),
+        ({"mem": {"mhz": 99.9999999}}, "no whole period"),
     ],
 )
 def test_an_inconsistent_section_is_rejected(
@@ -86,19 +82,19 @@ def test_an_inconsistent_section_is_rejected(
 ) -> None:
     """Each way the section is wrong is an error."""
     with pytest.raises(ValueError, match=message):
-        render_all(_write(tmp_path, sdram=section), tmp_path)
+        render_all(_write(tmp_path, clocks=section), tmp_path)
 
 
 def test_the_core_phase_is_a_symbol_of_the_checks(tmp_path: Path) -> None:
-    """The `pll` section names the phase of the core clock."""
+    """The `clocks.core` entry names the phase of the core clock."""
     check = {
         "name": "core phase",
         "file": "pll.v",
         "pattern": r'phase_shift3\("(\d+) ps"',
-        "expect": "PLL.core_phase_ps",
+        "expect": "CLOCKS.core_phase_ps",
     }
-    path = _write(tmp_path, pll={"core_phase_ps": 8250}, checks=[check])
-    (tmp_path / "pll.v").write_text('.phase_shift3("8250 ps"),\n')
+    path = _write(tmp_path, checks=[check])
+    (tmp_path / "pll.v").write_text('.phase_shift3("7500 ps"),\n')
     check_equal(check_memory_map(path, tmp_path)[1], [])
     (tmp_path / "pll.v").write_text('.phase_shift3("6625 ps"),\n')
     check_equal(
@@ -113,13 +109,7 @@ def test_a_check_ties_the_pll_file_to_the_section(tmp_path: Path) -> None:
             "name": "frequency",
             "file": "pll.v",
             "pattern": r'output_clock_frequency0\("(\d+)\.',
-            "expect": "SDRAM.clock_mhz",
-        },
-        {
-            "name": "phase",
-            "file": "pll.v",
-            "pattern": r'phase_shift1\("(\d+) ps"',
-            "expect": "SDRAM.dram_clk_phase_ps",
+            "expect": "CLOCKS.mem_mhz",
         },
     ]
     path = _write(tmp_path, checks=checks)
@@ -127,31 +117,9 @@ def test_a_check_ties_the_pll_file_to_the_section(tmp_path: Path) -> None:
     count, found = check_memory_map(path, tmp_path)
     check_equal(count, len(checks))
     check_equal(found, [])
-    (tmp_path / "pll.v").write_text(PLL.replace("4000", "3000"))
+    (tmp_path / "pll.v").write_text(PLL.replace("100", "133"))
     _, found = check_memory_map(path, tmp_path)
-    check_equal([m.check for m in found], ["phase"])
-
-
-def test_the_core_frequency_is_a_symbol_of_the_checks(tmp_path: Path) -> None:
-    """The `pll` section names the whole MHz of the core clock."""
-    check = {
-        "name": "core frequency",
-        "file": "pll.v",
-        "pattern": r'output_clock_frequency3\("(\d+)\.',
-        "expect": "PLL.core_clock_mhz",
-    }
-    path = _write(tmp_path, pll={"core_clock_hz": 76923077}, checks=[check])
-    (tmp_path / "pll.v").write_text(
-        '.output_clock_frequency3("76.923077 MHz"),\n'
-    )
-    check_equal(check_memory_map(path, tmp_path)[1], [])
-    (tmp_path / "pll.v").write_text(
-        '.output_clock_frequency3("50.000000 MHz"),\n'
-    )
-    check_equal(
-        [m.check for m in check_memory_map(path, tmp_path)[1]],
-        ["core frequency"],
-    )
+    check_equal([m.check for m in found], ["frequency"])
 
 
 def test_the_tick_is_a_symbol_of_the_checks(tmp_path: Path) -> None:
@@ -164,7 +132,8 @@ def test_the_tick_is_a_symbol_of_the_checks(tmp_path: Path) -> None:
     }
     path = _write(
         tmp_path,
-        interrupts={"clock_hz": 77000000, "mtime_hz": 1000000},
+        extras=["Interrupts"],
+        interrupts={"mtime_hz": 1000000},
         peripherals=[
             {"name": "CLINT", "base": "0xE0000000", "id": 6, "size": "64K"}
         ],

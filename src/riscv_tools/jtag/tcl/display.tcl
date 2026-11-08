@@ -20,6 +20,13 @@ if {[llength $argv] < 3} {
 lassign $argv HW DEV MODE
 # the display is the third Virtual JTAG instance; the SDRAM debug port and the UART come first
 set INSTANCE 2
+# digits of the register (4 bits each, plus the write bit): RV32_DISPLAY_DIGITS, 6 when the variable is not set
+set DIGITS 6
+if {[info exists ::env(RV32_DISPLAY_DIGITS)]} {
+    set DIGITS $::env(RV32_DISPLAY_DIGITS)
+}
+set BITS [expr {4 * $DIGITS}]
+set MASK [expr {(1 << $BITS) - 1}]
 
 proc fail {code message} {
     puts stderr $message
@@ -29,11 +36,11 @@ proc fail {code message} {
 }
 
 proc scan_register {word} {
-    global INSTANCE
-    set r [device_virtual_dr_shift -instance_index $INSTANCE -length 25 \
-               -dr_value [format %07x $word] -value_in_hex]
+    global INSTANCE BITS MASK
+    set r [device_virtual_dr_shift -instance_index $INSTANCE -length [expr {$BITS + 1}] \
+               -dr_value [format %0*x [expr {($BITS + 1 + 3) / 4}] $word] -value_in_hex]
     scan $r %x x
-    return [expr {$x & 0xFFFFFF}]
+    return [expr {$x & $MASK}]
 }
 
 if {[catch {
@@ -71,8 +78,8 @@ if {$MODE eq "check"} {
     set bad 0
     for {set i 0} {$i < $count} {incr i} {
         set seed [expr {($seed * 1103515245 + 12345) & 0x7FFFFFFF}]
-        set value [expr {$seed & 0xFFFFFF}]
-        scan_register [expr {(1 << 24) | $value}]
+        set value [expr {$seed & $MASK}]
+        scan_register [expr {(1 << $BITS) | $value}]
         after 2
         if {[scan_register 0] != $value} { incr bad }
     }
@@ -85,12 +92,12 @@ if {$MODE eq "check"} {
 if {$MODE eq "write"} {
     if {[llength $argv] < 4} { fail 1 "write needs a value" }
     scan [lindex $argv 3] %x value
-    if {$value < 0 || $value > 0xFFFFFF} { fail 1 "the value does not fit in 24 bits" }
-    scan_register [expr {(1 << 24) | $value}]
+    if {$value < 0 || $value > $MASK} { fail 1 "the value does not fit in $BITS bits" }
+    scan_register [expr {(1 << $BITS) | $value}]
     # the write crosses to the core clock: the readback comes after the register has taken it
     after 5
 }
 set v [scan_register 0]
-puts [format "VALUE=%06x" $v]
+puts [format "VALUE=%0*x" $DIGITS $v]
 catch { device_unlock }
 catch { close_device }

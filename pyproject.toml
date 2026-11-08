@@ -139,8 +139,13 @@ source-roots = ["src"]
 # The test modules import their helpers (support.py) as top-level modules.
 init-hook = "import sys; sys.path.append('tests')"
 
+# The records of the board catalog have one field for each key of a schema.
+[tool.pylint.design]
+max-attributes = 15
+
 [tool.pylint.messages_control]
 disable = [
     "redefined-outer-name",   # pytest fixtures are injected by parameter name
     "too-few-public-methods", # stubs and small data holders in tests
+    "too-many-instance-attributes", # records of the reports and the plans
 ]

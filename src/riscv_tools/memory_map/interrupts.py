@@ -10,6 +10,9 @@ interrupts:
   mtime_hz: 1000000    # rate at which the mtime of the CLINT counts
 ```
 
+With `clocks.core` in the platform `clock_hz` is left out: it is the
+core clock rounded to a whole number of cycles per tick.
+
 The `mtime` of the CLINT is a counter of its own, set by this rate. It
 is independent of the CSR `time` of Zicntr, which the core serves.
 
@@ -44,6 +47,7 @@ and the tick rate for the port of the FreeRTOS.
 
 from typing import Any
 
+from riscv_tools.memory_map import sdram_clock
 from riscv_tools.memory_map.core import (
     Mismatch,
     platform_dict,
@@ -122,7 +126,32 @@ def _rates(platform: dict[str, Any]) -> tuple[int, int]:
         `clock_hz` and `mtime_hz`.
     """
     section = platform_dict(platform, "interrupts")
-    return evaluate(section["clock_hz"]), evaluate(section["mtime_hz"])
+    mtime = evaluate(section["mtime_hz"])
+    if "clock_hz" in section:
+        return evaluate(section["clock_hz"]), mtime
+    return derived_clock_hz(platform, mtime), mtime
+
+
+def derived_clock_hz(platform: dict[str, Any], mtime: int) -> int:
+    """Round the core clock to a whole number of cycles per tick.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+    mtime : int
+        The tick rate of `mtime`.
+
+    Returns
+    -------
+    int
+        `round(clocks.core / mtime_hz) * mtime_hz`, or 0 without the
+        core clock or with a tick rate that is not positive.
+    """
+    rate = sdram_clock.core_hz(platform)
+    if rate is None or mtime <= 0:
+        return 0
+    return round(rate / mtime) * mtime
 
 
 def tick_cycles(platform: dict[str, Any]) -> int:
@@ -164,14 +193,27 @@ def problems(
     if not declared(platform):
         return []
     section = platform_dict(platform, "interrupts")
+    has_core_clock = sdram_clock.core_hz(platform) is not None
+    needed = ("mtime_hz",) if has_core_clock else ("clock_hz", "mtime_hz")
     found = [
         Mismatch("interrupts", "", f"{key} is missing")
-        for key in ("clock_hz", "mtime_hz")
+        for key in needed
         if key not in section
     ]
     if found:
         return found
     clock, mtime = _rates(platform)
+    if "clock_hz" in section and has_core_clock:
+        derived = derived_clock_hz(platform, mtime)
+        if derived and clock != derived:
+            found.append(
+                Mismatch(
+                    "interrupts",
+                    "",
+                    f"clock_hz {clock} is not clocks.core rounded to whole "
+                    f"ticks ({derived}); leave clock_hz out",
+                )
+            )
     if mtime <= 0 or clock <= 0 or clock % mtime:
         found.append(
             Mismatch(

@@ -28,11 +28,16 @@ class JtagLink:
     sdram_instance : int
         Index of the Virtual JTAG instance of the SDRAM debug port, from
         a project's config (`quartus.sdram_debug_instance`).
+    display_digits : int
+        Digits of the seven-segment display register of the board, from
+        a project's config (`quartus.display_digits`); the register has
+        four bits per digit.
     """
 
     hardware_name: str
     device_name: str
     sdram_instance: int = 0
+    display_digits: int = 6
 
 
 def run(cmd: list[str], **kw: Any) -> subprocess.CompletedProcess[Any]:
@@ -108,5 +113,6 @@ def run_tcl(
     env = {
         **os.environ,
         "RV32_SDRAM_DEBUG_INSTANCE": str(link.sdram_instance),
+        "RV32_DISPLAY_DIGITS": str(link.display_digits),
     }
     return run(cmd, env=env)

@@ -6,6 +6,7 @@ it through the Virtual JTAG instance of the register. Pure mechanism, no
 policy.
 """
 
+import os
 import subprocess
 
 from riscv_tools.jtag import JtagLink
@@ -15,6 +16,7 @@ VALUE_PREFIX = "VALUE="
 FLAG_PREFIX = "FLAG="
 CHECK_PREFIX = "CHECKED="
 MAX_VALUE = 0xFFFFFF
+DEFAULT_DIGITS = 6
 # HEX5 and HEX4 read "AC" while the ELFs of the ACT4 run
 ACT_PREFIX = 0xAC0000
 MAX_ACT_NUMBER = 9999
@@ -106,6 +108,16 @@ def decode_value(output: str) -> int:
     raise RuntimeError(f"the display script printed no value: {output!r}")
 
 
+def _digits(link: JtagLink | None) -> int:
+    """Digits of the display register of the board of the link."""
+    return getattr(link, "display_digits", DEFAULT_DIGITS)
+
+
+def _env(link: JtagLink) -> dict[str, str]:
+    """Environment of display.tcl: the digits of the register."""
+    return {**os.environ, "RV32_DISPLAY_DIGITS": str(_digits(link))}
+
+
 def _run(link: JtagLink, *args: str) -> int:
     """Run display.tcl with args and return the value it reports."""
     cmd = [
@@ -116,7 +128,9 @@ def _run(link: JtagLink, *args: str) -> int:
         link.device_name,
         *args,
     ]
-    done = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    done = subprocess.run(
+        cmd, capture_output=True, text=True, check=False, env=_env(link)
+    )
     if done.returncode != 0:
         raise RuntimeError(
             f"display.tcl failed ({done.returncode}): {done.stderr}"
@@ -153,7 +167,9 @@ def check_display(link: JtagLink, count: int) -> int:
         "check",
         str(count),
     ]
-    done = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    done = subprocess.run(
+        cmd, capture_output=True, text=True, check=False, env=_env(link)
+    )
     if done.returncode != 0:
         raise RuntimeError(
             f"display.tcl failed ({done.returncode}): {done.stderr}"
@@ -202,9 +218,12 @@ def write_display(link: JtagLink, value: int) -> int:
     ValueError
         The value does not fit in 24 bits.
     """
-    if not 0 <= value <= MAX_VALUE:
-        raise ValueError(f"the value {value} does not fit in 24 bits")
-    return _run(link, "write", f"{value:06x}")
+    digits = _digits(link)
+    if not 0 <= value < 1 << (4 * digits):
+        raise ValueError(
+            f"the value {value} does not fit in {4 * digits} bits"
+        )
+    return _run(link, "write", f"{value:0{digits}x}")
 
 
 def _run_fail(link: JtagLink, action: str) -> bool:
@@ -218,7 +237,9 @@ def _run_fail(link: JtagLink, action: str) -> bool:
         "fail",
         action,
     ]
-    done = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    done = subprocess.run(
+        cmd, capture_output=True, text=True, check=False, env=_env(link)
+    )
     if done.returncode != 0:
         raise RuntimeError(
             f"display.tcl failed ({done.returncode}): {done.stderr}"

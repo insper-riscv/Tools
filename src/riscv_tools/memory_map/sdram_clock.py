@@ -1,35 +1,60 @@
-"""The clock of the SDRAM controller of a platform.
+"""The clocks of a platform that the memory map converts with.
 
-A platform with an SDRAM says in `sdram` how fast the controller runs
-and how far the pin `DRAM_CLK` is shifted from it:
+A platform says in `clocks` how fast its clocks run (the PLL, the
+`.sdc` and the VHDL package are all generated from this one place):
 
 ```yaml
-sdram:
-  clock_hz: 100000000      # controller clock (PLL output 0)
-  dram_clk_phase_ps: 4000  # phase of DRAM_CLK against it (PLL output 1)
+clocks:
+  core: {mhz: 76.923077, phase_ps: 7500}  # clock of the core
+  mem:  {mhz: 100}                        # SDRAM controller
 ```
 
-The optional `pll` section holds the phase of the core clock (PLL output
-3) in `core_phase_ps` and its frequency in `core_clock_hz`, which only
-the checks use (`PLL.core_phase_ps`, `PLL.core_clock_mhz`).
-
-The VHDL package gets `SDRAM_CLOCK_HZ` and `SDRAM_TCK_PS` (the period
-the controller and the chip model convert the chip timings with), and
-the checks of the platform can name `SDRAM.clock_mhz` and
-`SDRAM.dram_clk_phase_ps` to keep the PLL file in step with the map.
+The VHDL package gets `SDRAM_CLOCK_HZ` and `SDRAM_TCK_PS` (the
+period the controller and the chip model convert the chip timings
+with) from `clocks.mem`, and the checks of the platform can name
+`CLOCKS.mem_mhz`, `CLOCKS.mem_tck_ps`, `CLOCKS.core_mhz` and
+`CLOCKS.core_phase_ps`.
+The phase of the pin clock `DRAM_CLK` belongs to the board, not to the
+platform (`memories.sdram.clk_phase_ps` of the `board.yaml`).
 """
 
-from typing import Any
+from fractions import Fraction
+from typing import Any, cast
 
 from riscv_tools.memory_map.core import Mismatch, platform_dict
-from riscv_tools.memory_map.expressions import evaluate
 
 PS_PER_S = 1_000_000_000_000
 HZ_PER_MHZ = 1_000_000
 
 
+def _mhz(platform: dict[str, Any], clock: str) -> Fraction | None:
+    """Read the frequency of one clock of the `clocks` section.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+    clock : str
+        `core`, `fetch` or `mem`.
+
+    Returns
+    -------
+    Fraction or None
+        The frequency in MHz, or None when the clock is not declared or
+        is not a number.
+    """
+    entry = platform_dict(platform, "clocks").get(clock)
+    if not isinstance(entry, dict) or "mhz" not in entry:
+        return None
+    fields = cast(dict[str, Any], entry)
+    try:
+        return Fraction(str(fields["mhz"]))
+    except ValueError, ZeroDivisionError:
+        return None
+
+
 def declared(platform: dict[str, Any]) -> bool:
-    """Tell whether the platform has an `sdram` section.
+    """Tell whether the platform has a `clocks.mem` clock.
 
     Parameters
     ----------
@@ -39,13 +64,30 @@ def declared(platform: dict[str, Any]) -> bool:
     Returns
     -------
     bool
-        True when the section is there.
+        True when the controller clock is there.
     """
-    return bool(platform_dict(platform, "sdram"))
+    return "mem" in platform_dict(platform, "clocks")
+
+
+def core_hz(platform: dict[str, Any]) -> Fraction | None:
+    """Give the frequency of the core clock in hertz.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+
+    Returns
+    -------
+    Fraction or None
+        `clocks.core.mhz` in Hz, or None without the clock.
+    """
+    mhz = _mhz(platform, "core")
+    return None if mhz is None else mhz * HZ_PER_MHZ
 
 
 def problems(platform: dict[str, Any]) -> list[Mismatch]:
-    """Check the `sdram` section.
+    """Check the `clocks` section.
 
     Parameters
     ----------
@@ -57,26 +99,21 @@ def problems(platform: dict[str, Any]) -> list[Mismatch]:
     list of Mismatch
         The problems; empty when the section is consistent or absent.
     """
-    if not declared(platform):
-        return []
-    section = platform_dict(platform, "sdram")
-    found = [
-        Mismatch("sdram", "", f"{key} is missing")
-        for key in ("clock_hz", "dram_clk_phase_ps")
-        if key not in section
-    ]
-    if found:
-        return found
-    clock = evaluate(section["clock_hz"])
-    if clock <= 0 or PS_PER_S % clock:
-        found.append(
-            Mismatch(
-                "sdram", "", f"clock_hz {clock} has no whole period in ps"
+    found: list[Mismatch] = []
+    for name in platform_dict(platform, "clocks"):
+        mhz = _mhz(platform, name)
+        if mhz is None or mhz <= 0:
+            found.append(
+                Mismatch(
+                    "clocks", "", f"{name}.mhz is missing or not positive"
+                )
             )
-        )
-    elif not 0 <= evaluate(section["dram_clk_phase_ps"]) < PS_PER_S // clock:
+    if found or not declared(platform):
+        return found
+    clock = (_mhz(platform, "mem") or Fraction(1)) * HZ_PER_MHZ
+    if clock.denominator != 1 or PS_PER_S % int(clock):
         found.append(
-            Mismatch("sdram", "", "dram_clk_phase_ps is not inside one period")
+            Mismatch("clocks", "", f"mem {clock} Hz has no whole period in ps")
         )
     return found
 
@@ -92,28 +129,24 @@ def symbols(platform: dict[str, Any]) -> dict[str, int]:
     Returns
     -------
     dict of {str: int}
-        `SDRAM.clock_mhz`, `SDRAM.tck_ps` and `SDRAM.dram_clk_phase_ps`
-        (with the `sdram` section) and `PLL.core_phase_ps` (with the
-        `pll` section), and `PLL.core_clock_mhz` (the whole MHz of
-        `pll.core_clock_hz`).
+        `CLOCKS.mem_mhz` and `CLOCKS.mem_tck_ps` (with `clocks.mem`),
+        `CLOCKS.core_mhz` (rounded) and `CLOCKS.core_phase_ps` (with
+        `clocks.core`).
     """
     out: dict[str, int] = {}
-    pll = platform_dict(platform, "pll")
-    if "core_phase_ps" in pll:
-        out["PLL.core_phase_ps"] = evaluate(pll["core_phase_ps"])
-    if "core_clock_hz" in pll:
-        out["PLL.core_clock_mhz"] = (
-            evaluate(pll["core_clock_hz"]) // HZ_PER_MHZ
+    core = platform_dict(platform, "clocks").get("core")
+    if isinstance(core, dict) and "phase_ps" in core:
+        out["CLOCKS.core_phase_ps"] = int(
+            cast(dict[str, Any], core)["phase_ps"]
         )
-    if not declared(platform):
-        return out
-    section = platform_dict(platform, "sdram")
-    clock = evaluate(section["clock_hz"])
-    return out | {
-        "SDRAM.clock_mhz": clock // HZ_PER_MHZ,
-        "SDRAM.tck_ps": PS_PER_S // clock,
-        "SDRAM.dram_clk_phase_ps": evaluate(section["dram_clk_phase_ps"]),
-    }
+    core_rate = core_hz(platform)
+    if core_rate is not None:
+        out["CLOCKS.core_mhz"] = round(core_rate / HZ_PER_MHZ)
+    if declared(platform):
+        clock = int((_mhz(platform, "mem") or Fraction(0)) * HZ_PER_MHZ)
+        out["CLOCKS.mem_mhz"] = clock // HZ_PER_MHZ
+        out["CLOCKS.mem_tck_ps"] = PS_PER_S // clock
+    return out
 
 
 def vhdl_lines(platform: dict[str, Any]) -> str:
@@ -128,11 +161,11 @@ def vhdl_lines(platform: dict[str, Any]) -> str:
     -------
     str
         `SDRAM_CLOCK_HZ` and `SDRAM_TCK_PS`, each preceded by a comment;
-        empty without the section.
+        empty without `clocks.mem`.
     """
     if not declared(platform):
         return ""
-    clock = evaluate(platform_dict(platform, "sdram")["clock_hz"])
+    clock = int((_mhz(platform, "mem") or Fraction(0)) * HZ_PER_MHZ)
     return (
         "\n\t-- Frequência do clock do controlador da SDRAM, em Hz.\n"
         f"\tconstant SDRAM_CLOCK_HZ : positive := {clock};\n"

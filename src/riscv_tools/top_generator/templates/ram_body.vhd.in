@@ -1,0 +1,24 @@
+	-- Backend emulado da RAM: porta de memória sobre bloco do FPGA, com a latência pedida.
+	ram_port_inst : entity work.onchip_ram_port
+		generic map (size_bytes => RAM_STORAGE_BYTES, base_kib => RAM_BASE_KIB mod 65536, latency => {latency})
+		port map (
+			i_clk => clk_core, i_rst => soc_rst,
+			i_addr => rd_addr, i_wdata => rd_wdata, i_byteena => rd_be,
+			i_rden => rd_rden, i_wren => rd_wren, i_mem_advance => rd_adv,
+			o_ready => rd_ready, o_rdata => rd_rdata,
+			i_line => rd_line, i_wdata_x => rd_wdx, o_rdata_x => rd_rdx,
+			o_mem_addr => ocm_addr, o_mem_wdata => ocm_wdata, o_mem_byteena => ocm_be,
+			o_mem_rden => ocm_rden, o_mem_wren => ocm_wren, i_mem_q => ocm_q
+		);
+
+	ram_store_inst : entity work.ram
+		generic map (size_bytes => RAM_STORAGE_BYTES, word_count => RAM_STORAGE_BYTES / 4)
+		port map (
+			i_address => ocm_addr, i_byteena => ocm_be, i_clk => clk_core,
+			i_data => ocm_wdata, i_rden => ocm_rden, i_wren => ocm_wren, o_q => ocm_q
+		);
+
+	-- A busca de instrução na RAM emulada não tem backend: a porta fica sem resposta.
+	ri_ready <= '0';
+	ri_rdata <= (others => '0');
+	ri_rdx <= (others => '0');

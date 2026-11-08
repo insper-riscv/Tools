@@ -1,0 +1,2 @@
+1) USB-Blaster [1-4]
+  020F20DD   10CL016(Y|Z)

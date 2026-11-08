@@ -1,0 +1,18 @@
+# Família de dispositivos Cyclone V SoC. Esquema: Plans/Multi-FPGA/02-ESQUEMAS-PLATFORM-E-BOARD.md, seção 5.
+# A faixa do oscilador e o número de saídas do PLL vêm do manual da família; o Fmax é a frequência de núcleo medida por grau
+# (null quando não há medida) e a calibração é o arquivo medido pelo estimador de cabimento (null até existir).
+family: cyclone-v-soc
+quartus_family: Cyclone V   # nome que o Quartus 25.1 aceita; "Cyclone V SoC" não existe no get_family_list (medido em M.0.1)
+logic_unit: alm
+pll:
+  ip: altera_pll
+  vco_mhz: [600, 1600]
+  clock_node_pattern: "<instance>|altera_pll_i|general[N].gpll~PLL_OUTPUT_COUNTER|divclk"
+  outputs_max: 18
+block_ram: {kind: m10k, bits_per_block: 10240}
+memory_ip: altsyncram
+virtual_jtag: true
+onchip_flash: null
+fmax:
+  core_mhz_by_grade: {I7: null, C6: null}
+calibration: null

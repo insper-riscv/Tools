@@ -11,6 +11,28 @@ The slow "base" path: a full `quartus_sh --flow compile` followed by `quartus_pg
 
 `full_reconfigure` always shells the compile and program steps out together as one `bash -c` chain, never as two separate Python subprocess calls: invoking `quartus_pgm` as its own subprocess immediately after `quartus_sh` has been observed to break the JTAG chain (`Error 213019: Can't scan JTAG chain`), while chaining the same two commands inside one shell process does not.
 
+## Compile options
+
+`program` accepts, besides the `.mif`, the options below. With none of them the flow is the usual one: `quartus_sh --flow compile` followed by `quartus_pgm`. With `--seed`, `--generic` or `--stop-after`, the compile goes through the single script `tcl/compile.tcl`, which replaces the per-platform `<project>_synth.tcl`.
+
+| Option | Effect |
+| :--- | :--- |
+| `--seed N` | Placement seed (script default 5); the script also fixes the `HIGH PERFORMANCE EFFORT` mode |
+| `--generic NAME=VALUE` | Changes an integer top-level generic for this compile only, without writing it to the `.qsf`; repeatable |
+| `--stop-after map\|fit\|sta` | Stops after synthesis, fitting or timing analysis; the board is not programmed |
+| `--compile-only` | Runs the whole flow and does not program the board |
+| `--board NAME` (global) | Picks the cable by the FPGA IDCODE of the board, through the board selection of `jtag_link` |
+| `--project-dir`, `--project-name` | Quartus project in place of `quartus.project_dir` and `quartus.project_name`, for a project written by `board generate`; the `.sof` is `output_files/<name>.sof` |
+
+The `.mif` is required only when the board is programmed. With `--compile-only` or `--stop-after`, no cable is consulted.
+
+| Stop point | Stages run |
+| :--- | :--- |
+| `map` | Synthesis |
+| `fit` | Synthesis and fitting |
+| `sta` | Synthesis, fitting and timing analysis |
+| full | `execute_flow -compile` |
+
 ## Configuration
 
 | Key | Meaning |
@@ -27,7 +49,11 @@ The slow "base" path: a full `quartus_sh --flow compile` followed by `quartus_pg
 
 ## Tests
 
-No automated test in this repository. A self-hosted runner set up as in Infra's `RUNNER_SETUP.md` runs the real-hardware suite of a consuming project (`riscv-tools run`), which is the only place this module is exercised.
+| Test | What it checks |
+| :--- | :--- |
+| `tests/test_program_options.py` | `compile.tcl` records the same calls as `de0-cv_synth.tcl`, the compile-and-program chain, `program_only` against `de0-cv_program.sh` and `cmd_program` with the new options |
+
+The old scripts stay as test fixtures (`tests/fixtures/multifpga/handwritten/`), run under `tclsh` with the Quartus commands replaced by recorders.
 
 ## Usage
 

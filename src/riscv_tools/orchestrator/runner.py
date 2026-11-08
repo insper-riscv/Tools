@@ -3,7 +3,7 @@
 Compiles once, then for each test writes the ROM over JTAG, pulses the
 restart and polls tohost. If a test's tohost never
 responds within its timeout, it falls back to a full recompile and
-reprogram. The clock frequency sweep is in sweep.py.
+reprogram.
 """
 
 import subprocess

@@ -50,12 +50,15 @@ Não há divisão `tests_real_dir`/`tests_sim_dir`/`golden_dir`: todo teste em `
 
 | Chave | Padrão | Usada por |
 |---|---|---|
-| `jtag_device` | **obrigatória** | `jtag`: a string de IDCODE JTAG da própria FPGA. O nome do cabo (`USB-Blaster [...]`) é detectado em tempo real, já que muda entre reboots |
+| `jtag_device` | opcional | `jtag`: a string de IDCODE JTAG da própria FPGA. O nome do cabo (`USB-Blaster [...]`) é detectado em tempo real, já que muda entre reboots. Sem ela, a placa é selecionada pelo módulo [`board`](modules/board.md) |
+| `board` | opcional | `jtag`: identificador da placa ou `auto`; vale quando `jtag_device` não está definido |
+| `boards` | opcional | `jtag`: lista de placas que `auto` pode tomar |
 | `sdram_debug_instance` | `0` | `jtag`: índice da instância do Virtual JTAG da porta de depuração da SDRAM; uma plataforma que também tem o carregador da FLASH dá outro índice à porta |
 | `project_dir` | **obrigatória** | `quartus_program`: caminho do diretório do projeto Quartus |
 | `project_name` | **obrigatória** | `quartus_program`: passado a `quartus_sh --flow compile` |
 | `sof_file` | **obrigatória** | `quartus_program`: caminho (relativo a `project_dir`) do `.sof` compilado, passado ao `quartus_pgm` |
 | `rom_mif_target` | **obrigatória** | `quartus_program`: caminho (relativo a `project_dir`) de onde a megafunção da ROM lê o `init_file` na compilação |
+| `generate` | opcional | `program`: `platform`, `out` e, se preciso, `boards_dir`, `chips_dir` e `accept_inferred_pins`; com ela o `program` roda o `board generate` da plataforma antes de compilar, e `project_dir` aponta o projeto gerado em `out` |
 | `stale_cache_dirs` | `[db, incremental_db, output_files, simulation]` | `quartus_program`: diretórios (relativos a `project_dir`) apagados antes de toda compilação, já que o `init_file` de uma ROM não é um fonte rastreado do projeto |
 | `rom_mem_instances` | `[0]` | `rom_writer`: índice(s) da instância do In-System Memory Content Editor da ROM (uma lista; um projeto com mais de uma cópia física da ROM, por exemplo uma por porta de leitura quando uma memória dual-port verdadeira não está disponível, lista todas, mantidas em sincronia a cada escrita) |
 | `rom_write_method` | `mem_edit` | `rom_writer`: `mem_edit` grava cada instância pelo In-System Memory Content Editor e exige o pulso do `fromhost` depois; `jtag_loader` grava a única cópia da FLASH pelo [carregador JTAG](modules/flash_loader.md) com o núcleo parado e o reinicia sozinho |
@@ -118,21 +121,6 @@ Com `flash_image` a imagem começa na base da banca: o cabeçalho de 256 bytes e
 | `python_path` | `[]` | `sim_runner`: diretórios (relativos à raiz do seu projeto) colocados no caminho de módulos da simulação, para que o `test_module` possa ficar fora do seu projeto, por exemplo no repositório da plataforma que um `extends:` da configuração usa |
 
 Os modelos de `parameters`, `run_files` e `env` são `{hex_path}` e `{mif_path}` (a imagem do teste, a que o `image` seleciona; a outra fica vazia), e `{boot_memory_hex_path}` e `{boot_memory_mif_path}` (as da memória de boot, iguais para todos os testes).
-
-### `freq_sweep:` (só necessária para `riscv-tools freq-sweep`)
-
-Descreve o *formato* das strings de parâmetro do fonte do seu PLL: nenhuma delas tem um padrão razoável entre projetos, já que os nomes de instância e as convenções de parâmetros das megafunções de PLL são específicos de cada projeto. Veja [finding-fmax.md](finding-fmax.md) para saber para que serve e como rodar um sweep.
-
-| Chave | Padrão | Usada por |
-|---|---|---|
-| `pll_file` | **obrigatória** | `freq_sweep`/`orchestrator`: caminho (relativo à raiz do seu projeto) do fonte Verilog/VHDL do PLL, reescrito antes da compilação de cada frequência candidata |
-| `phase_count` | `1` | `freq_sweep`: quantas saídas de clock com fases igualmente espaçadas a instância do PLL tem (por exemplo `3` para um PLL de três vias 0/120/240 graus). `1` (um PLL simples de fase única) cobre a maioria dos projetos |
-| `freq_param_template` | `output_clock_frequency{idx}` | `freq_sweep`: nome de parâmetro com `{idx}` (indexado a partir de 0), procurado e reescrito. Corresponde à megafunção `altpll` do Quartus; sobrescreva para outra megafunção ou nomenclatura de instância |
-| `phase_param_template` | `phase_shift{idx}` | `freq_sweep`: a mesma ideia, para o parâmetro de defasagem |
-| `freq_unit` | `MHz` | `freq_sweep`: sufixo literal de unidade escrito depois do valor de frequência, por exemplo `.output_clock_frequency0("10.000000 MHz")`. Só controla o sufixo da string: a conta de período/defasagem em si sempre assume MHz na entrada e ps na saída, seguindo a convenção do `altpll` do Quartus |
-| `phase_unit` | `ps` | `freq_sweep`: a mesma ideia, para o valor da defasagem |
-
-O `riscv-tools freq-sweep <mif> --golden <golden.json>` reaproveita `quartus.*` e `memory.ram_base` das seções `quartus:`/`memory:` acima para a compilação, programação, dump e comparação de cada frequência candidata (veja [finding-fmax.md](finding-fmax.md)).
 
 ### `act:` (só necessária para `riscv-tools certify` e `certify-board`)
 

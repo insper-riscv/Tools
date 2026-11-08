@@ -123,7 +123,7 @@ interrupts:
   mtime_hz: 1000000    # taxa com que o mtime do CLINT conta
 ```
 
-O `mtime` do CLINT é um contador próprio, ajustado por `mtime_hz`, e é independente do CSR `time` da Zicntr, que o núcleo atende. O `clock_hz` precisa ser múltiplo de `mtime_hz`, o perfil precisa ligar `has_interrupts`, e a lista `peripherals` precisa ter o `CLINT`; a ausência de qualquer um deles é um erro antes de gerar e no `check-memory-map`.
+O `mtime` do CLINT é um contador próprio, ajustado por `mtime_hz`, e é independente do CSR `time` da Zicntr, que o núcleo atende. Com `clocks.core` na plataforma o `clock_hz` é omitido e vale o relógio do núcleo arredondado para um número inteiro de ciclos por incremento; escrito, ele precisa ser esse valor. O `clock_hz` precisa ser múltiplo de `mtime_hz`, o perfil precisa ligar `has_interrupts`, e a lista `peripherals` precisa ter o `CLINT`; a ausência de qualquer um deles é um erro antes de gerar e no `check-memory-map`.
 
 | Saída | Constantes |
 | :--- | :--- |
@@ -155,24 +155,22 @@ Identificadores repetidos, fora de 1 a 1023, `priority_bits` fora de 1 a 32 e ja
 
 $$ \text{msip} = base, \quad \text{mtimecmp} = base + \texttt{0x4000}, \quad \text{mtime} = base + \texttt{0xBFF8} $$
 
-## O relógio do controlador da SDRAM
+## Os relógios da plataforma
 
-Uma plataforma com SDRAM descreve na seção `sdram` o relógio do controlador e a fase do pino `DRAM_CLK` contra ele. Os dois valores vêm da PLL da plataforma e do relatório de tempo do Quartus, e a seção é a fonte única deles.
+A seção `clocks` do `platform.yaml` é a fonte única das frequências: o PLL, o `.sdc` e o pacote VHDL saem dela (ver [pll_generator](pll_generator.md)). O mapa de memória lê dela o relógio do controlador da SDRAM e o do núcleo.
 
 ```yaml
-sdram:
-  clock_hz: 100000000       # relógio do controlador (saída 0 da PLL)
-  dram_clk_phase_ps: 4000   # fase de DRAM_CLK contra ele (saída 1 da PLL)
+clocks:
+  core:  {mhz: 76.923077, phase_ps: 7500}  # relógio do núcleo
+  mem:   {mhz: 100}                        # relógio do controlador da SDRAM
 ```
 
 | Saída | Conteúdo |
 | :--- | :--- |
-| Pacote VHDL (`vhdl`) | `SDRAM_CLOCK_HZ` e `SDRAM_TCK_PS`, o período em picossegundos com que o controlador e o modelo do chip convertem os tempos do chip em ciclos |
-| Símbolos dos `checks` | `SDRAM.clock_mhz`, `SDRAM.tck_ps` e `SDRAM.dram_clk_phase_ps`, que mantêm o arquivo da PLL igual ao mapa |
+| Pacote VHDL (`vhdl`) | `SDRAM_CLOCK_HZ` e `SDRAM_TCK_PS` de `clocks.mem`, o período em picossegundos com que o controlador e o modelo do chip convertem os tempos do chip em ciclos |
+| Símbolos dos `checks` | `CLOCKS.mem_mhz`, `CLOCKS.mem_tck_ps`, `CLOCKS.core_mhz` (arredondado) e `CLOCKS.core_phase_ps` |
 
-O `clock_hz` precisa ter período inteiro em picossegundos e a fase precisa ficar dentro de um período; os dois campos são obrigatórios, e a falta de qualquer um é um erro antes de gerar e no `check-memory-map`.
-
-A seção opcional `pll` guarda a fase do relógio do núcleo (saída 3 da PLL) em `core_phase_ps` e a frequência em `core_clock_hz`, que só os `checks` usam (`PLL.core_phase_ps` e `PLL.core_clock_mhz`, os MHz inteiros). A seção `interrupts` nomeia `INTERRUPTS.tick_cycles`, os ciclos de clock por incremento do `mtime`, para os `checks`.
+Todo relógio declarado precisa de `mhz` positivo, e `clocks.mem` precisa ter período inteiro em picossegundos; a falta ou o excesso é um erro antes de gerar e no `check-memory-map`. A fase do pino `DRAM_CLK` pertence à placa (`memories.sdram.clk_phase_ps` do `board.yaml`). A seção `interrupts` nomeia `INTERRUPTS.tick_cycles`, os ciclos de clock por incremento do `mtime`, para os `checks`.
 
 ## As memórias e as caches da plataforma
 
@@ -209,10 +207,11 @@ O pacote VHDL ganha as constantes abaixo. `ROM_VIA_PORT` e `RAM_VIA_PORT` são o
 | `HAS_DCACHE` | boolean | `memory.dcache.enabled` |
 | `ICACHE_SIZE_BITS` | positive | `memory.icache.size_bits`, ou 256 sem a cache |
 | `DCACHE_SIZE_BITS` | positive | `memory.dcache.size_bits`, ou 256 sem a cache |
+| `CACHE_WINDOW_BITS` | natural | Menor largura de 26 a 29 tal que a ROM e a RAM cabem cada uma numa janela alinhada de $2^{\text{largura}}$ bytes (26 é 64 MiB, 27 é 128 MiB), derivada das regiões |
 | `ROM_VIA_PORT` | boolean | `ROM_EXTERNAL or HAS_ICACHE` |
 | `RAM_VIA_PORT` | boolean | `RAM_EXTERNAL or HAS_DCACHE` |
 
-No `config.yaml` os mesmos valores chegam como `sim.parameters` com os mesmos nomes (`ROM_EXTERNAL`, `RAM_EXTERNAL`, `HAS_ICACHE`, `HAS_DCACHE`, `ICACHE_SIZE_BITS` e `DCACHE_SIZE_BITS`), e o topo de simulação precisa declarar os genéricos correspondentes. Sem `config.addr_widths` na plataforma, as larguras de endereço vêm da escolha, e saem a `boot_memory` e cada memória interna, já que uma memória externa é um chip dimensionado pelo próprio topo. Com `config.addr_widths` listado, a lista vale.
+No `config.yaml` os mesmos valores chegam como `sim.parameters` com os mesmos nomes (`ROM_EXTERNAL`, `RAM_EXTERNAL`, `HAS_ICACHE`, `HAS_DCACHE`, `ICACHE_SIZE_BITS` e `DCACHE_SIZE_BITS`; `CACHE_WINDOW_BITS` só quando passa de 26), e o topo de simulação precisa declarar os genéricos correspondentes. Sem `config.addr_widths` na plataforma, as larguras de endereço vêm da escolha, e saem a `boot_memory` e cada memória interna, já que uma memória externa é um chip dimensionado pelo próprio topo. Com `config.addr_widths` listado, a lista vale.
 
 ### Validação
 
@@ -220,7 +219,7 @@ No `config.yaml` os mesmos valores chegam como `sim.parameters` com os mesmos no
 | :--- | :--- | :--- |
 | V1 | Os quatro booleanos existem e não há chave desconhecida | Erro |
 | V2 | `size_bits` é potência de dois e vale pelo menos 256 | Erro |
-| V3 | Com alguma cache, a ROM e a RAM cabem cada uma numa janela de 64 MiB alinhada | Erro |
+| V3 | Com alguma cache, a ROM e a RAM cabem cada uma numa janela alinhada de até 512 MiB (a tag das caches guarda os bits abaixo da janela) | Erro |
 | V4 | Com a ROM pela porta do núcleo, o tamanho dela cabe na janela de 1024 KiB do roteador | Erro |
 | V5 | Região `exec` na RAM exige RAM externa e ROM pela porta (ROM externa ou cache de instruções) | Erro |
 | V7 | Região `exec` na RAM atrás da cache de instruções exige Zifencei no perfil | Erro |

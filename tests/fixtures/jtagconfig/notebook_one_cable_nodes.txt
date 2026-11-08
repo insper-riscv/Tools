@@ -1,0 +1,8 @@
+1) USB-Blaster [3-6]
+  02B050DD   5CE(BA4|FA4)
+    Design hash    EC617629CF5F59902EB3
+    + Node 10186E00  ROM/RAM/Constant #0
+    + Node 00406E01  Virtual JTAG #1
+    + Node 00406E02  Virtual JTAG #2
+    + Node 00406E00  Virtual JTAG #0
+

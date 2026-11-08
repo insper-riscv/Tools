@@ -1,0 +1,49 @@
+# Pacote da Terasic DE10-Lite. Esquema: docs/pt-br/boards/formato.md. Ficha: Plans/Multi-FPGA/placas/de10-lite.md.
+board: de10-lite
+name: Terasic DE10-Lite
+family: max-10
+device: 10M50DAF484C7G
+speed_grade: C7
+target_level: N3
+jtag:
+  cable: usb-blaster
+  chain:
+    - {name: "10M50DA(.|ES)/10M50DC", idcode: "031050DD", fpga: true, confirmed: measured}
+resources:
+  logic:       {unit: le, total: 49760}
+  block_ram:   {kind: m9k, blocks: 182, bits_per_block: 9216}
+  multipliers: {kind: dsp9x9, total: 288}
+  plls: 4
+  user_pins: null
+clocks:
+  inputs:
+    - {name: clock1_50,  signal: MAX10_CLK1_50, mhz: 50}
+    - {name: clock2_50,  signal: MAX10_CLK2_50, mhz: 50}
+    - {name: adc_clk_10, signal: ADC_CLK_10,    mhz: 10}
+  reference: clock1_50
+  reset: {signal: "KEY[0]", active: low}
+io:
+  leds:     {signals: "LEDR[9:0]",      active: high}
+  switches: {signals: "SW[9:0]",        active: high}
+  keys:     {signals: "KEY[1:0]",       active: low}
+  display:  {signals: "HEX[5:0][6:0]",  active: low}
+memories:
+  sdram:
+    chip: IS42S16320D-7
+    chips: 1
+    signals: DRAM
+    clk_phase_ps: null
+  onchip_flash:
+    kind: ufm
+    user_bytes: 753664
+console:
+  default: jtag
+pins: pins.yaml
+notes:
+  - "O IDCODE 031050DD nao distingue o 10M50DA do 10M50DC; o manual cita 10M50DAF484C7G, e vale DA."
+  - "Sem ponte USB-UART nem FLASH externa. ARDUINO_IO[0] (RXD) e ARDUINO_IO[1] (TXD) servem a um adaptador serial externo; o console padrao e a JTAG UART."
+  - "O chip da SDRAM nao e nomeado no manual (diretorio Datasheets\\SDRAM do CD); IS42S16320D-7 e a hipotese da familia IS42S16320, 32M x 16."
+  - "user_bytes da flash interna e o maximo (5888 Kbit); a divisao entre UFM0, UFM1 e CFM0 a CFM2 depende do modo de configuracao e esta pendente."
+  - "A polaridade de KEY[0] e KEY[1] (ativo em baixo) e a convencao da Terasic e esta inferida; confirmar no esquematico antes de usar KEY[0] como reset."
+  - "Os multiplicadores sao contados em elementos de 9 bits (144 de 18x18). PLL1 e PLL3 sao ligados ao ADC_CLK_10."
+  - "Todos os bancos usados sao 3.3 V; os pinos do GPIO e do Arduino nao sao declarados tolerantes a 5 V."

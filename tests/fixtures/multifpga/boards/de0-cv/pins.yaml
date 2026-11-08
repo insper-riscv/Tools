@@ -1,0 +1,229 @@
+# pins.yaml da placa, no esquema do documento 02, seção 3.3. confirmed: manual (lido no manual) | repo (lido no .qsf do repositório) | inferred (deduzido de fonte de terceiro).
+# Pinos da DE0-CV (Cyclone V 5CEBA4F23C7). Gerado a partir de de0-cv.qsf (Insper-RISC-V, ramo onda2)
+# e cruzado com amaranth-boards (de0_cv.py). O manual oficial da Terasic nao pode ser baixado
+# (ver de0-cv.md, secao 1), por isso nenhum sinal esta marcado como "manual" ou "ambos".
+board: de0-cv
+device: 5CEBA4F23C7
+notes:
+  - "uart: a DE0-CV nao tem ponte USB-UART; o projeto usa JTAG UART (Virtual JTAG), sem pino"
+  - "adc: a placa nao tem ADC"
+  - "flash_usuario: nao ha FLASH de usuario; so o EPCS64 de configuracao. SPI_FLASH_* do .qsf e um chip externo reservado no GPIO_0 (comentado)"
+  - "jtag: TCK/TMS/TDI/TDO sao pinos dedicados do dispositivo ligados ao USB-Blaster; nao sao atribuidos no .qsf"
+  - "configuracao: MSEL, nCONFIG, DCLK, EPCS (AS) sao pinos dedicados; valores nao verificados"
+  - "sdram: sinais de controle: nomes e pinos conferem com o Amaranth; falta so a conferencia contra a Tabela 3-13 do manual"
+conflicts:
+  - {pin: "M16", signals: ["SPI_FLASH_CS", "GPIO_0[2]"], note: "alias: SPI_FLASH_CS e o GPIO_0[2] do header, reservado a um chip externo"}
+  - {pin: "C16", signals: ["SPI_FLASH_SCK", "GPIO_0[3]"], note: "alias: SPI_FLASH_SCK e o GPIO_0[3] do header, reservado a um chip externo"}
+  - {pin: "D17", signals: ["SPI_FLASH_MOSI", "GPIO_0[4]"], note: "alias: SPI_FLASH_MOSI e o GPIO_0[4] do header, reservado a um chip externo"}
+  - {pin: "K21", signals: ["SPI_FLASH_MISO", "GPIO_0[6]"], note: "alias: SPI_FLASH_MISO e o GPIO_0[6] do header, reservado a um chip externo"}
+signals:
+  - {name: "CLOCK_50", pin: "M9", io_standard: "3.3-V LVTTL", direction: "in", source: "de0-cv.qsf linha 181", confirmed: "repo"}
+  - {name: "HEX0[0]", pin: "U21", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 187", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX0[1]", pin: "V21", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 188", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX0[2]", pin: "W22", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 189", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX0[3]", pin: "W21", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 190", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX0[4]", pin: "Y22", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 191", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX0[5]", pin: "Y21", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 192", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX0[6]", pin: "AA22", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 193", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX1[0]", pin: "AA20", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 207", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX1[1]", pin: "AB20", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 208", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX1[2]", pin: "AA19", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 209", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX1[3]", pin: "AA18", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 210", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX1[4]", pin: "AB18", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 211", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX1[5]", pin: "AA17", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 212", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX1[6]", pin: "U22", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 213", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX2[0]", pin: "Y19", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 227", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX2[1]", pin: "AB17", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 228", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX2[2]", pin: "AA10", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 229", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX2[3]", pin: "Y14", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 230", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX2[4]", pin: "V14", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 231", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX2[5]", pin: "AB22", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 232", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX2[6]", pin: "AB21", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 233", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX3[0]", pin: "Y16", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 247", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX3[1]", pin: "W16", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 248", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX3[2]", pin: "Y17", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 249", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX3[3]", pin: "V16", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 250", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX3[4]", pin: "U17", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 251", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX3[5]", pin: "V18", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 252", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX3[6]", pin: "V19", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 253", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX4[0]", pin: "U20", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 267", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX4[1]", pin: "Y20", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 268", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX4[2]", pin: "V20", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 269", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX4[3]", pin: "U16", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 270", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX4[4]", pin: "U15", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 271", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX4[5]", pin: "Y15", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 272", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX4[6]", pin: "P9", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 273", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX5[0]", pin: "N9", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 287", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX5[1]", pin: "M8", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 288", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX5[2]", pin: "T14", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 289", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX5[3]", pin: "P14", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 290", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX5[4]", pin: "C1", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 291", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX5[5]", pin: "C2", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 292", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "HEX5[6]", pin: "W19", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 293", confirmed: "repo", note: "segmento aceso em nivel baixo (inferido, Amaranth invert=True)"}
+  - {name: "KEY[0]", pin: "U7", io_standard: "3.3-V LVTTL", direction: "in", source: "de0-cv.qsf linha 307", confirmed: "repo", note: "ativo em nivel baixo (inferido; Amaranth marca invert=True)"}
+  - {name: "KEY[1]", pin: "W9", io_standard: "3.3-V LVTTL", direction: "in", source: "de0-cv.qsf linha 308", confirmed: "repo", note: "ativo em nivel baixo (inferido; Amaranth marca invert=True)"}
+  - {name: "KEY[2]", pin: "M7", io_standard: "3.3-V LVTTL", direction: "in", source: "de0-cv.qsf linha 309", confirmed: "repo", note: "ativo em nivel baixo (inferido; Amaranth marca invert=True)"}
+  - {name: "KEY[3]", pin: "M6", io_standard: "3.3-V LVTTL", direction: "in", source: "de0-cv.qsf linha 310", confirmed: "repo", note: "ativo em nivel baixo (inferido; Amaranth marca invert=True)"}
+  - {name: "FPGA_RESET_N", pin: "P22", io_standard: "3.3-V LVTTL", direction: "in", source: "de0-cv.qsf linha 319", confirmed: "repo", note: "ativo em nivel baixo (inferido; Amaranth marca invert=True)"}
+  - {name: "LEDR[0]", pin: "AA2", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 325", confirmed: "repo", note: "polaridade nao confirmada (Amaranth marca invert=True; verificar no topo e no manual)"}
+  - {name: "LEDR[1]", pin: "AA1", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 326", confirmed: "repo", note: "polaridade nao confirmada (Amaranth marca invert=True; verificar no topo e no manual)"}
+  - {name: "LEDR[2]", pin: "W2", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 327", confirmed: "repo", note: "polaridade nao confirmada (Amaranth marca invert=True; verificar no topo e no manual)"}
+  - {name: "LEDR[3]", pin: "Y3", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 328", confirmed: "repo", note: "polaridade nao confirmada (Amaranth marca invert=True; verificar no topo e no manual)"}
+  - {name: "LEDR[4]", pin: "N2", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 329", confirmed: "repo", note: "polaridade nao confirmada (Amaranth marca invert=True; verificar no topo e no manual)"}
+  - {name: "LEDR[5]", pin: "N1", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 330", confirmed: "repo", note: "polaridade nao confirmada (Amaranth marca invert=True; verificar no topo e no manual)"}
+  - {name: "LEDR[6]", pin: "U2", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 331", confirmed: "repo", note: "polaridade nao confirmada (Amaranth marca invert=True; verificar no topo e no manual)"}
+  - {name: "LEDR[7]", pin: "U1", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 332", confirmed: "repo", note: "polaridade nao confirmada (Amaranth marca invert=True; verificar no topo e no manual)"}
+  - {name: "LEDR[8]", pin: "L2", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 333", confirmed: "repo", note: "polaridade nao confirmada (Amaranth marca invert=True; verificar no topo e no manual)"}
+  - {name: "LEDR[9]", pin: "L1", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 334", confirmed: "repo", note: "polaridade nao confirmada (Amaranth marca invert=True; verificar no topo e no manual)"}
+  - {name: "SW[0]", pin: "U13", io_standard: "3.3-V LVTTL", direction: "in", source: "de0-cv.qsf linha 352", confirmed: "repo"}
+  - {name: "SW[1]", pin: "V13", io_standard: "3.3-V LVTTL", direction: "in", source: "de0-cv.qsf linha 353", confirmed: "repo"}
+  - {name: "SW[2]", pin: "T13", io_standard: "3.3-V LVTTL", direction: "in", source: "de0-cv.qsf linha 354", confirmed: "repo"}
+  - {name: "SW[3]", pin: "T12", io_standard: "3.3-V LVTTL", direction: "in", source: "de0-cv.qsf linha 355", confirmed: "repo"}
+  - {name: "SW[4]", pin: "AA15", io_standard: "3.3-V LVTTL", direction: "in", source: "de0-cv.qsf linha 356", confirmed: "repo"}
+  - {name: "SW[5]", pin: "AB15", io_standard: "3.3-V LVTTL", direction: "in", source: "de0-cv.qsf linha 357", confirmed: "repo"}
+  - {name: "SW[6]", pin: "AA14", io_standard: "3.3-V LVTTL", direction: "in", source: "de0-cv.qsf linha 358", confirmed: "repo"}
+  - {name: "SW[7]", pin: "AA13", io_standard: "3.3-V LVTTL", direction: "in", source: "de0-cv.qsf linha 359", confirmed: "repo"}
+  - {name: "SW[8]", pin: "AB13", io_standard: "3.3-V LVTTL", direction: "in", source: "de0-cv.qsf linha 360", confirmed: "repo"}
+  - {name: "SW[9]", pin: "AB12", io_standard: "3.3-V LVTTL", direction: "in", source: "de0-cv.qsf linha 361", confirmed: "repo"}
+  - {name: "VGA_B[0]", pin: "B6", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 376", confirmed: "repo", note: "comentado no .qsf, nao usado pelo topo atual"}
+  - {name: "VGA_B[1]", pin: "B7", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 377", confirmed: "repo", note: "comentado no .qsf, nao usado pelo topo atual"}
+  - {name: "VGA_B[2]", pin: "A8", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 378", confirmed: "repo", note: "comentado no .qsf, nao usado pelo topo atual"}
+  - {name: "VGA_B[3]", pin: "A7", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 379", confirmed: "repo", note: "comentado no .qsf, nao usado pelo topo atual"}
+  - {name: "VGA_G[0]", pin: "L7", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 380", confirmed: "repo", note: "comentado no .qsf, nao usado pelo topo atual"}
+  - {name: "VGA_G[1]", pin: "K7", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 381", confirmed: "repo", note: "comentado no .qsf, nao usado pelo topo atual"}
+  - {name: "VGA_G[2]", pin: "J7", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 382", confirmed: "repo", note: "comentado no .qsf, nao usado pelo topo atual"}
+  - {name: "VGA_G[3]", pin: "J8", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 383", confirmed: "repo", note: "comentado no .qsf, nao usado pelo topo atual"}
+  - {name: "VGA_R[0]", pin: "A9", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 384", confirmed: "repo", note: "comentado no .qsf, nao usado pelo topo atual"}
+  - {name: "VGA_R[1]", pin: "B10", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 385", confirmed: "repo", note: "comentado no .qsf, nao usado pelo topo atual"}
+  - {name: "VGA_R[2]", pin: "C9", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 386", confirmed: "repo", note: "comentado no .qsf, nao usado pelo topo atual"}
+  - {name: "VGA_R[3]", pin: "A5", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 387", confirmed: "repo", note: "comentado no .qsf, nao usado pelo topo atual"}
+  - {name: "VGA_HS", pin: "H8", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 388", confirmed: "repo", note: "comentado no .qsf, nao usado pelo topo atual"}
+  - {name: "VGA_VS", pin: "G8", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 389", confirmed: "repo", note: "comentado no .qsf, nao usado pelo topo atual"}
+  - {name: "SPI_FLASH_CS", pin: "M16", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 423", confirmed: "repo", note: "comentado no .qsf, nao usado pelo topo atual"}
+  - {name: "SPI_FLASH_SCK", pin: "C16", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 424", confirmed: "repo", note: "comentado no .qsf, nao usado pelo topo atual"}
+  - {name: "SPI_FLASH_MOSI", pin: "D17", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 425", confirmed: "repo", note: "comentado no .qsf, nao usado pelo topo atual"}
+  - {name: "SPI_FLASH_MISO", pin: "K21", io_standard: "3.3-V LVTTL", direction: "in", source: "de0-cv.qsf linha 426", confirmed: "repo", note: "comentado no .qsf, nao usado pelo topo atual"}
+  - {name: "DRAM_ADDR[0]", pin: "W8", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 451", confirmed: "repo"}
+  - {name: "DRAM_ADDR[1]", pin: "T8", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 452", confirmed: "repo"}
+  - {name: "DRAM_ADDR[2]", pin: "U11", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 453", confirmed: "repo"}
+  - {name: "DRAM_ADDR[3]", pin: "Y10", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 454", confirmed: "repo"}
+  - {name: "DRAM_ADDR[4]", pin: "N6", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 455", confirmed: "repo"}
+  - {name: "DRAM_ADDR[5]", pin: "AB10", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 456", confirmed: "repo"}
+  - {name: "DRAM_ADDR[6]", pin: "P12", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 457", confirmed: "repo"}
+  - {name: "DRAM_ADDR[7]", pin: "P7", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 458", confirmed: "repo"}
+  - {name: "DRAM_ADDR[8]", pin: "P8", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 459", confirmed: "repo"}
+  - {name: "DRAM_ADDR[9]", pin: "R5", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 460", confirmed: "repo"}
+  - {name: "DRAM_ADDR[10]", pin: "U8", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 461", confirmed: "repo"}
+  - {name: "DRAM_ADDR[11]", pin: "P6", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 462", confirmed: "repo"}
+  - {name: "DRAM_ADDR[12]", pin: "R7", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 463", confirmed: "repo"}
+  - {name: "DRAM_DQ[0]", pin: "Y9", io_standard: "3.3-V LVTTL", direction: "inout", source: "de0-cv.qsf linha 464", confirmed: "repo"}
+  - {name: "DRAM_DQ[1]", pin: "T10", io_standard: "3.3-V LVTTL", direction: "inout", source: "de0-cv.qsf linha 465", confirmed: "repo"}
+  - {name: "DRAM_DQ[2]", pin: "R9", io_standard: "3.3-V LVTTL", direction: "inout", source: "de0-cv.qsf linha 466", confirmed: "repo"}
+  - {name: "DRAM_DQ[3]", pin: "Y11", io_standard: "3.3-V LVTTL", direction: "inout", source: "de0-cv.qsf linha 467", confirmed: "repo"}
+  - {name: "DRAM_DQ[4]", pin: "R10", io_standard: "3.3-V LVTTL", direction: "inout", source: "de0-cv.qsf linha 468", confirmed: "repo"}
+  - {name: "DRAM_DQ[5]", pin: "R11", io_standard: "3.3-V LVTTL", direction: "inout", source: "de0-cv.qsf linha 469", confirmed: "repo"}
+  - {name: "DRAM_DQ[6]", pin: "R12", io_standard: "3.3-V LVTTL", direction: "inout", source: "de0-cv.qsf linha 470", confirmed: "repo"}
+  - {name: "DRAM_DQ[7]", pin: "AA12", io_standard: "3.3-V LVTTL", direction: "inout", source: "de0-cv.qsf linha 471", confirmed: "repo"}
+  - {name: "DRAM_DQ[8]", pin: "AA9", io_standard: "3.3-V LVTTL", direction: "inout", source: "de0-cv.qsf linha 472", confirmed: "repo"}
+  - {name: "DRAM_DQ[9]", pin: "AB8", io_standard: "3.3-V LVTTL", direction: "inout", source: "de0-cv.qsf linha 473", confirmed: "repo"}
+  - {name: "DRAM_DQ[10]", pin: "AA8", io_standard: "3.3-V LVTTL", direction: "inout", source: "de0-cv.qsf linha 474", confirmed: "repo"}
+  - {name: "DRAM_DQ[11]", pin: "AA7", io_standard: "3.3-V LVTTL", direction: "inout", source: "de0-cv.qsf linha 475", confirmed: "repo"}
+  - {name: "DRAM_DQ[12]", pin: "V10", io_standard: "3.3-V LVTTL", direction: "inout", source: "de0-cv.qsf linha 476", confirmed: "repo"}
+  - {name: "DRAM_DQ[13]", pin: "V9", io_standard: "3.3-V LVTTL", direction: "inout", source: "de0-cv.qsf linha 477", confirmed: "repo"}
+  - {name: "DRAM_DQ[14]", pin: "U10", io_standard: "3.3-V LVTTL", direction: "inout", source: "de0-cv.qsf linha 478", confirmed: "repo"}
+  - {name: "DRAM_DQ[15]", pin: "T9", io_standard: "3.3-V LVTTL", direction: "inout", source: "de0-cv.qsf linha 479", confirmed: "repo"}
+  - {name: "DRAM_BA[0]", pin: "T7", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 480", confirmed: "repo"}
+  - {name: "DRAM_BA[1]", pin: "AB7", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 481", confirmed: "repo"}
+  - {name: "DRAM_LDQM", pin: "U12", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 482", confirmed: "repo"}
+  - {name: "DRAM_UDQM", pin: "N8", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 483", confirmed: "repo"}
+  - {name: "DRAM_RAS_N", pin: "AB6", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 484", confirmed: "repo"}
+  - {name: "DRAM_CAS_N", pin: "V6", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 485", confirmed: "repo"}
+  - {name: "DRAM_CKE", pin: "R6", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 486", confirmed: "repo"}
+  - {name: "DRAM_CLK", pin: "AB11", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 487", confirmed: "repo"}
+  - {name: "DRAM_WE_N", pin: "AB5", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 488", confirmed: "repo"}
+  - {name: "DRAM_CS_N", pin: "U6", io_standard: "3.3-V LVTTL", direction: "out", source: "de0-cv.qsf linha 489", confirmed: "repo"}
+  - {name: "CLOCK2_50", pin: "H13", io_standard: "3.3-V LVTTL", direction: "in", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel)", confirmed: "inferred", note: "50 MHz"}
+  - {name: "CLOCK3_50", pin: "E10", io_standard: "3.3-V LVTTL", direction: "in", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel)", confirmed: "inferred", note: "50 MHz"}
+  - {name: "CLOCK4_50", pin: "V15", io_standard: "3.3-V LVTTL", direction: "in", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel)", confirmed: "inferred", note: "50 MHz"}
+  - {name: "PS2_KBCLK", pin: "D3", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel)", confirmed: "inferred"}
+  - {name: "PS2_KBDAT", pin: "G2", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel)", confirmed: "inferred"}
+  - {name: "PS2_MSCLK", pin: "E2", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel)", confirmed: "inferred"}
+  - {name: "PS2_MSDAT", pin: "G1", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel)", confirmed: "inferred"}
+  - {name: "SD_CLK", pin: "H11", io_standard: "3.3-V LVTTL", direction: "out", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel)", confirmed: "inferred"}
+  - {name: "SD_CMD", pin: "B11", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel)", confirmed: "inferred"}
+  - {name: "SD_DATA[0]", pin: "K9", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel)", confirmed: "inferred"}
+  - {name: "SD_DATA[1]", pin: "D12", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel)", confirmed: "inferred"}
+  - {name: "SD_DATA[2]", pin: "E12", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel)", confirmed: "inferred"}
+  - {name: "SD_DATA[3]", pin: "C11", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel)", confirmed: "inferred"}
+  - {name: "GPIO_0[0]", pin: "N16", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 1 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[1]", pin: "B16", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 2 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[2]", pin: "M16", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 3 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[3]", pin: "C16", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 4 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[4]", pin: "D17", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 5 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[5]", pin: "K20", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 6 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[6]", pin: "K21", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 7 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[7]", pin: "K22", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 8 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[8]", pin: "M20", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 9 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[9]", pin: "M21", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 10 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[10]", pin: "N21", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 13 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[11]", pin: "R22", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 14 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[12]", pin: "R21", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 15 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[13]", pin: "T22", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 16 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[14]", pin: "N20", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 17 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[15]", pin: "N19", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 18 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[16]", pin: "M22", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 19 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[17]", pin: "P19", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 20 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[18]", pin: "L22", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 21 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[19]", pin: "P17", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 22 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[20]", pin: "P16", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 23 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[21]", pin: "M18", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 24 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[22]", pin: "L18", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 25 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[23]", pin: "L17", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 26 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[24]", pin: "L19", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 27 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[25]", pin: "K17", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 28 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[26]", pin: "K19", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 31 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[27]", pin: "P18", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 32 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[28]", pin: "R15", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 33 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[29]", pin: "R17", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 34 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[30]", pin: "R16", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 35 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[31]", pin: "T20", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 36 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[32]", pin: "T19", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 37 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[33]", pin: "T18", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 38 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[34]", pin: "T17", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 39 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_0[35]", pin: "T15", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 40 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[0]", pin: "H16", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 1 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[1]", pin: "A12", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 2 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[2]", pin: "H15", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 3 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[3]", pin: "B12", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 4 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[4]", pin: "A13", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 5 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[5]", pin: "B13", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 6 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[6]", pin: "C13", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 7 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[7]", pin: "D13", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 8 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[8]", pin: "G18", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 9 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[9]", pin: "G17", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 10 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[10]", pin: "H18", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 13 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[11]", pin: "J18", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 14 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[12]", pin: "J19", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 15 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[13]", pin: "G11", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 16 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[14]", pin: "H10", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 17 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[15]", pin: "J11", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 18 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[16]", pin: "H14", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 19 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[17]", pin: "A15", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 20 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[18]", pin: "J13", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 21 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[19]", pin: "L8", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 22 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[20]", pin: "A14", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 23 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[21]", pin: "B15", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 24 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[22]", pin: "C15", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 25 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[23]", pin: "E14", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 26 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[24]", pin: "E15", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 27 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[25]", pin: "E16", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 28 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[26]", pin: "F14", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 31 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[27]", pin: "F15", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 32 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[28]", pin: "F13", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 33 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[29]", pin: "F12", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 34 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[30]", pin: "G16", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 35 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[31]", pin: "G15", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 36 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[32]", pin: "G13", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 37 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[33]", pin: "G12", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 38 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[34]", pin: "J17", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 39 do header 2x20", confirmed: "inferred"}
+  - {name: "GPIO_1[35]", pin: "K16", io_standard: "3.3-V LVTTL", direction: "inout", source: "amaranth-boards de0_cv.py (terceiro; manual PDF inacessivel); pino fisico 40 do header 2x20", confirmed: "inferred"}

@@ -4,12 +4,13 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from riscv_tools import flash_loader, mem_edit, mem_validator
+from riscv_tools import flash_loader, mem_edit, mem_validator, nor_program
 from riscv_tools.jtag import JtagLink
 
 MEM_EDIT = "mem_edit"
 JTAG_LOADER = "jtag_loader"
-METHODS = (MEM_EDIT, JTAG_LOADER)
+NOR_PROGRAM = "nor_program"
+METHODS = (MEM_EDIT, JTAG_LOADER, NOR_PROGRAM)
 
 
 def method_from_config(cfg: dict[str, Any]) -> str:
@@ -24,7 +25,9 @@ def method_from_config(cfg: dict[str, Any]) -> str:
     -------
     str
         "mem_edit" (the In-System Memory Content Editor, the default) or
-        "jtag_loader" (the FLASH loader of the Memory repository).
+        "jtag_loader" (the FLASH loader of the Memory repository) or
+        "nor_program" (a program the host leaves in the SDRAM writes the
+        bank of the NOR chip, see nor_program).
 
     Raises
     ------
@@ -147,8 +150,55 @@ def write_rom_configured(
         The method is "mem_edit" and the ROM has no editor instance.
     """
     method = method_from_config(cfg)
+    if method == NOR_PROGRAM:
+        return write_nor(link, cfg, mif_path)
     # O carregador não usa o editor: não lista a placa à toa.
     instances = (
         [] if method == JTAG_LOADER else mem_edit.rom_instances(link, cfg)
     )
     return write_rom(link, instances, mif_path, method)
+
+
+def write_nor(link: JtagLink, cfg: dict[str, Any], mif_path: Path) -> bool:
+    """Write the program of a FLASH `.mif` into bank A of the NOR chip.
+
+    The core is left parked in `rv32_wait_restart`, so the caller pulses
+    `fromhost` to start the new program.
+
+    Parameters
+    ----------
+    link : JtagLink
+        Which JTAG cable/chip to write to.
+    cfg : dict of {str: Any}
+        The merged project config; the programmer was built by
+        `compile` into `<build_dir>/nor_programmer/nor_programmer.bin`,
+        relative to the current directory (the project root).
+    mif_path : Path
+        The `.mif` of the FLASH, the bank image at `memory.rom_base`.
+
+    Returns
+    -------
+    bool
+        False: the core does not restart by itself.
+
+    Raises
+    ------
+    RuntimeError
+        The programmer did not report success.
+    """
+    memory = cfg["memory"]
+    image = nor_program.load_bank_image(
+        mif_words(mif_path), int(memory["rom_base"])
+    )
+    if cfg.get("flash_image", {}).get("bank", "A") != "A":
+        raise ValueError("nor_program writes bank A of the NOR chip")
+    dest = int(memory["rom_base"])
+    programmer = (
+        Path(cfg["paths"]["build_dir"])
+        / "nor_programmer"
+        / "nor_programmer.bin"
+    )
+    done = nor_program.program_bank(link, cfg, programmer, (image, dest))
+    if done != 1:
+        raise RuntimeError(f"the NOR programmer failed (tohost {done:#x})")
+    return False
