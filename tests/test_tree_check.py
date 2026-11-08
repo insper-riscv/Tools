@@ -4,9 +4,15 @@ import argparse
 from pathlib import Path
 
 import pytest
-from support import check, check_equal, check_false, check_in, check_not_in
+from support import (
+    check,
+    check_equal,
+    check_false,
+    check_in,
+    check_not_in,
+    run_check_tree_main,
+)
 
-from riscv_tools import cli
 from riscv_tools.cli.tree_cmd import cmd_check_tree
 from riscv_tools.tree_check import (
     FORMAL_FILES,
@@ -284,18 +290,7 @@ def test_the_subcommand_is_registered_without_a_config(
 ) -> None:
     """`riscv-tools check-tree` runs without `--config`."""
     _conforming(tmp_path)
-    monkeypatch.setattr(
-        "sys.argv",
-        [
-            "riscv-tools",
-            "--root",
-            str(tmp_path),
-            "check-tree",
-            "--kind",
-            "core",
-            "--only",
-            "standard-files,language-pairs",
-        ],
+    run_check_tree_main(
+        monkeypatch, tmp_path, "core", "standard-files,language-pairs"
     )
-    cli.main()
     check_in("rules standard-files, language-pairs", capsys.readouterr().out)

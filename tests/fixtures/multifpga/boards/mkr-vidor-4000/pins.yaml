@@ -1,0 +1,157 @@
+# pins.yaml da placa, no esquema do documento 02, seção 3.3. confirmed: manual (lido no manual) | repo (lido no .qsf do repositório) | inferred (deduzido de fonte de terceiro).
+# Pinos do FPGA 10CL016YU256C8G da Arduino MKR Vidor 4000
+# Fonte de todos os pinos: vidor_s_pins.qsf (VidorBitstream/constraints/MKRVIDOR4000), https://github.com/vidor-libraries/VidorBitstream/blob/master/constraints/MKRVIDOR4000/vidor_s_pins.qsf
+board: mkr-vidor-4000
+device: 10CL016YU256C8G
+notes:
+  - "led_fpga: o LED da placa e do SAMD21 (pino 6), nenhum LED ligado ao FPGA foi achado"
+  - "uart_samd21_fpga: o qsf nao nomeia pinos de UART; a UART do PC e do SAMD21, o FPGA a enxerga so pelos pinos bMKR_D (D13 RX e D14 TX no SERCOM5, inferido)"
+  - "qspi_chip: modelo da flash QSPI nao consta no datasheet"
+  - "esquematico: ABX00022-schematics.pdf (paginas 3, 4, 7 e 9 do desenho) lido; os sete pinos que o .qsf oficial atribuia a dois sinais foram resolvidos pela rede que o esquematico liga ao pino, e o sinal perdedor saiu da lista"
+  - "L4: PANEL_SDA (bHDMI_SDA); panel_en nao tem rede no pino e saiu"
+  - "R4: WM_PIO35 (bWM_PIO35); bWM_PIO17 saiu, pois WM_PIO17 vai a um resistor (R24) e nao ao FPGA"
+  - "T4: WM_PIO31 (bWM_PIO31); bWM_PIO16 saiu, pois WM_PIO16 vai a um resistor (R56) e nao ao FPGA"
+  - "R5 e R6: WM_PIO20 e WM_PIO21 (bWM_PIO20, bWM_PIO21); iWM_RTS e iWM_CTS eram segundos nomes dos mesmos pinos e saíram"
+  - "R7 e T7: CFG_HOLD e CFG_WP (oFLASH_HOLD, oFLASH_WP); bWM_PIO25 e bWM_PIO24 saíram, pois a NINA nao chega a esses pinos"
+  - "nomes: o .qsf chama de bWM_PIO2, bWM_PIO3, bWM_PIO4 e bWM_PIO34 os pinos R10, P11, R11 e M6, que o esquematico liga a PEX_PIN1, PEX_PIN3, PEX_PIN5 e PEX_PIN7; o pino e o mesmo, so o nome diverge, e os quatro seguem inferidos"
+  - "vccio_padrao: 3.3 V"
+conflicts: []
+signals:
+  - {name: "iCLK", pin: "E2", io_standard: "3.3-V LVTTL", direction: "in", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "iRESETn", pin: "E1", io_standard: "3.3-V LVTTL", direction: "in", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "oSDRAM_ADDR[11]", pin: "E10", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oSDRAM_ADDR[10]", pin: "B13", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oSDRAM_ADDR[9]", pin: "C9", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oSDRAM_ADDR[8]", pin: "E11", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oSDRAM_ADDR[7]", pin: "D12", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oSDRAM_ADDR[6]", pin: "D11", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oSDRAM_ADDR[5]", pin: "C14", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oSDRAM_ADDR[4]", pin: "D14", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oSDRAM_ADDR[3]", pin: "A14", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oSDRAM_ADDR[2]", pin: "A15", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oSDRAM_ADDR[1]", pin: "B12", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oSDRAM_ADDR[0]", pin: "A12", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oSDRAM_BA[1]", pin: "B10", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oSDRAM_BA[0]", pin: "A10", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oSDRAM_CASn", pin: "B7", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oSDRAM_CKE", pin: "E9", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oSDRAM_CSn", pin: "A11", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "bSDRAM_DQ[15]", pin: "B6", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo"}
+  - {name: "bSDRAM_DQ[14]", pin: "D6", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo"}
+  - {name: "bSDRAM_DQ[13]", pin: "D8", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo"}
+  - {name: "bSDRAM_DQ[12]", pin: "E6", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo"}
+  - {name: "bSDRAM_DQ[11]", pin: "E8", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo"}
+  - {name: "bSDRAM_DQ[10]", pin: "E7", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo"}
+  - {name: "bSDRAM_DQ[9]", pin: "C8", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo"}
+  - {name: "bSDRAM_DQ[8]", pin: "F8", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo"}
+  - {name: "bSDRAM_DQ[7]", pin: "A6", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo"}
+  - {name: "bSDRAM_DQ[6]", pin: "B5", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo"}
+  - {name: "bSDRAM_DQ[5]", pin: "A5", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo"}
+  - {name: "bSDRAM_DQ[4]", pin: "A4", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo"}
+  - {name: "bSDRAM_DQ[3]", pin: "A3", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo"}
+  - {name: "bSDRAM_DQ[2]", pin: "B3", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo"}
+  - {name: "bSDRAM_DQ[1]", pin: "B4", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo"}
+  - {name: "bSDRAM_DQ[0]", pin: "A2", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oSDRAM_DQM[1]", pin: "F9", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oSDRAM_DQM[0]", pin: "A7", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oSDRAM_RASn", pin: "D9", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oSDRAM_CLK", pin: "B14", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oSDRAM_WEn", pin: "B11", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oFLASH_MOSI", pin: "C1", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "iFLASH_MISO", pin: "H2", io_standard: "3.3-V LVTTL", direction: "in", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "oFLASH_SCK", pin: "H1", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "oFLASH_CS", pin: "D2", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "oFLASH_HOLD", pin: "R7", io_standard: "3.3-V LVTTL", direction: "out", source: "esquematico ABX00022, rede CFG_HOLD", confirmed: "manual"}
+  - {name: "oFLASH_WP", pin: "T7", io_standard: "3.3-V LVTTL", direction: "out", source: "esquematico ABX00022, rede CFG_WP", confirmed: "manual"}
+  - {name: "bMKR_AREF", pin: "B1", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bMKR_A[0]", pin: "C2", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bMKR_A[1]", pin: "C3", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bMKR_A[2]", pin: "C6", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bMKR_A[3]", pin: "D1", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bMKR_A[4]", pin: "D3", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bMKR_A[5]", pin: "F3", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bMKR_A[6]", pin: "G2", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bMKR_D[0]", pin: "G1", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bMKR_D[1]", pin: "N3", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bMKR_D[2]", pin: "P3", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bMKR_D[3]", pin: "R3", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bMKR_D[4]", pin: "T3", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bMKR_D[5]", pin: "T2", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bMKR_D[6]", pin: "G16", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bMKR_D[7]", pin: "G15", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bMKR_D[8]", pin: "F16", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bMKR_D[9]", pin: "F15", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bMKR_D[10]", pin: "C16", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bMKR_D[11]", pin: "C15", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bMKR_D[12]", pin: "B16", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bMKR_D[13]", pin: "C11", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bMKR_D[14]", pin: "A13", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "oSAM_INT", pin: "N2", io_standard: "2.5 V", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "iSAM_INT", pin: "L16", io_standard: "3.3-V LVCMOS", direction: "in", source: "qsf oficial", confirmed: "repo"}
+  - {name: "iWM_PIO32", pin: "J13", io_standard: "3.3-V LVTTL", direction: "in", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bWM_PIO1", pin: "T11", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bWM_PIO2", pin: "R10", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bWM_PIO3", pin: "P11", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bWM_PIO4", pin: "R11", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bWM_PIO5", pin: "N6", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bWM_PIO7", pin: "P6", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bWM_PIO8", pin: "N5", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bWM_PIO18", pin: "T5", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bWM_PIO21", pin: "R6", io_standard: "3.3-V LVTTL", direction: "inout", source: "esquematico ABX00022, rede WM_PIO21", confirmed: "manual"}
+  - {name: "bWM_PIO20", pin: "R5", io_standard: "3.3-V LVTTL", direction: "inout", source: "esquematico ABX00022, rede WM_PIO20", confirmed: "manual"}
+  - {name: "bWM_PIO27", pin: "N9", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bWM_PIO28", pin: "N11", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bWM_PIO29", pin: "T10", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bWM_PIO31", pin: "T4", io_standard: "3.3-V LVTTL", direction: "inout", source: "esquematico ABX00022, rede WM_PIO31", confirmed: "manual"}
+  - {name: "bWM_PIO34", pin: "M6", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bWM_PIO35", pin: "R4", io_standard: "3.3-V LVTTL", direction: "inout", source: "esquematico ABX00022, rede WM_PIO35", confirmed: "manual"}
+  - {name: "bWM_PIO36", pin: "N1", io_standard: "2.5 V", direction: "inout", source: "qsf oficial", confirmed: "repo"}
+  - {name: "iWM_TX", pin: "E15", io_standard: "3.3-V LVTTL", direction: "in", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "oWM_RX", pin: "T6", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "oWM_RESET", pin: "R1", io_standard: "2.5 V", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "bPEX_PIN6", pin: "P8", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bPEX_PIN8", pin: "L7", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bPEX_PIN10", pin: "N8", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "iPEX_PIN11", pin: "T8", io_standard: "3.3-V LVTTL", direction: "in", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bPEX_PIN12", pin: "M8", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "iPEX_PIN13", pin: "R8", io_standard: "3.3-V LVTTL", direction: "in", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bPEX_PIN14", pin: "L8", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bPEX_PIN16", pin: "M10", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bPEX_PIN20", pin: "N12", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "iPEX_PIN23", pin: "T9", io_standard: "3.3-V LVTTL", direction: "in", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "iPEX_PIN25", pin: "R9", io_standard: "3.3-V LVTTL", direction: "in", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bPEX_PIN28", pin: "T13", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bPEX_PIN30", pin: "R12", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "iPEX_PIN31", pin: "A9", io_standard: "3.3-V LVTTL", direction: "in", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bPEX_PIN32", pin: "F13", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "iPEX_PIN33", pin: "B9", io_standard: "3.3-V LVTTL", direction: "in", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bPEX_PIN42", pin: "R13", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bPEX_PIN44", pin: "P14", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bPEX_PIN45", pin: "T15", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bPEX_PIN46", pin: "R14", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bPEX_PIN47", pin: "T14", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bPEX_PIN48", pin: "F14", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bPEX_PIN49", pin: "D16", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bPEX_PIN51", pin: "D15", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bPEX_RST", pin: "T12", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "oHDMI_TX[2]", pin: "R16", io_standard: "LVDS", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oHDMI_TX[1]", pin: "K15", io_standard: "LVDS", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oHDMI_TX[0]", pin: "J15", io_standard: "LVDS", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oHDMI_TX[2](n)", pin: "P16", io_standard: "LVDS", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oHDMI_TX[1](n)", pin: "K16", io_standard: "LVDS", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oHDMI_TX[0](n)", pin: "J16", io_standard: "LVDS", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oHDMI_CLK", pin: "N15", io_standard: "LVDS", direction: "out", source: "qsf oficial", confirmed: "repo"}
+  - {name: "oHDMI_CLK(n)", pin: "N16", io_standard: "3.3-V LVTTL", direction: "out", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bHDMI_SCL", pin: "K5", io_standard: "2.5 V", direction: "inout", source: "qsf oficial", confirmed: "repo"}
+  - {name: "bHDMI_SDA", pin: "L4", io_standard: "2.5 V", direction: "inout", source: "esquematico ABX00022, rede PANEL_SDA", confirmed: "manual"}
+  - {name: "iHDMI_HPD", pin: "M16", io_standard: "3.3-V LVTTL", direction: "in", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "iMIPI_D[0]", pin: "L2", io_standard: "LVDS", direction: "in", source: "qsf oficial", confirmed: "repo"}
+  - {name: "iMIPI_D[1]", pin: "J2", io_standard: "LVDS", direction: "in", source: "qsf oficial", confirmed: "repo"}
+  - {name: "iMIPI_D[0](n)", pin: "L1", io_standard: "LVDS", direction: "in", source: "qsf oficial", confirmed: "repo"}
+  - {name: "iMIPI_D[1](n)", pin: "J1", io_standard: "LVDS", direction: "in", source: "qsf oficial", confirmed: "repo"}
+  - {name: "iMIPI_CLK", pin: "M2", io_standard: "LVDS", direction: "in", source: "qsf oficial", confirmed: "repo"}
+  - {name: "iMIPI_CLK(n)", pin: "M1", io_standard: "LVDS", direction: "in", source: "qsf oficial", confirmed: "repo"}
+  - {name: "bMIPI_SDA", pin: "P2", io_standard: "2.5 V", direction: "inout", source: "qsf oficial", confirmed: "repo"}
+  - {name: "bMIPI_SCL", pin: "P1", io_standard: "2.5 V", direction: "inout", source: "qsf oficial", confirmed: "repo"}
+  - {name: "bMIPI_GP[0]", pin: "M7", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}
+  - {name: "bMIPI_GP[1]", pin: "P9", io_standard: "3.3-V LVTTL", direction: "inout", source: "qsf oficial", confirmed: "repo", note: "padrão assumido (inferido)"}

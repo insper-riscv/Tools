@@ -1,0 +1,101 @@
+	-- Reset do controlador: liberado dois ciclos do relógio de memória depois do PLL travar.
+	rst_mem_async <= (not pll_locked) or reset_active;
+	process (clk_mem, rst_mem_async)
+	begin
+		if rst_mem_async = '1' then
+			rst_mem_sr <= "11";
+		elsif rising_edge(clk_mem) then
+			rst_mem_sr <= rst_mem_sr(0) & '0';
+		end if;
+	end process;
+	rst_mem <= rst_mem_sr(1);
+
+	sdram_data_bridge : entity work.sdram_cpu_bridge
+		generic map (addr_bits => SDRAM_ADDR_BITS)
+		port map (
+			i_clk_cpu => clk_core, i_rst_cpu => soc_rst,
+			i_addr => rd_addr, i_wdata => rd_wdata, i_byteena => rd_be,
+			i_rden => rd_rden, i_wren => rd_wren, i_mem_advance => rd_adv,
+			o_ready => rd_ready, o_rdata => rd_rdata,
+			i_line => rd_line, i_wdata_x => rd_wdx, i_byteena_x => (others => '0'), o_rdata_x => rd_rdx,
+			o_req_tog => a_req, i_ack_tog => a_ack, i_init_done => init_done,
+			o_c_we => a_we, o_c_addr => a_addr, o_c_wdata => a_wdata, o_c_be => a_be, i_c_rdata => a_rdata,
+			o_c_line => a_line, o_c_wdata_x => a_wdx, o_c_be_x => a_bex, i_c_rdata_x => a_rdx
+		);
+
+	sdram_instruction_bridge : entity work.sdram_cpu_bridge
+		generic map (addr_bits => SDRAM_ADDR_BITS)
+		port map (
+			i_clk_cpu => clk_core, i_rst_cpu => soc_rst,
+			i_addr => ri_addr, i_wdata => (others => '0'), i_byteena => (others => '0'),
+			i_rden => ri_rden, i_wren => '0', i_mem_advance => ri_adv,
+			o_ready => ri_ready, o_rdata => ri_rdata,
+			i_line => ri_line, i_wdata_x => (others => '0'), i_byteena_x => (others => '0'), o_rdata_x => ri_rdx,
+			o_req_tog => i_req, i_ack_tog => i_ack, i_init_done => init_done,
+			o_c_we => i_we, o_c_addr => i_addr, o_c_wdata => i_wdata, o_c_be => i_be, i_c_rdata => i_rdata,
+			o_c_line => i_line, o_c_wdata_x => i_wdx, o_c_be_x => i_bex, i_c_rdata_x => i_rdx
+		);
+
+	sdram_arbiter_inst : entity work.sdram_arbiter
+		generic map (addr_bits => SDRAM_ADDR_BITS)
+		port map (
+			i_clk => clk_mem, i_rst => rst_mem,
+			i_a_req_tog => a_req, o_a_ack_tog => a_ack, i_a_we => a_we, i_a_addr => a_addr,
+			i_a_wdata => a_wdata, i_a_be => a_be, o_a_rdata => a_rdata,
+			i_a_line => a_line, i_a_wdata_x => a_wdx, i_a_be_x => a_bex, o_a_rdata_x => a_rdx,
+			i_ins_req_tog => i_req, o_ins_ack_tog => i_ack, i_ins_we => i_we, i_ins_addr => i_addr,
+			i_ins_wdata => i_wdata, i_ins_be => i_be, o_ins_rdata => i_rdata,
+			i_ins_line => i_line, i_ins_wdata_x => i_wdx, i_ins_be_x => i_bex, o_ins_rdata_x => i_rdx,
+			i_b_req_tog => b_req, o_b_ack_tog => b_ack, i_b_we => b_we, i_b_addr => b_addr,
+			i_b_wdata => b_wdata, i_b_be => b_be, o_b_rdata => b_rdata,
+			o_c_req_tog => c_req, i_c_ack_tog => c_ack, o_c_we => c_we, o_c_addr => c_addr,
+			o_c_wdata => c_wdata, o_c_be => c_be, i_c_rdata => c_rdata,
+			o_c_line => c_line, o_c_wdata_x => c_wdx, o_c_be_x => c_bex, i_c_rdata_x => c_rdx
+		);
+
+	sdram_debug_inst : entity work.sdram_dbg_master
+		generic map (addr_bits => SDRAM_ADDR_BITS)
+		port map (
+			i_clk => clk_mem, i_rst => rst_mem,
+			i_cmd_tog => cmd_tog, o_done_tog => done_tog, i_op => d_op, i_be => d_be, i_addr => d_addr, i_data => d_data,
+			o_rsp_addr => r_addr, o_rsp_data => r_data, o_rsp_status => r_status,
+			i_init_done => init_done,
+			o_b_req_tog => b_req, i_b_ack_tog => b_ack, o_b_we => b_we, o_b_addr => b_addr,
+			o_b_wdata => b_wdata, o_b_be => b_be, i_b_rdata => b_rdata
+		);
+
+	sdram_jtag_inst : entity work.sdram_jtag_shell
+		generic map (instance_index => 3, auto_instance_index => "NO")
+		port map (
+			o_cmd_tog => cmd_tog, o_op => d_op, o_be => d_be, o_addr => d_addr, o_data => d_data,
+			i_done_tog => done_tog, i_rsp_addr => r_addr, i_rsp_data => r_data, i_rsp_status => r_status
+		);
+
+	sdram_ctrl_inst : entity work.sdram_ctrl
+		generic map (
+			tck_ps => {tck_ps},
+			init_cycles => work.sdram_pkg.cycles(work.{chip}.T_INIT_PS, {tck_ps}),
+			refresh_cycles => work.sdram_pkg.cycles(work.{chip}.T_REFI_PS, {tck_ps}) * 9 / 10,
+			capture_extra => 0, sync_req => false,
+			dq_width => SDRAM_DQ, row_bits => work.{chip}.ROW_BITS, bank_bits => work.{chip}.BANK_BITS, col_bits => work.{chip}.COL_BITS)
+		port map (
+			i_clk => clk_mem, i_rst => rst_mem,
+			i_req_tog => c_req, o_ack_tog => c_ack, o_init_done => init_done,
+			i_we => c_we, i_addr => c_addr, i_wdata => c_wdata, i_be => c_be, o_rdata => c_rdata,
+			i_line => c_line, i_wdata_x => c_wdx, i_be_x => c_bex, o_rdata_x => c_rdx,
+{pins},
+			o_dram_dqm => dqm,
+			o_dram_dq_out => dq_out, o_dram_dq_oe => dq_oe, i_dram_dq_in => dq_in
+		);
+
+	-- Anel de pinos: um buffer de três estados por bit de {dq_name}.
+	gen_dq : for i in 0 to {dq_hi} generate
+		dq_tri : entity work.tristate_buffer_1bit
+			port map (i_d => dq_out(i), i_enable => dq_oe, o_d => {dq_name}(i));
+	end generate;
+	process (clk_mem)
+	begin
+		if rising_edge(clk_mem) then
+			dq_in <= {dq_name};
+		end if;
+	end process;

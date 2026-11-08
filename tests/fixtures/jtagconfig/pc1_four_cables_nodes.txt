@@ -1,0 +1,17 @@
+1) USB-Blaster [1-2]
+  02B050DD   5CE(BA4|FA4)
+    Design hash    DD78B49A7A5DA8905876
+    + Node 00406E00  Virtual JTAG #0
+    + Node 00406E01  Virtual JTAG #1
+    + Node 00406E02  Virtual JTAG #2
+    + Node 00406E03  Virtual JTAG #3
+
+2) USB-Blaster [1-3]
+  020F70DD   10CL120(Y|Z)/EP3C120/..
+
+3) USB-Blaster [1-5]
+  020F30DD   10CL025(Y|Z)/EP3C25/EP4CE22
+
+4) USB-Blaster [1-6]
+  031050DD   10M50DA(.|ES)/10M50DC
+

@@ -1,6 +1,6 @@
 # `orchestrator`
 
-Composes every other real-hardware module into a full test-suite run, or into a clock-frequency sweep to find Fmax. The real-hardware counterpart to [`sim_runner`](sim_runner.md), which drives the same kind of run against cocotb/GHDL simulation instead of a physical board.
+Composes every other real-hardware module into a full test-suite run. The real-hardware counterpart to [`sim_runner`](sim_runner.md), which drives the same kind of run against cocotb/GHDL simulation instead of a physical board.
 
 ## Running a suite
 
@@ -27,10 +27,6 @@ A failure whose own error text matches a known hardware/cable signature (e.g. `"
 
 By default, this stops the suite and returns, saving progress so a plain re-run afterward resumes from the failed step instead of repeating completed tests. Passing `wait_for_hardware=True` instead makes it print the same message and poll `jtag.jtag_chain_healthy` (see [`jtag`](jtag.md)) every few seconds until the chain recovers on its own, e.g. after someone physically power-cycles the board, then automatically resume without a separate re-invocation. Meant for an interactive session someone is actively watching; CI keeps the default stop-and-exit behavior, since nothing there could power-cycle a board on its own anyway.
 
-## Frequency sweep
-
-Finds the fastest clock frequency (Fmax) a design still passes its test suite at, by rewriting the PLL (see [`freq_sweep`](freq_sweep.md)) and doing a full recompile+reprogram+compare at each candidate frequency. Full walkthrough: [docs/finding-fmax.md](../finding-fmax.md).
-
 ## Configuration
 
 | Key | Meaning |
@@ -41,7 +37,7 @@ Finds the fastest clock frequency (Fmax) a design still passes its test suite at
 ## Prerequisites
 
 - Quartus Prime Lite on `PATH` (`quartus_stp`, `quartus_sh`, `quartus_pgm`, `jtagconfig`), installed as in Infra's `QUARTUS_INSTALL.md`, and a board with a USB-Blaster attached over JTAG.
-- The RISC-V GCC toolchain (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) on `PATH`, provided by the `ci-elf` image of [insper-riscv/Infra](https://github.com/insper-riscv/Infra), or installed as in its `manual/GCC_SETUP.md`, for the boot ROM build.
+- The RISC-V GCC toolchain (`riscv32-unknown-elf-gcc`, `-objcopy`, `-nm`) on `PATH`, provided by the `ci-elf` image of [insper-riscv/Infra](https://github.com/insper-riscv/Infra), or installed as in its `manual/GCC_SETUP.md`, for the boot memory build.
 
 ## Tests
 
@@ -54,8 +50,6 @@ uv run riscv-tools --config /path/to/project/config.yaml run
 uv run riscv-tools --config /path/to/project/config.yaml run --wait-for-hardware
 uv run riscv-tools --config /path/to/project/config.yaml run --only test-a,test-b
 uv run riscv-tools --config /path/to/project/config.yaml run --exclude uart-echo,uart-tx
-uv run riscv-tools --config /path/to/project/config.yaml freq-sweep \
-    build/real/full.mif --golden golden/full.json --start 1 --stop 30 --step 2
 ```
 
 ---

@@ -16,8 +16,8 @@ O seu `config.yaml` é um YAML aninhado com estas seções de nível superior. Q
 
 | Chave | Padrão | Usada por |
 |---|---|---|
-| `gcc` | `riscv32-unknown-elf-gcc` | `compiler`, `c_to_asm`, `boot_rom` |
-| `objcopy` | `riscv32-unknown-elf-objcopy` | `compiler`, `boot_rom`, `certify`, `golden_generator` |
+| `gcc` | `riscv32-unknown-elf-gcc` | `compiler`, `c_to_asm`, `boot_memory` |
+| `objcopy` | `riscv32-unknown-elf-objcopy` | `compiler`, `boot_memory`, `certify`, `golden_generator` |
 | `nm` | `riscv32-unknown-elf-nm` | `golden_generator` (`generate-golden`) |
 | `libc` | `none` | `compiler`: a biblioteca C com que os testes linkam. `none` passa `-nostdlib`, então o projeto fornece o que precisar (como `malloc`) por `paths.syscalls`. `picolibc` passa `--specs=picolibc.specs` (e `-Wl,--no-gc-sections`, veja [compiler.md](modules/compiler.md#biblioteca-c)) para um GCC configurado com picolibc, como o que o `manual/GCC_SETUP.md` do Infra compila |
 | `specs` | não definida | `compiler`: caminho (relativo à raiz do projeto) de um arquivo de especificação do GCC que descreve a sua plataforma. Ele inclui o `picolibc.specs` e acrescenta o mapa de memória (`--defsym=__flash=...`, `__ram=...`) e o `crt0` a usar, então os testes linkam com o `crt0` e o `picolibc.ld` da própria toolchain e não precisam de `crt0.S` nem de linker script seu. Os testes são então compilados como programas hospedados (o `main` pode retornar), e `libc` é ignorada. Veja [compiler.md](modules/compiler.md#arquivo-de-especificação-da-plataforma) |
@@ -50,12 +50,15 @@ Não há divisão `tests_real_dir`/`tests_sim_dir`/`golden_dir`: todo teste em `
 
 | Chave | Padrão | Usada por |
 |---|---|---|
-| `jtag_device` | **obrigatória** | `jtag`: a string de IDCODE JTAG da própria FPGA. O nome do cabo (`USB-Blaster [...]`) é detectado em tempo real, já que muda entre reboots |
+| `jtag_device` | opcional | `jtag`: a string de IDCODE JTAG da própria FPGA. O nome do cabo (`USB-Blaster [...]`) é detectado em tempo real, já que muda entre reboots. Sem ela, a placa é selecionada pelo módulo [`board`](modules/board.md) |
+| `board` | opcional | `jtag`: identificador da placa ou `auto`; vale quando `jtag_device` não está definido |
+| `boards` | opcional | `jtag`: lista de placas que `auto` pode tomar |
 | `sdram_debug_instance` | `0` | `jtag`: índice da instância do Virtual JTAG da porta de depuração da SDRAM; uma plataforma que também tem o carregador da FLASH dá outro índice à porta |
 | `project_dir` | **obrigatória** | `quartus_program`: caminho do diretório do projeto Quartus |
 | `project_name` | **obrigatória** | `quartus_program`: passado a `quartus_sh --flow compile` |
 | `sof_file` | **obrigatória** | `quartus_program`: caminho (relativo a `project_dir`) do `.sof` compilado, passado ao `quartus_pgm` |
 | `rom_mif_target` | **obrigatória** | `quartus_program`: caminho (relativo a `project_dir`) de onde a megafunção da ROM lê o `init_file` na compilação |
+| `generate` | opcional | `program`: `platform`, `out` e, se preciso, `boards_dir`, `chips_dir` e `accept_inferred_pins`; com ela o `program` roda o `board generate` da plataforma antes de compilar, e `project_dir` aponta o projeto gerado em `out` |
 | `stale_cache_dirs` | `[db, incremental_db, output_files, simulation]` | `quartus_program`: diretórios (relativos a `project_dir`) apagados antes de toda compilação, já que o `init_file` de uma ROM não é um fonte rastreado do projeto |
 | `rom_mem_instances` | `[0]` | `rom_writer`: índice(s) da instância do In-System Memory Content Editor da ROM (uma lista; um projeto com mais de uma cópia física da ROM, por exemplo uma por porta de leitura quando uma memória dual-port verdadeira não está disponível, lista todas, mantidas em sincronia a cada escrita) |
 | `rom_write_method` | `mem_edit` | `rom_writer`: `mem_edit` grava cada instância pelo In-System Memory Content Editor e exige o pulso do `fromhost` depois; `jtag_loader` grava a única cópia da FLASH pelo [carregador JTAG](modules/flash_loader.md) com o núcleo parado e o reinicia sozinho |
@@ -87,7 +90,7 @@ Não há divisão `tests_real_dir`/`tests_sim_dir`/`golden_dir`: todo teste em `
 | `flash_image.bank` | Nome da banca (de `flash.banks`) para a qual os programas são ligados, com o `rv32im-fpga-bank-<nome>.specs` em `toolchain.specs` |
 | `flash_image.version` | Versão escrita no cabeçalho da imagem (padrão 1) |
 
-Com `flash_image` a imagem começa na base da banca: o cabeçalho de 256 bytes e depois o programa, que o linker põe em `base + 256`. É o que a boot ROM de uma plataforma com bancas exige para executar o programa (ver [`flash_image`](modules/flash_image.md)). Sem `flash_image` o `compile` entrega o binário como o linker o gerou.
+Com `flash_image` a imagem começa na base da banca: o cabeçalho de 256 bytes e depois o programa, que o linker põe em `base + 256`. É o que a memória de boot de uma plataforma com bancas exige para executar o programa (ver [`flash_image`](modules/flash_image.md)). Sem `flash_image` o `compile` entrega o binário como o linker o gerou.
 
 ### `emulator:`
 
@@ -97,7 +100,7 @@ Com `flash_image` a imagem começa na base da banca: o cabeçalho de 256 bytes e
 | `timeout_s` | `60` | `golden_generator`: segundos de espera até um teste escrever `tohost`, antes de a geração falhar |
 | `tohost_symbol` | `tohost` | `golden_generator`: o símbolo HTIF que o Spike observa até uma escrita diferente de zero. Convenção padrão; raramente precisa ser alterado |
 | `entry_symbol` | `_start` | `golden_generator`, `spike_run`: o símbolo cujo endereço é onde o Spike começa a executar. O rótulo de entrada usual do `crt0`; só mude se o seu código de boot o nomear de outro jeito |
-| `sources` | `[]` | `golden_generator`, `spike_run`: arquivos-fonte (relativos à raiz do projeto) linkados no ELF que o Spike executa e não na imagem do próprio teste. Para uma imagem que termina em código que, no hardware, fica em outro lugar (uma rotina da boot ROM num endereço fixo): um substituto dela, mais os símbolos `tohost` e `fromhost` de que o Spike precisa. Vazia, o Spike executa a imagem do próprio teste |
+| `sources` | `[]` | `golden_generator`, `spike_run`: arquivos-fonte (relativos à raiz do projeto) linkados no ELF que o Spike executa e não na imagem do próprio teste. Para uma imagem que termina em código que, no hardware, fica em outro lugar (uma rotina da memória de boot num endereço fixo): um substituto dela, mais os símbolos `tohost` e `fromhost` de que o Spike precisa. Vazia, o Spike executa a imagem do próprio teste |
 | `gcc_flags` | `[]` | `golden_generator`, `spike_run`: argumentos extras do gcc para esse ELF, por exemplo um `-D` que faz o arquivo de especificação omitir o endereço fixo do hardware |
 
 ### `sim:`
@@ -110,29 +113,14 @@ Com `flash_image` a imagem começa na base da banca: o cabeçalho de 256 bytes e
 | `ghdl_std` | `08` | `sim_runner`: valor do `--std=` do GHDL. VHDL-2008 (IEEE Std 1076-2008) por padrão, acompanhando o teto do próprio Quartus: o Quartus (mesmo o mais recente, 25.1std) só aceita `VHDL93`/`VHDL_2008` em `VHDL_INPUT_VERSION`, e `VHDL_2019` é rejeitado de cara, então isso mantém simulação e síntese no mesmo dialeto |
 | `parameters` | `{}` | `sim_runner`: generics VHDL a definir no `toplevel` na etapa de execução do GHDL, por exemplo `{"ROM_FILE": "{hex_path}"}` para um projeto cujo modelo de ROM só de simulação carrega a imagem do programa por um generic VHDL, em vez de ler a variável de ambiente `ROM_HEX` do próprio `sim_runner`. `"{hex_path}"` é substituído pelo caminho do `.hex` compilado de cada teste; qualquer outro valor é repassado como está (por exemplo um generic de profundidade de memória fixa). Vazio por padrão: a maioria dos toplevels não precisa sobrescrever generics |
 | `hex_format` | `words` | `compile --emit hex`, `sim`, `certify`: layout do `.hex` que uma simulação carrega. `words` é uma palavra de 32 bits por linha, com palavras zero à esquerda para um programa linkado acima do endereço 0. `verilog` é o que o `objcopy -O verilog` escreve (veja [compiler.md](modules/compiler.md#formato-do-arquivo-hex)), então o modelo de memória que o carrega precisa tratar linhas `@<endereço de palavra>` e quatro palavras por linha |
-| `image` | `hex` | `sim`: qual imagem a simulação carrega. `hex` lê `<build_dir>/sim/manifest.json` (de `compile --emit hex`). `mif` lê `<build_dir>/real/manifest.json` (de `compile --emit mif`), as mesmas imagens que o hardware carrega, e também gera o `.mif` da boot ROM |
+| `image` | `hex` | `sim`: qual imagem a simulação carrega. `hex` lê `<build_dir>/sim/manifest.json` (de `compile --emit hex`). `mif` lê `<build_dir>/real/manifest.json` (de `compile --emit mif`), as mesmas imagens que o hardware carrega, e também gera o `.mif` da memória de boot |
 | `ghdl_flags` | `[]` | `sim_runner`: argumentos extras do GHDL nas etapas de análise, elaboração e execução, por exemplo `["-fsynopsys", "-fexplicit"]` para uma biblioteca de simulação de fornecedor |
 | `libraries` | `{}` | `sim_runner`: bibliotecas VHDL analisadas uma vez por execução do `sim`, antes de `vhdl_sources`, como `{biblioteca: [arquivos]}`, por exemplo a `altera_mf` do Quartus para um toplevel que instancia a IP de memória dele. Os caminhos são relativos à raiz do projeto, e `$VAR` ou `${VAR}` é substituído a partir do ambiente (variável não definida é um erro) |
 | `run_files` | `{}` | `sim_runner`: arquivos copiados para o diretório de execução de cada teste antes de ele rodar, como `{nome do arquivo: origem}`, para um projeto que abre um arquivo por um nome fixo, por exemplo o `init_file` de um `altsyncram`. A origem aceita os mesmos modelos que `parameters` |
 | `env` | `{}` | `sim_runner`: variáveis de ambiente extras para o módulo de teste cocotb, como `{nome: modelo}`, com os mesmos modelos que `parameters` |
 | `python_path` | `[]` | `sim_runner`: diretórios (relativos à raiz do seu projeto) colocados no caminho de módulos da simulação, para que o `test_module` possa ficar fora do seu projeto, por exemplo no repositório da plataforma que um `extends:` da configuração usa |
 
-Os modelos de `parameters`, `run_files` e `env` são `{hex_path}` e `{mif_path}` (a imagem do teste, a que o `image` seleciona; a outra fica vazia), e `{boot_rom_hex_path}` e `{boot_rom_mif_path}` (as da boot ROM, iguais para todos os testes).
-
-### `freq_sweep:` (só necessária para `riscv-tools freq-sweep`)
-
-Descreve o *formato* das strings de parâmetro do fonte do seu PLL: nenhuma delas tem um padrão razoável entre projetos, já que os nomes de instância e as convenções de parâmetros das megafunções de PLL são específicos de cada projeto. Veja [finding-fmax.md](finding-fmax.md) para saber para que serve e como rodar um sweep.
-
-| Chave | Padrão | Usada por |
-|---|---|---|
-| `pll_file` | **obrigatória** | `freq_sweep`/`orchestrator`: caminho (relativo à raiz do seu projeto) do fonte Verilog/VHDL do PLL, reescrito antes da compilação de cada frequência candidata |
-| `phase_count` | `1` | `freq_sweep`: quantas saídas de clock com fases igualmente espaçadas a instância do PLL tem (por exemplo `3` para um PLL de três vias 0/120/240 graus). `1` (um PLL simples de fase única) cobre a maioria dos projetos |
-| `freq_param_template` | `output_clock_frequency{idx}` | `freq_sweep`: nome de parâmetro com `{idx}` (indexado a partir de 0), procurado e reescrito. Corresponde à megafunção `altpll` do Quartus; sobrescreva para outra megafunção ou nomenclatura de instância |
-| `phase_param_template` | `phase_shift{idx}` | `freq_sweep`: a mesma ideia, para o parâmetro de defasagem |
-| `freq_unit` | `MHz` | `freq_sweep`: sufixo literal de unidade escrito depois do valor de frequência, por exemplo `.output_clock_frequency0("10.000000 MHz")`. Só controla o sufixo da string: a conta de período/defasagem em si sempre assume MHz na entrada e ps na saída, seguindo a convenção do `altpll` do Quartus |
-| `phase_unit` | `ps` | `freq_sweep`: a mesma ideia, para o valor da defasagem |
-
-O `riscv-tools freq-sweep <mif> --golden <golden.json>` reaproveita `quartus.*` e `memory.ram_base` das seções `quartus:`/`memory:` acima para a compilação, programação, dump e comparação de cada frequência candidata (veja [finding-fmax.md](finding-fmax.md)).
+Os modelos de `parameters`, `run_files` e `env` são `{hex_path}` e `{mif_path}` (a imagem do teste, a que o `image` seleciona; a outra fica vazia), e `{boot_memory_hex_path}` e `{boot_memory_mif_path}` (as da memória de boot, iguais para todos os testes).
 
 ### `act:` (só necessária para `riscv-tools certify` e `certify-board`)
 

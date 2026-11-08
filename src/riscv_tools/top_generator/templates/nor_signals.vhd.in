@@ -1,0 +1,11 @@
+	-- FLASH NOR: face do SoC, comandos K4 e pinos do chip.
+	signal fx_addr, fx_rdata : std_logic_vector(31 downto 0);
+	signal fx_rden, fx_line, fx_adv, fx_ready, fx_busy : std_logic;
+	signal fx_rdx : std_logic_vector(95 downto 0);
+	signal fcmd_valid, fcmd_busy, fcmd_wel, fcmd_refused, fcmd_inval_valid : std_logic;
+	signal fcmd_op : std_logic_vector(2 downto 0);
+	signal fcmd_addr, fcmd_buf_data, fcmd_inval_first, fcmd_inval_last : std_logic_vector(31 downto 0);
+	signal fcmd_buf_idx : std_logic_vector(5 downto 0);
+	signal nor_dq_out, nor_dq_in : std_logic_vector(7 downto 0);
+	signal nor_dq_oe : std_logic;
+	signal nor_rd_addr, nor_cmd_addr : std_logic_vector(31 downto 0);

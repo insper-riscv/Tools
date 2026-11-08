@@ -29,11 +29,11 @@ def _profile_build_dir(build_dir: Path, sim_cfg: dict[str, Any]) -> Path:
     return build_dir / f"{readable}-{fingerprint}"
 
 
-class BootRomImages(TypedDict, total=False):
-    """The optional boot ROM images that `run_suite` passes on."""
+class BootMemoryImages(TypedDict, total=False):
+    """The optional boot memory images that `run_suite` passes on."""
 
-    boot_rom_hex_path: Path | None
-    boot_rom_mif_path: Path | None
+    boot_memory_hex_path: Path | None
+    boot_memory_mif_path: Path | None
 
 
 def _resolved(path: Path | None) -> str:
@@ -50,7 +50,7 @@ class _Suite:
     profile_build_dir: Path
     vhdl_sources: list[str]
     libraries_dir: Path | None
-    boot_roms: BootRomImages
+    boot_memories: BootMemoryImages
 
     def run_entry(self, entry: dict[str, Any]) -> bool:
         """Run one manifest test under cocotb/GHDL.
@@ -73,19 +73,19 @@ class _Suite:
         # Lets a project's own sim.parameters, sim.run_files and
         # sim.env reference this test's compiled image (e.g. a VHDL
         # generic that loads the ROM image by path, see
-        # sim_runner.__config__) without hardcoding one. The boot ROM
+        # sim_runner.__config__) without hardcoding one. The boot memory
         # paths are the SAME for every entry (built once by the
         # caller); still routed through .format() per test so a
         # project's config can reference them exactly like the test's
-        # own image, e.g. `BOOT_ROM_FILE: "{boot_rom_hex_path}"`.
+        # own image, e.g. `BOOT_MEMORY_FILE: "{boot_memory_hex_path}"`.
         names = {
             "hex_path": _resolved(image_path) if image_key == "hex" else "",
             "mif_path": _resolved(image_path) if image_key == "mif" else "",
-            "boot_rom_hex_path": _resolved(
-                self.boot_roms.get("boot_rom_hex_path")
+            "boot_memory_hex_path": _resolved(
+                self.boot_memories.get("boot_memory_hex_path")
             ),
-            "boot_rom_mif_path": _resolved(
-                self.boot_roms.get("boot_rom_mif_path")
+            "boot_memory_mif_path": _resolved(
+                self.boot_memories.get("boot_memory_mif_path")
             ),
         }
 
@@ -129,7 +129,7 @@ def run_suite(
     manifest: list[dict[str, Any]],
     root: Path,
     build_dir: Path,
-    **boot_roms: Unpack[BootRomImages],
+    **boot_memories: Unpack[BootMemoryImages],
 ) -> dict[str, bool]:
     """Run every test in manifest under cocotb/GHDL.
 
@@ -146,12 +146,12 @@ def run_suite(
     build_dir : Path
         Base directory for GHDL artifacts, with one subdirectory per
         simulation profile and one below it per test.
-    boot_rom_hex_path : Path, optional
-        Compiled .hex of the shared boot ROM, exposed to sim.parameters
-        templates as `{boot_rom_hex_path}`.
-    boot_rom_mif_path : Path, optional
-        The same boot ROM as a .mif (sim.image "mif"), exposed as
-        `{boot_rom_mif_path}`.
+    boot_memory_hex_path : Path, optional
+        Compiled .hex of the shared boot memory, exposed to
+        sim.parameters templates as `{boot_memory_hex_path}`.
+    boot_memory_mif_path : Path, optional
+        The same boot memory as a .mif (sim.image "mif"), exposed as
+        `{boot_memory_mif_path}`.
 
     Returns
     -------
@@ -177,7 +177,7 @@ def run_suite(
             str(root / expand_env(src)) for src in sim_cfg["vhdl_sources"]
         ],
         libraries_dir=_build_suite_libraries(sim_cfg, root, profile_build_dir),
-        boot_roms=boot_roms,
+        boot_memories=boot_memories,
     )
     return {str(entry["name"]): suite.run_entry(entry) for entry in manifest}
 

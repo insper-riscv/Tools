@@ -1,0 +1,12 @@
+	-- RAM emulada: face de dados do SoC e bloco de memória.
+	signal rd_addr, rd_wdata, rd_rdata : std_logic_vector(31 downto 0);
+	signal rd_be : std_logic_vector(3 downto 0);
+	signal rd_rden, rd_wren, rd_line, rd_adv, rd_ready : std_logic;
+	signal rd_wdx, rd_rdx : std_logic_vector(95 downto 0);
+	signal ri_addr, ri_rdata : std_logic_vector(31 downto 0);
+	signal ri_rden, ri_line, ri_adv, ri_ready : std_logic;
+	signal ri_rdx : std_logic_vector(95 downto 0);
+	signal ocm_addr : std_logic_vector(log2_exact(RAM_STORAGE_BYTES) - 3 downto 0);
+	signal ocm_wdata, ocm_q : std_logic_vector(31 downto 0);
+	signal ocm_be : std_logic_vector(3 downto 0);
+	signal ocm_rden, ocm_wren : std_logic;

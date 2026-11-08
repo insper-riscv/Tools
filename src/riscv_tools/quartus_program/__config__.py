@@ -11,6 +11,11 @@ DEFAULTS = {
         "project_name": None,
         "sof_file": None,
         "rom_mif_target": None,
+        # When set (`platform`, `out`, and optionally `boards_dir` and
+        # `chips_dir`), `program` writes the project of that platform
+        # with `board generate` before compiling it, so the project is
+        # never a hand-written file.
+        "generate": None,
         # Directories quartus_sh's incremental compilation caches
         # under, deleted before every compile, since a ROM
         # megafunction's init_file is a string parameter, not a

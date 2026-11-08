@@ -20,7 +20,7 @@ from riscv_tools.memory_map import (
 PLATFORM: dict[str, Any] = {
     "regions": [
         {
-            "name": "BOOT_ROM",
+            "name": "BOOT_MEMORY",
             "base": "0x0",
             "size": "2K",
             "kind": "rom",
@@ -61,10 +61,12 @@ PLATFORM: dict[str, Any] = {
             "expect": "RAM.end",
         },
         {
-            "name": "vhdl boot rom size",
+            "name": "vhdl boot memory size",
             "file": "core.vhd",
-            "pattern": r"BOOT_ROM_SIZE_BYTES.*to_unsigned\((16#[0-9A-Fa-f]+#)",
-            "expect": "BOOT_ROM.size",
+            "pattern": (
+                r"BOOT_MEMORY_SIZE_BYTES.*to_unsigned\((16#[0-9A-Fa-f]+#)"
+            ),
+            "expect": "BOOT_MEMORY.size",
         },
         {
             "name": "ip words",
@@ -80,7 +82,7 @@ COPIES = {
     "x.specs": "*link:\n--defsym=__ram=0x8000 --defsym=__ram_size=160K-1056\n",
     "boot.S": "    li   t0, 0x00030000\n    li   t0, 0x00030000\n",
     "core.vhd": (
-        "constant BOOT_ROM_SIZE_BYTES : unsigned := "
+        "constant BOOT_MEMORY_SIZE_BYTES : unsigned := "
         "to_unsigned(16#00000800#, 32);\n"
     ),
     "ip.vhd": "numwords_a => 40960,\n",
@@ -106,13 +108,13 @@ def test_evaluate_number_notations() -> None:
 
 def test_evaluate_symbols_and_log2() -> None:
     """Evaluate symbols and log2."""
-    names = {"RAM.words": 40960, "FLASH.words": 7680, "BOOT_ROM.words": 512}
+    names = {"RAM.words": 40960, "FLASH.words": 7680, "BOOT_MEMORY.words": 512}
     check_equal(evaluate("RAM.words / 4", names), 10240)
-    check_equal(evaluate("log2(BOOT_ROM.words)", names), 9)
+    check_equal(evaluate("log2(BOOT_MEMORY.words)", names), 9)
     with pytest.raises(ValueError, match="non power of two"):
         evaluate("log2(FLASH.words)", names)
     check_equal(evaluate("clog2(FLASH.words)", names), 13)
-    check_equal(evaluate("clog2(BOOT_ROM.words)", names), 9)
+    check_equal(evaluate("clog2(BOOT_MEMORY.words)", names), 9)
 
 
 def test_evaluate_rejects_unknown_symbol_inexact_division_and_code() -> None:
@@ -210,7 +212,7 @@ def test_check_passes_when_every_copy_agrees(tmp_path: Path) -> None:
             "0x00030000\n    li   t0, 0x00038000",
             "asm ram end",
         ),
-        ("core.vhd", "16#00000800#", "16#00001000#", "vhdl boot rom size"),
+        ("core.vhd", "16#00000800#", "16#00001000#", "vhdl boot memory size"),
         ("ip.vhd", "40960", "32768", "ip words"),
     ],
 )
@@ -280,7 +282,11 @@ def test_cmd_check_memory_map_exit_status(
 ) -> None:
     """Cmd check memory map exit status."""
     _project(tmp_path)
-    args = argparse.Namespace(root=str(tmp_path), platform="platform.yaml")
+    args = argparse.Namespace(
+        root=str(tmp_path),
+        platform="platform.yaml",
+        accept_inferred_pins=False,
+    )
     cli.cmd_check_memory_map(args)
     check_in("memory map OK: 5 checks", capsys.readouterr().out)
 

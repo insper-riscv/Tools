@@ -2,7 +2,7 @@
 
 Each ELF is one flat image that starts at the base of the SDRAM. The
 host loads it through the SDRAM debug port while the core is parked in
-the boot ROM, then lets the core go:
+the boot memory, then lets the core go:
 
 1. Once, the FLASH gets a three-instruction stub (`fence.i`,
    `lui t0, base`, `jr t0`) that sends the core to the ELF.
@@ -25,12 +25,15 @@ from riscv_tools import (
     bin_to_image,
     display,
     htif,
-    mem_edit,
     rom_writer,
     sdram_debug,
 )
 from riscv_tools.certify import core as certify_core
-from riscv_tools.certify.flash import image_words, write_flash_stub
+from riscv_tools.certify.flash import (
+    bank_image,
+    image_words,
+    write_flash_stub,
+)
 from riscv_tools.certify.segments import load_segments, region_image
 from riscv_tools.certify.symbols import elf_symbol
 from riscv_tools.jtag import JtagLink
@@ -97,6 +100,41 @@ def run_elf(
     return None, len(words), time.monotonic() - started
 
 
+def flash_code(cfg: dict[str, Any], elf: Path, sdram_base: int) -> bytes:
+    """Build the image that goes to the FLASH storage for one ELF.
+
+    Parameters
+    ----------
+    cfg : dict of {str: Any}
+        The merged project config: act.flash_base and, for a platform
+        whose boot memory runs only a bank with a valid header,
+        act.flash_bank and act.flash_entry (the address the code of
+        the ELF is linked at, after the header page and the payload of
+        the bank).
+    elf : Path
+        The ACT4 ELF.
+    sdram_base : int
+        First address of the SDRAM, where the code ends.
+
+    Returns
+    -------
+    bytes
+        The code from `flash_base`, or the bank (header, payload that
+        jumps to the code, then the code) when a bank is named, placed
+        from `memory.rom_origin`, the address of word 0 of the storage.
+    """
+    segments = load_segments(elf)
+    if cfg["act"].get("flash_bank") is None:
+        base = int(str(cfg["act"]["flash_base"]), 0)
+        return region_image(segments, base, sdram_base)
+    entry = int(str(cfg["act"]["flash_entry"]), 0)
+    code = region_image(segments, entry, sdram_base)
+    image, base = bank_image(cfg, code, entry, cfg["act"]["flash_bank"])
+    # the storage is addressed raw: its word 0 is memory.rom_origin
+    origin = int(cfg.get("memory", {}).get("rom_origin") or 0)
+    return bytes(base - origin) + image
+
+
 def run_elf_flash(
     link: JtagLink,
     cfg: dict[str, Any],
@@ -108,8 +146,8 @@ def run_elf_flash(
 
     The code and the constants of the ELF go to the storage of the
     FLASH chip over the memory editor, the data to the SDRAM through
-    the debug port. The boot ROM jumps to the FLASH after the restart,
-    with a `fence.i` that drops the lines of the previous ELF.
+    the debug port. The boot memory jumps to the FLASH after the
+    restart, with a `fence.i` that drops the lines of the previous ELF.
 
     Parameters
     ----------
@@ -141,8 +179,7 @@ def run_elf_flash(
         The code of the ELF does not fit in the FLASH storage.
     """
     flash_words = int(cfg["act"]["flash_words"])
-    flash_base = int(str(cfg["act"]["flash_base"]), 0)
-    image = region_image(load_segments(elf), flash_base, region.base)
+    image = flash_code(cfg, elf, region.base)
     if len(image) > flash_words * 4:
         raise ValueError(
             f"{elf.stem}: the code takes {len(image)} bytes, "
@@ -156,9 +193,12 @@ def run_elf_flash(
     tohost_word = (elf_symbol(elf, "tohost") - region.base) // 4
     sdram_debug.fill(link, 0, region.words, 0)
     sdram_debug.load_words(link, 0, image_words(elf, region.base))
-    rom_writer.write_rom(link, mem_edit.rom_instances(link, cfg), mif_path)
+    # the JTAG loader restarts the core by itself; the memory editor
+    # needs the pulse of fromhost
+    restarted = rom_writer.write_rom_configured(link, cfg, mif_path)
 
-    htif.pulse_fromhost_configured(link, cfg)
+    if not restarted:
+        htif.pulse_fromhost_configured(link, cfg)
     started = time.monotonic()
     while time.monotonic() - started < region.timeout_s:
         (tohost,) = sdram_debug.read_words(link, tohost_word, 1)
@@ -181,7 +221,7 @@ class BoardOptions(TypedDict, total=False):
     build: bool
 
 
-def _find_elfs(
+def find_elfs(
     act_cfg: dict[str, Any],
     root: Path,
     only: list[str] | None,
@@ -254,7 +294,7 @@ def run_suite_on_board(
     """
     act_cfg = cfg["act"]
     region = _sdram_region(act_cfg)
-    elfs = _find_elfs(act_cfg, root, only, build=options.get("build", True))
+    elfs = find_elfs(act_cfg, root, only, build=options.get("build", True))
     build_dir.mkdir(parents=True, exist_ok=True)
     if act_cfg.get("flash_base") is None:
         write_flash_stub(link, cfg, build_dir, region.base)

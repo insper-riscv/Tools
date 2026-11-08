@@ -20,16 +20,20 @@ from typing import Any, cast
 
 import yaml
 
-from riscv_tools.settings import read_config
+from riscv_tools.config_files import read_config
 
 PATH_KEYS: tuple[tuple[str, ...], ...] = (
     ("toolchain", "specs"),
-    ("paths", "boot_rom"),
-    ("paths", "boot_rom_linker_script"),
+    ("paths", "boot_memory"),
+    ("paths", "boot_memory_linker_script"),
+    ("paths", "nor_programmer"),
     ("paths", "sources"),
     ("emulator", "sources"),
-    ("freq_sweep", "pll_file"),
     ("quartus", "project_dir"),
+    ("quartus", "generate", "platform"),
+    ("quartus", "generate", "out"),
+    ("quartus", "generate", "boards_dir"),
+    ("quartus", "generate", "chips_dir"),
     ("sim", "vhdl_sources"),
     ("sim", "python_path"),
 )

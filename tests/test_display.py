@@ -77,3 +77,17 @@ def test_fail_flag_is_read_from_the_flag_line(
     check_is(
         display.write_fail(link, False), True
     )  # the stub always answers FLAG=1
+
+
+def test_write_accepts_what_fits_in_eight_digits() -> None:
+    """The register of the DE2-115 has eight digits, 32 bits."""
+    link = cast(
+        JtagLink,
+        type(
+            "L",
+            (),
+            {"hardware_name": "h", "device_name": "d", "display_digits": 8},
+        )(),
+    )
+    with pytest.raises(ValueError, match="32 bits"):
+        display.write_display(link, 1 << 32)

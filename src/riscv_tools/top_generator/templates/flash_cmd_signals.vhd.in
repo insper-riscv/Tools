@@ -1,0 +1,10 @@
+	-- Chip de comandos da FLASH e porta B do armazenamento compartilhada com o carregador.
+	signal fcmd_valid, fcmd_busy, fcmd_wel, fcmd_refused, fcmd_b_we : std_logic;
+	signal fcmd_op : std_logic_vector(2 downto 0);
+	signal fcmd_addr, fcmd_b_addr, fcmd_b_wdata, fcmd_buf_data : std_logic_vector(31 downto 0);
+	signal fcmd_buf_idx : std_logic_vector(5 downto 0);
+	signal fcmd_inval_valid : std_logic;
+	signal fcmd_inval_first, fcmd_inval_last : std_logic_vector(31 downto 0);
+	signal st_address_b : std_logic_vector(log2_exact(ROM_STORAGE_BYTES) - 3 downto 0);
+	signal st_wren_b : std_logic;
+	signal st_data_b : std_logic_vector(31 downto 0);

@@ -7,15 +7,18 @@ in `profiles:`, a path relative to the platform file (the
 line replaces the `profile:` of the platform, so a matrix of tests can
 run the same platform over many profiles without editing it.
 
-Zimop, Zicond, Zihintntl, Zihintpause and Interrupts (the machine
-interrupts, which the core enables with Zicsr) are not in the
-specification of the Core (its matrix has only the extensions that
-combine freely), so the platform turns them on with `extras: [Zimop,
-Zicond, Zihintntl, Zihintpause, Interrupts]`, which also survives
-`--profile`. Every switch the profile and the extras do not turn on
-comes out false.
+Zihintntl, Zihintpause, Interrupts (the machine interrupts, which
+the core enables with Zicsr) and Sscofpmf (the counter-overflow
+interrupt, which needs Zihpm and Interrupts) and AccessFaults (the
+access-fault exceptions of the memory map) are not in the
+specification of the Core (Zimop and Zicond are), so the platform turns
+them on with `extras: [Zihintntl, Zihintpause, Interrupts, Sscofpmf]`,
+which also survives `--profile`. `extras` still accepts Zimop and
+Zicond. Every switch the profile and the extras do not turn on comes
+out false.
 """
 
+import re
 from pathlib import Path
 from typing import Any, cast
 
@@ -35,6 +38,8 @@ SWITCHES = (
     "has_zifencei",
     "has_zicclsm",
     "has_interrupts",
+    "has_sscofpmf",
+    "has_access_faults",
 )
 
 _override: list[str | None] = [None]
@@ -72,6 +77,32 @@ def _base_of(name: str) -> str:
     if name[:5] not in ("rv32i", "rv32e"):
         raise ValueError(f"profile {name!r} must start with rv32i or rv32e")
     return name[4]
+
+
+def _apply_extras(
+    generics: dict[str, bool | int], platform: dict[str, Any]
+) -> None:
+    """Switch on the generics of the `extras` the platform lists.
+
+    Raises
+    ------
+    ValueError
+        If an extra is not a switch, or Sscofpmf lacks Zihpm or the
+        interrupts.
+    """
+    extras = cast("list[Any]", platform.get("extras") or [])
+    for extra in extras:
+        key = "has_" + re.sub(r"(?<!^)(?=[A-Z])", "_", str(extra)).lower()
+        if key not in SWITCHES:
+            raise ValueError(f"extra {extra!r} is not one of {SWITCHES}")
+        generics[key] = True
+    if generics["has_sscofpmf"] and not (
+        generics["has_zihpm"] and generics["has_interrupts"]
+    ):
+        raise ValueError(
+            "extra 'Sscofpmf' needs Zihpm in the profile and the "
+            "'Interrupts' extra"
+        )
 
 
 def resolve(
@@ -115,12 +146,6 @@ def resolve(
     }
     if name not in found:
         raise ValueError(f"{name!r} is not a profile of {spec_ref}")
-    chosen = found[name]
-    generics = dict.fromkeys(SWITCHES, False) | dict(chosen.generics)
-    extras = cast("list[Any]", platform.get("extras") or [])
-    for extra in extras:
-        key = f"has_{str(extra).lower()}"
-        if key not in SWITCHES:
-            raise ValueError(f"extra {extra!r} is not one of {SWITCHES}")
-        generics[key] = True
+    generics = dict.fromkeys(SWITCHES, False) | dict(found[name].generics)
+    _apply_extras(generics, platform)
     return _base_of(name), generics

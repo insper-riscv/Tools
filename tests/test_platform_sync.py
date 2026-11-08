@@ -23,7 +23,7 @@ BASE = """\
 toolchain:
   specs: src/sim/runtime/rv32im-fpga.specs
 paths:
-  boot_rom: src/sim/runtime/boot_rom.S
+  boot_memory: src/sim/runtime/boot_memory.S
   sources: [src/sim/runtime/_exit.c, src/sim/runtime/stdio.c]
   include_dir: include
 quartus:
@@ -96,6 +96,27 @@ def test_rebase_prefixes_every_path_the_platform_owns(tmp_path: Path) -> None:
     )
     check_equal(config["sim"]["python_path"], ["Insper-RISC-V/src/sim"])
     check_equal(config["quartus"]["project_dir"], "Insper-RISC-V/src/board")
+
+
+def test_rebase_moves_the_generated_project_paths(tmp_path: Path) -> None:
+    """The paths of `quartus.generate` move with the platform."""
+    config = flatten(_platform(tmp_path))
+    config["quartus"]["generate"] = {
+        "platform": "src/board/platform.yaml",
+        "out": "build",
+        "boards_dir": "boards",
+        "chips_dir": "Memory/chips",
+    }
+    generate = rebase(config, "Insper-RISC-V")["quartus"]["generate"]
+    check_equal(
+        generate,
+        {
+            "platform": "Insper-RISC-V/src/board/platform.yaml",
+            "out": "Insper-RISC-V/build",
+            "boards_dir": "Insper-RISC-V/boards",
+            "chips_dir": "Insper-RISC-V/Memory/chips",
+        },
+    )
 
 
 def test_rebase_leaves_the_consumers_paths_and_other_keys(

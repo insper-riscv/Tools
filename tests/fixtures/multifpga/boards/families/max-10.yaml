@@ -1,0 +1,22 @@
+# Família de dispositivos MAX 10. Esquema: Plans/Multi-FPGA/02-ESQUEMAS-PLATFORM-E-BOARD.md, seção 5.
+# A faixa do oscilador e o número de saídas do PLL vêm do manual da família; o Fmax é a frequência de núcleo medida por grau
+# (null quando não há medida) e a calibração é o arquivo medido pelo estimador de cabimento (null até existir).
+family: max-10
+quartus_family: MAX 10
+logic_unit: le
+pll:
+  ip: altpll
+  vco_mhz: [600, 1300]
+  clock_node_pattern: "<instance>|altpll_component|auto_generated|pll1|clk[N]"
+  outputs_max: 5
+block_ram: {kind: m9k, bits_per_block: 9216}
+memory_ip: altsyncram
+virtual_jtag: true
+onchip_flash: altera_onchip_flash
+fmax:
+  core_mhz_by_grade: {C8: null, I7: null}
+calibration: null
+slew_rate: false
+# Atribuições do .qsf de todo projeto da família: a MAX 10 só monta o arquivo de programação com as memórias de conteúdo inicial neste modo.
+qsf:
+  - set_global_assignment -name INTERNAL_FLASH_UPDATE_MODE SINGLE_IMAGE_WITH_ERAM

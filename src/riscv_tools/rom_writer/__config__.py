@@ -14,8 +14,8 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         # How the ROM image is written: "mem_edit" (the In-System Memory
         # Content Editor, one write per instance above) or "jtag_loader"
         # (the FLASH loader of the Memory repository: a single copy,
-        # written with the core halted, which restarts from the boot ROM
-        # by itself).
+        # written with the core halted, which restarts from the boot
+        # memory by itself).
         "rom_write_method": "mem_edit",
     },
     "memory": {

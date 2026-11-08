@@ -9,7 +9,6 @@ from riscv_tools.cli.sources_cmd import cmd_sources
 from riscv_tools.cli.tools_cmd import (
     cmd_check_memory_map,
     cmd_check_paths,
-    cmd_freq_sweep,
     cmd_generate_memory_map,
     cmd_profiles,
     cmd_timing_paths,
@@ -73,13 +72,18 @@ def add_tool_commands(sub: Any) -> None:
         required=True,
         help="Platform YAML (relative to --root): the map and the checks",
     )
+    p.add_argument(
+        "--accept-inferred-pins",
+        action="store_true",
+        help="Allow a board pin that is only inferred (rule V16)",
+    )
 
     p = add_command(
         sub,
         cmd_generate_memory_map,
         "generate-memory-map",
         description=(
-            "Write the linker flags, the boot ROM linker script and the "
+            "Write the linker flags, the boot memory linker script and the "
             "VHDL package of the map from the platform YAML"
         ),
     )
@@ -254,47 +258,3 @@ def add_tool_commands(sub: Any) -> None:
         help="Timing model (default: slow, 1100 mV and 85 C)",
     )
     p.add_argument("--out", help="Also write the table to this file")
-
-    p = add_command(
-        sub,
-        cmd_freq_sweep,
-        "freq-sweep",
-        description="Sweep/binary-search clock frequency to find Fmax "
-        "(edits the PLL + full recompile+reprogram per candidate)",
-    )
-    p.add_argument(
-        "mif",
-        help=".mif to bake in as the ROM's init_file at every candidate "
-        "frequency",
-    )
-    p.add_argument(
-        "--golden",
-        required=True,
-        help="Golden JSON the post-run RAM dump is compared against",
-    )
-    p.add_argument(
-        "--binary",
-        action="store_true",
-        help="Binary search instead of linear sweep",
-    )
-    p.add_argument(
-        "--start", type=float, default=1.0, help="(linear) start freq, MHz"
-    )
-    p.add_argument(
-        "--stop", type=float, default=30.0, help="(linear) stop freq, MHz"
-    )
-    p.add_argument(
-        "--step", type=float, default=2.0, help="(linear) step, MHz"
-    )
-    p.add_argument(
-        "--low", type=float, default=1.0, help="(binary) low bound, MHz"
-    )
-    p.add_argument(
-        "--high", type=float, default=50.0, help="(binary) high bound, MHz"
-    )
-    p.add_argument(
-        "--out",
-        default=None,
-        help="Results JSON path "
-        "(default: <build_dir>/freq_sweep/freq_sweep_results.json)",
-    )

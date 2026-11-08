@@ -1,0 +1,12 @@
+	-- FLASH emulada: face do SoC, armazenamento de duas portas e carregador.
+	signal fl_addr, fl_mem_addr, fl_mem_data, fl_b_data, ld_data_b : std_logic_vector(31 downto 0);
+	signal fl_rden, fl_line, fl_adv, fl_ready, fl_busy : std_logic;
+	signal fl_rdata : std_logic_vector(31 downto 0);
+	signal fl_rdx : std_logic_vector(95 downto 0);
+	signal flash_halt, ld_rden_b, ld_wren_b : std_logic;
+	signal ld_address_b : std_logic_vector(log2_exact(ROM_STORAGE_BYTES) - 3 downto 0);
+	signal flash_cmd_tog, flash_done_tog : std_logic;
+	signal flash_op : std_logic_vector(3 downto 0);
+	signal flash_cmd_addr, flash_rsp_addr : std_logic_vector(23 downto 0);
+	signal flash_cmd_data, flash_rsp_data : std_logic_vector(31 downto 0);
+	signal flash_rsp_status : std_logic_vector(7 downto 0);

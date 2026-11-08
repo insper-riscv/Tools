@@ -1,0 +1,59 @@
+# Pacote da Arduino MKR Vidor 4000. Esquema: docs/pt-br/boards/formato.md. Ficha: Plans/Multi-FPGA/placas/mkr-vidor-4000.md.
+# O JTAG do FPGA fica atras do SAMD21; este pacote nao foi validado em hardware.
+board: mkr-vidor-4000
+name: Arduino MKR Vidor 4000
+family: cyclone-10-lp
+device: 10CL016YU256C8G
+speed_grade: C8
+target_level: N1
+jtag:
+  cable: samd21-usbblaster
+  usb:
+    - {id: "2341:8056", state: "SAMD21 em CDC, sem o sketch USBBlaster (a placa ainda nao tem cadeia JTAG)", confirmed: measured}
+  samd21:
+    sketch: USBBlaster
+    library: "USBBlaster (nucleo SAMD 1.6.25 ou posterior)"
+    loaded_by_tools: false
+  external_pads:
+    status: read-from-schematic
+    connector: "J11, Samtec FTSH-105-01-F-D-K, 2x5, passo de 1,27 mm (ABX00022-schematics.pdf, folha das E/S do FPGA)"
+    pins: {1: "+3V3", 2: "TMS", 3: "GND", 4: "TCK", 5: "GND", 6: "TDO", 7: "sem ligacao", 8: "TDI", 9: "GND", 10: "sem ligacao"}
+    fpga_balls: {TMS: J5, TCK: H3, TDO: J4, TDI: H4}
+    samd21_pins: {TMS: "PA14 (pino 23)", TDI: "PA12 (pino 21)", TCK: "PA13 (pino 22)", TDO: "PA15 (pino 24)"}
+    note: "Os pads de JTAG nao vem soldados. As quatro redes JTAG.CPORT_* ligam o SAMD21, o J11 e os pinos de JTAG do FPGA, sem resistor em serie visivel no desenho; com um USB-Blaster externo, o SAMD21 fica em modo bootloader (duplo toque no reset) para nao disputar as linhas."
+  chain:
+    - {name: "10CL016(Y|Z)/EP3C16/..", idcode: "020F20DD", fpga: true, confirmed: manual}
+resources:
+  logic:       {unit: le, total: 15408}
+  block_ram:   {kind: m9k, blocks: 56, bits_per_block: 9216}
+  multipliers: {kind: dsp9x9, total: 112}
+  plls: 4
+  user_pins: null
+clocks:
+  inputs:
+    - {name: clock_48, signal: iCLK, mhz: 48}
+  reference: clock_48
+  reset: {signal: iRESETn, active: low}
+memories:
+  sdram:
+    chip: AS4C4M16SA-7BCN
+    chips: 1
+    signals: [oSDRAM, bSDRAM]
+    clk_phase_ps: null
+  serial_flash:
+    chip: W25Q16DV
+    bytes: 2097152
+    shared_with_config: true
+console:
+  default: jtag
+pins: pins.yaml
+notes:
+  - "Sem LED, botao, chave nem display ligados ao FPGA (o LED da placa e do SAMD21), de modo que nenhum papel de E/S e declarado e uma plataforma que exija leds falha em V5."
+  - "A USB liga so ao SAMD21. O Tools reconhece a placa por lsusb (2341:8056) e diz o que falta; nao grava o sketch (decisao DM8), porque uma gravacao errada pode inutilizar a via USB."
+  - "O IDCODE 020F20DD do 10CL016 vem do banco de dispositivos do Quartus 25.1 (pgm_parts.txt), nao de uma leitura da placa; e o mesmo do EP3C16. A primeira versao deste pacote supunha 020F10DD, que e o do 10CL010."
+  - "O .qsf oficial (VidorBitstream) atribuia sete pinos a dois sinais cada (L4, R4, R5, R6, R7, T4, T7). O esquematico decide cada um (notas de pins.yaml): L4 PANEL_SDA, R4 WM_PIO35, T4 WM_PIO31, R5 WM_PIO20, R6 WM_PIO21, R7 CFG_HOLD, T7 CFG_WP; os sinais perdedores sairam e conflicts esta vazio."
+  - "A QSPI tem 2 MB (1 MB para a aplicacao do usuario) e guarda o bitstream; o chip e o W25Q16DVSNIG (esquematico); HOLD e WP da QSPI sao as redes CFG_HOLD (R7) e CFG_WP (T7) do esquematico."
+  - "A SDRAM e o AS4C4M16SA-7BCN (U9A do esquematico): 12 bits de endereco A0 a A11 e BS0 e BS1, ou seja 4 bancos e 12 bits de linha, 16 bits de dados."
+  - "O UART do SoC so existe pelo SAMD21 (repasse de firmware) ou por adaptador nos pinos D13 e D14 (inferido); o console padrao e a JTAG UART via USB-Blaster emulado."
+  - "Os multiplicadores sao contados em elementos de 9 bits (56 de 18x18). Capacidades de LEs, M9K e PLLs vem do datasheet da familia (parcialmente inferido)."
+  - "Placa em fim de vida; validacao de portabilidade, nao alvo principal."

@@ -82,7 +82,8 @@ def _boot_problems(
     boot : dict of {str: Any}
         The platform's `boot` section.
     spans : list of tuple of (str, int, int)
-        Every region, in declaration order (the first is the boot ROM).
+        Every region, in declaration order (the first is the boot
+        memory).
     execs : list of tuple of (str, int, int)
         The executable regions.
 
@@ -121,7 +122,7 @@ def validate_platform(
     Regions must not overlap; reserved words must sit inside a RAM
     region and not overlap each other; every region must end at or
     below the peripheral window, since the lower 2 GiB belong to the
-    BOOT_ROM, the ROM and the RAM and the upper 2 GiB to the
+    BOOT_MEMORY, the ROM and the RAM and the upper 2 GiB to the
     peripherals; the boot entry must be inside an
     executable region and `wait_restart` inside the first one; a
     peripheral's base must be `0x80000000 | id << 28` (the L2IP window

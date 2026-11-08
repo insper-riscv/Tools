@@ -147,6 +147,7 @@ class _Walk:
         self.repositories = repositories
         self.root = root
         self.result: list[str] = []
+        self.needs: set[str] = set()
         self.done: set[tuple[str, str]] = set()
         self.active: list[tuple[str, str]] = []
 
@@ -176,10 +177,43 @@ class _Walk:
             self.visit(*_split(dep, repository))
         self.active.pop()
         self.done.add(key)
+        self.needs.update(item.needs)
         for path in item.sources:
             relative = Path(os.path.relpath(folder / path, self.root))
             if relative.as_posix() not in self.result:
                 self.result.append(relative.as_posix())
+
+
+def _walked(root: Path, targets: list[str]) -> _Walk:
+    """Walk the components of the targets, dependencies first.
+
+    Parameters
+    ----------
+    root : Path
+        The workspace root.
+    targets : list of str
+        Components as `<repository>/<component>`; a bare name means the
+        repository of the root.
+
+    Returns
+    -------
+    _Walk
+        The finished walk, which holds the files and the board
+        resource types of the closure.
+
+    Raises
+    ------
+    SourcesError
+        If a repository or component is not found or a cycle is met.
+    """
+    repositories = workspace(root)
+    if not repositories:
+        raise SourcesError(f"no provides manifest found under {root}")
+    own = next(iter(repositories))
+    walk = _Walk(repositories, root)
+    for target in targets:
+        walk.visit(*_split(target, own))
+    return walk
 
 
 def ordered_sources(root: Path, targets: list[str]) -> list[str]:
@@ -203,11 +237,32 @@ def ordered_sources(root: Path, targets: list[str]) -> list[str]:
     SourcesError
         If a repository or component is not found or a cycle is met.
     """
-    repositories = workspace(root)
-    if not repositories:
-        raise SourcesError(f"no provides manifest found under {root}")
-    own = next(iter(repositories))
-    walk = _Walk(repositories, root)
-    for target in targets:
-        walk.visit(*_split(target, own))
-    return walk.result
+    return _walked(root, targets).result
+
+
+def closure_needs(root: Path, targets: list[str]) -> list[str]:
+    """List the board resource types the closure of the targets needs.
+
+    The same walk as `ordered_sources`, so the `needs` come from the
+    components that would be analyzed, the targets and everything they
+    require.
+
+    Parameters
+    ----------
+    root : Path
+        The workspace root.
+    targets : list of str
+        Components as `<repository>/<component>`; a bare name means the
+        repository of the root.
+
+    Returns
+    -------
+    list of str
+        The union of the `needs` of every component, sorted.
+
+    Raises
+    ------
+    SourcesError
+        If a repository or component is not found or a cycle is met.
+    """
+    return sorted(_walked(root, targets).needs)

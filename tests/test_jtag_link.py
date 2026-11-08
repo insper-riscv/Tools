@@ -6,7 +6,8 @@ import pytest
 from support import check_equal
 
 from riscv_tools.cli.common import jtag_link
-from riscv_tools.jtag import JtagLink, link
+from riscv_tools.jtag import JtagLink, detect_jtag_hardware, link
+from riscv_tools.jtag.hardware import idcode_of
 
 
 class FakeRun:
@@ -49,9 +50,78 @@ def test_the_config_gives_the_instance_to_the_link(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """quartus.sdram_debug_instance becomes the sdram_instance field."""
-    monkeypatch.setattr(
-        "riscv_tools.cli.common.detect_jtag_hardware", lambda: "cable"
-    )
+
+    def cable(_device: str, _forced: str | None) -> str:
+        return "cable"
+
+    monkeypatch.setattr("riscv_tools.cli.common.detect_jtag_hardware", cable)
     cfg = {"quartus": {"jtag_device": "chip", "sdram_debug_instance": 3}}
     made = jtag_link(cfg)
     check_equal(made.sdram_instance, 3, "sdram_instance")
+
+
+JTAGCONFIG = """1) USB-Blaster [1-2]
+  02B050DD   5CE(BA4|FA4)
+
+2) USB-Blaster [1-3]
+  020F70DD   10CL120(Y|Z)/EP3C120/..
+
+3) USB-Blaster [1-6]
+  031050DD   10M50DA(.|ES)/10M50DC
+"""
+
+
+def _fake_jtagconfig(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make jtagconfig print three cables."""
+
+    def run(*_a: object, **_k: object) -> object:
+        return type("Done", (), {"stdout": JTAGCONFIG})()
+
+    monkeypatch.setattr("riscv_tools.jtag.hardware.subprocess.run", run)
+
+
+def test_the_cable_is_chosen_by_the_idcode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The cable that lists the IDCODE of the project chip is taken."""
+    _fake_jtagconfig(monkeypatch)
+    check_equal(
+        detect_jtag_hardware("@1: 10M50DA(.|ES)/10M50DC (0x031050DD)"),
+        "USB-Blaster [1-6]",
+        "cable",
+    )
+
+
+def test_without_a_match_the_first_cable_is_taken(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No device, or an IDCODE no cable lists, gives the first cable."""
+    _fake_jtagconfig(monkeypatch)
+    check_equal(detect_jtag_hardware(), "USB-Blaster [1-2]", "no device")
+    check_equal(
+        detect_jtag_hardware("chip (0x12345678)"),
+        "USB-Blaster [1-2]",
+        "no match",
+    )
+
+
+def test_the_idcode_of_a_device_name() -> None:
+    """The IDCODE comes out in upper case, or None."""
+    check_equal(idcode_of("@1: x (0x02b050dd)"), "02B050DD", "idcode")
+    check_equal(idcode_of("chip"), None, "none")
+
+
+def test_a_forced_cable_must_list_the_idcode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """--cable keeps the cable, and the IDCODE is still checked."""
+    _fake_jtagconfig(monkeypatch)
+    check_equal(
+        detect_jtag_hardware("x (0x020F70DD)", "USB-Blaster [1-3]"),
+        "USB-Blaster [1-3]",
+        "forced",
+    )
+    with pytest.raises(RuntimeError, match="does not list the IDCODE"):
+        detect_jtag_hardware("x (0x02B050DD)", "USB-Blaster [1-3]")
+    with pytest.raises(RuntimeError, match="not listed"):
+        detect_jtag_hardware("x (0x02B050DD)", "USB-Blaster [9-9]")

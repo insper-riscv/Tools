@@ -8,7 +8,7 @@ Um endereço de palavra conta palavras de 32 bits a partir do início do IP da F
 
 | Função | Faz |
 | :--- | :--- |
-| `load_image(link, words, word_address, restart)` | para o núcleo, grava a imagem em poucas varreduras longas, confere a contagem e a soma de verificação que o carregador informa e, com `restart` verdadeiro, libera o núcleo, que reinicia pela BOOT_ROM |
+| `load_image(link, words, word_address, restart)` | para o núcleo, grava a imagem em poucas varreduras longas, confere a contagem e a soma de verificação que o carregador informa e, com `restart` verdadeiro, libera o núcleo, que reinicia pela BOOT_MEMORY |
 | `read_words(link, word_address, word_count)` | para o núcleo e lê palavras contíguas; o núcleo continua parado |
 | `halt(link)` | para o núcleo |
 | `release(link)` | libera o núcleo |

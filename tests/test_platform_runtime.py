@@ -1,11 +1,11 @@
 """End-to-end tests of the picolibc runtime (no crt0 or linker).
 
 The project under test (fixtures/platform_min/) describes its platform
-in a GCC specs file and supplies only `_exit`, the boot ROM and a Spike
-stand-in. The tests prove that programs compile and link with nothing
-else, that a program can return from main, that Spike generates the
-goldens from the image the hardware loads, and that the image starts
-where the boot ROM jumps.
+in a GCC specs file and supplies only `_exit`, the boot memory and a
+Spike stand-in. The tests prove that programs compile and link with
+nothing else, that a program can return from main, that Spike generates
+the goldens from the image the hardware loads, and that the image starts
+where the boot memory jumps.
 """
 
 import json
@@ -131,8 +131,8 @@ def _make_project(root: Path) -> None:
             "paths": {
                 "include_dir": "include",
                 "sources": ["platform/_exit.c"],
-                "boot_rom": "platform/boot_rom.S",
-                "boot_rom_linker_script": "platform/boot_rom.ld",
+                "boot_memory": "platform/boot_memory.S",
+                "boot_memory_linker_script": "platform/boot_memory.ld",
                 "build_dir": "build",
                 "c_dir": "c",
                 "asm_dir": "asm",
@@ -194,7 +194,7 @@ def test_compile_needs_no_crt0_or_linker_script(tmp_path: Path) -> None:
     # The toolchain's crt0 starts at the flash base the specs file
     # gives.
     check_equal(syms["_start"], 0x800)
-    # The boot ROM's routine is at its fixed address, from the specs
+    # The boot memory's routine is at its fixed address, from the specs
     # file.
     check_equal(syms["rv32_wait_restart"], 0x100)
 
@@ -294,6 +294,6 @@ def test_cmd_compile_hex_places_the_image_at_the_flash_base(
     cmd_compile(compile_args(tmp_path, "hex"))
 
     # The first line of an `objcopy -O verilog` file is the address of
-    # the first word: the flash base, where the boot ROM jumps to.
+    # the first word: the flash base, where the boot memory jumps to.
     hex_text = (tmp_path / "build" / "sim" / "returns.hex").read_text()
     check(hex_text.startswith("@00000200\n"))

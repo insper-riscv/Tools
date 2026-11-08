@@ -8,9 +8,13 @@ A JTAG connection needs two identifiers, and they behave differently over time:
 
 | Field | What it is | Stability |
 | :--- | :--- | :--- |
-| `hardware_name` | The `"USB-Blaster [<bus>-<port>]"` cable name | Drifts across reboots/hub renumbering, so it's always live-detected via `detect_jtag_hardware()`, never read from config. |
+| `hardware_name` | The `"USB-Blaster [<bus>-<port>]"` cable name | Drifts across reboots/hub renumbering, so it's always live-detected via `detect_jtag_hardware()`, never read from config; it takes the cable whose chain lists the IDCODE of `jtag_device` (PC1 has four cables). The identification of the board, with the USB port as the tie-break, is in [`board`](board.md). |
 | `device_name` | The target chip's JTAG identity string | Stable across reboots; comes from a project's own config (`quartus.jtag_device`). |
 | `sdram_instance` | The index of the Virtual JTAG instance of the SDRAM debug port | Fixed in the top of the platform (`sld_instance_index`); comes from the config (`quartus.sdram_debug_instance`) and reaches the `sdram_dbg.tcl` script through the environment variable `RV32_SDRAM_DEBUG_INSTANCE`. |
+
+## Reading `jtagconfig`
+
+`read_cables()` runs `jtagconfig` once and returns every cable, each with its name, the devices of the chain (position, IDCODE and name) and the error that `jtagconfig` printed in place of the chain. `parse_jtagconfig()` does the same reading over a text, and the tests use it with fixtures. `same_idcode()` compares two IDCODEs without the 4 version bits. No other module or repository reads `jtagconfig`; the [`board`](board.md) module and the Tests runner start from this reading.
 
 ## Chain health
 
@@ -20,7 +24,9 @@ A JTAG connection needs two identifiers, and they behave differently over time:
 
 | Key | Meaning |
 | :--- | :--- |
-| `quartus.jtag_device` | The FPGA's own JTAG IDCODE string. No default; every project must set this explicitly. |
+| `quartus.jtag_device` | The FPGA's own JTAG IDCODE string. A project without it selects the board through the [`board`](board.md) module. |
+| `quartus.board` | Board identifier or `auto`, the `board:` of the platform. |
+| `quartus.boards` | List of boards that `auto` may take. |
 | `quartus.sdram_debug_instance` | The index of the Virtual JTAG instance of the SDRAM debug port. The default is 0; a platform that also has the FLASH loader gives the debug port another index. |
 
 ## Prerequisites
@@ -29,7 +35,7 @@ A JTAG connection needs two identifiers, and they behave differently over time:
 
 ## Tests
 
-No automated test in this repository. A self-hosted runner set up as in Infra's `RUNNER_SETUP.md` runs the real-hardware suite of a consuming project (`riscv-tools run`), which is the only place this module is exercised.
+The reading of `jtagconfig` and the cable choice are tested with fixtures in `tests/test_jtag_link.py` and `tests/test_board_*.py`. Access to the cable itself has no automated test here; a self-hosted runner set up as in Infra's `RUNNER_SETUP.md` runs the real-hardware suite of a consuming project (`riscv-tools run`), which is the only place this module is exercised.
 
 ## Usage
 

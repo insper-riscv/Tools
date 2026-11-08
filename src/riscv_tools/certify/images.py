@@ -29,7 +29,7 @@ def write_images(
     """Write the three hex images the simulation loads from an ELF.
 
     The code region (below `ram_base`) goes to the instruction memory
-    and its first `boot_bytes` bytes also to the boot ROM; the data
+    and its first `boot_bytes` bytes also to the boot memory; the data
     region (from `ram_base`) goes to the RAM. Every section of the ELF
     is loaded at the address it runs from.
 
@@ -44,7 +44,7 @@ def write_images(
     ram_base : int
         First address of the RAM.
     boot_bytes : int
-        Size in bytes of the boot ROM, at address 0.
+        Size in bytes of the boot memory, at address 0.
 
     Returns
     -------
@@ -73,7 +73,7 @@ def write_images(
 
 
 def sdram_boot_words(sdram_base: int) -> list[int]:
-    """Return the boot ROM that jumps to the SDRAM.
+    """Return the boot memory that jumps to the SDRAM.
 
     The words are a nop, `lui x1, base` and `jalr x0, 0(x1)`. The core
     does not execute the first word after the reset, and the base has
@@ -141,8 +141,8 @@ def write_flash_images(
 
     The ELF has its code in the FLASH and its data in the SDRAM, each
     loaded at the address it runs from. The image of the FLASH starts at
-    `flash_base`, the one of the SDRAM at `sdram_base`, and the boot ROM
-    only jumps to the FLASH.
+    `flash_base`, the one of the SDRAM at `sdram_base`, and the boot
+    memory only jumps to the FLASH.
 
     Parameters
     ----------

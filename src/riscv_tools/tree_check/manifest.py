@@ -9,6 +9,7 @@ provides:
   onchip_ram:
     requires: [Common-Components/utils, ram_simulation]
     sources: [src/RAM/SoC/onchip_ram_port.vhd]
+    needs: [block_ram]   # optional: the board resources it depends on
 ```
 
 The `sources` follow the order GHDL analyzes them. A name in `requires`
@@ -34,6 +35,19 @@ REQUIRED_KINDS = frozenset(
     {"common-components", "core", "memory", "peripherals", "top"}
 )
 
+# Os tipos de recurso de placa que `needs` de um componente aceita.
+NEED_TYPES = frozenset(
+    {
+        "block_ram",
+        "sdram",
+        "sram",
+        "nor",
+        "onchip_flash",
+        "serial_flash",
+        "vjtag",
+    }
+)
+
 
 @dataclass(frozen=True)
 class Component:
@@ -46,10 +60,13 @@ class Component:
         in the order they are analyzed.
     requires : tuple of str
         The components it needs, as written in the manifest.
+    needs : tuple of str, optional
+        The board resource types it depends on (`NEED_TYPES`).
     """
 
     sources: tuple[str, ...]
     requires: tuple[str, ...]
+    needs: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -91,6 +108,30 @@ def _strings(value: Any) -> list[str] | None:
     return cast("list[str]", items)
 
 
+def _component_problems(
+    name: str,
+    sources: list[str] | None,
+    requires: list[str] | None,
+    needs: list[str] | None,
+) -> list[str]:
+    """List what is malformed in the fields of one component."""
+    problems: list[str] = []
+    if sources is None or (not sources and not requires):
+        problems.append(f"{name}: `sources` is a non-empty list of paths")
+    if requires is None:
+        problems.append(f"{name}: `requires` is a list of names")
+    if needs is None:
+        problems.append(f"{name}: `needs` is a list of resource types")
+    else:
+        problems.extend(
+            f"{name}: `needs` {item} is not one of "
+            f"{', '.join(sorted(NEED_TYPES))}"
+            for item in needs
+            if item not in NEED_TYPES
+        )
+    return problems
+
+
 def _read_component(
     name: str, raw: Any, problems: list[str]
 ) -> Component | None:
@@ -116,13 +157,11 @@ def _read_component(
     body = cast("dict[str, Any]", raw)
     sources = _strings(body.get("sources"))
     requires = _strings(body.get("requires"))
-    if not sources:
-        problems.append(f"{name}: `sources` is a non-empty list of paths")
-    if requires is None:
-        problems.append(f"{name}: `requires` is a list of names")
-    if not sources or requires is None:
+    needs = _strings(body.get("needs"))
+    problems.extend(_component_problems(name, sources, requires, needs))
+    if sources is None or requires is None or needs is None:
         return None
-    return Component(tuple(sources), tuple(requires))
+    return Component(tuple(sources), tuple(requires), tuple(needs))
 
 
 def _raw(root: Path) -> tuple[Any, Any]:

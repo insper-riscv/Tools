@@ -154,3 +154,9 @@ def add_run_commands(sub: Any) -> None:
         help="Use the ELFs that an earlier `certify` built, without ACT4's "
         "`make`",
     )
+    p.add_argument(
+        "--build-only",
+        action="store_true",
+        help="Build the ELFs with ACT4's `make` and stop: no board is "
+        "needed, so a machine without a cable can prepare them",
+    )

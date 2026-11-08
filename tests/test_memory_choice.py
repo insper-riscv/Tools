@@ -24,6 +24,7 @@ from riscv_tools.memory_map import (
     memory_notes,
     render_all,
     set_memory_override,
+    validate_platform,
 )
 
 MEMORY: dict[str, Any] = {
@@ -320,18 +321,72 @@ def test_the_old_external_flags_cannot_sit_beside_memory(
         _render(tmp_path, platform)
 
 
-def test_a_region_must_fit_one_window_under_a_cache(tmp_path: Path) -> None:
-    """V3: the tag of the caches keeps 26 address bits."""
+def _big_ram(base: str, size: str, fromhost: str) -> dict[str, Any]:
+    """Build a platform whose RAM is placed at base with the given size.
+
+    Parameters
+    ----------
+    base : str
+        The base of the RAM.
+    size : str
+        The size of the RAM.
+    fromhost : str
+        The address of the host word, inside the RAM.
+
+    Returns
+    -------
+    dict of {str: Any}
+        The platform.
+    """
     regions = deepcopy(MAP_REGIONS)
-    regions[2] |= {"base": "0x3FF0000", "size": "128K"}
-    platform = _platform(regions=regions, reserved={})
-    platform["reserved"] = {
-        "fromhost": {"base": "0x4000000", "size": "8"},
-    }
-    with pytest.raises(ValueError, match="64 MiB window"):
+    regions[2] |= {"base": base, "size": size}
+    return _platform(
+        regions=regions, reserved={"fromhost": {"base": fromhost, "size": "8"}}
+    )
+
+
+def test_a_region_across_the_last_window_is_rejected(tmp_path: Path) -> None:
+    """V3: no window up to 512 MiB holds a region across its edge."""
+    platform = _big_ram("0x1FFF0000", "128K", "0x1FFFFFF0")
+    with pytest.raises(ValueError, match="512 MiB window"):
         _render(tmp_path, platform)
     set_memory_override(_choice("int", "int", "off", "off"))
     _render(tmp_path, platform)
+
+
+def test_the_window_widens_to_hold_the_ram(tmp_path: Path) -> None:
+    """V3: a 128 MiB RAM makes the window of the cache tag 128 MiB."""
+    platform = _big_ram("0x40000000", "128M", "0x47FFFFF0")
+    check_in(
+        "CACHE_WINDOW_BITS   : natural  := 27;", _render(tmp_path, platform)
+    )
+    check_in(
+        "CACHE_WINDOW_BITS   : natural  := 26;", _render(tmp_path, _platform())
+    )
+
+
+def test_a_region_that_crosses_64_mib_fits_a_wider_window(
+    tmp_path: Path,
+) -> None:
+    """V3: 0x3FF0000 to 0x4010000 sits in one 128 MiB window."""
+    platform = _big_ram("0x3FF0000", "128K", "0x400FFF0")
+    check_in(
+        "CACHE_WINDOW_BITS   : natural  := 27;", _render(tmp_path, platform)
+    )
+
+
+def test_the_simulation_gets_the_window_only_when_it_is_wide(
+    tmp_path: Path,
+) -> None:
+    """The parameters carry CACHE_WINDOW_BITS above the default only."""
+    path = tmp_path / "platform.yaml"
+    path.write_text(yaml.safe_dump(_platform(), sort_keys=False))
+    parameters = config_from_platform(path)["sim"]["parameters"]
+    check_not_in("CACHE_WINDOW_BITS", parameters)
+    wide = _big_ram("0x40000000", "128M", "0x47FFFFF0")
+    path.write_text(yaml.safe_dump(wide, sort_keys=False))
+    parameters = config_from_platform(path)["sim"]["parameters"]
+    check_equal(parameters["CACHE_WINDOW_BITS"], "27")
 
 
 def test_the_rom_must_fit_the_router_window(tmp_path: Path) -> None:
@@ -429,7 +484,7 @@ def test_the_config_carries_the_choice_and_the_widths(
     check_is(parameters["ROM_EXTERNAL"], True)
     check_is(parameters["HAS_ICACHE"], True)
     check_equal(parameters["DCACHE_SIZE_BITS"], "1024")
-    check_in("boot_rom_addr_width", parameters)
+    check_in("boot_memory_addr_width", parameters)
     check_not_in("rom_addr_width", parameters)
     set_memory_override(_choice("int", "int", "off", "off"))
     parameters = config_from_platform(path)["sim"]["parameters"]
@@ -448,10 +503,34 @@ def test_listed_widths_win_and_no_memory_adds_nothing(
     path.write_text(yaml.safe_dump(listed, sort_keys=False))
     parameters = config_from_platform(path)["sim"]["parameters"]
     check_in("ram_addr_width", parameters)
-    check_not_in("boot_rom_addr_width", parameters)
+    check_not_in("boot_memory_addr_width", parameters)
     path.write_text(yaml.safe_dump(_platform(memory=None), sort_keys=False))
     parameters = config_from_platform(path)["sim"]["parameters"]
     check_not_in("ROM_EXTERNAL", parameters)
     check_equal(
         render_all(path, tmp_path)[tmp_path / PACKAGE].count("VIA_PORT"), 0
+    )
+
+
+def test_the_board_fields_of_a_memory_are_known_fields() -> None:
+    """The fields of the board catalog are not typos."""
+    platform = {
+        "regions": [
+            {"name": "BOOT_MEMORY", "base": "0x0", "size": "4K"},
+            {"name": "RAM", "base": "0x40000000", "size": "1M", "kind": "ram"},
+        ],
+        "memory": {
+            "rom": {"external": False},
+            "ram": {
+                "external": True,
+                "backend": "dispositivo",
+                "device": "sdram",
+            },
+            "icache": {"enabled": False},
+            "dcache": {"enabled": False},
+        },
+    }
+    check_equal(
+        [p for p in validate_platform(platform) if "not a field" in str(p)],
+        [],
     )

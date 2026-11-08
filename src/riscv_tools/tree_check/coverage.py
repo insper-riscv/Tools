@@ -17,7 +17,7 @@ tree:
       sdram_arbiter: []
       axi_master_bridge: [formal/axi_master/props.sv]
     exceptions:
-      boot_rom_shell: wraps a Quartus IP, covered by the synthesis
+      boot_memory_shell: wraps a Quartus IP, covered by the synthesis
 ```
 
 An exception excuses the test only, never the proof, and is never

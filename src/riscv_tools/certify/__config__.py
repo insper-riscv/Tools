@@ -22,7 +22,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         "jobs": 0,
         # Merged on top of sim.parameters (see certify.run_suite),
         # empty by default, since most of sim.parameters (ROM_FILE,
-        # boot_rom_addr_width, ...) is exactly what ACT4 wants too.
+        # boot_memory_addr_width, ...) is exactly what ACT4 wants too.
         # Only needed to override something ACT4's own, bigger images
         # actually need different (typically rom_addr_width/
         # ram_addr_width sized to real hardware's actual FLASH/RAM

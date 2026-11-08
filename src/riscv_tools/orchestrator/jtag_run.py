@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from riscv_tools import (
+    board_generate,
     htif,
     quartus_program,
     rom_writer,
@@ -49,8 +50,9 @@ def run_test_via_jtag(
     # first, so the host never mistakes that test's result for this
     # one's.
     htif.clear_tohost_configured(link, cfg)
-    # The FLASH loader restarts the core by itself (from the boot ROM,
-    # which clears tohost again); the other method needs the pulse.
+    # The FLASH loader restarts the core by itself (from the boot
+    # memory, which clears tohost again); the other method needs the
+    # pulse.
     if not rom_writer.write_rom_configured(link, cfg, root / entry["mif"]):
         htif.pulse_fromhost_configured(link, cfg)
 
@@ -134,4 +136,9 @@ def full_reconfigure_entry(
     -------
     None
     """
+    generate = cfg["quartus"].get("generate")
+    if generate:
+        board_generate.build(
+            board_generate.request_from_config(root, generate)
+        )
     reconfigure_with_rom(cfg, link, project_dir, root / entry["mif"])

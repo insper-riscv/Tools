@@ -67,6 +67,6 @@ def test_write_flash_images_split_the_flash_from_the_sdram(
     check_equal(
         paths["sdram_hex_path"].read_text().lower().split(), ["ddccbbaa"]
     )
-    # the boot ROM jumps to the FLASH: lui x1, 0x20000
+    # the boot memory jumps to the FLASH: lui x1, 0x20000
     boot = paths["boot_hex_path"].read_text().lower().split()
     check_equal(boot, ["00000013", "200000b7", "00008067"])

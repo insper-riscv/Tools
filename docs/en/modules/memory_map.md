@@ -1,14 +1,14 @@
 # `memory_map`
 
-Checks that every hand-written copy of a platform's memory map agrees. The map (region bases and sizes, the words the boot ROM reserves at the top of RAM, the boot entry points, the peripheral windows) is needed in many files: linker flags, boot ROM, C runtime, VHDL, Quartus IPs, the project's `config.yaml`. Each copy is only noticed when it disagrees on the board. One YAML file, the platform, is the source of truth; this module reads each copy and reports every disagreement.
+Checks that every hand-written copy of a platform's memory map agrees. The map (region bases and sizes, the words the boot memory reserves at the top of RAM, the boot entry points, the peripheral windows) is needed in many files: linker flags, boot memory, C runtime, VHDL, Quartus IPs, the project's `config.yaml`. Each copy is only noticed when it disagrees on the board. One YAML file, the platform, is the source of truth; this module reads each copy and reports every disagreement.
 
-## Configuration
+## 1. Configuration
 
 No `config.yaml` section: the platform file is self-describing and is passed with `--platform`.
 
 ```yaml
 regions:                      # the map itself
-  - {name: BOOT_ROM, base: 0x0,    size: 2K,   kind: rom, exec: true}
+  - {name: BOOT_MEMORY, base: 0x0,    size: 2K,   kind: rom, exec: true}
   - {name: FLASH,    base: 0x800,  size: 30K,  kind: rom, exec: true}
   - {name: RAM,      base: 0x8000, size: 160K, kind: ram}
 reserved:                     # words at the top of RAM (inside a ram region)
@@ -31,23 +31,23 @@ checks:                       # where each copy lives
 - **Symbols** in `expect`: `<REGION>.base|size|end|words`, `<reserved>.base|size|end`, `boot.entry|wait_restart`, `<PERIPHERAL>.base|id`.
 - **Numbers** accept hexadecimal, decimal, VHDL-based (`16#800#`), suffixes (`30K`, `0x800u`) and `+ - * /` (exact division), plus `log2()` (exact) and `clog2()` (rounded up, for address widths).
 - A check whose pattern matches nothing **fails** ("the copy moved"); `optional: true` skips a file that is absent. A pattern with several matches must agree at every match.
-- Before the copies are read the map itself is validated: regions and reserved words do not overlap, reserved words sit inside a RAM region, `boot.entry` is in an executable region, `boot.wait_restart` is in the first region, each peripheral base matches its id, and every region ends at or below `0x80000000` (the lower 2 GiB belong to the BOOT_ROM, the ROM and the RAM, the upper 2 GiB to the peripherals).
+- Before the copies are read the map itself is validated: regions and reserved words do not overlap, reserved words sit inside a RAM region, `boot.entry` is in an executable region, `boot.wait_restart` is in the first region, each peripheral base matches its id, and every region ends at or below `0x80000000` (the lower 2 GiB belong to the BOOT_MEMORY, the ROM and the RAM, the upper 2 GiB to the peripherals).
 
-## Generating the files of the map
+## 2. Generating the files of the map
 
 The same YAML can say, in the `generate` section, which files come out of it, so no copy of the map has to be written by hand.
 
 | Key | Generated file | Content |
 | :--- | :--- | :--- |
 | `specs` | GCC specs file | The linker flags: `__flash`, `__flash_size`, `__ram`, `__ram_size` and `rv32_wait_restart`. The RAM of the linker ends where the reserved word `ram_limit` begins |
-| `boot_ld` | Boot ROM linker script | The `boot_rom` memory in the first region and the `RESET_RESERVED` from `boot.wait_restart` |
-| `runtime` | Runtime header (`.h`, also included by `.S`) | `RV32_RAM_END` (end of the `ram` region), `RV32_TOHOST_ADDR`, `RV32_FROMHOST_ADDR` and `RV32_STDOUT_BASE`, from the `reserved` ranges the map has, `RV32_BOOT_ENTRY` (where the boot ROM jumps) and `RV32_<NAME>_BASE` for each peripheral; the runtime in C and assembly (`_exit.c`, `stdio.c`, `boot_rom.S`, `spike_exit.S`) uses these names instead of hand-written addresses |
-| `vhdl` | VHDL package | The constants `BOOT_ROM_BITS`, `BOOT_ROM_SIZE_BYTES`, `ROM_BASE_KIB`, `ROM_END_KIB`, `ROM_STORAGE_BYTES`, `RAM_BASE_KIB`, `RAM_END_KIB`, `RAM_STORAGE_BYTES`, `RAM_LAST_PAGE`, `EXT_BASE_KIB` and `PERIPH_BASE_KIB`, the `ROM_EXTERNAL` and `RAM_EXTERNAL` flags (from `generate.vhdl` or from the `memory` section), the cache constants of the `memory` section and, for each peripheral, `<NAME>_BASE` and `<NAME>_ID` |
+| `boot_ld` | Boot memory linker script | The `boot_memory` memory in the first region and the `RESET_RESERVED` from `boot.wait_restart` |
+| `runtime` | Runtime header (`.h`, also included by `.S`) | `RV32_RAM_END` (end of the `ram` region), `RV32_TOHOST_ADDR`, `RV32_FROMHOST_ADDR` and `RV32_STDOUT_BASE`, from the `reserved` ranges the map has, `RV32_BOOT_ENTRY` (where the boot memory jumps) and `RV32_<NAME>_BASE` for each peripheral; the runtime in C and assembly (`_exit.c`, `stdio.c`, `boot_memory.S`, `spike_exit.S`) uses these names instead of hand-written addresses |
+| `vhdl` | VHDL package | The constants `BOOT_MEMORY_BITS`, `BOOT_MEMORY_SIZE_BYTES`, `ROM_BASE_KIB`, `ROM_END_KIB`, `ROM_STORAGE_BYTES`, `RAM_BASE_KIB`, `RAM_END_KIB`, `RAM_STORAGE_BYTES`, `RAM_LAST_PAGE`, `EXT_BASE_KIB` and `PERIPH_BASE_KIB`, the `ROM_EXTERNAL` and `RAM_EXTERNAL` flags (from `generate.vhdl` or from the `memory` section), the cache constants of the `memory` section and, for each peripheral, `<NAME>_BASE` and `<NAME>_ID` |
 
 ```yaml
 generate:
   specs: {path: runtime/rv32im-fpga.specs, rom: FLASH, ram: RAM, ram_limit: stdout}
-  boot_ld: {path: runtime/boot_rom.ld}
+  boot_ld: {path: runtime/boot_memory.ld}
   runtime: {path: runtime/memory_map.h, ram: RAM}
   vhdl:
     path: rtl/map_pkg.vhd
@@ -67,7 +67,7 @@ uv run riscv-tools --root <project> generate-memory-map --platform src/platform/
 
 With `--check` nothing is written, and the command exits with status 1 when a file is missing or differs from what the map would generate. It needs no `--config`.
 
-## The FLASH banks
+## 3. The FLASH banks
 
 The `flash` section of the `platform.yaml` splits the FLASH into banks, each holding an image in the format of [`flash_image`](flash_image.md), for the program update in the field.
 
@@ -92,24 +92,24 @@ Each bank starts with a 256-byte header page, so its program is linked from `bas
 
 The map refuses banks that are not aligned to the 4 KiB sector, that leave no room for a program after the header, that leave the region named in `flash.region`, that overlap or that repeat a name.
 
-## The profile of the platform
+## 4. The profile of the platform
 
 The platform picks its profile in `profile:` (`rv32im`, `rv32em_zicsr`, ...) and says where the specification of the profiles is in `profiles:`, a path relative to the `platform.yaml` (the `profiles/matrix.yaml` of the Core). The name starts with `rv32i` (32 registers) or `rv32e` (16) and must be one of the profiles of the specification. It gives:
 
 | Output | Content |
 | :--- | :--- |
-| VHDL package | `HAS_E` (true on the RV32E) and one boolean `HAS_<EXTENSION>` per extension of the core (`HAS_M`, `HAS_ZMMUL`, `HAS_ZICSR`, `HAS_ZICNTR`, `HAS_ZIHPM`, `HAS_ZIMOP`, `HAS_ZICOND`, `HAS_ZIHINTNTL`, `HAS_ZIHINTPAUSE`, `HAS_ZIFENCEI`, `HAS_ZICCLSM`) |
-| `config.yaml` | `isa.base`, which picks `-march` and `-mabi` of the programs and of the boot ROM (`rv32e` with `ilp32e`, the others with `ilp32`), and the `sim.parameters` `HAS_E` and `HAS_*` that the runner passes to GHDL |
+| VHDL package | `HAS_E` (true on the RV32E) and one boolean `HAS_<EXTENSION>` per extension of the core (`HAS_M`, `HAS_ZMMUL`, `HAS_ZICSR`, `HAS_ZICNTR`, `HAS_ZIHPM`, `HAS_ZIMOP`, `HAS_ZICOND`, `HAS_ZIHINTNTL`, `HAS_ZIHINTPAUSE`, `HAS_ZIFENCEI`, `HAS_ZICCLSM`, `HAS_INTERRUPTS`, `HAS_SSCOFPMF`, `HAS_ACCESS_FAULTS`) and `PERIPH_SLOTS`, the 8-bit mask of the 256 MiB windows of the peripheral bus that hold a peripheral (bit `n` is set for the `id` `n` of the `peripherals` list) |
+| `config.yaml` | `isa.base`, which picks `-march` and `-mabi` of the programs and of the boot memory (`rv32e` with `ilp32e`, the others with `ilp32`), and the `sim.parameters` `HAS_E` and `HAS_*` that the runner passes to GHDL |
 
 `--profile NAME`, a global option of `riscv-tools`, replaces the `profile:` of the platform without editing it, to run the same platform over many profiles in a test matrix. It applies to `generate-memory-map` (writes the package of that profile), to `platform sync` and to every command that reads the configuration. A name that the specification does not list is rejected before anything runs.
 
-`extras:` turns on what the matrix of the Core does not list, by extension name (`extras: [Zimop, Zicond, Zihintntl, Zihintpause, Interrupts]`), and it also holds with `--profile`. Every switch that neither the profile nor the extras turn on comes out `false` in the package.
+`extras:` turns on what the profile does not turn on, by extension name (`extras: [Zihintntl, Zihintpause, Interrupts, Sscofpmf, AccessFaults]`; `Sscofpmf` needs Zihpm in the profile and `Interrupts` in the extras, and generation fails without them), and it also holds with `--profile`. The matrix of the Core lists Zimop and Zicond as profile extensions, so only the names the matrix does not list depend on `extras:`; the first two are still accepted there. Every switch that neither the profile nor the extras turn on comes out `false` in the package.
 
 ```bash
 uv run riscv-tools --root <project> --profile rv32em_zicsr generate-memory-map --platform src/platform/platform.yaml
 ```
 
-## The interrupts of the platform
+## 5. The interrupts of the platform
 
 A platform with the machine interrupts turns on the `Interrupts` extra (the core enables them only with `Zicsr`), lists the `CLINT` and, for the external lines, the `EXT_IRQ` among the `peripherals`, and describes the clock in the `interrupts` section.
 
@@ -123,7 +123,7 @@ interrupts:
   mtime_hz: 1000000    # rate at which the mtime of the CLINT counts
 ```
 
-The `mtime` of the CLINT is a counter of its own, set by `mtime_hz`, and it is independent of the CSR `time` of Zicntr, which the core serves. `clock_hz` must be a multiple of `mtime_hz`, the profile must turn on `has_interrupts`, and the `peripherals` list must have the `CLINT`; the absence of any of them is an error before generating and in `check-memory-map`.
+The `mtime` of the CLINT is a counter of its own, set by `mtime_hz`, and it is independent of the CSR `time` of Zicntr, which the core serves. With `clocks.core` in the platform `clock_hz` is left out and is the core clock rounded to a whole number of cycles per increment; when written, it must be that value. `clock_hz` must be a multiple of `mtime_hz`, the profile must turn on `has_interrupts`, and the `peripherals` list must have the `CLINT`; the absence of any of them is an error before generating and in `check-memory-map`.
 
 | Output | Constants |
 | :--- | :--- |
@@ -132,9 +132,47 @@ The `mtime` of the CLINT is a counter of its own, set by `mtime_hz`, and it is i
 
 The offsets of the registers inside the 64 KiB window of the CLINT follow the SiFive layout that the FreeRTOS port expects.
 
+### 5.1. PLIC and interrupt sources
+
+A platform with a PLIC lists it in `peripherals` with a `size` (the window it decodes, a power of two of at least `0x200008` bytes) and describes it in `interrupts`.
+
+```yaml
+peripherals:
+  - {name: PLIC, base: 0xF0000000, id: 7, size: 4M}
+interrupts:
+  plic: {priority_bits: 3}
+  sources:                 # ids of the lines wired to the PLIC
+    - {name: UART, id: 1}
+    - {name: TIMER, id: 5}
+```
+
+| Output | Constants |
+| :--- | :--- |
+| VHDL package (`vhdl`) | `PLIC_N_SOURCES` (the largest id), `PLIC_PRIORITY_BITS`, `PLIC_ADDR_WIDTH` (the window in words, as a power of two) and `IRQ_<NAME>` per source |
+| Runtime header (`runtime`) | `RV32_PLIC_PRIORITY`, `RV32_PLIC_PENDING`, `RV32_PLIC_ENABLE`, `RV32_PLIC_THRESHOLD`, `RV32_PLIC_CLAIM` and `RV32_IRQ_<NAME>` per source |
+
+Repeated ids, ids outside 1 to 1023, `priority_bits` outside 1 to 32 and a window with no `size` or an invalid one are errors before generating.
+
 $$ \text{msip} = base, \quad \text{mtimecmp} = base + \texttt{0x4000}, \quad \text{mtime} = base + \texttt{0xBFF8} $$
 
-## The memories and caches of the platform
+## 6. The clocks of the platform
+
+The `clocks` section of the `platform.yaml` is the single source of the frequencies: the PLL, the `.sdc` and the VHDL package come from it (see [pll_generator](pll_generator.md)). The memory map reads the SDRAM controller clock and the core clock from it.
+
+```yaml
+clocks:
+  core:  {mhz: 76.923077, phase_ps: 7500}  # core clock
+  mem:   {mhz: 100}                        # SDRAM controller clock
+```
+
+| Output | Content |
+| :--- | :--- |
+| VHDL package (`vhdl`) | `SDRAM_CLOCK_HZ` and `SDRAM_TCK_PS` from `clocks.mem`, the period in picoseconds with which the controller and the chip model convert the chip timings into cycles |
+| `checks` symbols | `CLOCKS.mem_mhz`, `CLOCKS.mem_tck_ps`, `CLOCKS.core_mhz` (rounded) and `CLOCKS.core_phase_ps` |
+
+Every declared clock needs a positive `mhz`, and `clocks.mem` must have a whole period in picoseconds; a missing or bad value is an error before generating and in `check-memory-map`. The phase of the `DRAM_CLK` pin belongs to the board (`memories.sdram.clk_phase_ps` of the `board.yaml`). The `interrupts` section names `INTERRUPTS.tick_cycles`, the clock cycles per `mtime` tick, for the checks.
+
+## 7. The memories and caches of the platform
 
 The `memory` section of the `platform.yaml` picks four independent things per platform, and the 16 combinations come out of them. No field has a default, so forgetting one is an error and the platform never builds a combination other than the one its author wrote. A platform without the section keeps generating the package it generated before.
 
@@ -157,7 +195,7 @@ memory:
 
 The `rom_external` and `ram_external` fields of `generate.vhdl` are derived from the `memory` section, and having both together is an error.
 
-### Generated constants
+### 7.1. Generated constants
 
 The VHDL package gains the constants below. `ROM_VIA_PORT` and `RAM_VIA_PORT` are the values of the `rom_external` and `ram_external` generics of the core, because a cache can only exist on the side of the core port protocol.
 
@@ -169,18 +207,19 @@ The VHDL package gains the constants below. `ROM_VIA_PORT` and `RAM_VIA_PORT` ar
 | `HAS_DCACHE` | boolean | `memory.dcache.enabled` |
 | `ICACHE_SIZE_BITS` | positive | `memory.icache.size_bits`, or 256 without the cache |
 | `DCACHE_SIZE_BITS` | positive | `memory.dcache.size_bits`, or 256 without the cache |
+| `CACHE_WINDOW_BITS` | natural | Smallest width from 26 to 29 such that the ROM and the RAM each fit one aligned window of $2^{\text{width}}$ bytes (26 is 64 MiB, 27 is 128 MiB), derived from the regions |
 | `ROM_VIA_PORT` | boolean | `ROM_EXTERNAL or HAS_ICACHE` |
 | `RAM_VIA_PORT` | boolean | `RAM_EXTERNAL or HAS_DCACHE` |
 
-In the `config.yaml` the same values arrive as `sim.parameters` with the same names (`ROM_EXTERNAL`, `RAM_EXTERNAL`, `HAS_ICACHE`, `HAS_DCACHE`, `ICACHE_SIZE_BITS` and `DCACHE_SIZE_BITS`), and the simulation top must declare the matching generics. Without `config.addr_widths` in the platform, the address widths come from the choice, and the `boot_rom` and each internal memory are listed, since an external memory is a chip sized by the top itself. With `config.addr_widths` listed, the list wins.
+In the `config.yaml` the same values arrive as `sim.parameters` with the same names (`ROM_EXTERNAL`, `RAM_EXTERNAL`, `HAS_ICACHE`, `HAS_DCACHE`, `ICACHE_SIZE_BITS` and `DCACHE_SIZE_BITS`; `CACHE_WINDOW_BITS` only when above 26), and the simulation top must declare the matching generics. Without `config.addr_widths` in the platform, the address widths come from the choice, and the `boot_memory` and each internal memory are listed, since an external memory is a chip sized by the top itself. With `config.addr_widths` listed, the list wins.
 
-### Validation
+### 7.2. Validation
 
 | Rule | Condition | Result |
 | :--- | :--- | :--- |
 | V1 | The four booleans exist and there is no unknown key | Error |
 | V2 | `size_bits` is a power of two and at least 256 | Error |
-| V3 | With any cache, the ROM and the RAM each fit one aligned 64 MiB window | Error |
+| V3 | With any cache, the ROM and the RAM each fit one aligned window of up to 512 MiB (the cache tag keeps the bits below the window) | Error |
 | V4 | With the ROM through the core port, its size fits the 1024 KiB window of the router | Error |
 | V5 | An `exec` region in the RAM needs an external RAM and the ROM through the port (external ROM or instruction cache) | Error |
 | V7 | An `exec` region in the RAM behind the instruction cache needs Zifencei in the profile | Error |
@@ -190,7 +229,7 @@ In the `config.yaml` the same values arrive as `sim.parameters` with the same na
 
 An external ROM without an instruction cache is valid. The warning and the note are printed as `NOTE` on the standard error of `generate-memory-map`, and errors stop the generation.
 
-### The `--memory` option
+### 7.3. The `--memory` option
 
 `--memory`, a global option of `riscv-tools`, replaces fields of the `memory` section without editing the platform, to run the same platform over the 16 combinations. The value is a comma list of `key=value` pairs.
 
@@ -205,20 +244,20 @@ A key that is not named keeps the choice of the platform, and a platform without
 uv run riscv-tools --root <project> --memory rom=ext,ram=int,icache=on,dcache=off generate-memory-map --platform src/platform/platform.yaml
 ```
 
-## Reading the configuration from the map
+## 8. Reading the configuration from the map
 
-A project `config.yaml` declares `memory_map: <path of the platform.yaml>`, and the configuration loader replaces the keys the map fixes with the map's own: `isa.base`, `memory.boot_rom_base`, `boot_rom_words`, `rom_base`, `rom_words`, `ram_base`, `ram_words`, `tohost_addr`, `fromhost_addr` `sim.env.TOHOST_ADDR`, `sim.env.STDOUT_ADDR` (the testbench reads the address from the environment) and, for the memories the `config.addr_widths` section of the map lists, `sim.parameters.<memory>_addr_width`. What the map fixes wins over what the file or its `extends` say, so no address or size is written twice.
+A project `config.yaml` declares `memory_map: <path of the platform.yaml>`, and the configuration loader replaces the keys the map fixes with the map's own: `isa.base`, `memory.boot_memory_base`, `boot_memory_words`, `rom_base`, `rom_words`, `ram_base`, `ram_words`, `tohost_addr`, `fromhost_addr` `sim.env.TOHOST_ADDR`, `sim.env.STDOUT_ADDR` (the testbench reads the address from the environment) and, for the memories the `config.addr_widths` section of the map lists, `sim.parameters.<memory>_addr_width`. What the map fixes wins over what the file or its `extends` say, so no address or size is written twice.
 
 ```yaml
 config:
   rom: FLASH
   ram: RAM
-  addr_widths: [boot_rom, rom, ram]
+  addr_widths: [boot_memory, rom, ram]
 ```
 
 `platform sync` writes the values already replaced, so Tests and Certification do not need the `platform.yaml`.
 
-## Tests
+## 9. Tests
 
 | Test | What it verifies |
 | :--- | :--- |
@@ -241,7 +280,7 @@ config:
 | `tests/test_config_from_platform.py` | The `memory` keys, the `tohost` and `stdout` environment and the address widths come from the map, and the map wins over the file and its `extends`. |
 | `tests/test_generate_memory_map.py` | The specs, the linker script and the VHDL package come out of the map; `--check` catches a missing or edited file; an address off the KiB grid and an inconsistent map are rejected; the command writes and checks. |
 
-## Usage
+## 10. Usage
 
 ```bash
 uv run riscv-tools --root <project> check-memory-map --platform platforms/internal-mem.yaml

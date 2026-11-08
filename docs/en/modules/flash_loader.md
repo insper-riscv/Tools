@@ -8,7 +8,7 @@ A word address counts 32-bit words from the start of the FLASH IP. [`rom_writer`
 
 | Function | Does |
 | :--- | :--- |
-| `load_image(link, words, word_address, restart)` | halts the core, writes the image in a few long scans, compares the count and the checksum the loader reports and, with `restart` true, releases the core, which restarts from the BOOT_ROM |
+| `load_image(link, words, word_address, restart)` | halts the core, writes the image in a few long scans, compares the count and the checksum the loader reports and, with `restart` true, releases the core, which restarts from the BOOT_MEMORY |
 | `read_words(link, word_address, word_count)` | halts the core and reads contiguous words; the core stays halted |
 | `halt(link)` | halts the core |
 | `release(link)` | releases the core |

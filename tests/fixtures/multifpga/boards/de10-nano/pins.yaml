@@ -1,0 +1,162 @@
+# pins.yaml da placa, no esquema do documento 02, seção 3.3. confirmed: manual (lido no manual) | repo (lido no .qsf do repositório) | inferred (deduzido de fonte de terceiro).
+# Pinos da Terasic DE10-Nano (Cyclone V SoC 5CSEBA6U23I7). Fonte principal: DE10-Nano User Manual de 13/03/2017 (Terasic).
+# Cópia lida: https://download.kamami.pl/p564537-p564536-DE10-Nano_User_manual.pdf (outras cópias: Mouser, FTP da Intel)
+# O manual traz apenas "3.3V"; o padrão no Quartus é 3.3-V LVTTL (inferido).
+# Direção "inout" para GPIO é a capacidade do pino. Pinos HPS (UART, HPS_KEY, HPS_LED, DDR3) não são pinos de fabric.
+# A tabela 3-8 do manual omite LED[6] e LED[7]; os pinos vêm da figura 3-19 (confirmado no manual, figura).
+board: de10-nano
+device: 5CSEBA6U23I7
+notes:
+  - "nomes: os barramentos usam colchetes (ARDUINO_IO[0], HDMI_TX_D[0]); o manual escreve Arduino_IO0 e HDMI_TX_D0"
+  - "hps: os pinos do HPS (DDR3, Ethernet, USB, microSD) sao dedicados e nao entram neste arquivo; so HPS_UART_*, HPS_KEY e HPS_LED estao listados e nao pertencem ao fabric"
+  - "led: LED[6] e LED[7] vem da figura 3-19 do manual, nao da tabela 3-8; conferir no esquematico antes do primeiro uso"
+signals:
+  - {name: "FPGA_CLK1_50", pin: "V11", io_standard: "3.3-V LVTTL", direction: "in", source: "manual seção 3.5, tabela 3-5 (p.23)", confirmed: "manual"}
+  - {name: "FPGA_CLK2_50", pin: "Y13", io_standard: "3.3-V LVTTL", direction: "in", source: "manual seção 3.5, tabela 3-5 (p.23)", confirmed: "manual"}
+  - {name: "FPGA_CLK3_50", pin: "E11", io_standard: "3.3-V LVTTL", direction: "in", source: "manual seção 3.5, tabela 3-5 (p.23); o manual diz que compartilha com FPGA_CLK1_50", confirmed: "manual"}
+  - {name: "KEY[0]", pin: "AH17", io_standard: "3.3-V LVTTL", direction: "in", source: "manual seção 3.6.1, tabela 3-7 (p.26); ativo em nível baixo, com debounce (p.24)", confirmed: "manual"}
+  - {name: "KEY[1]", pin: "AH16", io_standard: "3.3-V LVTTL", direction: "in", source: "manual seção 3.6.1, tabela 3-7 (p.26); ativo em nível baixo, com debounce (p.24)", confirmed: "manual"}
+  - {name: "SW[0]", pin: "Y24", io_standard: "3.3-V LVTTL", direction: "in", source: "manual seção 3.6.1, tabela 3-6 (p.26)", confirmed: "manual"}
+  - {name: "SW[1]", pin: "W24", io_standard: "3.3-V LVTTL", direction: "in", source: "manual seção 3.6.1, tabela 3-6 (p.26)", confirmed: "manual"}
+  - {name: "SW[2]", pin: "W21", io_standard: "3.3-V LVTTL", direction: "in", source: "manual seção 3.6.1, tabela 3-6 (p.26)", confirmed: "manual"}
+  - {name: "SW[3]", pin: "W20", io_standard: "3.3-V LVTTL", direction: "in", source: "manual seção 3.6.1, tabela 3-6 (p.26)", confirmed: "manual"}
+  - {name: "LED[0]", pin: "W15", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.1, tabela 3-8 (p.26)", confirmed: "manual"}
+  - {name: "LED[1]", pin: "AA24", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.1, tabela 3-8 (p.26)", confirmed: "manual"}
+  - {name: "LED[2]", pin: "V16", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.1, tabela 3-8 (p.26)", confirmed: "manual"}
+  - {name: "LED[3]", pin: "V15", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.1, tabela 3-8 (p.26)", confirmed: "manual"}
+  - {name: "LED[4]", pin: "AF26", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.1, tabela 3-8 (p.26)", confirmed: "manual"}
+  - {name: "LED[5]", pin: "AE26", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.1, tabela 3-8 (p.26)", confirmed: "manual"}
+  - {name: "LED[6]", pin: "Y16", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.1, figura 3-19 (p.26); ausente na tabela 3-8", confirmed: "manual"}
+  - {name: "LED[7]", pin: "AA23", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.1, figura 3-19 (p.26); ausente na tabela 3-8", confirmed: "manual"}
+  - {name: "GPIO_0[0]", pin: "V12", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[1]", pin: "E8", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[2]", pin: "W12", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[3]", pin: "D11", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[4]", pin: "D8", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[5]", pin: "AH13", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[6]", pin: "AF7", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[7]", pin: "AH14", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[8]", pin: "AF4", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[9]", pin: "AH3", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[10]", pin: "AD5", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[11]", pin: "AG14", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[12]", pin: "AE23", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[13]", pin: "AE6", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[14]", pin: "AD23", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[15]", pin: "AE24", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[16]", pin: "D12", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[17]", pin: "AD20", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[18]", pin: "C12", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[19]", pin: "AD17", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[20]", pin: "AC23", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[21]", pin: "AC22", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[22]", pin: "Y19", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[23]", pin: "AB23", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[24]", pin: "AA19", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[25]", pin: "W11", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[26]", pin: "AA18", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[27]", pin: "W14", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[28]", pin: "Y18", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[29]", pin: "Y17", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[30]", pin: "AB25", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[31]", pin: "AB26", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[32]", pin: "Y11", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[33]", pin: "AA26", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[34]", pin: "AA13", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_0[35]", pin: "AA11", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[0]", pin: "Y15", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[1]", pin: "AC24", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[2]", pin: "AA15", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[3]", pin: "AD26", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[4]", pin: "AG28", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[5]", pin: "AF28", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[6]", pin: "AE25", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[7]", pin: "AF27", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[8]", pin: "AG26", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[9]", pin: "AH27", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[10]", pin: "AG25", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[11]", pin: "AH26", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[12]", pin: "AH24", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[13]", pin: "AF25", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[14]", pin: "AG23", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[15]", pin: "AF23", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[16]", pin: "AG24", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[17]", pin: "AH22", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[18]", pin: "AH21", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[19]", pin: "AG21", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[20]", pin: "AH23", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[21]", pin: "AA20", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[22]", pin: "AF22", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[23]", pin: "AE22", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[24]", pin: "AG20", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[25]", pin: "AF21", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[26]", pin: "AG19", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[27]", pin: "AH19", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[28]", pin: "AG18", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[29]", pin: "AH18", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[30]", pin: "AF18", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[31]", pin: "AF20", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[32]", pin: "AG15", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[33]", pin: "AE20", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[34]", pin: "AE19", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "GPIO_1[35]", pin: "AE17", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.2, tabela 3-10 (p.29)", confirmed: "manual"}
+  - {name: "ARDUINO_IO[0]", pin: "AG13", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.3, tabela 3-11 (p.31)", confirmed: "manual"}
+  - {name: "ARDUINO_IO[1]", pin: "AF13", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.3, tabela 3-11 (p.31)", confirmed: "manual"}
+  - {name: "ARDUINO_IO[2]", pin: "AG10", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.3, tabela 3-11 (p.31)", confirmed: "manual"}
+  - {name: "ARDUINO_IO[3]", pin: "AG9", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.3, tabela 3-11 (p.31)", confirmed: "manual"}
+  - {name: "ARDUINO_IO[4]", pin: "U14", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.3, tabela 3-11 (p.31)", confirmed: "manual"}
+  - {name: "ARDUINO_IO[5]", pin: "U13", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.3, tabela 3-11 (p.31)", confirmed: "manual"}
+  - {name: "ARDUINO_IO[6]", pin: "AG8", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.3, tabela 3-11 (p.31)", confirmed: "manual"}
+  - {name: "ARDUINO_IO[7]", pin: "AH8", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.3, tabela 3-11 (p.31)", confirmed: "manual"}
+  - {name: "ARDUINO_IO[8]", pin: "AF17", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.3, tabela 3-11 (p.31)", confirmed: "manual"}
+  - {name: "ARDUINO_IO[9]", pin: "AE15", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.3, tabela 3-11 (p.31)", confirmed: "manual"}
+  - {name: "ARDUINO_IO[10]", pin: "AF15", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.3, tabela 3-11 (p.31)", confirmed: "manual"}
+  - {name: "ARDUINO_IO[11]", pin: "AG16", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.3, tabela 3-11 (p.31)", confirmed: "manual"}
+  - {name: "ARDUINO_IO[12]", pin: "AH11", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.3, tabela 3-11 (p.31)", confirmed: "manual"}
+  - {name: "ARDUINO_IO[13]", pin: "AH12", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.3, tabela 3-11 (p.31)", confirmed: "manual"}
+  - {name: "ARDUINO_IO[14]", pin: "AH9", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.3, tabela 3-11 (p.31)", confirmed: "manual"}
+  - {name: "ARDUINO_IO[15]", pin: "AG11", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.3, tabela 3-11 (p.31)", confirmed: "manual"}
+  - {name: "ARDUINO_RESET_N", pin: "AH7", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.3, tabela 3-11 (p.31); ativo em nível baixo", confirmed: "manual"}
+  - {name: "ADC_CONVST", pin: "U9", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.4, tabela 3-12 (p.33); ADC LTC2308, SPI", confirmed: "manual"}
+  - {name: "ADC_SCK", pin: "V10", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.4, tabela 3-12 (p.33); ADC LTC2308, SPI", confirmed: "manual"}
+  - {name: "ADC_SDI", pin: "AC4", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.4, tabela 3-12 (p.33); ADC LTC2308, SPI", confirmed: "manual"}
+  - {name: "ADC_SDO", pin: "AD4", io_standard: "3.3-V LVTTL", direction: "in", source: "manual seção 3.6.4, tabela 3-12 (p.33); ADC LTC2308, SPI", confirmed: "manual"}
+  - {name: "HDMI_TX_D[0]", pin: "AD12", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_D[1]", pin: "AE12", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_D[2]", pin: "W8", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_D[3]", pin: "Y8", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_D[4]", pin: "AD11", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_D[5]", pin: "AD10", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_D[6]", pin: "AE11", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_D[7]", pin: "Y5", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_D[8]", pin: "AF10", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_D[9]", pin: "Y4", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_D[10]", pin: "AE9", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_D[11]", pin: "AB4", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_D[12]", pin: "AE7", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_D[13]", pin: "AF6", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_D[14]", pin: "AF8", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_D[15]", pin: "AF5", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_D[16]", pin: "AE4", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_D[17]", pin: "AH2", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_D[18]", pin: "AH4", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_D[19]", pin: "AH5", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_D[20]", pin: "AH6", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_D[21]", pin: "AG6", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_D[22]", pin: "AF9", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_D[23]", pin: "AE8", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_DE", pin: "AD19", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_CLK", pin: "AG5", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_HS", pin: "T8", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_VS", pin: "V13", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35); ADV7513", confirmed: "manual"}
+  - {name: "HDMI_TX_INT", pin: "AF11", io_standard: "3.3-V LVTTL", direction: "in", source: "manual seção 3.6.5, tabela 3-13 (p.35)", confirmed: "manual"}
+  - {name: "HDMI_I2S0", pin: "T13", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35)", confirmed: "manual"}
+  - {name: "HDMI_MCLK", pin: "U11", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35)", confirmed: "manual"}
+  - {name: "HDMI_LRCLK", pin: "T11", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35)", confirmed: "manual"}
+  - {name: "HDMI_SCLK", pin: "T12", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.6.5, tabela 3-13 (p.35)", confirmed: "manual"}
+  - {name: "I2C_SCL", pin: "U10", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.5, tabela 3-13 (p.35); I2C de configuração do ADV7513", confirmed: "manual"}
+  - {name: "I2C_SDA", pin: "AA4", io_standard: "3.3-V LVTTL", direction: "inout", source: "manual seção 3.6.5, tabela 3-13 (p.35); I2C de configuração do ADV7513", confirmed: "manual"}
+  - {name: "HPS_UART_RX", pin: "A22", io_standard: "3.3-V LVTTL", direction: "in", source: "manual seção 3.7.3, tabela 3-17 (p.38); UART USB (FT232R) é do HPS, sem controle de fluxo", confirmed: "manual"}
+  - {name: "HPS_UART_TX", pin: "B21", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.7.3, tabela 3-17 (p.38)", confirmed: "manual"}
+  - {name: "HPS_KEY", pin: "J18", io_standard: "3.3-V LVTTL", direction: "in", source: "manual seção 3.7.1, tabela 3-14 (p.36); GPIO54 do HPS", confirmed: "manual"}
+  - {name: "HPS_LED", pin: "A20", io_standard: "3.3-V LVTTL", direction: "out", source: "manual seção 3.7.1, tabela 3-14 (p.36); GPIO53 do HPS", confirmed: "manual"}

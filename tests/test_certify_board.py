@@ -7,7 +7,7 @@ from typing import Any, cast
 import pytest
 from support import build_elf, check_equal
 
-from riscv_tools import rom_writer
+from riscv_tools import flash_image, rom_writer
 from riscv_tools.certify import board, flash
 from riscv_tools.certify.symbols import elf_symbol
 from riscv_tools.jtag import JtagLink
@@ -115,10 +115,11 @@ def test_flash_stub_sits_at_rom_base(
     """Flash stub sits at rom base."""
     written: list[Path] = []
 
-    def write_rom(_link: object, _instances: object, mif: Path) -> None:
+    def write_rom(_link: object, _cfg: object, mif: Path) -> bool:
         written.append(mif)
+        return False
 
-    monkeypatch.setattr(rom_writer, "write_rom", write_rom)
+    monkeypatch.setattr(rom_writer, "write_rom_configured", write_rom)
     cfg = {
         "memory": {"rom_base": 0x800, "rom_words": 4},
         "quartus": {"rom_mem_instances": ["rom"]},
@@ -136,3 +137,112 @@ def test_flash_stub_sits_at_rom_base(
     first = flash.flash_stub_words(SDRAM_BASE)[0]
     check_equal(data[0x800 // 4], first)
     check_equal(data.get(0, 0), 0)
+
+
+def _written_as(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, method: str
+) -> list[str]:
+    """Run an ELF from the FLASH on a fake board; list what it did."""
+    calls: list[str] = []
+
+    def write_rom(_link: object, cfg: dict[str, Any], _mif: Path) -> bool:
+        calls.append(f"write:{cfg['quartus']['rom_write_method']}")
+        return cfg["quartus"]["rom_write_method"] == "jtag_loader"
+
+    def pulse(_link: object, _cfg: object) -> None:
+        calls.append("pulse")
+
+    monkeypatch.setattr(rom_writer, "write_rom_configured", write_rom)
+    monkeypatch.setattr(board.htif, "pulse_fromhost_configured", pulse)
+
+    def nothing(*_a: object) -> None:
+        return None
+
+    def done(*_a: object) -> list[int]:
+        return [1]
+
+    monkeypatch.setattr(board.sdram_debug, "fill", nothing)
+    monkeypatch.setattr(board.sdram_debug, "load_words", nothing)
+    monkeypatch.setattr(board.sdram_debug, "read_words", done)
+    elf = tmp_path / "t.elf"
+    segments = [(0x1000, bytes(8)), (SDRAM_BASE + 0x20, b"\xff" * 8)]
+    elf.write_bytes(build_elf(segments, {"tohost": SDRAM_BASE + 0x20}))
+    cfg: dict[str, Any] = {
+        "quartus": {"rom_write_method": method},
+        "act": {"flash_base": "0x1000", "flash_words": 16},
+    }
+    region = board.SdramRegion(SDRAM_BASE, 16, 1.0)
+    board.run_elf_flash(cast(JtagLink, None), cfg, elf, region, tmp_path)
+    return calls
+
+
+def test_run_elf_flash_follows_the_write_method(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The memory editor needs the pulse of fromhost, the loader not."""
+    check_equal(
+        _written_as(monkeypatch, tmp_path, "mem_edit"),
+        ["write:mem_edit", "pulse"],
+    )
+    check_equal(
+        _written_as(monkeypatch, tmp_path, "jtag_loader"),
+        ["write:jtag_loader"],
+    )
+
+
+def test_bank_stub_words_jump_to_the_entry() -> None:
+    """The payload of the bank is lui t0 and jalr x0 to the entry."""
+    check_equal(flash.bank_stub_words(0x1200), [0x000012B7, 0x20028067])
+    # a low part with the sign bit set is carried into the high part
+    check_equal(flash.bank_stub_words(0x1800), [0x000022B7, 0x80028067])
+
+
+def test_bank_image_wraps_the_code_in_a_valid_bank() -> None:
+    """The image starts at the bank, with the code at the entry."""
+    cfg = {
+        "flash": {"banks": [{"name": "A", "base": 0x1000, "size": 0x1F000}]}
+    }
+    image, base = flash.bank_image(cfg, b"\xaa" * 8, 0x1200)
+    check_equal(base, 0x1000)
+    check_equal(len(image), 0x200 + 8)
+    check_equal(image[0x200:], b"\xaa" * 8)
+    header = flash_image.parse_header(image[:0x100])
+    check_equal(header.size, 8)
+    check_equal(
+        image[0x100:0x108],
+        b"".join(
+            w.to_bytes(4, "little") for w in flash.bank_stub_words(0x1200)
+        ),
+    )
+
+
+def test_bank_image_rejects_an_entry_inside_the_header() -> None:
+    """An entry before the end of the payload is an error."""
+    cfg = {
+        "flash": {"banks": [{"name": "A", "base": 0x1000, "size": 0x1F000}]}
+    }
+    with pytest.raises(ValueError):
+        flash.bank_image(cfg, b"\0" * 4, 0x1100)
+    with pytest.raises(ValueError):
+        flash.bank_image(cfg, b"\0" * 4, 0x1200, "Z")
+    with pytest.raises(ValueError):
+        flash.bank_image({}, b"\0" * 4, 0x1200)
+
+
+def testflash_code_of_a_bank_starts_at_the_storage_origin(
+    tmp_path: Path,
+) -> None:
+    """The bank sits at its address inside the raw-addressed storage."""
+    elf = tmp_path / "t.elf"
+    code = bytes(range(16))
+    segments = [(0x1200, code), (SDRAM_BASE + 0x20, b"\xff" * 8)]
+    elf.write_bytes(build_elf(segments, {"tohost": SDRAM_BASE + 0x20}))
+    cfg: dict[str, Any] = {
+        "act": {"flash_bank": "A", "flash_entry": "0x1200"},
+        "memory": {"rom_origin": 0},
+        "flash": {"banks": [{"name": "A", "base": 0x1000, "size": 0x1F000}]},
+    }
+    image = board.flash_code(cfg, elf, SDRAM_BASE)
+    check_equal(len(image), 0x1200 + 16)
+    check_equal(image[0x1200:], code)
+    check_equal(image[:0x1000], bytes(0x1000))

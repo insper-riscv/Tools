@@ -3,10 +3,12 @@
 import argparse
 import sys
 from pathlib import Path
+from typing import Any
 
 from riscv_tools import (
     bin_to_image,
-    boot_rom,
+    board_generate,
+    boot_memory,
     htif,
     quartus_program,
     ram_dump,
@@ -17,7 +19,9 @@ from riscv_tools import (
 )
 from riscv_tools import display as display_mod
 from riscv_tools.cli.common import jtag_link, project_root
+from riscv_tools.quartus_program.core import DEFAULT_SEED
 from riscv_tools.settings import load_config
+from riscv_tools.sources import SourcesError
 
 
 def cmd_write_rom(args: argparse.Namespace) -> None:
@@ -155,65 +159,166 @@ def cmd_dump_ram(args: argparse.Namespace) -> None:
     )
 
 
-def cmd_program(args: argparse.Namespace) -> None:
-    """Implement `riscv-tools program`.
+def _boot_init(
+    cfg: dict[str, Any], root: Path
+) -> quartus_program.MifInit | None:
+    """Compila o BOOT_MEMORY e devolve a imagem a embutir.
 
-    Compiles the Quartus project with the given .mif baked in as the
-    ROM's init_file, then programs the board (the slow "full
-    reconfigure" path).
+    Parameters
+    ----------
+    cfg : dict of {str: Any}
+        A configuração mesclada do projeto.
+    root : Path
+        A raiz do projeto.
+
+    Returns
+    -------
+    MifInit or None
+        A imagem do BOOT_MEMORY, ou `None` num projeto sem a divisão
+        BOOT_MEMORY/FLASH/RAM.
+    """
+    if not (
+        cfg.get("paths", {}).get("boot_memory")
+        and cfg["quartus"].get("boot_memory_mif_target")
+    ):
+        return None
+    build_dir = root / cfg["paths"]["build_dir"] / "boot_memory"
+    boot_memory.build_boot_memory(
+        cfg["toolchain"],
+        cfg["paths"],
+        root,
+        build_dir,
+        boot_memory.BootMemoryOptions(base=cfg["isa"]["base"]),
+    )
+    path = build_dir / "boot_memory.mif"
+    bin_to_image.bin_to_mif(
+        build_dir / "boot_memory.bin",
+        path,
+        depth=cfg["memory"]["boot_memory_words"],
+    )
+    return quartus_program.MifInit(
+        target=cfg["quartus"]["boot_memory_mif_target"], path=path
+    )
+
+
+def _cable(
+    cfg: dict[str, Any], options: quartus_program.CompileOptions
+) -> str:
+    """Escolhe o cabo de programação.
+
+    Parameters
+    ----------
+    cfg : dict of {str: Any}
+        A configuração do projeto.
+    options : CompileOptions
+        As opções; sem programar não há cabo.
+
+    Returns
+    -------
+    str
+        O nome do cabo, ou vazio quando a placa não é programada. A
+        escolha é a do `jtag_link`, que obedece a `--board`,
+        `--board-id` e `--cable` globais.
+    """
+    if not options.programs:
+        return ""
+    return jtag_link(cfg).hardware_name
+
+
+def _generate_project(
+    args: argparse.Namespace,
+    generate: dict[str, Any],
+    options: quartus_program.CompileOptions,
+) -> None:
+    """Escreve o projeto gerado da plataforma antes de compilá-lo.
+
+    É o mesmo caminho do `board generate` (a placa vem do `--board`
+    global ou do `platform.yaml`), de modo que o `program` nunca compila
+    um arquivo de projeto escrito à mão.
 
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments: uses args.config, args.root, args.mif.
+        Uses args.root and args.select_board.
+    generate : dict of {str: Any}
+        A chave `quartus.generate` da configuração.
+    options : CompileOptions
+        As opções de compilação, de onde vem a semente.
+    """
+    seed = DEFAULT_SEED if options.seed is None else options.seed
+    try:
+        built = board_generate.build(
+            board_generate.request_from_config(
+                project_root(args),
+                generate,
+                getattr(args, "select_board", None),
+                seed,
+            )
+        )
+    except (ValueError, SourcesError) as error:
+        sys.exit(f"program: {error}")
+    print(f"project written to {built.folder}")
+
+
+def cmd_program(args: argparse.Namespace) -> None:
+    """Implement `riscv-tools program`.
+
+    Compiles the Quartus project (with the .mif baked in as the ROM's
+    init_file, when given) and programs the board, the slow "full
+    reconfigure" path. `--seed`, `--generic`, `--stop-after` and
+    `--compile-only` replace the per-platform `*_synth.tcl` scripts; the
+    global `--board` picks the cable by the IDCODE of that board.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed CLI arguments: uses args.config, args.root, args.mif,
+        args.project_dir, args.project_name, args.seed, args.generic,
+        args.stop_after, args.compile_only.
 
     Returns
     -------
     None
     """
     cfg = load_config(args.config)
-    link = jtag_link(cfg)
     root = project_root(args)
-
-    # BOOT_ROM (see riscv_tools.boot_rom) is only ever written here,
-    # as part of this full compile, never JTAG-rewritten per test the
-    # way FLASH (args.mif) is. Only meaningful for a project with a
-    # 3-memory BOOT_ROM/FLASH/RAM split (paths.boot_rom set).
-    boot_init: quartus_program.MifInit | None = None
-    if cfg.get("paths", {}).get("boot_rom") and cfg["quartus"].get(
-        "boot_rom_mif_target"
-    ):
-        build_dir = root / cfg["paths"]["build_dir"] / "boot_rom"
-        boot_rom.build_boot_rom(
-            cfg["toolchain"],
-            cfg["paths"],
-            root,
-            build_dir,
-            boot_rom.BootRomOptions(base=cfg["isa"]["base"]),
+    options = quartus_program.CompileOptions(
+        seed=args.seed,
+        generics=quartus_program.parse_generics(args.generic),
+        stop_after=args.stop_after,
+        compile_only=args.compile_only,
+    )
+    if args.mif is None and options.programs:
+        sys.exit(
+            "program: the .mif is required unless --compile-only or "
+            "--stop-after is given"
         )
-        boot_rom_mif_path = build_dir / "boot_rom.mif"
-        bin_to_image.bin_to_mif(
-            build_dir / "boot_rom.bin",
-            boot_rom_mif_path,
-            depth=cfg["memory"]["boot_rom_words"],
-        )
-        boot_init = quartus_program.MifInit(
-            target=cfg["quartus"]["boot_rom_mif_target"],
-            path=boot_rom_mif_path,
-        )
-
+    quartus = cfg["quartus"]
+    if quartus.get("generate"):
+        _generate_project(args, quartus["generate"], options)
+    name = args.project_name or quartus["project_name"]
+    sof = (
+        f"output_files/{name}.sof"
+        if args.project_name
+        else quartus["sof_file"]
+    )
     quartus_program.full_reconfigure(
         project=quartus_program.QuartusProject(
-            hardware_name=link.hardware_name,
-            project_dir=root / cfg["quartus"]["project_dir"],
-            project_name=cfg["quartus"]["project_name"],
-            sof_file=cfg["quartus"]["sof_file"],
-            stale_cache_dirs=cfg["quartus"]["stale_cache_dirs"],
+            hardware_name=_cable(cfg, options),
+            project_dir=root / (args.project_dir or quartus["project_dir"]),
+            project_name=name,
+            sof_file=sof,
+            stale_cache_dirs=quartus["stale_cache_dirs"],
         ),
-        rom=quartus_program.MifInit(
-            target=cfg["quartus"]["rom_mif_target"], path=Path(args.mif)
+        rom=(
+            quartus_program.MifInit(
+                target=quartus["rom_mif_target"], path=Path(args.mif)
+            )
+            if args.mif
+            else None
         ),
-        boot_rom=boot_init,
+        boot_memory=_boot_init(cfg, root) if args.mif else None,
+        options=options,
     )
 
 
