@@ -19,8 +19,8 @@ COHERENT_PAIRS = (
     ("HAS_E", "IS_BASE_E", 1),
     ("HAS_ICACHE", "HAS_ICACHE", 1),
     ("HAS_DCACHE", "HAS_DCACHE", 1),
-    ("ROM_EXTERNAL", "ROM_EXTERNAL", 1),
-    ("RAM_EXTERNAL", "RAM_EXTERNAL", 1),
+    ("ROM_VIA_PORT", "ROM_EXTERNAL", 1),
+    ("RAM_VIA_PORT", "RAM_EXTERNAL", 1),
     ("BOOT_MEMORY_BITS", "BOOT_MEMORY_BITS", 1),
     ("CACHE_WINDOW_BITS", "CACHE_WINDOW_BITS", 1),
     ("ROM_BASE_KIB", "ROM_BASE", 1024),
@@ -69,6 +69,38 @@ def _number(value: str) -> int | bool | None:
     if re.fullmatch(r'"[01]+"', value):
         return int(value.strip('"'), 2)
     return None
+
+
+def _with_ports(constants: dict[str, str]) -> dict[str, str]:
+    """Add the values of `ROM_VIA_PORT` and `RAM_VIA_PORT`.
+
+    The package of the map writes them as expressions
+    (`ROM_EXTERNAL or HAS_ICACHE`), so they are computed from the
+    literals of the constants they use.
+
+    Parameters
+    ----------
+    constants : dict of {str: str}
+        The constants of the package of the map.
+
+    Returns
+    -------
+    dict of {str: str}
+        The same constants with the two ports added where the
+        constants they use are literals.
+    """
+    found = dict(constants)
+    for port, external, cache in (
+        ("ROM_VIA_PORT", "ROM_EXTERNAL", "HAS_ICACHE"),
+        ("RAM_VIA_PORT", "RAM_EXTERNAL", "HAS_DCACHE"),
+    ):
+        values = [
+            _number(constants.get(name, "")) for name in (external, cache)
+        ]
+        flags = [value for value in values if isinstance(value, bool)]
+        if len(flags) == len(values):
+            found[port] = str(any(flags)).lower()
+    return found
 
 
 def _disagrees(
@@ -138,7 +170,9 @@ def coherence_problems(platform: dict[str, Any], root: Path) -> list[Mismatch]:
     ]
     if missing:
         return missing
-    old = _constants((root / map_path).read_text(encoding="utf-8"))
+    old = _with_ports(
+        _constants((root / map_path).read_text(encoding="utf-8"))
+    )
     new = _constants((root / config_path).read_text(encoding="utf-8"))
     return [
         Mismatch(

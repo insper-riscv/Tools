@@ -34,6 +34,7 @@ from riscv_tools.memory_map.core import (
     address_bits,
     periph_id_shift,
     periph_window,
+    peripheral_list,
     platform_dict,
     platform_list,
 )
@@ -94,9 +95,12 @@ class Config:
         Every `HAS_*` constant, in the order of the package: the
         extensions, the caches and the peripherals.
     rom_external : bool
-        The ROM sits outside the chip.
+        The ROM is reached through the port of the core (outside the
+        chip or behind the instruction cache), `ROM_VIA_PORT` of the
+        package of the map.
     ram_external : bool
-        The RAM sits outside the chip.
+        The RAM is reached through the port of the core (outside the
+        chip or behind the data cache), `RAM_VIA_PORT`.
     boot_bits : int
         The exponent of the size of the BOOT_MEMORY.
     cache_window_bits : int
@@ -235,7 +239,7 @@ def _flags(
         the platform lists a `UART`.
     """
     choice = memory_choice.resolve(platform)
-    names = {str(p["name"]) for p in platform_list(platform, "peripherals")}
+    names = {str(p["name"]) for p in peripheral_list(platform)}
     console = platform.get("console")
     flags = {key.upper(): bool(generics.get(key)) for key in SWITCHES}
     flags["HAS_ICACHE"] = choice is not None and choice.has_icache
@@ -339,11 +343,13 @@ def _relocated(platform: dict[str, Any], bits: int) -> dict[str, Any]:
         If `bits` is not an integer from 16 to 64.
     """
     moved = {**platform, "address_bits": bits}
-    window = periph_window(moved)
     shift = periph_id_shift(address_bits(moved))
+    slot = 1 << periph_id_shift(address_bits(platform))
+    kept = ("base", "offset", "relative")
     moved["peripherals"] = [
-        {**periph, "base": window | (int(periph["id"]) << shift)}
-        for periph in platform_list(platform, "peripherals")
+        {k: v for k, v in periph.items() if k not in kept}
+        | {"offset": (int(periph["id"]) << shift) | (periph["offset"] % slot)}
+        for periph in peripheral_list(platform)
     ]
     return moved
 
@@ -404,8 +410,8 @@ def build_config(
         is_base_e=bool(overrides.get("IS_BASE_E", base == "e")),
         address_bits=address_bits(platform),
         flags=flags,
-        rom_external=bool(rom_external),
-        ram_external=bool(ram_external),
+        rom_external=bool(rom_external) or flags["HAS_ICACHE"],
+        ram_external=bool(ram_external) or flags["HAS_DCACHE"],
         boot_bits=(table[f"{boot}.size"] - 1).bit_length(),
         cache_window_bits=memory_choice.cache_window_bits(platform),
         addresses=_addresses(platform, table),

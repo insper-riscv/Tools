@@ -409,3 +409,33 @@ def test_the_defaults_are_the_package_of_the_common_components(
     default = (REAL.parent / "config_pkg_default.vhd").read_text()
     text = _config(tmp_path, DEFAULT_PLATFORM)
     check_equal(_after_header(text), _after_header(default))
+
+
+@pytest.mark.parametrize("external", [False, True])
+@pytest.mark.parametrize("cache", [False, True])
+def test_external_is_reached_through_the_port_of_the_core(
+    tmp_path: Path, external: bool, cache: bool
+) -> None:
+    """`ROM_EXTERNAL` and `RAM_EXTERNAL` are the `*_VIA_PORT` values."""
+    memory = {
+        "rom": {"external": external},
+        "ram": {"external": external},
+        "icache": {"enabled": cache, "size_bits": 4096},
+        "dcache": {"enabled": cache, "size_bits": 4096},
+    }
+    platform = _write(tmp_path, {**PLATFORM, "memory": memory})
+    write_all(platform, tmp_path)
+    config = (tmp_path / "out/config_pkg.vhd").read_text()
+    want = str(external or cache).lower()
+    _has(
+        config,
+        f"constant ROM_EXTERNAL       : boolean := {want};",
+        f"constant RAM_EXTERNAL       : boolean := {want};",
+    )
+    mapped = (tmp_path / "out/map_pkg.vhd").read_text()
+    check_in(
+        "constant ROM_VIA_PORT        : boolean  :="
+        " ROM_EXTERNAL or HAS_ICACHE;",
+        mapped,
+    )
+    check_equal(check_memory_map(platform, tmp_path)[1], [])

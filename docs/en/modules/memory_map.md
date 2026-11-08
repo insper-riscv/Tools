@@ -294,6 +294,37 @@ Each validation is a `platform` problem before generating and in `check-memory-m
 
 V-A5 is only checked when the profile is resolved, which `generate-memory-map` and `check-memory-map` always do when `address_bits` is below `xlen`.
 
+### 9.4. Peripherals by offset, id and padding
+
+Each entry of `peripherals` gives its address by `base` (absolute) or by `offset` (in bytes, from the base of the peripheral window), one of the two and never both. The `id` is optional, and `padding` reserves bytes right after the `size`, inside the slot. With `offset` the same YAML holds for any `address_bits`.
+
+```yaml
+address_bits: 32
+peripherals:
+  - {name: UART,  offset: 0x40000000}                           # id 4, derived
+  - {name: PLIC,  offset: 0x70000000, size: 4M, padding: 4M}    # slot 7, 4 MiB of padding
+  - {name: CLINT, base: 0xE0000000, id: 6}                      # absolute form, as before
+```
+
+| Field | Meaning |
+| :--- | :--- |
+| `offset` | Offset of the entry in the peripheral window. The address is the window plus the `offset` |
+| `base` | Absolute address, which must be in the window or above it. The Tools converts it to `offset` |
+| `id` | Index of the slot, from 0 to 7. When absent it is $\lfloor \text{offset} / 2^{\text{address\_bits} - 4} \rfloor$. When present it must be the slot of the `offset` |
+| `size` | Bytes the peripheral decodes |
+| `padding` | Bytes reserved after the `size`. When absent it is the rest of the slot of $2^{\text{address\_bits} - 4}$ bytes |
+
+| Rule | Rejection condition |
+| :--- | :--- |
+| V-P1 | The entry does not have exactly one of `base` and `offset`, or the `base` is below the window |
+| V-P2 | The given `id` is not the slot of the `offset` |
+| V-P3 | The `size` plus the `padding` go past the end of the slot |
+| V-P4 | Two peripherals take the same bytes (`size` plus `padding`) |
+
+The granularity of the peripheral map is the slot: the decoder of the core accepts an address of the window when the bit of the slot is set in `PERIPH_SLOTS`, and the peripheral decodes only the low bits. The padding is recorded as a reserved area with no decoding of its own, so an access to it is handled like any address of an occupied slot, and only a slot with no peripheral raises an access fault.
+
+The symbols of the `checks` gain `<NAME>.offset`. An entry that uses `offset` or `padding` gets the constants `<NAME>_OFFSET`, `<NAME>_SIZE` (zero without `size`) and `<NAME>_PAD` in the map package, in 32 bits like `<NAME>_BASE`, and a value that does not fit 32 bits is refused. Entries with only `base` and `id` get nothing, and the `config_pkg` does not carry them, which keeps the text of the default package of the Common-Components.
+
 ## 10. The `config_pkg`
 
 ### 10.1. Contents
@@ -309,7 +340,7 @@ The `config_pkg` is the VHDL package of constants of a platform, written from th
 | Composed | `HAS_MULDIV` (`HAS_M or HAS_ZMMUL`), `HAS_ANY_COUNTER` (`HAS_ZICNTR or HAS_ZIHPM`) and `HAS_SSCOF` (`HAS_SSCOFPMF and HAS_ZIHPM and HAS_INTERRUPTS`) |
 | Functions | `isa_string`, the ISA text (`rv32im_zicsr_zicntr`), and `check_isa`, which fails at elaboration when a dependency between constants does not hold |
 
-`map_addr_t` is `unsigned(ADDR_BITS downto 0)`, with one extra bit to represent the exclusive end $2^{\text{ADDR\_BITS}}$. Each address comes out as a hexadecimal literal with the digits that `ADDR_BITS` asks for (eight with 32 bits), so the width holds below and above 32 bits too. `HAS_<PERIPHERAL>` is true when the name is in `peripherals`, and the `UART` counts as `HAS_UART_JTAG` when `console` is `jtag` and as `HAS_UART_PINS` when `console` is `pins`. The `HAS_E` of the map package is the `IS_BASE_E` here.
+`map_addr_t` is `unsigned(ADDR_BITS downto 0)`, with one extra bit to represent the exclusive end $2^{\text{ADDR\_BITS}}$. Each address comes out as a hexadecimal literal with the digits that `ADDR_BITS` asks for (eight with 32 bits), so the width holds below and above 32 bits too. `HAS_<PERIPHERAL>` is true when the name is in `peripherals`, and the `UART` counts as `HAS_UART_JTAG` when `console` is `jtag` and as `HAS_UART_PINS` when `console` is `pins`. `ROM_EXTERNAL` and `RAM_EXTERNAL` say that the memory is reached through the port of the core (outside the chip or behind a cache), and have the values of `ROM_VIA_PORT` and `RAM_VIA_PORT` of the map package. The `HAS_E` of the map package is the `IS_BASE_E` here.
 
 `check_isa` checks that the counters, the interrupts and the access faults have `Zicsr`, that `Sscofpmf` has `Zihpm` and interrupts, that `ADDR_BITS` is from 16 to 64 and above 32 only with `IS_64`, and the order of the BOOT_MEMORY, the ROM, the RAM, the external window and the peripheral window inside $2^{\text{ADDR\_BITS}}$. The entities call it once, in an `if check_isa generate`.
 
@@ -332,7 +363,8 @@ At this stage the `config_pkg` comes next to the map package, which loses no con
 | Constant of the `*_map_pkg` | Constant of the `config_pkg` |
 | :--- | :--- |
 | `HAS_E` | `IS_BASE_E` |
-| `HAS_<EXTENSION>`, `HAS_ICACHE`, `HAS_DCACHE`, `ROM_EXTERNAL`, `RAM_EXTERNAL`, `BOOT_MEMORY_BITS`, `CACHE_WINDOW_BITS` | The same |
+| `HAS_<EXTENSION>`, `HAS_ICACHE`, `HAS_DCACHE`, `BOOT_MEMORY_BITS`, `CACHE_WINDOW_BITS` | The same |
+| `ROM_VIA_PORT`, `RAM_VIA_PORT` | `ROM_EXTERNAL`, `RAM_EXTERNAL` |
 | `ROM_BASE_KIB`, `ROM_END_KIB`, `RAM_BASE_KIB`, `RAM_END_KIB`, `EXT_BASE_KIB`, `PERIPH_BASE_KIB` | `ROM_BASE`, `ROM_END`, `RAM_BASE`, `RAM_END`, `EXT_BASE`, `PERIPH_BASE`, in bytes |
 
 Only the map package has `BOOT_MEMORY_SIZE_BYTES`, the `*_STORAGE_BYTES`, `RAM_LAST_PAGE`, the cache sizes, `ROM_VIA_PORT`, `RAM_VIA_PORT`, the `<NAME>_BASE` and `<NAME>_ID` of each peripheral and the constants of the CLINT, the PLIC and the SDRAM clock. Only the `config_pkg` has the base and the widths, the types, the composed constants, `HAS_<PERIPHERAL>` and the functions, and the map package also has `PERIPH_SLOTS`. A map package does not write a KiB value that does not fit a `natural`, nor the last page of the RAM above 32 bits.
@@ -361,6 +393,17 @@ The variant is validated as a platform of its own, with V-A1 to V-A6 for its `AD
 
 `sources` keeps a single `config_pkg.vhd` in the list. When the file of the Common-Components and the one generated by the platform both appear, the generated one stays, at the position of the default, so every unit that uses it comes after it (see [sources](sources.md)).
 
+### 10.6. Platforms that must declare more
+
+Some platforms need one more declaration so that the generated `config_pkg` reflects their choice.
+
+| Case | What to declare |
+| :--- | :--- |
+| Interrupts without `Zicsr` in the default profile (`check_isa` fails at elaboration) | Generate the variant with `--set HAS_ZICSR=true`, or turn `Zicsr` on in the profile |
+| A `UART` whose connection (pins or JTAG) matters | `console: pins` or `console: jtag`, or the peripheral names `UART_PINS` and `UART_JTAG`. Without that only `HAS_UART` holds |
+| `PERIPH_SLOTS` | Stays only in the map package, which writes it from `peripherals` |
+| Address width below 26 bits with caches | `CACHE_WINDOW_BITS` never goes above `address_bits`, so the tag window is the whole space |
+
 ## 11. Tests
 
 | Test | What it verifies |
@@ -382,6 +425,7 @@ The variant is validated as a platform of its own, with V-A1 to V-A6 for its `AD
 | `tests/test_interrupts.py` | The package has `HAS_INTERRUPTS`, `CLOCK_HZ`, `MTIME_HZ` and `CLINT_TICK_CYCLES`, the header has the registers of the CLINT and the rate of `mtime`, and an inconsistent section (rate, missing CLINT, profile without the interrupts) is rejected. |
 | `tests/test_memory_choice.py` | The `memory` section and the `--memory` option make the 16 combinations 16 different packages, the constants and the simulation parameters come from the choice, and rules V1 to V5, V7 and V10 fail with a clear message. |
 | `tests/test_config_from_platform.py` | The `memory` keys, the `tohost` and `stdout` environment and the address widths come from the map, and the map wins over the file and its `extends`. |
+| `tests/test_peripheral_offsets.py` | `offset` and `base` give the same map, the derived `id`, the same `offset` with another `address_bits`, one rejection for each of V-P1 to V-P4 and the `_OFFSET`, `_SIZE` and `_PAD` constants only on relative entries. |
 | `tests/test_address_bits.py` | The `address_bits` field and the derived window, one rejection for each of V-A1 to V-A6, the window fixed by `periph_window`, `resolve` with the `rv64` profiles, `--profile` and the new keys of the `config.yaml`. |
 | `tests/test_config_pkg.py` | The `config_pkg` for 32, 24 and 40 bits, the E base, the variants and what they refuse, the UART by `console`, writing with the map and `--check`, the coherence between the two packages, the command, and the proof that the map package and the `config_pkg` of the DE0-CV do not change. |
 | `tests/test_generate_memory_map.py` | The specs, the linker script and the VHDL package come out of the map; `--check` catches a missing or edited file; an address off the KiB grid and an inconsistent map are rejected; the command writes and checks. |

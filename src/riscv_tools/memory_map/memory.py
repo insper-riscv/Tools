@@ -38,6 +38,7 @@ from typing import Any, cast
 from riscv_tools.memory_map.core import (
     Mismatch,
     address_bits,
+    peripheral_list,
     platform_dict,
     platform_list,
 )
@@ -762,7 +763,7 @@ def notes(platform: dict[str, Any]) -> list[str]:
         )
         if over
     ]
-    if platform_list(platform, "peripherals"):
+    if peripheral_list(platform):
         out.append(
             "peripherals need the external bus path to the "
             "interconnect in every combination"

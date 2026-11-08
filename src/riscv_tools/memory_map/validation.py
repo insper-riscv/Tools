@@ -9,6 +9,7 @@ from riscv_tools.memory_map.core import (
     address_bits,
     periph_id_shift,
     periph_window,
+    peripheral_list,
     platform_dict,
     platform_list,
 )
@@ -19,6 +20,8 @@ from riscv_tools.memory_map.profile import (
     profile_name,
     xlen_of,
 )
+
+PERIPH_SLOTS = 8
 
 
 def hex_text(value: int) -> str:
@@ -223,9 +226,7 @@ def validate_platform(
     problems += _boot_problems(platform_dict(platform, "boot"), spans, execs)
     problems += _address_problems(platform, bits, spans, generics, xlen)
     problems += memory.problems(platform, generics)
-    return problems + _peripheral_problems(
-        platform_list(platform, "peripherals"), bits, window
-    )
+    return problems + _peripheral_problems(peripheral_list(platform), bits)
 
 
 def _xlen(platform: dict[str, Any], xlen: int | None) -> int:
@@ -354,49 +355,200 @@ def _address_problems(
     )
 
 
-def _peripheral_problems(
-    peripherals: list[dict[str, Any]], bits: int, window: int
-) -> list[Mismatch]:
-    """Check the base of every peripheral against its id (V-A4).
+def slot_extent(periph: dict[str, Any], slot: int) -> tuple[int, int, int]:
+    """Measure what a peripheral takes of its slot.
 
     Parameters
     ----------
-    peripherals : list of dict of {str: Any}
-        The `peripherals` section.
+    periph : dict of {str: Any}
+        A peripheral completed by `peripheral_list`.
+    slot : int
+        The bytes of a slot, `2**(address_bits - 4)`.
+
+    Returns
+    -------
+    tuple of (int, int, int)
+        The size, the padding (by default what is left of the slot
+        after the size) and the offset inside the slot.
+    """
+    size = evaluate(periph["size"]) if "size" in periph else 0
+    inside = int(periph["offset"]) % slot
+    padding = (
+        evaluate(periph["padding"])
+        if "padding" in periph
+        else max(slot - inside - size, 0)
+    )
+    return size, padding, inside
+
+
+def _slot_problems(
+    periph: dict[str, Any], slot: int, bits: int
+) -> list[Mismatch]:
+    """Check the id and the room of one peripheral (V-P2 and V-P3).
+
+    Parameters
+    ----------
+    periph : dict of {str: Any}
+        A peripheral completed by `peripheral_list`, with a valid
+        `offset`.
+    slot : int
+        The bytes of a slot, `2**(address_bits - 1)` divided by eight.
     bits : int
         The width of the physical address.
-    window : int
-        The base of the peripheral window.
 
     Returns
     -------
     list of Mismatch
-        One per peripheral whose base does not follow the convention,
-        and one per peripheral whose `id << (address_bits - 4)` falls
-        outside `2**address_bits`.
+        V-P2 when `id` is not the slot of the offset, V-P3 when the
+        size and the padding go past the end of the slot.
+    """
+    name = periph["name"]
+    problems: list[Mismatch] = []
+    derived = int(periph["offset"]) >> periph_id_shift(bits)
+    if int(periph["id"]) != derived:
+        problems.append(
+            Mismatch(
+                "platform",
+                "",
+                f"V-P2 peripheral {name} base is not in the slot of id "
+                f"{periph['id']}: offset 0x{periph['offset']:X} is in the "
+                f"slot of id {derived}",
+            )
+        )
+    size, padding, inside = slot_extent(periph, slot)
+    if inside + size + padding > slot:
+        problems.append(
+            Mismatch(
+                "platform",
+                "",
+                f"V-P3 peripheral {name}: size + padding "
+                f"(0x{size + padding:X}) from offset 0x{inside:X} goes "
+                f"past the slot of 0x{slot:X} bytes",
+            )
+        )
+    return problems
+
+
+def _peripheral_problems(
+    peripherals: list[dict[str, Any]], bits: int
+) -> list[Mismatch]:
+    """Check the peripherals against the window and the slots.
+
+    Each entry gives exactly one of `base` and `offset` (V-P1), a given
+    `id` is the slot of the offset (V-P2), the size and the padding stay
+    inside the slot (V-P3), no two peripherals take the same bytes of a
+    slot (V-P4), and the slot is inside the address space (V-A4).
+
+    Parameters
+    ----------
+    peripherals : list of dict of {str: Any}
+        The `peripherals` section completed by `peripheral_list`.
+    bits : int
+        The width of the physical address.
+
+    Returns
+    -------
+    list of Mismatch
+        The problems; empty when the peripherals are consistent.
     """
     problems: list[Mismatch] = []
-    shift = periph_id_shift(bits)
+    slot = 1 << periph_id_shift(bits)
+    extents: list[tuple[str, int, int]] = []
     for periph in peripherals:
-        offset = int(periph["id"]) << shift
-        want = window | offset
-        if offset >= 1 << bits:
+        name = periph["name"]
+        if periph["choice"] != "ok":
+            problems.append(_choice_problem(name, periph["choice"]))
+            continue
+        problems += _id_space_problems(periph, bits)
+        offset = int(periph["offset"])
+        if offset < 0:
             problems.append(
                 Mismatch(
                     "platform",
                     "",
-                    f"V-A4 peripheral {periph['name']} id {periph['id']}: "
-                    f"id << (address_bits - 4) = 0x{offset:X} is outside "
-                    f"2**address_bits (address_bits {bits})",
+                    f"V-P1 peripheral {name} base 0x{periph['base']:X} is "
+                    "below the peripheral window",
                 )
             )
-        elif evaluate(periph["base"]) != want:
+        elif offset >> periph_id_shift(bits) >= PERIPH_SLOTS:
             problems.append(
                 Mismatch(
                     "platform",
                     "",
-                    f"peripheral {periph['name']} base is not 0x{want:X} "
-                    f"(window bit set, id {periph['id']} at bit {shift})",
+                    f"V-A4 peripheral {name} offset 0x{offset:X} goes past "
+                    "the peripheral window (id << (address_bits - 4) is "
+                    "outside 2**address_bits)",
                 )
             )
-    return problems
+        elif "id" in periph:
+            problems += _slot_problems(periph, slot, bits)
+            size, padding, _ = slot_extent(periph, slot)
+            extents.append((name, offset, size + padding))
+    return problems + _overlap_problems(extents)
+
+
+def _choice_problem(name: str, kind: str) -> Mismatch:
+    """Report an entry without exactly one of base and offset (V-P1)."""
+    return Mismatch(
+        "platform",
+        "",
+        f"V-P1 peripheral {name}: exactly one of `base` and `offset` is "
+        f"needed, the entry has {'both' if kind == 'both' else 'neither'}",
+    )
+
+
+def _id_space_problems(periph: dict[str, Any], bits: int) -> list[Mismatch]:
+    """Check that a given `id` shifted fits the address space (V-A4).
+
+    Parameters
+    ----------
+    periph : dict of {str: Any}
+        A peripheral completed by `peripheral_list`.
+    bits : int
+        The width of the physical address.
+
+    Returns
+    -------
+    list of Mismatch
+        One when `id << (address_bits - 4)` is outside `2**bits`.
+    """
+    if "id" not in periph:
+        return []
+    shifted = int(periph["id"]) << periph_id_shift(bits)
+    if shifted < 1 << bits:
+        return []
+    return [
+        Mismatch(
+            "platform",
+            "",
+            f"V-A4 peripheral {periph['name']} id {periph['id']}: "
+            f"id << (address_bits - 4) = 0x{shifted:X} is outside "
+            f"2**address_bits (address_bits {bits})",
+        )
+    ]
+
+
+def _overlap_problems(extents: list[tuple[str, int, int]]) -> list[Mismatch]:
+    """Find peripherals that take the same bytes of a slot (V-P4).
+
+    Parameters
+    ----------
+    extents : list of tuple of (str, int, int)
+        `(name, offset, size + padding)` of each peripheral.
+
+    Returns
+    -------
+    list of Mismatch
+        One per overlapping pair.
+    """
+    return [
+        Mismatch(
+            "platform",
+            "",
+            f"V-P4 peripherals {name_a} and {name_b} overlap: size plus "
+            "padding take the same bytes of a slot",
+        )
+        for i, (name_a, base_a, size_a) in enumerate(extents)
+        for name_b, base_b, size_b in extents[i + 1 :]
+        if base_a < base_b + size_b and base_b < base_a + size_a
+    ]

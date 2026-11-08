@@ -135,10 +135,11 @@ def test_v_a4_the_window_and_the_ids_follow_the_width() -> None:
         ),
         str(_problems(high)),
     )
-    off = _small(peripherals=[{"name": "UART", "base": "0xC0000000", "id": 4}])
+    off = _small(peripherals=[{"name": "UART", "base": "0xD00000", "id": 4}])
     check(
         any(
-            "peripheral UART base is not 0xC00000" in p for p in _problems(off)
+            "peripheral UART base is not in the slot of id 4" in p
+            for p in _problems(off)
         ),
         str(_problems(off)),
     )

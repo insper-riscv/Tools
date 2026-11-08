@@ -235,6 +235,94 @@ def platform_dict(platform: dict[str, Any], key: str) -> dict[str, Any]:
     return cast(dict[str, Any], platform.get(key) or {})
 
 
+def _choice(has_base: bool, has_offset: bool) -> str:
+    """Say whether an entry gives exactly one of `base` and `offset`.
+
+    Parameters
+    ----------
+    has_base : bool
+        The entry has `base`.
+    has_offset : bool
+        The entry has `offset`.
+
+    Returns
+    -------
+    str
+        `ok` for exactly one, `both` or `none` otherwise.
+    """
+    if has_base != has_offset:
+        return "ok"
+    return "both" if has_base else "none"
+
+
+def _complete(raw: dict[str, Any], window: int, bits: int) -> dict[str, Any]:
+    """Complete one peripheral with its `base`, `offset` and `id`.
+
+    Parameters
+    ----------
+    raw : dict of {str: Any}
+        The entry as written.
+    window : int
+        The base of the peripheral window.
+    bits : int
+        The width of the physical address.
+
+    Returns
+    -------
+    dict of {str: Any}
+        A copy with `choice`, `relative` and, when the entry gives
+        exactly one of `base` and `offset`, both of them and the `id`.
+    """
+    item = dict(raw)
+    item["relative"] = "offset" in raw or "padding" in raw
+    item["choice"] = _choice("base" in raw, "offset" in raw)
+    if item["choice"] != "ok":
+        return item
+    if "offset" in raw:
+        offset = evaluate(raw["offset"])
+        base = window + offset
+    else:
+        base = evaluate(raw["base"])
+        offset = base - window
+    item |= {"base": base, "offset": offset}
+    if "id" not in raw and offset >= 0:
+        item["id"] = offset >> periph_id_shift(bits)
+    return item
+
+
+def peripheral_list(platform: dict[str, Any]) -> list[dict[str, Any]]:
+    """Read the peripherals, each with a `base` and an `offset`.
+
+    A peripheral gives exactly one of `base` (absolute) and `offset`
+    (from the base of the peripheral window), and `id` is optional.
+    Every entry comes back with both `base` and `offset` and, when it
+    can be derived, `id` (`offset >> (address_bits - 4)`). An entry
+    that gives neither or both of `base` and `offset` comes back as
+    written, for the validation to report. `choice` is `ok`, `both` or
+    `none`, and `relative` is true when the entry uses `offset` or
+    `padding`.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+
+    Returns
+    -------
+    list of dict of {str: Any}
+        A copy of each entry of `peripherals`, completed.
+    """
+    try:
+        bits = address_bits(platform)
+    except ValueError:
+        bits = DEFAULT_ADDRESS_BITS
+    window = periph_window({**platform, "address_bits": bits})
+    return [
+        _complete(raw, window, bits)
+        for raw in platform_list(platform, "peripherals")
+    ]
+
+
 def symbols(platform: dict[str, Any]) -> dict[str, int]:
     """Flatten a platform's map into the symbols checks can name.
 
@@ -270,7 +358,8 @@ def symbols(platform: dict[str, Any]) -> dict[str, int]:
         }
     for key, value in (platform_dict(platform, "boot")).items():
         out[f"boot.{key}"] = evaluate(value)
-    for periph in platform_list(platform, "peripherals"):
+    for periph in peripheral_list(platform):
         out[f"{periph['name']}.base"] = evaluate(periph["base"])
+        out[f"{periph['name']}.offset"] = int(periph["offset"])
         out[f"{periph['name']}.id"] = int(periph["id"])
     return out

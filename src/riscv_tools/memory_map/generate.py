@@ -56,7 +56,9 @@ from riscv_tools.memory_map.core import (
     Mismatch,
     address_bits,
     load_platform,
+    periph_id_shift,
     periph_window,
+    peripheral_list,
     platform_dict,
     platform_list,
 )
@@ -64,6 +66,7 @@ from riscv_tools.memory_map.expressions import evaluate
 from riscv_tools.memory_map.problems import platform_problems
 from riscv_tools.memory_map.profile import SWITCHES, resolve, xlen_of
 from riscv_tools.memory_map.symbol_table import symbol_table
+from riscv_tools.memory_map.validation import slot_extent
 
 KIB = 1024
 PAGE = 4096
@@ -384,7 +387,7 @@ def render_runtime(
             values[macro] = table[f"{name}.base"]
     if "boot.entry" in table:
         values["RV32_BOOT_ENTRY"] = table["boot.entry"]
-    for periph in platform_list(platform, "peripherals"):
+    for periph in peripheral_list(platform):
         name = str(periph["name"]).upper()
         values[f"RV32_{name}_BASE"] = evaluate(periph["base"])
     values |= interrupts.runtime_values(platform, table)
@@ -410,7 +413,7 @@ def _peripheral_lines(platform: dict[str, Any]) -> str:
         peripheral, each preceded by a blank line.
     """
     slots = 0
-    for periph in platform_list(platform, "peripherals"):
+    for periph in peripheral_list(platform):
         slots |= 1 << int(periph["id"])
     lines = (
         "\n\t-- Janelas de 256 MiB do barramento de periféricos que têm"
@@ -418,7 +421,7 @@ def _peripheral_lines(platform: dict[str, Any]) -> str:
         "\tconstant PERIPH_SLOTS : std_logic_vector(7 downto 0) :="
         f' "{slots:08b}";\n'
     )
-    for periph in platform_list(platform, "peripherals"):
+    for periph in peripheral_list(platform):
         name = str(periph["name"]).upper()
         base = evaluate(periph["base"])
         lines += (
@@ -428,6 +431,59 @@ def _peripheral_lines(platform: dict[str, Any]) -> str:
             f"\t-- Índice da janela de 256 MiB do periférico {periph['name']}"
             f" (bits 30:28 do endereço).\n"
             f"\tconstant {name}_ID   : natural := {int(periph['id'])};\n"
+        )
+        if periph["relative"]:
+            lines += _relative_lines(periph, platform)
+    return lines
+
+
+def _relative_lines(periph: dict[str, Any], platform: dict[str, Any]) -> str:
+    """Write the offset, size and padding of a relative peripheral.
+
+    Parameters
+    ----------
+    periph : dict of {str: Any}
+        A peripheral completed by `peripheral_list` that gave `offset`
+        or `padding`.
+    platform : dict of {str: Any}
+        The loaded platform, for the width of the address.
+
+    Returns
+    -------
+    str
+        `<NAME>_OFFSET` (from the base of the peripheral window),
+        `<NAME>_SIZE` (zero when the peripheral gives no `size`) and
+        `<NAME>_PAD` (the bytes reserved after the size), each a 32-bit
+        vector like `<NAME>_BASE`.
+
+    Raises
+    ------
+    ValueError
+        If a value does not fit 32 bits.
+    """
+    slot = 1 << periph_id_shift(address_bits(platform))
+    size, padding, _ = slot_extent(periph, slot)
+    name = str(periph["name"]).upper()
+    rows = (
+        (
+            "OFFSET",
+            int(periph["offset"]),
+            "Deslocamento na janela de periféricos",
+        ),
+        ("SIZE", size, "Tamanho"),
+        ("PAD", padding, "Padding reservado depois do tamanho"),
+    )
+    lines = ""
+    for suffix, value, what in rows:
+        if value >> 32:
+            raise ValueError(
+                f"{name}_{suffix} (0x{value:X}) does not fit the 32 bits "
+                "of the map package"
+            )
+        lines += (
+            f"\t-- {what} do periférico {periph['name']}, em bytes.\n"
+            f"\tconstant {name}_{suffix:<6} : "
+            f'std_logic_vector(31 downto 0) := x"{value:08X}";\n'
         )
     return lines
 
