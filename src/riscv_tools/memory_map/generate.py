@@ -54,10 +54,10 @@ from riscv_tools.memory_map.core import (
     load_platform,
     platform_dict,
     platform_list,
-    symbols,
 )
 from riscv_tools.memory_map.expressions import evaluate
 from riscv_tools.memory_map.profile import SWITCHES, resolve
+from riscv_tools.memory_map.symbol_table import symbol_table
 from riscv_tools.memory_map.validation import validate_platform
 
 KIB = 1024
@@ -609,12 +609,7 @@ def render_all(platform_file: Path, root: Path) -> dict[Path, str]:
     )
     if problems:
         raise ValueError("; ".join(str(p) for p in problems))
-    table = (
-        symbols(platform)
-        | banks.symbols(platform)
-        | sdram_clock.symbols(platform)
-        | interrupts.symbols(platform)
-    )
+    table = symbol_table(platform)
     try:
         source = str(platform_file.relative_to(root))
     except ValueError:

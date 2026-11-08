@@ -202,6 +202,22 @@ def problems(
     ]
     if found:
         return found
+    found = _clock_problems(platform, section, has_core_clock)
+    names = {str(p["name"]) for p in platform_list(platform, "peripherals")}
+    if CLINT not in names:
+        found.append(
+            Mismatch("interrupts", "", f"the peripherals have no {CLINT}")
+        )
+    return (
+        found + _plic_problems(platform, names) + _profile_problems(generics)
+    )
+
+
+def _clock_problems(
+    platform: dict[str, Any], section: dict[str, Any], has_core_clock: bool
+) -> list[Mismatch]:
+    """Check clock_hz against clocks.core and against mtime_hz."""
+    found: list[Mismatch] = []
     clock, mtime = _rates(platform)
     if "clock_hz" in section and has_core_clock:
         derived = derived_clock_hz(platform, mtime)
@@ -222,14 +238,7 @@ def problems(
                 f"clock_hz {clock} is not a multiple of mtime_hz {mtime}",
             )
         )
-    names = {str(p["name"]) for p in platform_list(platform, "peripherals")}
-    if CLINT not in names:
-        found.append(
-            Mismatch("interrupts", "", f"the peripherals have no {CLINT}")
-        )
-    return (
-        found + _plic_problems(platform, names) + _profile_problems(generics)
-    )
+    return found
 
 
 def _plic_problems(
@@ -254,11 +263,17 @@ def _plic_problems(
         return []
     if PLIC not in names:
         return [Mismatch("interrupts", "", f"the peripherals have no {PLIC}")]
-    found: list[Mismatch] = []
     periph = _plic_peripheral(platform)
     if "size" not in periph:
         return [Mismatch("interrupts", "", f"{PLIC} has no size")]
-    size = evaluate(periph["size"])
+    return _plic_size_problems(
+        evaluate(periph["size"])
+    ) + _plic_source_problems(platform)
+
+
+def _plic_size_problems(size: int) -> list[Mismatch]:
+    """Check the PLIC window is a power of two inside its slot."""
+    found: list[Mismatch] = []
     if size < PLIC_MIN_WINDOW or size & (size - 1):
         found.append(
             Mismatch(
@@ -276,6 +291,12 @@ def _plic_problems(
                 f"{PLIC} size {size:#x} exceeds the 256 MiB slot",
             )
         )
+    return found
+
+
+def _plic_source_problems(platform: dict[str, Any]) -> list[Mismatch]:
+    """Check the PLIC sources and the width of its priorities."""
+    found: list[Mismatch] = []
     sources = sources_of(platform)
     ids = [i for _, i in sources]
     if len(set(ids)) != len(ids) or len({n for n, _ in sources}) != len(ids):

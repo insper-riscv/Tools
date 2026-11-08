@@ -521,6 +521,27 @@ def cache_window_bits(platform: dict[str, Any]) -> int:
     return MIN_WINDOW_BITS if found is None else found
 
 
+def _window_problems(
+    memory: Memory,
+    rom: tuple[str, int, int] | None,
+    ram: tuple[str, int, int] | None,
+) -> list[Mismatch]:
+    """Check each region fits one aligned window of the cache tag."""
+    if not (memory.has_icache or memory.has_dcache):
+        return []
+    if window_bits(rom, ram) is not None:
+        return []
+    return [
+        _problem(
+            f"region {name} does not fit one aligned "
+            f"{1 << (MAX_WINDOW_BITS - 20)} MiB window, "
+            "which the tag of the caches needs"
+        )
+        for name, base, size in (r for r in (rom, ram) if r)
+        if not _fits([(name, base, size)], MAX_WINDOW_BITS)
+    ]
+
+
 def _cache_problems(
     memory: Memory,
     rom: tuple[str, int, int] | None,
@@ -543,19 +564,7 @@ def _cache_problems(
         A region that fits no aligned window of the cache tag, and a
         ROM larger than the window of the router.
     """
-    problems: list[Mismatch] = []
-    if (memory.has_icache or memory.has_dcache) and window_bits(
-        rom, ram
-    ) is None:
-        problems += [
-            _problem(
-                f"region {name} does not fit one aligned "
-                f"{1 << (MAX_WINDOW_BITS - 20)} MiB window, "
-                "which the tag of the caches needs"
-            )
-            for name, base, size in (r for r in (rom, ram) if r)
-            if not _fits([(name, base, size)], MAX_WINDOW_BITS)
-        ]
+    problems = _window_problems(memory, rom, ram)
     if memory.rom_via_port and rom and rom[2] > ROUTER_WINDOW_KIB * 1024:
         problems.append(
             _problem(

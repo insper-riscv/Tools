@@ -11,9 +11,9 @@ from riscv_tools.memory_map.core import (
     Mismatch,
     load_platform,
     platform_list,
-    symbols,
 )
 from riscv_tools.memory_map.expressions import evaluate
+from riscv_tools.memory_map.symbol_table import symbol_table
 from riscv_tools.memory_map.validation import hex_text, validate_platform
 
 
@@ -156,12 +156,7 @@ def check_memory_map(
     )
     if problems:
         return 0, problems
-    table = (
-        symbols(platform)
-        | banks.symbols(platform)
-        | sdram_clock.symbols(platform)
-        | interrupts.symbols(platform)
-    )
+    table = symbol_table(platform)
     checks = platform_list(platform, "checks")
     for check in checks:
         problems += _run_check(check, root, table)

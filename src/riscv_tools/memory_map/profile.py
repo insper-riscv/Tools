@@ -79,6 +79,32 @@ def _base_of(name: str) -> str:
     return name[4]
 
 
+def _apply_extras(
+    generics: dict[str, bool | int], platform: dict[str, Any]
+) -> None:
+    """Switch on the generics of the `extras` the platform lists.
+
+    Raises
+    ------
+    ValueError
+        If an extra is not a switch, or Sscofpmf lacks Zihpm or the
+        interrupts.
+    """
+    extras = cast("list[Any]", platform.get("extras") or [])
+    for extra in extras:
+        key = "has_" + re.sub(r"(?<!^)(?=[A-Z])", "_", str(extra)).lower()
+        if key not in SWITCHES:
+            raise ValueError(f"extra {extra!r} is not one of {SWITCHES}")
+        generics[key] = True
+    if generics["has_sscofpmf"] and not (
+        generics["has_zihpm"] and generics["has_interrupts"]
+    ):
+        raise ValueError(
+            "extra 'Sscofpmf' needs Zihpm in the profile and the "
+            "'Interrupts' extra"
+        )
+
+
 def resolve(
     platform: dict[str, Any], platform_file: Path
 ) -> tuple[str, dict[str, bool | int]]:
@@ -120,19 +146,6 @@ def resolve(
     }
     if name not in found:
         raise ValueError(f"{name!r} is not a profile of {spec_ref}")
-    chosen = found[name]
-    generics = dict.fromkeys(SWITCHES, False) | dict(chosen.generics)
-    extras = cast("list[Any]", platform.get("extras") or [])
-    for extra in extras:
-        key = "has_" + re.sub(r"(?<!^)(?=[A-Z])", "_", str(extra)).lower()
-        if key not in SWITCHES:
-            raise ValueError(f"extra {extra!r} is not one of {SWITCHES}")
-        generics[key] = True
-    if generics["has_sscofpmf"] and not (
-        generics["has_zihpm"] and generics["has_interrupts"]
-    ):
-        raise ValueError(
-            "extra 'Sscofpmf' needs Zihpm in the profile and the "
-            "'Interrupts' extra"
-        )
+    generics = dict.fromkeys(SWITCHES, False) | dict(found[name].generics)
+    _apply_extras(generics, platform)
     return _base_of(name), generics
