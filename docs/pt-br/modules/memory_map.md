@@ -298,20 +298,20 @@ A V-A5 só é conferida quando o perfil é resolvido, o que o `generate-memory-m
 
 ### 10.1. Conteúdo
 
-O `config_pkg` é o pacote VHDL de constantes de uma plataforma, escrito a partir do `platform.yaml`. Tem o nome de unidade do pacote padrão do Common-Components, então a versão gerada ocupa o lugar dele na lista de fontes. É um pacote de constantes, e não genérico, porque o Quartus Lite recusa o pacote genérico.
+O `config_pkg` é o pacote VHDL de constantes de uma plataforma, escrito a partir do `platform.yaml`. Tem o contrato do pacote padrão do Common-Components (`src/config_pkg.vhd`), com o mesmo nome de unidade, as mesmas constantes, tipos e funções, e só os valores mudam, então a versão gerada ocupa o lugar dele na lista de fontes. Com os valores padrão (RV32IM, 32 bits de endereço, sem periféricos) o texto é idêntico ao do Common-Components, exceto o cabeçalho de geração. É um pacote de constantes, e não genérico, porque o Quartus Lite recusa o pacote genérico.
 
 | Grupo | Constantes |
 | :--- | :--- |
-| Base e larguras | `IS_64`, `IS_BASE_E`, `ADDR_BITS`, `XLEN`, `NUM_REGS`, `REG_BITS`, `ADDR_BITS_MIN`, `ADDR_BITS_MAX`, `ADDR_BITS_MAX_RV32`, `ADDR_SPACE_BYTES` e os subtipos `word_t`, `reg_t`, `addr_t` e `map_addr_t` |
-| Extensões | Uma `HAS_<EXTENSÃO>` por chave do perfil (`HAS_M` a `HAS_ACCESS_FAULTS`), `HAS_ICACHE` e `HAS_DCACHE` |
+| Base e larguras | `IS_64`, `IS_BASE_E`, `ADDR_BITS`, `XLEN`, `REG_BITS`, `NUM_REGS` e os subtipos `word_t`, `reg_t`, `addr_t` e `map_addr_t` |
+| Extensões e caches | Uma `HAS_<EXTENSÃO>` por chave do perfil (`HAS_M` a `HAS_ACCESS_FAULTS`), `HAS_ICACHE` e `HAS_DCACHE` |
+| Memória | `BOOT_MEMORY_BITS`, o mapa em bytes no tipo `map_addr_t` (`ROM_BASE`, `ROM_END`, `RAM_BASE`, `RAM_END`, `EXT_BASE`, `PERIPH_BASE`), `ROM_EXTERNAL`, `RAM_EXTERNAL` e `CACHE_WINDOW_BITS` |
+| Periféricos | Uma `HAS_<PERIFÉRICO>` para `UART`, `UART_PINS`, `UART_JTAG`, `TIMER`, `GPIO`, `DISPLAY`, `SWITCHES`, `KEYS`, `CLINT`, `PLIC` e `FLASH_CTRL` |
 | Compostas | `HAS_MULDIV` (`HAS_M or HAS_ZMMUL`), `HAS_ANY_COUNTER` (`HAS_ZICNTR or HAS_ZIHPM`) e `HAS_SSCOF` (`HAS_SSCOFPMF and HAS_ZIHPM and HAS_INTERRUPTS`) |
-| Memória | `ROM_EXTERNAL`, `RAM_EXTERNAL`, `BOOT_MEMORY_BITS`, `CACHE_WINDOW_BITS` e o mapa em bytes no tipo `map_addr_t` (`ROM_BASE`, `ROM_END`, `RAM_BASE`, `RAM_END`, `EXT_BASE`, `PERIPH_BASE`) |
-| Periféricos | `PERIPH_SLOTS` e uma `HAS_<PERIFÉRICO>` para `UART`, `UART_PINS`, `UART_JTAG`, `TIMER`, `GPIO`, `DISPLAY`, `SWITCHES`, `KEYS`, `CLINT`, `PLIC` e `FLASH_CTRL` |
 | Funções | `isa_string`, o texto da ISA (`rv32im_zicsr_zicntr`), e `check_isa`, que falha na elaboração se uma dependência entre constantes não vale |
 
-O `map_addr_t` é `unsigned(ADDR_BITS downto 0)`, com um bit a mais para representar o fim exclusivo $2^{\text{ADDR\_BITS}}$. Cada endereço sai como literal hexadecimal. `HAS_<PERIFÉRICO>` é verdadeira quando o nome está em `peripherals`, e a `UART` vale como `HAS_UART_JTAG` quando `console` é `jtag` e como `HAS_UART_PINS` quando `console` é `pins`. `HAS_E` do pacote do mapa é a `IS_BASE_E` daqui.
+O `map_addr_t` é `unsigned(ADDR_BITS downto 0)`, com um bit a mais para representar o fim exclusivo $2^{\text{ADDR\_BITS}}$. Cada endereço sai como literal hexadecimal com os dígitos que `ADDR_BITS` pede (oito com 32 bits), de modo que a largura vale também abaixo e acima de 32 bits. `HAS_<PERIFÉRICO>` é verdadeira quando o nome está em `peripherals`, e a `UART` vale como `HAS_UART_JTAG` quando `console` é `jtag` e como `HAS_UART_PINS` quando `console` é `pins`. A `HAS_E` do pacote do mapa é a `IS_BASE_E` daqui.
 
-A `check_isa` confere que os contadores, as interrupções e as falhas de acesso têm `Zicsr`, que a `Sscofpmf` tem `Zihpm` e interrupções, que `ADDR_BITS` está de 16 a 64 e acima de 32 só com `IS_64`, que a ROM e a RAM não se sobrepõem, não passam de $2^{\text{ADDR\_BITS}}$ e ficam abaixo da janela de periféricos. As entidades a chamam uma vez, num `if check_isa generate`.
+A `check_isa` confere que os contadores, as interrupções e as falhas de acesso têm `Zicsr`, que a `Sscofpmf` tem `Zihpm` e interrupções, que `ADDR_BITS` está de 16 a 64 e acima de 32 só com `IS_64`, e a ordem da `BOOT_MEMORY`, da ROM, da RAM, da janela externa e da janela de periféricos dentro de $2^{\text{ADDR\_BITS}}$. As entidades a chamam uma vez, num `if check_isa generate`.
 
 ### 10.2. Gerar junto com o mapa
 
@@ -332,10 +332,10 @@ Nesta etapa o `config_pkg` entra ao lado do pacote do mapa, que não perde nenhu
 | Constante do `*_map_pkg` | Constante do `config_pkg` |
 | :--- | :--- |
 | `HAS_E` | `IS_BASE_E` |
-| `HAS_<EXTENSÃO>`, `HAS_ICACHE`, `HAS_DCACHE`, `ROM_EXTERNAL`, `RAM_EXTERNAL`, `BOOT_MEMORY_BITS`, `CACHE_WINDOW_BITS`, `PERIPH_SLOTS` | A mesma |
+| `HAS_<EXTENSÃO>`, `HAS_ICACHE`, `HAS_DCACHE`, `ROM_EXTERNAL`, `RAM_EXTERNAL`, `BOOT_MEMORY_BITS`, `CACHE_WINDOW_BITS` | A mesma |
 | `ROM_BASE_KIB`, `ROM_END_KIB`, `RAM_BASE_KIB`, `RAM_END_KIB`, `EXT_BASE_KIB`, `PERIPH_BASE_KIB` | `ROM_BASE`, `ROM_END`, `RAM_BASE`, `RAM_END`, `EXT_BASE`, `PERIPH_BASE`, em bytes |
 
-Só o pacote do mapa tem `BOOT_MEMORY_SIZE_BYTES`, as `*_STORAGE_BYTES`, `RAM_LAST_PAGE`, os tamanhos das caches, `ROM_VIA_PORT`, `RAM_VIA_PORT`, `<NOME>_BASE` e `<NOME>_ID` de cada periférico e as constantes do CLINT, do PLIC e do clock da SDRAM. Só o `config_pkg` tem a base e as larguras, os tipos, as compostas, `HAS_<PERIFÉRICO>` e as funções. Um pacote do mapa não escreve um valor em KiB que não cabe num `natural`, nem a última página da RAM acima de 32 bits.
+Só o pacote do mapa tem `BOOT_MEMORY_SIZE_BYTES`, as `*_STORAGE_BYTES`, `RAM_LAST_PAGE`, os tamanhos das caches, `ROM_VIA_PORT`, `RAM_VIA_PORT`, `<NOME>_BASE` e `<NOME>_ID` de cada periférico e as constantes do CLINT, do PLIC e do clock da SDRAM. Só o `config_pkg` tem a base e as larguras, os tipos, as compostas, `HAS_<PERIFÉRICO>` e as funções, e o pacote do mapa tem também `PERIPH_SLOTS`. Um pacote do mapa não escreve um valor em KiB que não cabe num `natural`, nem a última página da RAM acima de 32 bits.
 
 Quando a plataforma pede os dois arquivos, o `check-memory-map` lê os dois no disco e falha com `config-pkg` para um arquivo ausente ou para uma constante com valores diferentes nos dois.
 

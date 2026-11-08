@@ -44,6 +44,7 @@ def profile_matrix(*bases: str) -> dict[str, Any]:
     a base whose name ends in `e` sets `has_e`.
     """
     extensions: list[dict[str, Any]] = [
+        {"name": "Zicclsm", "generic": "has_zicclsm"},
         {"name": "Zicsr", "generic": "has_zicsr"},
         {"name": "Zicntr", "generic": "has_zicntr", "implies": ["has_zicsr"]},
         {"name": "M", "generic": "has_m", "base_letter": "m"},

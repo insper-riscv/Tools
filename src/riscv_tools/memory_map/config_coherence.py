@@ -29,7 +29,6 @@ COHERENT_PAIRS = (
     ("RAM_END_KIB", "RAM_END", 1024),
     ("EXT_BASE_KIB", "EXT_BASE", 1024),
     ("PERIPH_BASE_KIB", "PERIPH_BASE", 1024),
-    ("PERIPH_SLOTS", "PERIPH_SLOTS", 1),
     *((key.upper(), key.upper(), 1) for key in SWITCHES),
 )
 

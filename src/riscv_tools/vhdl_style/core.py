@@ -7,7 +7,7 @@ and they carry the header and the licence of their origin.
 
 | Rule        | What it checks                                      |
 | ----------- | --------------------------------------------------- |
-| `header`    | Header block of 72 columns at the top               |
+| `header`    | Header block (any width) at the top                 |
 | `libraries` | Only `std_logic_1164` and `numeric_std` from IEEE   |
 | `component` | No `component`; direct `entity work.x` instances    |
 | `port-map`  | Every `port map` association by name                |

@@ -10,7 +10,6 @@ import yaml
 from support import (
     MAP_REGIONS,
     MAP_RESERVED,
-    check,
     check_equal,
     check_in,
     check_not_in,
@@ -118,13 +117,11 @@ def test_a_32_bit_platform_gets_the_defaults_of_today(tmp_path: Path) -> None:
     text = _config(tmp_path, PLATFORM)
     _has(
         text,
+        "use work.utils_pkg.all;",
         "constant IS_64              : boolean := false;",
         "constant IS_BASE_E          : boolean := false;",
         "constant ADDR_BITS          : natural := 32;",
-        "constant XLEN               : natural := 32;",
-        "constant NUM_REGS           : natural := 32;",
-        "constant REG_BITS           : natural := 5;",
-        "subtype word_t is std_logic_vector((XLEN - 1) downto 0);",
+        "constant XLEN               : natural := pick(IS_64, 64, 32);",
         "subtype map_addr_t is unsigned(ADDR_BITS downto 0);",
         "constant HAS_M              : boolean := true;",
         "constant HAS_ZICNTR         : boolean := true;",
@@ -138,74 +135,53 @@ def test_a_32_bit_platform_gets_the_defaults_of_today(tmp_path: Path) -> None:
         "constant BOOT_MEMORY_BITS   : natural := 11;",
         "constant CACHE_WINDOW_BITS  : natural := 26;",
         "constant ROM_BASE           : map_addr_t :=",
-        'unsigned\'(x"000000800")',
-        'unsigned\'(x"000008000")',
-        "constant PERIPH_BASE        : map_addr_t :=",
-        'unsigned\'(x"080000000")',
-        'constant PERIPH_SLOTS       : periph_slots_t := "01010000";',
+        'unsigned\'(x"00000800"), ADDR_BITS + 1);',
+        'unsigned\'(x"00008000"), ADDR_BITS + 1);',
+        'unsigned\'(x"80000000"), ADDR_BITS + 1);',
         "constant HAS_UART           : boolean := true;",
         "constant HAS_UART_JTAG      : boolean := true;",
         "constant HAS_UART_PINS      : boolean := false;",
         "constant HAS_CLINT          : boolean := true;",
         "constant HAS_PLIC           : boolean := false;",
-    )
-
-
-def test_the_composed_constants_and_the_functions_are_written(
-    tmp_path: Path,
-) -> None:
-    """The composed constants and the two functions are written."""
-    text = _config(tmp_path, PLATFORM)
-    _has(
-        text,
         ":= HAS_M or HAS_ZMMUL;",
         ":= HAS_ZICNTR or HAS_ZIHPM;",
         ":= HAS_SSCOFPMF and HAS_ZIHPM and HAS_INTERRUPTS;",
         "function isa_string return string;",
         "function check_isa return boolean;",
         "end package body config_pkg;",
-        'if HAS_ZICNTR then\n\t\t\tadd("_zicntr");',
     )
-    check(text.startswith("-- " + "=" * 69 + "\n"), "72 columns")
     check_not_in("std_logic_arith", text)
+    check_not_in("PERIPH_SLOTS", text)
 
 
 def test_a_24_bit_platform_narrows_the_package(tmp_path: Path) -> None:
-    """`address_bits: 24` gives a 7-digit window and a 24-bit tag."""
+    """`address_bits: 24` gives 6-digit literals and a 24-bit tag."""
     text = _config(tmp_path, SMALL)
     _has(
         text,
         "constant ADDR_BITS          : natural := 24;",
-        "constant XLEN               : natural := 32;",
         "constant CACHE_WINDOW_BITS  : natural := 24;",
-        'unsigned\'(x"0800000")',
-        'constant PERIPH_SLOTS       : periph_slots_t := "01010000";',
+        'unsigned\'(x"800000"), ADDR_BITS + 1);',
+        'unsigned\'(x"000800"), ADDR_BITS + 1);',
     )
 
 
 def test_a_64_bit_platform_gets_the_wide_package(tmp_path: Path) -> None:
-    """An rv64 profile with 40 address bits gives 64-bit words."""
+    """An rv64 profile with 40 address bits gives `IS_64`, 10 digits."""
     text = _config(tmp_path, WIDE)
     _has(
         text,
         "constant IS_64              : boolean := true;",
         "constant ADDR_BITS          : natural := 40;",
-        "constant XLEN               : natural := 64;",
-        "constant NUM_REGS           : natural := 32;",
-        'unsigned\'(x"08000000000")',
+        'unsigned\'(x"8000000000"), ADDR_BITS + 1);',
+        'unsigned\'(x"0000000800"), ADDR_BITS + 1);',
     )
 
 
-def test_the_base_e_has_16_registers_of_4_bits(tmp_path: Path) -> None:
-    """The E base gives `NUM_REGS` 16 and `REG_BITS` 4."""
+def test_the_base_e_is_a_constant_of_the_package(tmp_path: Path) -> None:
+    """The E base turns `IS_BASE_E` on."""
     text = _config(tmp_path, {**PLATFORM, "profile": "rv32em_zicntr"})
-    _has(
-        text,
-        "constant IS_BASE_E          : boolean := true;",
-        "constant NUM_REGS           : natural := 16;",
-        "constant REG_BITS           : natural := 4;",
-        'add("e");',
-    )
+    _has(text, "constant IS_BASE_E          : boolean := true;")
 
 
 def test_a_variant_changes_the_width_and_the_base(tmp_path: Path) -> None:
@@ -216,17 +192,15 @@ def test_a_variant_changes_the_width_and_the_base(tmp_path: Path) -> None:
         "-- Variante: IS_64=true.",
         "-- Variante: ADDR_BITS=40.",
         "constant IS_64              : boolean := true;",
-        "constant XLEN               : natural := 64;",
         "constant ADDR_BITS          : natural := 40;",
         # As bases dos periféricos seguem a janela da nova largura.
-        'unsigned\'(x"08000000000")',
+        'unsigned\'(x"8000000000"), ADDR_BITS + 1);',
     )
     flipped = _config(tmp_path, PLATFORM, HAS_ZIHPM=True, IS_BASE_E=True)
     _has(
         flipped,
         "constant HAS_ZIHPM          : boolean := true;",
         "constant IS_BASE_E          : boolean := true;",
-        "constant NUM_REGS           : natural := 16;",
     )
 
 
@@ -327,11 +301,7 @@ def test_check_memory_map_compares_the_two_packages(tmp_path: Path) -> None:
     check_equal(len(problems), 1)
     check_in("HAS_ICACHE is False but HAS_ICACHE of", str(problems[0]))
     write_all(platform, tmp_path)
-    config.write_text(
-        config.read_text().replace(
-            'unsigned\'(x"000008000")', 'unsigned\'(x"000008400")'
-        )
-    )
+    config.write_text(config.read_text().replace('x"00008000"', 'x"00008400"'))
     _, problems = check_memory_map(platform, tmp_path)
     check_in("ROM_END is 33792 but ROM_END_KIB", str(problems[0]))
 
@@ -368,7 +338,7 @@ def test_cmd_generate_config_pkg_prints_and_writes(
     _has(
         out,
         "package config_pkg is",
-        "constant XLEN               : natural := 64;",
+        "constant IS_64              : boolean := true;",
     )
     args.output = "rtl/config_pkg.vhd"
     cli.cmd_generate_config_pkg(args)
@@ -404,3 +374,38 @@ def test_the_real_platform_config_pkg_is_stable(tmp_path: Path) -> None:
     platform.write_text(yaml.safe_dump(data, sort_keys=False))
     write_all(platform, tmp_path)
     check_equal(check_memory_map(platform, tmp_path)[1], [])
+
+
+DEFAULT_PLATFORM: dict[str, Any] = {
+    "profile": "rv32im_zicclsm",
+    "profiles": "matrix.yaml",
+    "regions": [
+        {"name": "BOOT_MEMORY", "base": "0x0", "size": "4K", "exec": True},
+        {"name": "FLASH", "base": "0x1000", "size": "28K", "exec": True},
+        {"name": "RAM", "base": "0x8000", "size": "0x3FFF8000", "kind": "ram"},
+    ],
+    "boot": {"entry": "0x1000", "wait_restart": "0x100"},
+    "generate": {
+        "vhdl": {
+            "rom": "FLASH",
+            "ram": "RAM",
+            "ext_base": "0x40000000",
+            "package": "map_pkg",
+            "path": "out/map_pkg.vhd",
+        },
+    },
+}
+
+
+def _after_header(text: str) -> str:
+    """Cut a package file at its `library` clause."""
+    return text[text.index("library ieee;") :]
+
+
+def test_the_defaults_are_the_package_of_the_common_components(
+    tmp_path: Path,
+) -> None:
+    """With the default values the package is the one of the Common."""
+    default = (REAL.parent / "config_pkg_default.vhd").read_text()
+    text = _config(tmp_path, DEFAULT_PLATFORM)
+    check_equal(_after_header(text), _after_header(default))

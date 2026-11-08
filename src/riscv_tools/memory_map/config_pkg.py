@@ -48,10 +48,7 @@ from riscv_tools.memory_map.profile import (
 from riscv_tools.memory_map.symbol_table import symbol_table
 
 PACKAGE = "config_pkg"
-XLEN_OF = {False: RV32_XLEN, True: RV64_XLEN}
-REGISTER_BITS = {"i": 5, "e": 4}
-NAME_WIDTH = 18
-SLOT_COUNT = 8
+TEMPLATE = Path(__file__).resolve().parent / "templates" / "config_pkg.vhd.in"
 
 # Constante do pacote de cada periférico e o nome dele em `peripherals`.
 PERIPHERALS = {
@@ -67,120 +64,17 @@ PERIPHERALS = {
     "HAS_PLIC": "PLIC",
     "HAS_FLASH_CTRL": "FLASH_CTRL",
 }
-# As extensões na ordem do texto da ISA: M, as Z alfabéticas, a S.
-ISA_ORDER = (
-    ("HAS_M", "m"),
-    ("HAS_ZICCLSM", "_zicclsm"),
-    ("HAS_ZICNTR", "_zicntr"),
-    ("HAS_ZICOND", "_zicond"),
-    ("HAS_ZICSR", "_zicsr"),
-    ("HAS_ZIFENCEI", "_zifencei"),
-    ("HAS_ZIHINTNTL", "_zihintntl"),
-    ("HAS_ZIHINTPAUSE", "_zihintpause"),
-    ("HAS_ZIHPM", "_zihpm"),
-    ("HAS_ZIMOP", "_zimop"),
-    ("HAS_ZMMUL", "_zmmul"),
-    ("HAS_SSCOFPMF", "_sscofpmf"),
-)
 _HEADER = """\
--- =====================================================================
--- Pacote de configuração da plataforma
--- =====================================================================
--- Constantes da plataforma, geradas por `riscv-tools` a partir de
--- {source}.
+-- ============================================================================
+-- Pacote de configuração da plataforma (constantes de elaboração)
+--
+-- Gerado por `riscv-tools` a partir de {source}.
 -- Não edite à mão: mude o YAML da plataforma e gere de novo.{variant}
 --
--- A unidade tem o nome do pacote padrão do Common-Components, e esta
--- versão ocupa o lugar dele na lista de fontes. Os limites do mapa
--- estão em bytes, no tipo map_addr_t, e as funções isa_string e
--- check_isa descrevem e conferem a combinação de extensões.
--- =====================================================================
+-- A unidade tem o nome do pacote padrão do Common-Components e as mesmas
+-- constantes e tipos, então esta versão ocupa o lugar dele na lista de fontes.
+-- ============================================================================
 
-library ieee;
-use ieee.std_logic_1164.all;
-use ieee.numeric_std.all;
-
-package {package} is
-
-{declarations}
-\t-- Texto da ISA da configuração, como rv32im_zicsr.
-\tfunction isa_string return string;
-\t-- Confere as dependências entre as constantes; falha na elaboração
-\t-- se a combinação é inválida e devolve verdadeiro se é válida.
-\tfunction check_isa return boolean;
-
-end package {package};
-
-package body {package} is
-
-\tfunction isa_string return string is
-\t\t-- Tamanho do espaço para montar o texto da ISA.
-\t\tconstant ISA_STRING_MAX : natural := 160;
-\t\t-- Texto montado, preenchido a partir da primeira posição.
-\t\tvariable text : string(1 to ISA_STRING_MAX) := (others => ' ');
-\t\t-- Quantidade de caracteres já escritos em text.
-\t\tvariable used : natural := 0;
-\t\t-- Acrescenta um trecho ao fim do texto.
-\t\tprocedure add (piece : string) is
-\t\tbegin
-\t\t\tfor index in piece'range loop
-\t\t\t\tused := used + 1;
-\t\t\t\ttext(used) := piece(index);
-\t\t\tend loop;
-\t\tend procedure add;
-\tbegin
-\t\tif IS_64 then
-\t\t\tadd("rv64");
-\t\telse
-\t\t\tadd("rv32");
-\t\tend if;
-\t\tif IS_BASE_E then
-\t\t\tadd("e");
-\t\telse
-\t\t\tadd("i");
-\t\tend if;
-{isa_steps}\t\treturn text(1 to used);
-\tend function isa_string;
-
-\tfunction check_isa return boolean is
-\tbegin
-\t\tassert ADDR_BITS >= ADDR_BITS_MIN and ADDR_BITS <= ADDR_BITS_MAX
-\t\t\treport "ADDR_BITS fora da faixa de 16 a 64"
-\t\t\tseverity failure;
-\t\tassert IS_64 or ADDR_BITS <= ADDR_BITS_MAX_RV32
-\t\t\treport "ADDR_BITS acima de 32 exige IS_64"
-\t\t\tseverity failure;
-\t\tassert HAS_ZICSR or not HAS_ANY_COUNTER
-\t\t\treport "Zicntr e Zihpm exigem Zicsr"
-\t\t\tseverity failure;
-\t\tassert HAS_ZICSR or not HAS_INTERRUPTS
-\t\t\treport "Interrupts exige Zicsr"
-\t\t\tseverity failure;
-\t\tassert HAS_ZICSR or not HAS_ACCESS_FAULTS
-\t\t\treport "AccessFaults exige Zicsr"
-\t\t\tseverity failure;
-\t\tassert HAS_SSCOF or not HAS_SSCOFPMF
-\t\t\treport "Sscofpmf exige Zihpm e Interrupts"
-\t\t\tseverity failure;
-\t\tassert ROM_BASE < ROM_END
-\t\t\treport "ROM_BASE deve ser menor que ROM_END"
-\t\t\tseverity failure;
-\t\tassert RAM_BASE < RAM_END
-\t\t\treport "RAM_BASE deve ser menor que RAM_END"
-\t\t\tseverity failure;
-\t\tassert ROM_END <= RAM_BASE or RAM_END <= ROM_BASE
-\t\t\treport "A ROM e a RAM se sobrepoem"
-\t\t\tseverity failure;
-\t\tassert ROM_END <= ADDR_SPACE_BYTES and RAM_END <= ADDR_SPACE_BYTES
-\t\t\treport "A ROM ou a RAM passa de 2**ADDR_BITS bytes"
-\t\t\tseverity failure;
-\t\tassert ROM_END <= PERIPH_BASE and RAM_END <= PERIPH_BASE
-\t\t\treport "A ROM ou a RAM passa da janela de perifericos"
-\t\t\tseverity failure;
-\t\treturn true;
-\tend function check_isa;
-
-end package body {package};
 """
 
 
@@ -210,8 +104,6 @@ class Config:
     addresses : dict of {str: int}
         `ROM_BASE`, `ROM_END`, `RAM_BASE`, `RAM_END`, `EXT_BASE` and
         `PERIPH_BASE`, in bytes.
-    slots : int
-        The mask of the peripheral windows that have a peripheral.
     """
 
     is_64: bool
@@ -223,7 +115,6 @@ class Config:
     boot_bits: int
     cache_window_bits: int
     addresses: dict[str, int]
-    slots: int
 
 
 def _override_value(item: str, name: str, text: str) -> bool | int:
@@ -508,9 +399,6 @@ def build_config(
     rom_external, ram_external = memory_choice.externals(
         _vhdl_spec(platform), choice
     )
-    slots = 0
-    for periph in platform_list(platform, "peripherals"):
-        slots |= 1 << int(periph["id"])
     return Config(
         is_64=xlen == RV64_XLEN,
         is_base_e=bool(overrides.get("IS_BASE_E", base == "e")),
@@ -521,22 +409,7 @@ def build_config(
         boot_bits=(table[f"{boot}.size"] - 1).bit_length(),
         cache_window_bits=memory_choice.cache_window_bits(platform),
         addresses=_addresses(platform, table),
-        slots=slots,
     )
-
-
-def _constant(name: str, kind: str, value: str, comment: str) -> str:
-    """Write one commented constant."""
-    return (
-        f"\t-- {comment}\n"
-        f"\tconstant {name:<{NAME_WIDTH}} : {kind} := {value};\n"
-    )
-
-
-def _boolean(name: str, value: bool | str, comment: str) -> str:
-    """Write one commented boolean constant."""
-    text = str(value).lower() if isinstance(value, bool) else value
-    return _constant(name, "boolean", text, comment)
 
 
 def _address(value: int, bits: int) -> str:
@@ -552,178 +425,12 @@ def _address(value: int, bits: int) -> str:
     Returns
     -------
     str
-        The expression: a hexadecimal literal wide enough for `bits + 1`
-        bits, resized to the length of `map_addr_t`.
+        The expression: a hexadecimal literal of the digits that `bits`
+        take (eight for 32 bits) or the value needs, resized to the
+        `bits + 1` bits of `map_addr_t`.
     """
-    digits = (bits + 4) // 4
-    return f"resize(unsigned'(x\"{value:0{digits}X}\"), map_addr_t'length)"
-
-
-def _base_block(config: Config) -> str:
-    """Write the base ISA, the widths and the types of the package."""
-    bits = config.address_bits
-    xlen = XLEN_OF[config.is_64]
-    base = "e" if config.is_base_e else "i"
-    return (
-        _boolean(
-            "IS_64",
-            config.is_64,
-            "Base de 64 bits (RV64) quando verdadeiro, 32 bits (RV32) "
-            "quando falso.",
-        )
-        + _boolean(
-            "IS_BASE_E",
-            config.is_base_e,
-            "Base E (16 registradores) quando verdadeiro, base I (32) "
-            "quando falso.",
-        )
-        + _constant(
-            "ADDR_BITS",
-            "natural",
-            str(bits),
-            "Largura do endereço físico em bits, de 16 a 64 (acima de 32 "
-            "só com IS_64).",
-        )
-        + _constant(
-            "ADDR_BITS_MIN",
-            "natural",
-            "16",
-            "Menor largura de endereço físico aceita.",
-        )
-        + _constant(
-            "ADDR_BITS_MAX",
-            "natural",
-            "64",
-            "Maior largura de endereço físico aceita.",
-        )
-        + _constant(
-            "ADDR_BITS_MAX_RV32",
-            "natural",
-            "32",
-            "Maior largura de endereço físico aceita sem IS_64.",
-        )
-        + _constant(
-            "XLEN",
-            "natural",
-            str(xlen),
-            "Largura da palavra de dados, do PC lógico e dos registradores.",
-        )
-        + _constant(
-            "NUM_REGS",
-            "natural",
-            "16" if base == "e" else "32",
-            "Número de registradores de uso geral.",
-        )
-        + _constant(
-            "REG_BITS",
-            "natural",
-            str(REGISTER_BITS[base]),
-            "Bits do índice de registrador.",
-        )
-        + "\t-- Palavra de dados de XLEN bits.\n"
-        "\tsubtype word_t is std_logic_vector((XLEN - 1) downto 0);\n"
-        "\t-- Índice de registrador.\n"
-        "\tsubtype reg_t is std_logic_vector((REG_BITS - 1) downto 0);\n"
-        "\t-- Endereço físico de ADDR_BITS bits.\n"
-        "\tsubtype addr_t is std_logic_vector((ADDR_BITS - 1) downto 0);\n"
-        "\t-- Endereço de mapa com um bit a mais, para representar o fim "
-        "exclusivo 2**ADDR_BITS.\n"
-        "\tsubtype map_addr_t is unsigned(ADDR_BITS downto 0);\n"
-        + _constant(
-            "ADDR_SPACE_BYTES",
-            "map_addr_t",
-            "shift_left(to_unsigned(1, map_addr_t'length), ADDR_BITS)",
-            "Tamanho do espaço de endereços, 2**ADDR_BITS bytes.",
-        )
-    )
-
-
-def _flag_block(config: Config) -> str:
-    """Write the `HAS_*` constants and the composed ones."""
-    text = "\n"
-    for name, value in config.flags.items():
-        if name in PERIPHERALS:
-            continue
-        what = name.removeprefix("HAS_").replace("_", " ").capitalize()
-        text += _boolean(name, value, f"Presença de {what} na plataforma.")
-    text += "\n" + _boolean(
-        "HAS_MULDIV",
-        "HAS_M or HAS_ZMMUL",
-        "Há multiplicação de inteiros, com M ou com Zmmul.",
-    )
-    text += _boolean(
-        "HAS_ANY_COUNTER",
-        "HAS_ZICNTR or HAS_ZIHPM",
-        "Há contadores de desempenho, com Zicntr ou com Zihpm.",
-    )
-    text += _boolean(
-        "HAS_SSCOF",
-        "HAS_SSCOFPMF and HAS_ZIHPM and HAS_INTERRUPTS",
-        "O estouro de contador gera interrupção: Sscofpmf com Zihpm e "
-        "interrupções.",
-    )
-    return text
-
-
-def _memory_block(config: Config) -> str:
-    """Write the externals, the cache window and the memory map."""
-    bits = config.address_bits
-    text = "\n" + _boolean(
-        "ROM_EXTERNAL", config.rom_external, "A ROM fica fora do núcleo."
-    )
-    text += _boolean(
-        "RAM_EXTERNAL", config.ram_external, "A RAM fica fora do núcleo."
-    )
-    text += _constant(
-        "BOOT_MEMORY_BITS",
-        "natural",
-        str(config.boot_bits),
-        "Expoente do tamanho da BOOT_MEMORY, em bytes (2**BOOT_MEMORY_BITS).",
-    )
-    text += _constant(
-        "CACHE_WINDOW_BITS",
-        "natural",
-        str(config.cache_window_bits),
-        "Largura da janela de endereços das caches, em bits: a tag guarda "
-        "os bits abaixo dela.",
-    )
-    comments = {
-        "ROM_BASE": "Base da ROM, em bytes.",
-        "ROM_END": "Fim exclusivo da ROM, em bytes.",
-        "RAM_BASE": "Base da RAM, em bytes.",
-        "RAM_END": "Fim exclusivo da RAM, em bytes.",
-        "EXT_BASE": "Base da janela externa, em bytes.",
-        "PERIPH_BASE": "Base da janela de periféricos, em bytes.",
-    }
-    text += "\n"
-    for name, value in config.addresses.items():
-        text += _constant(
-            name, "map_addr_t", _address(value, bits), comments[name]
-        )
-    return text
-
-
-def _peripheral_block(config: Config) -> str:
-    """Write the slots and the `HAS_*` constant of each peripheral."""
-    text = (
-        "\n\t-- Janelas de periférico que têm periférico (bit n para o "
-        "índice n).\n"
-        "\tsubtype periph_slots_t is std_logic_vector("
-        f"{SLOT_COUNT - 1} downto 0);\n"
-    )
-    text += _constant(
-        "PERIPH_SLOTS",
-        "periph_slots_t",
-        f'"{config.slots:0{SLOT_COUNT}b}"',
-        "Janelas de periférico ocupadas na plataforma.",
-    )
-    for flag, name in PERIPHERALS.items():
-        text += _boolean(
-            flag,
-            config.flags[flag],
-            f"O periférico {name} está presente na plataforma.",
-        )
-    return text
+    digits = max((bits + 3) // 4, len(f"{value:X}"))
+    return f'resize(unsigned\'(x"{value:0{digits}X}"), ADDR_BITS + 1)'
 
 
 def render_config_pkg(
@@ -745,27 +452,32 @@ def render_config_pkg(
     Returns
     -------
     str
-        The file: the header, the package of constants with
-        `isa_string` and `check_isa`, and the package body.
+        The file: the header, then the text of the package of the
+        Common-Components with the values of the platform.
     """
     variant = "".join(
         f"\n-- Variante: {key}={str(value).lower()}."
         for key, value in (overrides or {}).items()
     )
-    steps = "".join(
-        f'\t\tif {flag} then\n\t\t\tadd("{piece}");\n\t\tend if;\n'
-        for flag, piece in ISA_ORDER
-    )
-    return _HEADER.format(
-        source=source,
-        variant=variant,
-        package=PACKAGE,
-        isa_steps=steps,
-        declarations=_base_block(config)
-        + _flag_block(config)
-        + _memory_block(config)
-        + _peripheral_block(config),
-    )
+    bits = config.address_bits
+    fields: dict[str, str] = {
+        key.lower(): str(value).lower() for key, value in config.flags.items()
+    }
+    fields |= {
+        "is_64": str(config.is_64).lower(),
+        "is_base_e": str(config.is_base_e).lower(),
+        "addr_bits": str(bits),
+        "boot_memory_bits": str(config.boot_bits),
+        "cache_window_bits": str(config.cache_window_bits),
+        "rom_external": str(config.rom_external).lower(),
+        "ram_external": str(config.ram_external).lower(),
+    }
+    fields |= {
+        key.lower(): _address(value, bits)
+        for key, value in config.addresses.items()
+    }
+    body = TEMPLATE.read_text(encoding="utf-8").format(**fields)
+    return _HEADER.format(source=source, variant=variant) + body
 
 
 def source_name(platform_file: Path, root: Path) -> str:

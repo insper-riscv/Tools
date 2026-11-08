@@ -6,7 +6,7 @@ Confere que os arquivos VHDL de um repositório seguem o guia de estilo do proje
 
 | Regra | O que confere |
 | :--- | :--- |
-| `header` | O arquivo abre com o bloco de cabeçalho: uma linha de `=` de pelo menos 72 colunas, a descrição e uma linha de fechamento |
+| `header` | O arquivo abre com o bloco de cabeçalho: uma linha de `=` (de qualquer largura), a descrição e uma linha de fechamento |
 | `libraries` | Do pacote IEEE, só `std_logic_1164` e `numeric_std` |
 | `component` | Nenhuma declaração nem instanciação com `component`; a instância é direta, `u_x : entity work.x` |
 | `port-map` | Toda associação de um `port map` é por nome (`i_porta => sinal`) |
@@ -57,7 +57,8 @@ Cada repositório de VHDL chama o subcomando num passo do job `vhdl-syntax` (ou 
 | :--- | :--- |
 | `tests/test_vhdl_style.py::test_a_conforming_file_has_no_violation` | Um arquivo que segue o guia passa em todas as regras. |
 | `tests/test_vhdl_style.py::test_header_is_required` | Sem cabeçalho, o desvio sai na linha 1. |
-| `tests/test_vhdl_style.py::test_header_needs_description_and_closing_line` | Cabeçalho sem descrição, sem fechamento ou curto demais falha. |
+| `tests/test_vhdl_style.py::test_header_needs_description_and_closing_line` | Cabeçalho sem descrição ou sem fechamento falha. |
+| `tests/test_vhdl_style.py::test_header_has_no_minimum_width` | Um cabeçalho de 40 colunas passa, e os de 80 também. |
 | `tests/test_vhdl_style.py::test_libraries_allow_only_the_two_packages` | Outro pacote do IEEE falha. |
 | `tests/test_vhdl_style.py::test_component_is_forbidden_but_not_in_comments` | `component` falha, e o comentário que o cita não. |
 | `tests/test_vhdl_style.py::test_port_map_must_associate_by_name` | Associação posicional num `port map` falha. |

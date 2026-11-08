@@ -1,144 +1,133 @@
--- =====================================================================
--- Pacote de configuração da plataforma
--- =====================================================================
--- Constantes da plataforma, geradas por `riscv-tools` a partir de
--- src/cyclone-v/de0-cv/platform.yaml.
+-- ============================================================================
+-- Pacote de configuração da plataforma (constantes de elaboração)
+--
+-- Gerado por `riscv-tools` a partir de src/cyclone-v/de0-cv/platform.yaml.
 -- Não edite à mão: mude o YAML da plataforma e gere de novo.
 --
--- A unidade tem o nome do pacote padrão do Common-Components, e esta
--- versão ocupa o lugar dele na lista de fontes. Os limites do mapa
--- estão em bytes, no tipo map_addr_t, e as funções isa_string e
--- check_isa descrevem e conferem a combinação de extensões.
--- =====================================================================
+-- A unidade tem o nome do pacote padrão do Common-Components e as mesmas
+-- constantes e tipos, então esta versão ocupa o lugar dele na lista de fontes.
+-- ============================================================================
 
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.utils_pkg.all;
 
 package config_pkg is
 
-	-- Base de 64 bits (RV64) quando verdadeiro, 32 bits (RV32) quando falso.
+	-- Base de 64 bits (RV64) quando verdadeiro, de 32 bits (RV32) quando falso.
 	constant IS_64              : boolean := false;
 	-- Base E (16 registradores) quando verdadeiro, base I (32) quando falso.
 	constant IS_BASE_E          : boolean := false;
 	-- Largura do endereço físico em bits, de 16 a 64 (acima de 32 só com IS_64).
 	constant ADDR_BITS          : natural := 32;
-	-- Menor largura de endereço físico aceita.
-	constant ADDR_BITS_MIN      : natural := 16;
-	-- Maior largura de endereço físico aceita.
-	constant ADDR_BITS_MAX      : natural := 64;
-	-- Maior largura de endereço físico aceita sem IS_64.
-	constant ADDR_BITS_MAX_RV32 : natural := 32;
-	-- Largura da palavra de dados, do PC lógico e dos registradores.
-	constant XLEN               : natural := 32;
-	-- Número de registradores de uso geral.
-	constant NUM_REGS           : natural := 32;
-	-- Bits do índice de registrador.
-	constant REG_BITS           : natural := 5;
+
+	-- Largura em bits da palavra de dados, do PC lógico e dos registradores.
+	constant XLEN               : natural := pick(IS_64, 64, 32);
+	-- Largura em bits do índice de registrador: 4 na base E e 5 na base I.
+	constant REG_BITS           : natural := pick(IS_BASE_E, 4, 5);
+	-- Número de registradores de uso geral, 2 elevado a REG_BITS.
+	constant NUM_REGS           : natural := 2 ** REG_BITS;
+
 	-- Palavra de dados de XLEN bits.
 	subtype word_t is std_logic_vector((XLEN - 1) downto 0);
-	-- Índice de registrador.
+	-- Índice de registrador de uso geral de REG_BITS bits.
 	subtype reg_t is std_logic_vector((REG_BITS - 1) downto 0);
 	-- Endereço físico de ADDR_BITS bits.
 	subtype addr_t is std_logic_vector((ADDR_BITS - 1) downto 0);
-	-- Endereço de mapa com um bit a mais, para representar o fim exclusivo 2**ADDR_BITS.
+	-- Endereço de mapa em bytes, com um bit a mais para representar o fim exclusivo 2**ADDR_BITS.
 	subtype map_addr_t is unsigned(ADDR_BITS downto 0);
-	-- Tamanho do espaço de endereços, 2**ADDR_BITS bytes.
-	constant ADDR_SPACE_BYTES   : map_addr_t := shift_left(to_unsigned(1, map_addr_t'length), ADDR_BITS);
 
-	-- Presença de M na plataforma.
+	-- Extensão M (multiplicação e divisão) presente.
 	constant HAS_M              : boolean := true;
-	-- Presença de Zmmul na plataforma.
+	-- Extensão Zmmul (só multiplicação) presente; HAS_M já a inclui.
 	constant HAS_ZMMUL          : boolean := false;
-	-- Presença de Zicsr na plataforma.
+	-- Extensão Zicsr e tratamento de exceções do modo máquina presentes.
 	constant HAS_ZICSR          : boolean := true;
-	-- Presença de Zicntr na plataforma.
+	-- Extensão Zicntr (mcycle, minstret, time) presente; exige HAS_ZICSR.
 	constant HAS_ZICNTR         : boolean := true;
-	-- Presença de Zihpm na plataforma.
+	-- Extensão Zihpm (contadores de eventos) presente; exige HAS_ZICSR.
 	constant HAS_ZIHPM          : boolean := true;
-	-- Presença de Zimop na plataforma.
+	-- Extensão Zimop (mop.r.n e mop.rr.n) presente.
 	constant HAS_ZIMOP          : boolean := true;
-	-- Presença de Zicond na plataforma.
+	-- Extensão Zicond (czero.eqz e czero.nez) presente.
 	constant HAS_ZICOND         : boolean := true;
-	-- Presença de Zihintntl na plataforma.
+	-- Extensão Zihintntl (dicas ntl.*) presente.
 	constant HAS_ZIHINTNTL      : boolean := true;
-	-- Presença de Zihintpause na plataforma.
+	-- Extensão Zihintpause (dica pause) presente.
 	constant HAS_ZIHINTPAUSE    : boolean := true;
-	-- Presença de Zifencei na plataforma.
+	-- Extensão Zifencei (fence.i) presente.
 	constant HAS_ZIFENCEI       : boolean := true;
-	-- Presença de Zicclsm na plataforma.
+	-- Acesso desalinhado à memória principal atendido em hardware (Zicclsm).
 	constant HAS_ZICCLSM        : boolean := true;
-	-- Presença de Interrupts na plataforma.
+	-- Interrupções de máquina presentes (mip e mie); exige HAS_ZICSR.
 	constant HAS_INTERRUPTS     : boolean := true;
-	-- Presença de Sscofpmf na plataforma.
+	-- Extensão Sscofpmf (estouro de contador de eventos) presente; exige HAS_ZIHPM e HAS_INTERRUPTS.
 	constant HAS_SSCOFPMF       : boolean := true;
-	-- Presença de Access faults na plataforma.
+	-- Falhas de acesso (causas 1, 5 e 7) geradas fora do mapa válido; exige HAS_ZICSR.
 	constant HAS_ACCESS_FAULTS  : boolean := true;
-	-- Presença de Icache na plataforma.
+
+	-- Existe cache de instruções.
 	constant HAS_ICACHE         : boolean := true;
-	-- Presença de Dcache na plataforma.
+	-- Existe cache de dados.
 	constant HAS_DCACHE         : boolean := true;
 
-	-- Há multiplicação de inteiros, com M ou com Zmmul.
-	constant HAS_MULDIV         : boolean := HAS_M or HAS_ZMMUL;
-	-- Há contadores de desempenho, com Zicntr ou com Zihpm.
-	constant HAS_ANY_COUNTER    : boolean := HAS_ZICNTR or HAS_ZIHPM;
-	-- O estouro de contador gera interrupção: Sscofpmf com Zihpm e interrupções.
-	constant HAS_SSCOF          : boolean := HAS_SSCOFPMF and HAS_ZIHPM and HAS_INTERRUPTS;
-
-	-- A ROM fica fora do núcleo.
-	constant ROM_EXTERNAL       : boolean := true;
-	-- A RAM fica fora do núcleo.
-	constant RAM_EXTERNAL       : boolean := true;
-	-- Expoente do tamanho da BOOT_MEMORY, em bytes (2**BOOT_MEMORY_BITS).
+	-- Expoente do tamanho da BOOT_MEMORY, que ocupa os endereços [0, 2**BOOT_MEMORY_BITS).
 	constant BOOT_MEMORY_BITS   : natural := 12;
-	-- Largura da janela de endereços das caches, em bits: a tag guarda os bits abaixo dela.
+	-- Base da ROM em bytes, logo depois da BOOT_MEMORY.
+	constant ROM_BASE           : map_addr_t := resize(unsigned'(x"00001000"), ADDR_BITS + 1);
+	-- Fim exclusivo da ROM em bytes.
+	constant ROM_END            : map_addr_t := resize(unsigned'(x"00040000"), ADDR_BITS + 1);
+	-- A ROM é alcançada pela porta do núcleo (externa ou atrás de cache) quando verdadeiro.
+	constant ROM_EXTERNAL       : boolean := true;
+	-- Base da RAM em bytes.
+	constant RAM_BASE           : map_addr_t := resize(unsigned'(x"40000000"), ADDR_BITS + 1);
+	-- Fim exclusivo da RAM em bytes.
+	constant RAM_END            : map_addr_t := resize(unsigned'(x"44000000"), ADDR_BITS + 1);
+	-- A RAM é alcançada pela porta do núcleo (externa ou atrás de cache) quando verdadeiro.
+	constant RAM_EXTERNAL       : boolean := true;
+	-- Base da janela externa em bytes: todo endereço a partir dela sai pela porta externa.
+	constant EXT_BASE           : map_addr_t := resize(unsigned'(x"80000000"), ADDR_BITS + 1);
+	-- Base da janela de periféricos em bytes, 2**(ADDR_BITS - 1) por padrão.
+	constant PERIPH_BASE        : map_addr_t := resize(unsigned'(x"80000000"), ADDR_BITS + 1);
+	-- Largura em bits da janela de endereços das caches (26 é 64 MiB, 27 é 128 MiB).
 	constant CACHE_WINDOW_BITS  : natural := 26;
 
-	-- Base da ROM, em bytes.
-	constant ROM_BASE           : map_addr_t := resize(unsigned'(x"000001000"), map_addr_t'length);
-	-- Fim exclusivo da ROM, em bytes.
-	constant ROM_END            : map_addr_t := resize(unsigned'(x"000040000"), map_addr_t'length);
-	-- Base da RAM, em bytes.
-	constant RAM_BASE           : map_addr_t := resize(unsigned'(x"040000000"), map_addr_t'length);
-	-- Fim exclusivo da RAM, em bytes.
-	constant RAM_END            : map_addr_t := resize(unsigned'(x"044000000"), map_addr_t'length);
-	-- Base da janela externa, em bytes.
-	constant EXT_BASE           : map_addr_t := resize(unsigned'(x"080000000"), map_addr_t'length);
-	-- Base da janela de periféricos, em bytes.
-	constant PERIPH_BASE        : map_addr_t := resize(unsigned'(x"080000000"), map_addr_t'length);
-
-	-- Janelas de periférico que têm periférico (bit n para o índice n).
-	subtype periph_slots_t is std_logic_vector(7 downto 0);
-	-- Janelas de periférico ocupadas na plataforma.
-	constant PERIPH_SLOTS       : periph_slots_t := "11111000";
-	-- O periférico UART está presente na plataforma.
+	-- Periférico UART (console) presente.
 	constant HAS_UART           : boolean := true;
-	-- O periférico UART_PINS está presente na plataforma.
+	-- UART com os pinos da placa presente.
 	constant HAS_UART_PINS      : boolean := false;
-	-- O periférico UART_JTAG está presente na plataforma.
+	-- UART pelo JTAG presente.
 	constant HAS_UART_JTAG      : boolean := true;
-	-- O periférico TIMER está presente na plataforma.
+	-- Temporizador presente.
 	constant HAS_TIMER          : boolean := false;
-	-- O periférico GPIO está presente na plataforma.
+	-- Periférico de entrada e saída de uso geral (GPIO) presente.
 	constant HAS_GPIO           : boolean := false;
-	-- O periférico DISPLAY está presente na plataforma.
+	-- Display de sete segmentos presente.
 	constant HAS_DISPLAY        : boolean := true;
-	-- O periférico SWITCHES está presente na plataforma.
+	-- Chaves da placa presentes.
 	constant HAS_SWITCHES       : boolean := false;
-	-- O periférico KEYS está presente na plataforma.
+	-- Botões da placa presentes.
 	constant HAS_KEYS           : boolean := false;
-	-- O periférico CLINT está presente na plataforma.
+	-- CLINT (mtime e mtimecmp) presente.
 	constant HAS_CLINT          : boolean := true;
-	-- O periférico PLIC está presente na plataforma.
+	-- PLIC (controlador de interrupções externas) presente.
 	constant HAS_PLIC           : boolean := true;
-	-- O periférico FLASH_CTRL está presente na plataforma.
+	-- Controlador da memória FLASH presente.
 	constant HAS_FLASH_CTRL     : boolean := true;
 
-	-- Texto da ISA da configuração, como rv32im_zicsr.
+	-- Multiplicação presente, por M ou por Zmmul.
+	constant HAS_MULDIV         : boolean := HAS_M or HAS_ZMMUL;
+	-- Algum contador de hardware presente, Zicntr ou Zihpm.
+	constant HAS_ANY_COUNTER    : boolean := HAS_ZICNTR or HAS_ZIHPM;
+	-- Interrupção de estouro de contador (Sscofpmf) ativa, o que exige Zihpm e interrupções.
+	constant HAS_SSCOF          : boolean := HAS_SSCOFPMF and HAS_ZIHPM and HAS_INTERRUPTS;
+
+	-- Devolve o nome da ISA configurada, como rv32im_zicclsm, na ordem canônica das extensões.
 	function isa_string return string;
-	-- Confere as dependências entre as constantes; falha na elaboração
-	-- se a combinação é inválida e devolve verdadeiro se é válida.
+
+	-- Confere as dependências entre as constantes e falha na elaboração quando a configuração é
+	-- inválida; devolve sempre verdadeiro.
 	function check_isa return boolean;
 
 end package config_pkg;
@@ -146,104 +135,93 @@ end package config_pkg;
 package body config_pkg is
 
 	function isa_string return string is
-		-- Tamanho do espaço para montar o texto da ISA.
-		constant ISA_STRING_MAX : natural := 160;
-		-- Texto montado, preenchido a partir da primeira posição.
-		variable text : string(1 to ISA_STRING_MAX) := (others => ' ');
-		-- Quantidade de caracteres já escritos em text.
-		variable used : natural := 0;
-		-- Acrescenta um trecho ao fim do texto.
-		procedure add (piece : string) is
+		-- Texto acumulado, com folga para todas as extensões.
+		variable text  : string(1 to 128) := (others => ' ');
+		-- Número de caracteres já escritos em text.
+		variable count : natural := 0;
+
+		-- Acrescenta o trecho s ao final do texto.
+		procedure add(s : in string) is
 		begin
-			for index in piece'range loop
-				used := used + 1;
-				text(used) := piece(index);
+			for i in s'range loop
+				count := count + 1;
+				text(count) := s(i);
 			end loop;
 		end procedure add;
+
+		-- Acrescenta o trecho s quando a condição cond é verdadeira.
+		procedure add_if(cond : in boolean; s : in string) is
+		begin
+			if cond then
+				add(s);
+			end if;
+		end procedure add_if;
 	begin
-		if IS_64 then
-			add("rv64");
-		else
-			add("rv32");
-		end if;
-		if IS_BASE_E then
-			add("e");
-		else
-			add("i");
-		end if;
-		if HAS_M then
-			add("m");
-		end if;
-		if HAS_ZICCLSM then
-			add("_zicclsm");
-		end if;
-		if HAS_ZICNTR then
-			add("_zicntr");
-		end if;
-		if HAS_ZICOND then
-			add("_zicond");
-		end if;
-		if HAS_ZICSR then
-			add("_zicsr");
-		end if;
-		if HAS_ZIFENCEI then
-			add("_zifencei");
-		end if;
-		if HAS_ZIHINTNTL then
-			add("_zihintntl");
-		end if;
-		if HAS_ZIHINTPAUSE then
-			add("_zihintpause");
-		end if;
-		if HAS_ZIHPM then
-			add("_zihpm");
-		end if;
-		if HAS_ZIMOP then
-			add("_zimop");
-		end if;
-		if HAS_ZMMUL then
-			add("_zmmul");
-		end if;
-		if HAS_SSCOFPMF then
-			add("_sscofpmf");
-		end if;
-		return text(1 to used);
+		add_if(IS_64, "rv64");
+		add_if(not IS_64, "rv32");
+		add_if(IS_BASE_E, "e");
+		add_if(not IS_BASE_E, "i");
+		add_if(HAS_M, "m");
+		add_if(HAS_ZICCLSM, "_zicclsm");
+		add_if(HAS_ZICNTR, "_zicntr");
+		add_if(HAS_ZICOND, "_zicond");
+		add_if(HAS_ZICSR, "_zicsr");
+		add_if(HAS_ZIFENCEI, "_zifencei");
+		add_if(HAS_ZIHINTNTL, "_zihintntl");
+		add_if(HAS_ZIHINTPAUSE, "_zihintpause");
+		add_if(HAS_ZIHPM, "_zihpm");
+		add_if(HAS_ZIMOP, "_zimop");
+		add_if(HAS_ZMMUL and not HAS_M, "_zmmul");
+		add_if(HAS_SSCOFPMF, "_sscofpmf");
+		return text(1 to count);
 	end function isa_string;
 
 	function check_isa return boolean is
+		-- Um, na largura de map_addr_t, base das potências de dois do mapa.
+		constant ONE          : map_addr_t := to_unsigned(1, ADDR_BITS + 1);
+		-- Fim da BOOT_MEMORY em bytes, 2**BOOT_MEMORY_BITS.
+		constant BOOT_END     : map_addr_t := shift_left(ONE, BOOT_MEMORY_BITS);
+		-- Fim do espaço de endereços físico em bytes, 2**ADDR_BITS.
+		constant SPACE_END    : map_addr_t := shift_left(ONE, ADDR_BITS);
 	begin
-		assert ADDR_BITS >= ADDR_BITS_MIN and ADDR_BITS <= ADDR_BITS_MAX
-			report "ADDR_BITS fora da faixa de 16 a 64"
-			severity failure;
-		assert IS_64 or ADDR_BITS <= ADDR_BITS_MAX_RV32
-			report "ADDR_BITS acima de 32 exige IS_64"
-			severity failure;
-		assert HAS_ZICSR or not HAS_ANY_COUNTER
+		assert not (HAS_ZICNTR or HAS_ZIHPM) or HAS_ZICSR
 			report "Zicntr e Zihpm exigem Zicsr"
 			severity failure;
-		assert HAS_ZICSR or not HAS_INTERRUPTS
-			report "Interrupts exige Zicsr"
+		assert not HAS_INTERRUPTS or HAS_ZICSR
+			report "interrupcoes exigem Zicsr"
 			severity failure;
-		assert HAS_ZICSR or not HAS_ACCESS_FAULTS
-			report "AccessFaults exige Zicsr"
+		assert not HAS_SSCOFPMF or (HAS_ZIHPM and HAS_INTERRUPTS)
+			report "Sscofpmf exige Zihpm e interrupcoes"
 			severity failure;
-		assert HAS_SSCOF or not HAS_SSCOFPMF
-			report "Sscofpmf exige Zihpm e Interrupts"
+		assert not HAS_ACCESS_FAULTS or HAS_ZICSR
+			report "falhas de acesso exigem Zicsr"
 			severity failure;
-		assert ROM_BASE < ROM_END
-			report "ROM_BASE deve ser menor que ROM_END"
+		assert ADDR_BITS >= 16 and ADDR_BITS <= 64
+			report "ADDR_BITS fora de 16..64"
+			severity failure;
+		assert IS_64 or ADDR_BITS <= 32
+			report "ADDR_BITS > 32 exige IS_64"
+			severity failure;
+		assert BOOT_MEMORY_BITS < ADDR_BITS
+			report "BOOT_MEMORY_BITS deve ser menor que ADDR_BITS"
+			severity failure;
+		assert BOOT_END <= ROM_BASE
+			report "a ROM deve comecar depois da BOOT_MEMORY"
+			severity failure;
+		assert ROM_END <= RAM_BASE
+			report "a ROM deve terminar antes da RAM"
 			severity failure;
 		assert RAM_BASE < RAM_END
-			report "RAM_BASE deve ser menor que RAM_END"
+			report "a RAM deve ter tamanho positivo"
 			severity failure;
-		assert ROM_END <= RAM_BASE or RAM_END <= ROM_BASE
-			report "A ROM e a RAM se sobrepoem"
+		assert RAM_END <= EXT_BASE
+			report "a RAM deve terminar antes da janela externa"
 			severity failure;
-		assert ROM_END <= ADDR_SPACE_BYTES and RAM_END <= ADDR_SPACE_BYTES
-			report "A ROM ou a RAM passa de 2**ADDR_BITS bytes"
+		assert EXT_BASE <= PERIPH_BASE
+			report "a janela externa deve terminar antes dos perifericos"
 			severity failure;
-		assert ROM_END <= PERIPH_BASE and RAM_END <= PERIPH_BASE
-			report "A ROM ou a RAM passa da janela de perifericos"
+		assert PERIPH_BASE < SPACE_END
+			report "a janela de perifericos deve caber em 2**ADDR_BITS"
 			severity failure;
 		return true;
 	end function check_isa;

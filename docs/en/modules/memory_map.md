@@ -298,20 +298,20 @@ V-A5 is only checked when the profile is resolved, which `generate-memory-map` a
 
 ### 10.1. Contents
 
-The `config_pkg` is the VHDL package of constants of a platform, written from the `platform.yaml`. It has the unit name of the default package of the Common-Components, so the generated version takes its place in the list of sources. It is a package of constants, not a generic one, because the Quartus Lite refuses a generic package.
+The `config_pkg` is the VHDL package of constants of a platform, written from the `platform.yaml`. It has the contract of the default package of the Common-Components (`src/config_pkg.vhd`), with the same unit name, constants, types and functions, and only the values change, so the generated version takes its place in the list of sources. With the default values (RV32IM, 32 address bits, no peripherals) the text is identical to the one of the Common-Components, except for the generation header. It is a package of constants, not a generic one, because the Quartus Lite refuses a generic package.
 
 | Group | Constants |
 | :--- | :--- |
-| Base and widths | `IS_64`, `IS_BASE_E`, `ADDR_BITS`, `XLEN`, `NUM_REGS`, `REG_BITS`, `ADDR_BITS_MIN`, `ADDR_BITS_MAX`, `ADDR_BITS_MAX_RV32`, `ADDR_SPACE_BYTES` and the subtypes `word_t`, `reg_t`, `addr_t` and `map_addr_t` |
-| Extensions | One `HAS_<EXTENSION>` per key of the profile (`HAS_M` to `HAS_ACCESS_FAULTS`), `HAS_ICACHE` and `HAS_DCACHE` |
+| Base and widths | `IS_64`, `IS_BASE_E`, `ADDR_BITS`, `XLEN`, `REG_BITS`, `NUM_REGS` and the subtypes `word_t`, `reg_t`, `addr_t` and `map_addr_t` |
+| Extensions and caches | One `HAS_<EXTENSION>` per key of the profile (`HAS_M` to `HAS_ACCESS_FAULTS`), `HAS_ICACHE` and `HAS_DCACHE` |
+| Memory | `BOOT_MEMORY_BITS`, the map in bytes of type `map_addr_t` (`ROM_BASE`, `ROM_END`, `RAM_BASE`, `RAM_END`, `EXT_BASE`, `PERIPH_BASE`), `ROM_EXTERNAL`, `RAM_EXTERNAL` and `CACHE_WINDOW_BITS` |
+| Peripherals | One `HAS_<PERIPHERAL>` for `UART`, `UART_PINS`, `UART_JTAG`, `TIMER`, `GPIO`, `DISPLAY`, `SWITCHES`, `KEYS`, `CLINT`, `PLIC` and `FLASH_CTRL` |
 | Composed | `HAS_MULDIV` (`HAS_M or HAS_ZMMUL`), `HAS_ANY_COUNTER` (`HAS_ZICNTR or HAS_ZIHPM`) and `HAS_SSCOF` (`HAS_SSCOFPMF and HAS_ZIHPM and HAS_INTERRUPTS`) |
-| Memory | `ROM_EXTERNAL`, `RAM_EXTERNAL`, `BOOT_MEMORY_BITS`, `CACHE_WINDOW_BITS` and the map in bytes of type `map_addr_t` (`ROM_BASE`, `ROM_END`, `RAM_BASE`, `RAM_END`, `EXT_BASE`, `PERIPH_BASE`) |
-| Peripherals | `PERIPH_SLOTS` and one `HAS_<PERIPHERAL>` for `UART`, `UART_PINS`, `UART_JTAG`, `TIMER`, `GPIO`, `DISPLAY`, `SWITCHES`, `KEYS`, `CLINT`, `PLIC` and `FLASH_CTRL` |
 | Functions | `isa_string`, the ISA text (`rv32im_zicsr_zicntr`), and `check_isa`, which fails at elaboration when a dependency between constants does not hold |
 
-`map_addr_t` is `unsigned(ADDR_BITS downto 0)`, with one extra bit to represent the exclusive end $2^{\text{ADDR\_BITS}}$. Each address comes out as a hexadecimal literal. `HAS_<PERIPHERAL>` is true when the name is in `peripherals`, and the `UART` counts as `HAS_UART_JTAG` when `console` is `jtag` and as `HAS_UART_PINS` when `console` is `pins`. The `HAS_E` of the map package is the `IS_BASE_E` here.
+`map_addr_t` is `unsigned(ADDR_BITS downto 0)`, with one extra bit to represent the exclusive end $2^{\text{ADDR\_BITS}}$. Each address comes out as a hexadecimal literal with the digits that `ADDR_BITS` asks for (eight with 32 bits), so the width holds below and above 32 bits too. `HAS_<PERIPHERAL>` is true when the name is in `peripherals`, and the `UART` counts as `HAS_UART_JTAG` when `console` is `jtag` and as `HAS_UART_PINS` when `console` is `pins`. The `HAS_E` of the map package is the `IS_BASE_E` here.
 
-`check_isa` checks that the counters, the interrupts and the access faults have `Zicsr`, that `Sscofpmf` has `Zihpm` and interrupts, that `ADDR_BITS` is from 16 to 64 and above 32 only with `IS_64`, and that the ROM and the RAM do not overlap, do not go past $2^{\text{ADDR\_BITS}}$ and stay below the peripheral window. The entities call it once, in an `if check_isa generate`.
+`check_isa` checks that the counters, the interrupts and the access faults have `Zicsr`, that `Sscofpmf` has `Zihpm` and interrupts, that `ADDR_BITS` is from 16 to 64 and above 32 only with `IS_64`, and the order of the BOOT_MEMORY, the ROM, the RAM, the external window and the peripheral window inside $2^{\text{ADDR\_BITS}}$. The entities call it once, in an `if check_isa generate`.
 
 ### 10.2. Generating it with the map
 
@@ -332,10 +332,10 @@ At this stage the `config_pkg` comes next to the map package, which loses no con
 | Constant of the `*_map_pkg` | Constant of the `config_pkg` |
 | :--- | :--- |
 | `HAS_E` | `IS_BASE_E` |
-| `HAS_<EXTENSION>`, `HAS_ICACHE`, `HAS_DCACHE`, `ROM_EXTERNAL`, `RAM_EXTERNAL`, `BOOT_MEMORY_BITS`, `CACHE_WINDOW_BITS`, `PERIPH_SLOTS` | The same |
+| `HAS_<EXTENSION>`, `HAS_ICACHE`, `HAS_DCACHE`, `ROM_EXTERNAL`, `RAM_EXTERNAL`, `BOOT_MEMORY_BITS`, `CACHE_WINDOW_BITS` | The same |
 | `ROM_BASE_KIB`, `ROM_END_KIB`, `RAM_BASE_KIB`, `RAM_END_KIB`, `EXT_BASE_KIB`, `PERIPH_BASE_KIB` | `ROM_BASE`, `ROM_END`, `RAM_BASE`, `RAM_END`, `EXT_BASE`, `PERIPH_BASE`, in bytes |
 
-Only the map package has `BOOT_MEMORY_SIZE_BYTES`, the `*_STORAGE_BYTES`, `RAM_LAST_PAGE`, the cache sizes, `ROM_VIA_PORT`, `RAM_VIA_PORT`, the `<NAME>_BASE` and `<NAME>_ID` of each peripheral and the constants of the CLINT, the PLIC and the SDRAM clock. Only the `config_pkg` has the base and the widths, the types, the composed constants, `HAS_<PERIPHERAL>` and the functions. A map package does not write a KiB value that does not fit a `natural`, nor the last page of the RAM above 32 bits.
+Only the map package has `BOOT_MEMORY_SIZE_BYTES`, the `*_STORAGE_BYTES`, `RAM_LAST_PAGE`, the cache sizes, `ROM_VIA_PORT`, `RAM_VIA_PORT`, the `<NAME>_BASE` and `<NAME>_ID` of each peripheral and the constants of the CLINT, the PLIC and the SDRAM clock. Only the `config_pkg` has the base and the widths, the types, the composed constants, `HAS_<PERIPHERAL>` and the functions, and the map package also has `PERIPH_SLOTS`. A map package does not write a KiB value that does not fit a `natural`, nor the last page of the RAM above 32 bits.
 
 When the platform asks for both files, `check-memory-map` reads both from disk and fails with `config-pkg` for a missing file or for a constant with different values in the two.
 

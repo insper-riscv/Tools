@@ -6,7 +6,7 @@ Checks that the VHDL files of a repository follow the style guide of the project
 
 | Rule | What it checks |
 | :--- | :--- |
-| `header` | The file opens with the header block: a line of `=` of at least 72 columns, the description and a closing line |
+| `header` | The file opens with the header block: a line of `=` (of any width), the description and a closing line |
 | `libraries` | From the IEEE library, only `std_logic_1164` and `numeric_std` |
 | `component` | No declaration or instantiation with `component`; the instance is direct, `u_x : entity work.x` |
 | `port-map` | Every association of a `port map` is by name (`i_port => signal`) |
@@ -57,7 +57,8 @@ Each VHDL repository calls the subcommand in a step of the `vhdl-syntax` job (or
 | :--- | :--- |
 | `tests/test_vhdl_style.py::test_a_conforming_file_has_no_violation` | A file that follows the guide passes every rule. |
 | `tests/test_vhdl_style.py::test_header_is_required` | Without a header the deviation is reported on line 1. |
-| `tests/test_vhdl_style.py::test_header_needs_description_and_closing_line` | A header without description, without closing line or too short fails. |
+| `tests/test_vhdl_style.py::test_header_needs_description_and_closing_line` | A header without description or without closing line fails. |
+| `tests/test_vhdl_style.py::test_header_has_no_minimum_width` | A header of 40 columns passes, and so do the ones of 80. |
 | `tests/test_vhdl_style.py::test_libraries_allow_only_the_two_packages` | Another IEEE package fails. |
 | `tests/test_vhdl_style.py::test_component_is_forbidden_but_not_in_comments` | `component` fails, and the comment that names it does not. |
 | `tests/test_vhdl_style.py::test_port_map_must_associate_by_name` | A positional association in a `port map` fails. |
