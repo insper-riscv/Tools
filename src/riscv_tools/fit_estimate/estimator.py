@@ -124,34 +124,13 @@ def terms(
         Coefficient path to the value it multiplies.
     """
     out: dict[str, float] = {f"core.{spec.base}": 1.0}
-    has_m = "M" in spec.extensions
-    if any(name in spec.extensions for name in CSR_EXTENSIONS):
-        out["extensions.Zicsr"] = 1.0
-    if "Zicntr" in spec.extensions:
-        out["extensions.Zicntr"] = 1.0
-    if has_m or "Zmmul" in spec.extensions:
-        out["extensions.Zmmul"] = 1.0
-    if has_m:
-        out["extensions.M"] = 1.0
+    out.update(_isa_terms(spec))
     out.update(
         {f"extensions.{n}": 1.0 for n in FLAG_EXTENSIONS if _has(spec, n)}
     )
     out.update({f"extras.{n}": 1.0 for n in FLAG_EXTRAS if _has(spec, n)})
-    hpm = "Zihpm" in spec.extensions
-    if hpm:
-        count = float(spec.hpm_counters)
-        out["zihpm.a0"] = 1.0
-        out["zihpm.a1"] = count
-        out["zihpm.a2"] = count * spec.hpm_width
-    if hpm and _has(spec, "Sscofpmf") and _has(spec, "Interrupts"):
-        out["extras.Sscofpmf"] = 1.0
-    for cache, kbit in (
-        ("icache", spec.icache_kbit),
-        ("dcache", spec.dcache_kbit),
-    ):
-        if kbit is not None:
-            out[f"cache.{cache}.c0"] = 1.0
-            out[f"cache.{cache}.c1"] = float(kbit)
+    out.update(_hpm_terms(spec))
+    out.update(_cache_terms(spec))
     out.update({f"peripherals.{name}": 1.0 for name in spec.peripherals})
     out.update({f"backends.{name}": 1.0 for name in spec.backends})
     if bits_per_block and spec.emulated_bytes:
@@ -161,6 +140,49 @@ def terms(
                 for size in spec.emulated_bytes
             )
         )
+    return out
+
+
+def _cache_terms(spec: ProfileSpec) -> dict[str, float]:
+    """Return the two terms of each cache the profile has."""
+    out: dict[str, float] = {}
+    for cache, kbit in (
+        ("icache", spec.icache_kbit),
+        ("dcache", spec.dcache_kbit),
+    ):
+        if kbit is not None:
+            out[f"cache.{cache}.c0"] = 1.0
+            out[f"cache.{cache}.c1"] = float(kbit)
+    return out
+
+
+def _isa_terms(spec: ProfileSpec) -> dict[str, float]:
+    """Return the terms of Zicsr, Zicntr, Zmmul and M."""
+    out: dict[str, float] = {}
+    has_m = "M" in spec.extensions
+    if any(name in spec.extensions for name in CSR_EXTENSIONS):
+        out["extensions.Zicsr"] = 1.0
+    if "Zicntr" in spec.extensions:
+        out["extensions.Zicntr"] = 1.0
+    if has_m or "Zmmul" in spec.extensions:
+        out["extensions.Zmmul"] = 1.0
+    if has_m:
+        out["extensions.M"] = 1.0
+    return out
+
+
+def _hpm_terms(spec: ProfileSpec) -> dict[str, float]:
+    """Return the terms of the Zihpm counters and of Sscofpmf."""
+    if "Zihpm" not in spec.extensions:
+        return {}
+    count = float(spec.hpm_counters)
+    out = {
+        "zihpm.a0": 1.0,
+        "zihpm.a1": count,
+        "zihpm.a2": count * spec.hpm_width,
+    }
+    if _has(spec, "Sscofpmf") and _has(spec, "Interrupts"):
+        out["extras.Sscofpmf"] = 1.0
     return out
 
 

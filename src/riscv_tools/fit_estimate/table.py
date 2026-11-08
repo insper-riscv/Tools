@@ -139,16 +139,17 @@ def flatten(coefficients: Mapping[str, Any]) -> dict[str, float | None]:
         One entry per leaf.
     """
     flat: dict[str, float | None] = {}
-
-    def walk(prefix: str, node: Any) -> None:
-        if isinstance(node, Mapping):
-            for key, value in cast("Mapping[str, Any]", node).items():
-                walk(f"{prefix}.{key}" if prefix else str(key), value)
-        else:
-            flat[prefix] = None if node is None else float(node)
-
-    walk("", coefficients)
+    _walk("", coefficients, flat)
     return flat
+
+
+def _walk(prefix: str, node: Any, flat: dict[str, float | None]) -> None:
+    """Add to ``flat`` the leaves under ``node``, by path."""
+    if not isinstance(node, Mapping):
+        flat[prefix] = None if node is None else float(node)
+        return
+    for key, value in cast("Mapping[str, Any]", node).items():
+        _walk(f"{prefix}.{key}" if prefix else str(key), value, flat)
 
 
 def nest(flat: Mapping[str, float | None]) -> dict[str, Any]:
@@ -202,6 +203,28 @@ def allowed_paths(vocabulary: Vocabulary | None) -> set[str] | None:
     return paths
 
 
+def _checked_coefficients(
+    data: Mapping[str, Any], vocabulary: Vocabulary | None
+) -> dict[str, float | None]:
+    """Flatten the coefficients of a table and refuse the illegal."""
+    raw = cast("Mapping[str, Any]", data.get("coefficients") or {})
+    for group in raw:
+        if group not in (*GROUPS, *SCALARS):
+            msg = f"unknown coefficient group '{group}'"
+            raise ValueError(msg)
+    try:
+        flat = flatten(raw)
+    except (TypeError, ValueError) as error:
+        msg = f"coefficient is not a number: {error}"
+        raise ValueError(msg) from error
+    allowed = allowed_paths(vocabulary)
+    for path in flat:
+        if allowed is not None and path not in allowed:
+            msg = f"coefficient '{path}' is not in the catalogs"
+            raise ValueError(msg)
+    return flat
+
+
 def table_from_mapping(
     data: Mapping[str, Any], vocabulary: Vocabulary | None = None
 ) -> CalibrationTable:
@@ -231,21 +254,7 @@ def table_from_mapping(
     if not isinstance(family, str) or unit not in UNITS:
         msg = "table needs 'family' and a 'unit' of alm or le"
         raise ValueError(msg)
-    raw = cast("Mapping[str, Any]", data.get("coefficients") or {})
-    for group in raw:
-        if group not in (*GROUPS, *SCALARS):
-            msg = f"unknown coefficient group '{group}'"
-            raise ValueError(msg)
-    try:
-        flat = flatten(raw)
-    except (TypeError, ValueError) as error:
-        msg = f"coefficient is not a number: {error}"
-        raise ValueError(msg) from error
-    allowed = allowed_paths(vocabulary)
-    for path in flat:
-        if allowed is not None and path not in allowed:
-            msg = f"coefficient '{path}' is not in the catalogs"
-            raise ValueError(msg)
+    flat = _checked_coefficients(data, vocabulary)
     known = {
         key: value
         for key, value in data.items()
