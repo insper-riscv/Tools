@@ -87,6 +87,29 @@ Cada placa tem um arquivo de trava, tomado com `flock` exclusivo durante a sess�
 
 O dono grava no arquivo o host, o usuário, o processo, o comando e o instante. Quem encontra a placa ocupada lê esse registro; um `flock` comum não grava nada, e a mensagem diz isso. Sem `--wait`, a trava falha na hora, e `--wait` sozinho espera até 4 horas.
 
+### 7.1. Fixar o arquivo de trava do laboratório
+
+Sem o campo `host`, o nome da trava leva o nome curto da máquina (`de0cv-<nome da máquina>.lock`), que só coincide com os arquivos do laboratório quando a máquina se chama `ws` ou `laptop`. Para que o arquivo seja sempre `/tmp/de0cv-ws.lock` na estação de trabalho e `/tmp/de0cv-laptop.lock` no notebook, o inventário do host fixa o rótulo.
+
+| Máquina | Inventário | Arquivo da DE0-CV |
+| :--- | :--- | :--- |
+| Estação de trabalho | `host: ws` | `/tmp/de0cv-ws.lock` |
+| Notebook | `host: laptop` | `/tmp/de0cv-laptop.lock` |
+
+```yaml
+host: laptop
+lock_dir: /tmp
+boards:
+- {id: de0-cv-laptop, board: de0-cv, usb_path: "pci-0000:00:14.0-usb-0:1"}
+```
+
+O rótulo também vem da variável `RISCV_TOOLS_HOST`, quando o inventário não tem `host`. Uma entrada que precisa de um nome de arquivo fora dessa regra o escreve em `lock_file`, e o valor vale por inteiro.
+
+```yaml
+boards:
+- {id: de0-cv-laptop, board: de0-cv, usb_path: "pci-0000:00:14.0-usb-0:1", lock_file: /tmp/de0cv-laptop.lock}
+```
+
 ## 8. Placas sem USB-Blaster padrão
 
 A DE10-Nano usa o USB-Blaster II, com o cabo `DE-SoC [USB-1]` e a cadeia de dois dispositivos, o HPS (`4BA00477`) e o FPGA (`02D020DD`). O FPGA é o segundo da cadeia, e a identidade do dispositivo usa a posição `@2`. O `doctor` avisa do firmware ainda não carregado (`09fb:6010`), do cabo que não aparece (`09fb:6810` sem cabo `DE-SoC`) e sugere remover o HPS da cadeia no programador diante do erro 209025, sem aplicar nada.

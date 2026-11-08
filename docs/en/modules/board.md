@@ -87,6 +87,29 @@ Each board has a lock file, taken with an exclusive `flock` for the whole sessio
 
 The owner writes the host, the user, the process, the command and the time into the file. Whoever finds the board busy reads that record; a plain `flock` records nothing, and the message says so. Without `--wait` the lock fails at once, and `--wait` alone waits up to 4 hours.
 
+### 7.1. Fixing the lab lock file
+
+Without the `host` field, the lock name carries the short machine name (`de0cv-<machine name>.lock`), which only matches the lab files when the machine is called `ws` or `laptop`. For the file to be always `/tmp/de0cv-ws.lock` on the workstation and `/tmp/de0cv-laptop.lock` on the laptop, the inventory of the host fixes the label.
+
+| Machine | Inventory | DE0-CV file |
+| :--- | :--- | :--- |
+| Workstation | `host: ws` | `/tmp/de0cv-ws.lock` |
+| Laptop | `host: laptop` | `/tmp/de0cv-laptop.lock` |
+
+```yaml
+host: laptop
+lock_dir: /tmp
+boards:
+- {id: de0-cv-laptop, board: de0-cv, usb_path: "pci-0000:00:14.0-usb-0:1"}
+```
+
+The label also comes from the `RISCV_TOOLS_HOST` variable, when the inventory has no `host`. An entry that needs a file name outside this rule writes it in `lock_file`, and the value applies as is.
+
+```yaml
+boards:
+- {id: de0-cv-laptop, board: de0-cv, usb_path: "pci-0000:00:14.0-usb-0:1", lock_file: /tmp/de0cv-laptop.lock}
+```
+
 ## 8. Boards without a standard USB-Blaster
 
 The DE10-Nano uses the USB-Blaster II, with the cable `DE-SoC [USB-1]` and a chain of two devices, the HPS (`4BA00477`) and the FPGA (`02D020DD`). The FPGA is the second on the chain, and the device identity uses position `@2`. The `doctor` warns about firmware not yet loaded (`09fb:6010`), about a cable that does not show up (`09fb:6810` with no `DE-SoC` cable) and suggests removing the HPS from the chain in the programmer on error 209025, without applying anything.
