@@ -2,7 +2,7 @@
 
 Measures the area of the profiles of a family with the compile command of the project and fits the coefficients of the `fit_estimate` estimator. The module does not synthesize by itself. With a hand-written project it runs the script the project already has (`de0-cv_synth.tcl map`); with a board project (`project.board` in the profile list) it writes the project with `board generate` and runs the single `compile.tcl` of `program`, only up to the synthesis (`quartus_map`) or, with `--stop-after fit`, also up to the fitter.
 
-## Measuring a profile
+## 1. Measuring a profile
 
 For each profile of the list the loop does, in this order:
 
@@ -16,7 +16,7 @@ For each profile of the list the loop does, in this order:
 
 A profile whose record already holds the same hash, seed and generics is skipped, so an interrupted run resumes where it stopped.
 
-## Raw record
+## 2. Raw record
 
 One file per profile, in `boards/calibration/raw/<family>/<id>.yaml`.
 
@@ -33,7 +33,7 @@ One file per profile, in `boards/calibration/raw/<family>/<id>.yaml`.
 | `fit_result` | the same fields read from the fitter (only with `--stop-after fit`) |
 | `entities` | hierarchy down to the first level |
 
-## Fit
+## 3. Fit
 
 The model is linear in the coefficients, and the fit is a least squares over the profiles that are not validation ones. Columns that no combination of the earlier ones separates stay `null` (list `unseparated`). The terms that the fixed top of the board carries in every measurement go to `fixed` with value zero (the SDRAM, the FLASH, the display, the JTAG UART and the FLASH controller stay inside the core term), and the term of each cache is $c_0 = -s_{ref}\,c_1$, because the reference size is already in the core.
 
@@ -41,11 +41,11 @@ The recorded error holds the root mean square error over the fit profiles (`rms_
 
 A profile marked `outside: true` in the profile list was measured but lies outside the linear domain of the model (for instance a cache the synthesis turns into registers). It enters neither the fit nor the errors, and its residual stays in the table with `outside` true.
 
-## Verification on another device
+## 4. Verification on another device
 
 The table of a family is the fit of one device and one top. `calibrate verify` compares the table with profiles measured on another device of the same family (its profile list carries its `board`). Each profile is compared twice: with the table as it is (`error_pct`) and with the core term moved by the difference measured on the anchor profile (`anchored_error_pct`, default `p1_rv32i`), so the part of the top that changes from one board to the other leaves the account and the increments of the extensions and caches remain. The result carries the shift (`shift`), the largest error and the root mean square error of the profiles other than the anchor.
 
-## Functions
+## 5. Functions
 
 | Function | Does |
 | :--- | :--- |
@@ -57,7 +57,7 @@ The table of a family is the fit of one device and one top. `calibrate verify` c
 | `verify_table(plan, table, records, anchor)` | compares the table with the records of another device |
 | `fit_ratio_check(plan, records)` | fit over synthesis ratio measured on the records with `fit_result` |
 
-## Command
+## 6. Command
 
 ```bash
 riscv-tools --root <Insper-RISC-V> calibrate run --profiles boards/calibration/profiles/cyclone-v.yaml --raw boards/calibration/raw/cyclone-v [--only id1,id2] [--stop-after map|fit] [--riscv-tools "<command>"] [--work-dir FOLDER] [--lock FILE] [--keep]
@@ -65,7 +65,7 @@ riscv-tools --root <Insper-RISC-V> calibrate fit --profiles boards/calibration/p
 riscv-tools --root <Insper-RISC-V> calibrate verify --profiles boards/calibration/profiles/verify-de0-nano.yaml --raw boards/calibration/raw/verify-de0-nano --table boards/calibration/cyclone-iv-e.yaml --output boards/calibration/verification/de0-nano.yaml [--anchor p1_rv32i]
 ```
 
-## Tests
+## 7. Tests
 
 `tests/test_calibration.py` uses a fake `riscv-tools` and a fake `quartus_sh` and covers the profile names, writing the profile into the `platform.yaml`, completing the package, the sources hash, the record, resuming, the synthesis error, the lock and the fit that recovers known coefficients.
 

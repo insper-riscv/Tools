@@ -2,7 +2,7 @@
 
 Confere que a árvore de um repositório segue o layout que todos compartilham. Os repositórios do projeto trocam submódulos, documentos e arquivos de configuração, e cada um só falha quando alguém tropeça no que ficou fora do lugar: um `README` sem a metade em inglês, um arquivo VHDL numa pasta que o build não lê, uma pasta com espaço no nome que o Quartus parte em dois. Este módulo lê a árvore e falha na primeira mudança que a desvia do layout, então uma movimentação de arquivos é conferida antes de qualquer build.
 
-## Regras
+## 1. Regras
 
 Cada regra olha um aspecto da árvore e vale para alguns tipos de repositório. O tipo decide quais regras rodam.
 
@@ -35,7 +35,7 @@ Os tipos são `common-components`, `core`, `memory`, `peripherals`, `top`, `test
 
 A varredura deixa de fora as pastas ocultas, a saída de build (`build`, `sim_build`, `output_files`, `db`, `incremental_db`), o código de terceiros em `vendor/` e qualquer pasta que seja um repositório próprio, como um submódulo, cujo layout se confere no repositório dele. Um submódulo é reconhecido pelo caminho declarado no `.gitmodules` da raiz, de modo que uma cópia sem `.git` (um `rsync`, por exemplo) também o deixa de fora, e por uma entrada `.git` dentro da pasta. Todas as regras que listam arquivos usam essa mesma varredura: os `.vhd` de `src/common` pertencem ao manifesto do Common-Components e não entram nas regras `manifest`, `entity-coverage`, `vhdl-location`, `folder-names` e `vhdl-style` do repositório que o monta.
 
-## Configuração
+## 2. Configuração
 
 Sem seção no `config.yaml`. O `paths.yaml` do repositório pode ter uma seção `tree` com as pastas que são identificadores da ISA ou de um periférico e por isso mantêm as maiúsculas.
 
@@ -73,7 +73,7 @@ tree:
   require_provides: true
 ```
 
-## Pureza
+## 3. Pureza
 
 A parte portável de um repositório (o SoC, o núcleo, as memórias) conversa com os vizinhos por contratos de interface e não cita placa, família nem primitiva de fornecedor. Esses nomes ficam nas pastas de fornecedor (`altera/`) e nos dados de placa (`boards/`). A regra `purity` lê, na mesma varredura das outras regras, os arquivos de fora dessas pastas e reporta cada termo achado, com a primeira linha e a contagem:
 
@@ -95,11 +95,11 @@ tree:
       src/legado/top.vhd: invólucro mantido até o pacote de placa existir
 ```
 
-## Adoção por etapas
+## 4. Seleção das regras
 
-Um repositório que ainda não terminou a reorganização escolhe com `--only` as regras que já cumpre, e a lista cresce a cada etapa. Uma regra que não vale para o tipo é um erro, não um passo vazio.
+A opção `--only` restringe a verificação às regras listadas. Uma regra que não vale para o tipo é um erro, não um passo vazio.
 
-## Testes
+## 5. Testes
 
 | Teste | O que verifica |
 | :--- | :--- |
@@ -164,7 +164,7 @@ Um repositório que ainda não terminou a reorganização escolhe com `--only` a
 | `tests/test_tree_purity.py::test_the_rule_is_opt_in_and_for_the_vhdl_kinds` | A rodada padrão não a inclui e os tipos sem VHDL a recusam. |
 | `tests/test_tree_purity.py::test_cmd_check_tree_runs_the_rule` | O comando sai com 1 e uma linha `TREE purity`, ou com 0 quando limpo. |
 
-## Uso
+## 6. Uso
 
 ```bash
 uv run riscv-tools --root <repositório> check-tree --kind core

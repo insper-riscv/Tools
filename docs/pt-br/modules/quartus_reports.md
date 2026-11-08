@@ -2,7 +2,7 @@
 
 Lê os resumos de recursos que o Quartus escreve ao fim da síntese e do ajuste. O módulo só lê: as capacidades da placa, os limites e a política de cabimento ficam em `fit_estimate`.
 
-## Arquivos lidos
+## 1. Arquivos lidos
 
 | Arquivo | Conteúdo |
 | :--- | :--- |
@@ -11,14 +11,14 @@ Lê os resumos de recursos que o Quartus escreve ao fim da síntese e do ajuste.
 | `<revisão>.fit.summary` | Resumo do ajuste, com cada recurso e a sua capacidade (`8,058 / 18,480 ( 44 % )`) |
 | `<revisão>.fit.rpt` | Tabela "Fitter Resource Usage Summary", usada quando não há `fit.summary` |
 
-## Unidades por família
+## 2. Unidades por família
 
 | Família | Lógica | Multiplicadores | RAM interna |
 | :--- | :--- | :--- | :--- |
 | Cyclone V | ALMs | `Total DSP Blocks` (blocos DSP; a 5CEBA4 tem 66) | `Total block memory bits` e `Total RAM Blocks` |
 | Cyclone IV E, MAX 10, Cyclone 10 LP | `Total logic elements` | `Embedded Multiplier 9-bit elements` | `Total memory bits` |
 
-## Funções
+## 3. Funções
 
 | Função | Faz |
 | :--- | :--- |
@@ -29,7 +29,7 @@ Lê os resumos de recursos que o Quartus escreve ao fim da síntese e do ajuste.
 | `parse_quantity(texto)` | lê `8,058 / 18,480 ( 44 % )` ou `4638`; `N/A` devolve `None` |
 | `succeeded(uso)` | verdadeiro quando o estado do passo começa por `Successful` |
 
-## Testes
+## 4. Testes
 
 `tests/test_quartus_reports.py` lê os arquivos reais de uma síntese e de um ajuste da Cyclone V (`tests/fixtures/quartus_reports/cyclone-v`) e um resumo de família de elementos lógicos, e confere o erro de arquivo sem recursos.
 

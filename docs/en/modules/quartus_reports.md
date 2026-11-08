@@ -2,7 +2,7 @@
 
 Reads the resource summaries that the Quartus writes at the end of the synthesis and of the fit. The module only reads: the capacities of the board, the limits and the fit policy live in `fit_estimate`.
 
-## Files read
+## 1. Files read
 
 | File | Contents |
 | :--- | :--- |
@@ -11,14 +11,14 @@ Reads the resource summaries that the Quartus writes at the end of the synthesis
 | `<revision>.fit.summary` | Fit summary, with each resource and its capacity (`8,058 / 18,480 ( 44 % )`) |
 | `<revision>.fit.rpt` | The "Fitter Resource Usage Summary" table, used when there is no `fit.summary` |
 
-## Units by family
+## 2. Units by family
 
 | Family | Logic | Multipliers | Internal RAM |
 | :--- | :--- | :--- | :--- |
 | Cyclone V | ALMs | `Total DSP Blocks` (DSP blocks; the 5CEBA4 has 66) | `Total block memory bits` and `Total RAM Blocks` |
 | Cyclone IV E, MAX 10, Cyclone 10 LP | `Total logic elements` | `Embedded Multiplier 9-bit elements` | `Total memory bits` |
 
-## Functions
+## 3. Functions
 
 | Function | Does |
 | :--- | :--- |
@@ -29,7 +29,7 @@ Reads the resource summaries that the Quartus writes at the end of the synthesis
 | `parse_quantity(text)` | reads `8,058 / 18,480 ( 44 % )` or `4638`; `N/A` gives `None` |
 | `succeeded(usage)` | true when the status of the step starts with `Successful` |
 
-## Tests
+## 4. Tests
 
 `tests/test_quartus_reports.py` reads the real files of a synthesis and of a fit of the Cyclone V (`tests/fixtures/quartus_reports/cyclone-v`) and a summary of a logic element family, and checks the error of a file with no resources.
 

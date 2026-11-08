@@ -2,7 +2,7 @@
 
 O caminho lento, "base": um `quartus_sh --flow compile` completo seguido de `quartus_pgm`, ou um atalho só de reprogramação quando o bitstream não mudou. Feito para rodar uma vez no início, para estabelecer um bitstream de base, e de novo como fallback se um teste recarregado por JTAG (veja [`rom_writer`](rom_writer.md), [`htif`](htif.md)) estoura o timeout, caso a própria placa tenha travado em vez de o teste ter travado.
 
-## Dois pontos de entrada
+## 1. Dois pontos de entrada
 
 | Função | O que faz | Custo |
 | :--- | :--- | :--- |
@@ -11,7 +11,7 @@ O caminho lento, "base": um `quartus_sh --flow compile` completo seguido de `qua
 
 O `full_reconfigure` sempre chama os passos de compilação e programação juntos numa única cadeia `bash -c`, nunca como duas chamadas Python separadas de subprocesso: invocar o `quartus_pgm` como subprocesso próprio logo depois do `quartus_sh` já se observou quebrar a chain JTAG (`Error 213019: Can't scan JTAG chain`), enquanto encadear os mesmos dois comandos dentro de um único processo de shell não quebra.
 
-## Opções da compilação
+## 2. Opções da compilação
 
 O `program` aceita, além do `.mif`, as opções abaixo. Sem nenhuma delas o fluxo é o de sempre: `quartus_sh --flow compile` seguido de `quartus_pgm`. Com `--seed`, `--generic` ou `--stop-after`, a compilação passa pelo script único `tcl/compile.tcl`, que substitui os `<projeto>_synth.tcl` de cada plataforma.
 
@@ -33,7 +33,7 @@ O `.mif` só é obrigatório quando a placa é programada. Com `--compile-only` 
 | `sta` | Síntese, ajuste e análise de tempo |
 | completo | `execute_flow -compile` |
 
-## Configuração
+## 3. Configuração
 
 | Chave | Significado |
 | :--- | :--- |
@@ -43,11 +43,11 @@ O `.mif` só é obrigatório quando a placa é programada. Com `--compile-only` 
 | `quartus.rom_mif_target` | Caminho (relativo a `project_dir`) de onde a megafunção da ROM lê o `init_file` na compilação. Sem padrão. |
 | `quartus.stale_cache_dirs` | Diretórios apagados antes de toda compilação (padrão `["db", "incremental_db", "output_files", "simulation"]`), já que o `init_file` de uma megafunção de ROM é um parâmetro string que o próprio cache de build incremental do Quartus não rastreia como fonte do projeto. |
 
-## Pré-requisitos
+## 4. Pré-requisitos
 
 - O Quartus Prime Lite no `PATH` (`quartus_sh`, `quartus_pgm`), instalado como no `QUARTUS_INSTALL.md` do Infra, um projeto Quartus e uma placa conectada por JTAG.
 
-## Testes
+## 5. Testes
 
 | Teste | O que verifica |
 | :--- | :--- |
@@ -55,7 +55,7 @@ O `.mif` só é obrigatório quando a placa é programada. Com `--compile-only` 
 
 Os scripts antigos ficam como fixtures dos testes (`tests/fixtures/multifpga/handwritten/`), executados em `tclsh` com os comandos do Quartus substituídos por registros.
 
-## Uso
+## 6. Uso
 
 ```bash
 uv run riscv-tools --config /path/to/project/config.yaml program <path-to.mif>

@@ -2,7 +2,7 @@
 
 The slow "base" path: a full `quartus_sh --flow compile` followed by `quartus_pgm`, or a reprogram-only shortcut when the bitstream hasn't changed. Meant to run once up front to establish a baseline bitstream, and again as a fallback if a JTAG-reloaded test (see [`rom_writer`](rom_writer.md), [`htif`](htif.md)) times out, in case the board itself wedged rather than the test hanging.
 
-## Two entry points
+## 1. Two entry points
 
 | Function | Does | Cost |
 | :--- | :--- | :--- |
@@ -11,7 +11,7 @@ The slow "base" path: a full `quartus_sh --flow compile` followed by `quartus_pg
 
 `full_reconfigure` always shells the compile and program steps out together as one `bash -c` chain, never as two separate Python subprocess calls: invoking `quartus_pgm` as its own subprocess immediately after `quartus_sh` has been observed to break the JTAG chain (`Error 213019: Can't scan JTAG chain`), while chaining the same two commands inside one shell process does not.
 
-## Compile options
+## 2. Compile options
 
 `program` accepts, besides the `.mif`, the options below. With none of them the flow is the usual one: `quartus_sh --flow compile` followed by `quartus_pgm`. With `--seed`, `--generic` or `--stop-after`, the compile goes through the single script `tcl/compile.tcl`, which replaces the per-platform `<project>_synth.tcl`.
 
@@ -33,7 +33,7 @@ The `.mif` is required only when the board is programmed. With `--compile-only` 
 | `sta` | Synthesis, fitting and timing analysis |
 | full | `execute_flow -compile` |
 
-## Configuration
+## 3. Configuration
 
 | Key | Meaning |
 | :--- | :--- |
@@ -43,11 +43,11 @@ The `.mif` is required only when the board is programmed. With `--compile-only` 
 | `quartus.rom_mif_target` | Path (relative to `project_dir`) the ROM megafunction reads its `init_file` from at compile time. No default. |
 | `quartus.stale_cache_dirs` | Directories deleted before every compile (default `["db", "incremental_db", "output_files", "simulation"]`), since a ROM megafunction's `init_file` is a string parameter Quartus' own incremental build cache doesn't track as a project source. |
 
-## Prerequisites
+## 4. Prerequisites
 
 - Quartus Prime Lite on `PATH` (`quartus_sh`, `quartus_pgm`), installed as in Infra's `QUARTUS_INSTALL.md`, a Quartus project, and a board attached over JTAG.
 
-## Tests
+## 5. Tests
 
 | Test | What it checks |
 | :--- | :--- |
@@ -55,7 +55,7 @@ The `.mif` is required only when the board is programmed. With `--compile-only` 
 
 The old scripts stay as test fixtures (`tests/fixtures/multifpga/handwritten/`), run under `tclsh` with the Quartus commands replaced by recorders.
 
-## Usage
+## 6. Usage
 
 ```bash
 uv run riscv-tools --config /path/to/project/config.yaml program <path-to.mif>

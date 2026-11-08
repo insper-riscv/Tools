@@ -2,7 +2,7 @@
 
 Checks that the tree of a repository follows the layout all of them share. The repositories of the project swap submodules, documents and configuration files, and each one fails only when somebody trips on what was left out of place: a `README` without its English half, a VHDL file in a folder the build does not read, a folder with a space in its name that Quartus splits in two. This module reads the tree and fails on the first change that strays from the layout, so a move of files is checked before anything is built.
 
-## Rules
+## 1. Rules
 
 Each rule looks at one aspect of the tree and applies to some kinds of repository. The kind decides which rules run.
 
@@ -36,7 +36,7 @@ The kinds are `common-components`, `core`, `memory`, `peripherals`, `top`, `test
 
 The walk leaves out hidden folders, build output (`build`, `sim_build`, `output_files`, `db`, `incremental_db`), third-party code in `vendor/` and any folder that is a repository of its own, such as a submodule, whose layout is checked in its own repository. A submodule is recognized by the path declared in the root `.gitmodules`, so a copy without `.git` (made by `rsync`, for instance) also leaves it out, and by a `.git` entry inside the folder. Every rule that lists files uses this same walk: the `.vhd` files of `src/common` belong to the manifest of Common-Components and do not enter the `manifest`, `entity-coverage`, `vhdl-location`, `folder-names` and `vhdl-style` rules of the repository that mounts it.
 
-## Configuration
+## 2. Configuration
 
 No `config.yaml` section. The `paths.yaml` of the repository may have a `tree` section with the folders that are identifiers of the ISA or of a peripheral and so keep their capitals.
 
@@ -74,7 +74,7 @@ tree:
   require_provides: true
 ```
 
-## Purity
+## 3. Purity
 
 The portable part of a repository (the SoC, the core, the memories) talks to its neighbours through interface contracts and does not name a board, a family or a vendor primitive. Those names live in the vendor folders (`altera/`) and in the board data (`boards/`). In the same walk as the other rules, the `purity` rule reads the files outside those folders and reports each term it finds, with the first line and the count:
 
@@ -96,11 +96,11 @@ tree:
       src/legacy/top.vhd: wrapper kept until the board package exists
 ```
 
-## Adoption in steps
+## 4. Rule selection
 
-A repository that has not finished its reorganization chooses with `--only` the rules it already meets, and the list grows at each step. A rule that does not apply to the kind is an error, not an empty step.
+The `--only` option restricts the check to the listed rules. A rule that does not apply to the kind is an error, not an empty step.
 
-## Tests
+## 5. Tests
 
 | Test | What it verifies |
 | :--- | :--- |
@@ -165,7 +165,7 @@ A repository that has not finished its reorganization chooses with `--only` the 
 | `tests/test_tree_purity.py::test_the_rule_is_opt_in_and_for_the_vhdl_kinds` | The default run leaves it out and the kinds without VHDL reject it. |
 | `tests/test_tree_purity.py::test_cmd_check_tree_runs_the_rule` | The command exits 1 with a `TREE purity` line, or 0 when clean. |
 
-## Usage
+## 6. Usage
 
 ```bash
 uv run riscv-tools --root <repository> check-tree --kind core

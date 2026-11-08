@@ -55,6 +55,7 @@ The same specs file serves any `gcc` command, outside this package: `gcc --specs
 
 When a program's image ends in code that lives elsewhere on the hardware, Spike cannot run it as is. `emulator.sources` and `emulator.gcc_flags` build a second ELF for Spike from the same sources plus a stand-in: in the example above, the hardware's `rv32_wait_restart` is a boot memory routine at address `0x100`, and the Spike ELF is built with `-DRV32_SPIKE`, which leaves that fixed address out of the link, and with a source that defines `rv32_wait_restart` as ordinary code (it only waits, since the test has already written `tohost`) and the `tohost` and `fromhost` symbols. Without `emulator.sources`, Spike runs the test's own image.
 
+## Hex file format
 
 With `sim.hex_format: verilog`, the simulation `.hex` comes straight from the linked ELF through `objcopy -O verilog --verilog-data-width=4` instead of from the flat binary. The file keeps the image's real word addresses:
 

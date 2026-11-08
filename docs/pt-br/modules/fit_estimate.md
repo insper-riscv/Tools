@@ -2,7 +2,7 @@
 
 Estima se um perfil cabe numa placa e julga o resultado. A estimativa soma o custo de cada bloco do perfil com a tabela de calibração da família (um arquivo de dados, substituível); a mesma política julga a estimativa e o relatório do ajuste do Quartus.
 
-## Política
+## 1. Política
 
 As constantes são do Tools e não há opção para forçar o resultado.
 
@@ -14,7 +14,7 @@ As constantes são do Tools e não há opção para forçar o resultado.
 
 A lógica estimada só falha quando a família está validada, isto é, o erro máximo de validação da tabela é de até 10 %. Antes disso o resultado é o aviso V18 e o ajuste decide.
 
-## Mensagens
+## 2. Mensagens
 
 | Regra | Origem | Gravidade |
 | :--- | :--- | :--- |
@@ -24,7 +24,7 @@ A lógica estimada só falha quando a família está validada, isto é, o erro m
 | V14 | relatório do ajuste estoura recursos; todos são listados de uma vez (lógica, bits e blocos de RAM, multiplicadores, PLLs, pinos) | erro; aviso na faixa de 85 % a 100 % |
 | V18 | família sem calibração, ou coeficiente sem medida | aviso |
 
-## Tabela de calibração
+## 3. Tabela de calibração
 
 `boards/calibration/<família>.yaml` traz a unidade (`alm` ou `le`), os coeficientes, o erro (`rms_pct`, `max_pct`, perfis de validação e `map_to_fit_ratio`) e o Fmax por grau. Um coeficiente `null` é uma medida ainda não feita e faz o estimador emitir V18. As chaves de extensões, extras, periféricos e controladores vêm do vocabulário dos catálogos, e uma chave fora dele é recusada.
 
@@ -38,7 +38,7 @@ $$ N_{blocos} = \sum_m \left\lceil \frac{8 s_m}{b_{bloco}} \right\rceil + N_{cac
 
 As implicações da ISA valem na função `terms`: Zicntr e Zihpm implicam Zicsr, M implica Zmmul, e Sscofpmf exige Zihpm e interrupções. A calibração usa a mesma função para ajustar, de modo que o ajuste e a estimativa não divergem.
 
-## Funções
+## 4. Funções
 
 | Função | Faz |
 | :--- | :--- |
@@ -51,7 +51,7 @@ As implicações da ISA valem na função `terms`: Zicntr e Zihpm implicam Zicsr
 | `capacity_from_resources(mapa)`, `load_capacity(arquivo)` | capacidades a partir do `resources` de um `board.yaml` |
 | `load_table(arquivo, vocabulário)`, `table_from_mapping`, `empty_table` | tabela de calibração |
 
-## Comando
+## 5. Comando
 
 ```bash
 riscv-tools --root . check-fit --reports <pasta com *.fit.summary> --board boards/<placa>/board.yaml
@@ -59,7 +59,7 @@ riscv-tools --root . check-fit --reports <pasta com *.fit.summary> --board board
 
 Lista todos os recursos que passam da capacidade e sai com status 1 quando há erro.
 
-## Testes
+## 6. Testes
 
 `tests/test_fit_estimate.py` cobre os limiares, a ausência de opção de forçar, as implicações da ISA, a soma sobre tabelas fictícias, cada mensagem V11 a V14 e V18, a tabela vazia, a validação do vocabulário e o comando `check-fit`.
 
