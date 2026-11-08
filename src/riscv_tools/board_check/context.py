@@ -94,7 +94,7 @@ class Context:
     pins: list[Pin] | None = None
     calibrated: bool = False
     accept_inferred_pins: bool = False
-    regions: list[Region] = field(default_factory=lambda: [])
+    regions: list[Region] = field(default_factory=list[Region])
     table: CalibrationTable | None = None
 
     def used_devices(self) -> dict[str, MemoryUse]:

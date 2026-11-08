@@ -82,7 +82,7 @@ class PortPlan:
     """
 
     ports: tuple[Port, ...]
-    warnings: list[str] = field(default_factory=lambda: [])
+    warnings: list[str] = field(default_factory=list[str])
 
 
 def _signal(inputs: BoardInputs, name: str) -> PinSignal:

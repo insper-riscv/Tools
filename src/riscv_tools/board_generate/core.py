@@ -76,7 +76,7 @@ class Generated:
     name: str
     folder: str
     files: dict[str, str]
-    warnings: list[str] = field(default_factory=lambda: [])
+    warnings: list[str] = field(default_factory=list[str])
 
 
 def _slug(text: str) -> str:

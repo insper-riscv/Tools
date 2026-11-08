@@ -62,7 +62,7 @@ class ClockPlan:
     reference_signal: str
     reference_mhz: Fraction
     roles: tuple[ClockRole, ...]
-    warnings: list[str] = field(default_factory=lambda: [])
+    warnings: list[str] = field(default_factory=list[str])
 
     def get(self, role: str) -> ClockRole | None:
         """Busca um relógio pelo papel.

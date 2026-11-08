@@ -69,9 +69,9 @@ class Section:
     """
 
     name: str
-    only_handwritten: list[str] = field(default_factory=lambda: [])
-    only_generated: list[str] = field(default_factory=lambda: [])
-    changed: list[str] = field(default_factory=lambda: [])
+    only_handwritten: list[str] = field(default_factory=list[str])
+    only_generated: list[str] = field(default_factory=list[str])
+    changed: list[str] = field(default_factory=list[str])
 
     @property
     def equivalent(self) -> bool:
