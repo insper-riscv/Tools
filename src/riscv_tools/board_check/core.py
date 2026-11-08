@@ -220,6 +220,28 @@ def _not_found(missing: NotFoundError, board_name: str) -> Finding:
     )
 
 
+def _catalog_parts(
+    catalog: Catalog, board_name: str, board: Board, family: Family
+) -> tuple[
+    dict[str, Chip],
+    list[Pin] | None,
+    CalibrationTable | None,
+    list[Finding],
+]:
+    """Read the chips, the pins and the table a board names.
+
+    Returns them with the findings of the three readings.
+    """
+    chips, found = _chips(
+        catalog,
+        board_name,
+        [m.chip for m in board.memories.values() if m.chip],
+    )
+    pins, problems = _pins(catalog, board_name, board)
+    table, bad_table = _table(catalog, family)
+    return chips, pins, table, found + problems + bad_table
+
+
 def _context(
     platform: dict[str, Any],
     fields: PlatformBoardFields,
@@ -258,13 +280,9 @@ def _context(
             error("V1", f"board '{board_name}' is invalid: {problem}")
             for problem in bad.problems
         ]
-    chips, found = _chips(
-        catalog,
-        board_name,
-        [m.chip for m in board.memories.values() if m.chip],
+    chips, pins, table, problems = _catalog_parts(
+        catalog, board_name, board, family
     )
-    pins, problems = _pins(catalog, board_name, board)
-    table, bad_table = _table(catalog, family)
     ctx = Context(
         platform,
         fields,
@@ -278,7 +296,7 @@ def _context(
         external_regions(platform),
         table,
     )
-    return ctx, found + problems + bad_table
+    return ctx, problems
 
 
 def _needs(

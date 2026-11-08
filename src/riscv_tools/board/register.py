@@ -48,6 +48,36 @@ def _stale_entry(
     return stale[0] if len(stale) == 1 else None
 
 
+def _register_one(
+    report: CableReport,
+    reports: list[CableReport],
+    entries: list[InventoryEntry],
+    host: str,
+    assign: dict[str, str],
+) -> str | None:
+    """Register one cable in place, or return why it is left out.
+
+    The moved board keeps its id; a new board takes a fresh id.
+    """
+    if report.port is None:
+        return f"{report.cable.name}: no USB port path, not saved"
+    board = _board_for(report, report.port, assign)
+    if board is None:
+        options = ", ".join(report.candidates)
+        return (
+            f"{report.cable.name} at {report.port} may be {options}: "
+            f"say which with --assign {report.port}=BOARD"
+        )
+    moved = _stale_entry(entries, reports, board)
+    if moved is not None:
+        old = entries[moved]
+        entries[moved] = replace(old, usb_path=report.port)
+        return f"{MOVED}{old.id} from {old.usb_path} to {report.port}"
+    ident = _new_id(board, host, {e.id for e in entries})
+    entries.append(InventoryEntry(ident, board, report.port))
+    return None
+
+
 def register(
     inventory: Inventory,
     reports: list[CableReport],
@@ -77,31 +107,11 @@ def register(
         with `MOVED`).
     """
     entries = list(inventory.entries)
-    taken = {e.id for e in entries}
     notes: list[str] = []
     for report in reports:
         if report.entry is not None or report.problem is not None:
             continue
-        if report.port is None:
-            notes.append(f"{report.cable.name}: no USB port path, not saved")
-            continue
-        board = _board_for(report, report.port, assign)
-        if board is None:
-            options = ", ".join(report.candidates)
-            notes.append(
-                f"{report.cable.name} at {report.port} may be {options}: "
-                f"say which with --assign {report.port}=BOARD"
-            )
-            continue
-        moved = _stale_entry(entries, reports, board)
-        if moved is not None:
-            old = entries[moved]
-            entries[moved] = replace(old, usb_path=report.port)
-            notes.append(
-                f"{MOVED}{old.id} from {old.usb_path} to {report.port}"
-            )
-            continue
-        ident = _new_id(board, inventory.host, taken)
-        taken.add(ident)
-        entries.append(InventoryEntry(ident, board, report.port))
+        note = _register_one(report, reports, entries, inventory.host, assign)
+        if note is not None:
+            notes.append(note)
     return replace(inventory, entries=tuple(entries)), notes

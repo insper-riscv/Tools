@@ -401,6 +401,44 @@ class Section:
         )
 
 
+def open_section(raw: Any, label: str) -> tuple[Section, list[str]]:
+    """Open the root section of a file and the list of its problems.
+
+    Parameters
+    ----------
+    raw : Any
+        The parsed YAML.
+    label : str
+        The name used in the messages.
+
+    Returns
+    -------
+    tuple of (Section, list of str)
+        The root section and the problems it will fill.
+    """
+    problems: list[str] = []
+    return Section(label, raw, problems), problems
+
+
+def finish(top: Section, problems: list[str]) -> None:
+    """Check the section has no unknown key, then raise what was found.
+
+    Parameters
+    ----------
+    top : Section
+        The root section of the file.
+    problems : list of str
+        What the sections collected.
+
+    Raises
+    ------
+    SchemaError
+        If a key is unknown or `problems` is not empty.
+    """
+    top.done()
+    raise_if(problems)
+
+
 def raise_if(problems: list[str]) -> None:
     """Raise the schema error of the problems, when there are any.
 

@@ -2,7 +2,12 @@
 
 from typing import Any
 
-from riscv_tools.board_schema.fields import Section, present, raise_if
+from riscv_tools.board_schema.fields import (
+    Section,
+    finish,
+    open_section,
+    present,
+)
 from riscv_tools.board_schema.model import Family, PllSpec
 
 LOGIC_UNITS = ("alm", "le")
@@ -96,6 +101,14 @@ def _block_ram(parent: Section) -> tuple[str | None, int | None]:
     return kind, bits
 
 
+def _options(top: Section) -> tuple[str | None, bool, tuple[str, ...]]:
+    """Read the optional fields: calibration, slew rate, QSF lines."""
+    calibration = top.text("calibration", required=False, nullable=True)
+    slew_rate = top.flag("slew_rate", required=False, default=True)
+    qsf = tuple(top.texts("qsf", required=False))
+    return calibration, slew_rate, qsf
+
+
 def parse_family(raw: Any, label: str = "family") -> Family:
     """Read a family file, checking every field.
 
@@ -116,34 +129,28 @@ def parse_family(raw: Any, label: str = "family") -> Family:
     SchemaError
         If a field is missing, misspelled or of the wrong type.
     """
-    problems: list[str] = []
-    top = Section(label, raw, problems)
+    top, problems = open_section(raw, label)
     name = top.text("family")
     quartus = top.text("quartus_family")
     unit = top.text("logic_unit", choices=LOGIC_UNITS)
     pll = _pll(top)
-    kind, bits = _block_ram(top)
+    ram = _block_ram(top)
     memory_ip = top.text("memory_ip")
     jtag = top.flag("virtual_jtag")
     flash = top.text("onchip_flash", nullable=True, choices=ONCHIP_FLASH_IPS)
     fmax = _fmax(top)
-    calibration = top.text("calibration", required=False, nullable=True)
-    slew_rate = top.flag("slew_rate", required=False, default=True)
-    qsf = tuple(top.texts("qsf", required=False))
-    top.done()
-    raise_if(problems)
+    options = _options(top)
+    finish(top, problems)
     return Family(
         present(name),
         present(quartus),
         present(unit),
         present(pll),
-        present(kind),
-        present(bits),
+        present(ram[0]),
+        present(ram[1]),
         present(memory_ip),
         jtag,
         flash,
         fmax,
-        calibration,
-        slew_rate,
-        qsf,
+        *options,
     )

@@ -2,7 +2,12 @@
 
 from typing import Any
 
-from riscv_tools.board_schema.fields import Section, present, raise_if
+from riscv_tools.board_schema.fields import (
+    Section,
+    finish,
+    open_section,
+    present,
+)
 from riscv_tools.board_schema.model import Chip
 
 CHIP_KINDS = ("sdram", "sram", "nor", "serial_flash")
@@ -73,6 +78,13 @@ def _organization(parent: Section, kind: str | None) -> dict[str, int]:
     return found
 
 
+def _sectors(top: Section) -> tuple[int | None, int | None]:
+    """Read the sector sizes of a flash, regular and boot."""
+    sector = top.integer("sector_bytes", required=False, minimum=1)
+    boot = top.integer("boot_sector_bytes", required=False, minimum=1)
+    return sector, boot
+
+
 def parse_chip(raw: Any, label: str = "chip") -> Chip:
     """Read a chip file already merged over its `extends` chain.
 
@@ -93,8 +105,7 @@ def parse_chip(raw: Any, label: str = "chip") -> Chip:
     SchemaError
         If a field is missing, misspelled or of the wrong type.
     """
-    problems: list[str] = []
-    top = Section(label, raw, problems)
+    top, problems = open_section(raw, label)
     name = top.text("chip")
     kind = top.text("kind", choices=CHIP_KINDS)
     organization = _organization(top, kind)
@@ -102,11 +113,9 @@ def parse_chip(raw: Any, label: str = "chip") -> Chip:
     timing = _numbers(top, "timing", True)
     io_timing = _numbers(top, "io_timing", False)
     max_mhz = top.number("max_mhz", required=False, minimum=0)
-    sector = top.integer("sector_bytes", required=False, minimum=1)
-    boot = top.integer("boot_sector_bytes", required=False, minimum=1)
+    sector, boot = _sectors(top)
     source = top.text("source", choices=SOURCES)
-    top.done()
-    raise_if(problems)
+    finish(top, problems)
     return Chip(
         present(name),
         present(kind),

@@ -16,6 +16,7 @@ candidate, and takes the lock file from the board and the host.
 
 import os
 import socket
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
@@ -156,6 +157,14 @@ def _entry(raw: Any) -> InventoryEntry:
     )
 
 
+def _require_unique(entries: Sequence[InventoryEntry]) -> None:
+    """Reject entries that repeat an id or a USB port path."""
+    ids = [e.id for e in entries]
+    ports = [e.usb_path for e in entries if e.usb_path]
+    if len(set(ids)) != len(ids) or len(set(ports)) != len(ports):
+        raise BoardError("inventory: an id or a usb_path appears twice")
+
+
 def parse_inventory(data: Any, host: str | None = None) -> Inventory:
     """Build an Inventory from the parsed file.
 
@@ -181,10 +190,7 @@ def parse_inventory(data: Any, host: str | None = None) -> Inventory:
     doc = cast(dict[str, Any], data or {})
     raw = cast(list[Any], doc.get("boards") or [])
     entries = tuple(_entry(e) for e in raw)
-    ids = [e.id for e in entries]
-    ports = [e.usb_path for e in entries if e.usb_path]
-    if len(set(ids)) != len(ids) or len(set(ports)) != len(ports):
-        raise BoardError("inventory: an id or a usb_path appears twice")
+    _require_unique(entries)
     return Inventory(
         host or str(doc.get("host") or default_host()),
         Path(str(doc.get("lock_dir", DEFAULT_LOCK_DIR))),
