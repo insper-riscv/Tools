@@ -39,6 +39,8 @@ The model is linear in the coefficients, and the fit is a least squares over the
 
 The recorded error holds the root mean square error over the fit profiles (`rms_pct`), the largest absolute error over the validation ones (`max_pct`) and the ratio between the fit and the synthesis estimate (`map_to_fit_ratio`). The ratio is the mean of `fit_result.logic` over `result.logic` of the records that carry `fit_result` (`fit_ratio_check`); with none, the known range of the full profile applies (`known_fit` of the profile list, used on the Cyclone V).
 
+A profile marked `outside: true` in the profile list was measured but lies outside the linear domain of the model (for instance a cache the synthesis turns into registers). It enters neither the fit nor the errors, and its residual stays in the table with `outside` true.
+
 ## Verification on another device
 
 The table of a family is the fit of one device and one top. `calibrate verify` compares the table with profiles measured on another device of the same family (its profile list carries its `board`). Each profile is compared twice: with the table as it is (`error_pct`) and with the core term moved by the difference measured on the anchor profile (`anchored_error_pct`, default `p1_rv32i`), so the part of the top that changes from one board to the other leaves the account and the increments of the extensions and caches remain. The result carries the shift (`shift`), the largest error and the root mean square error of the profiles other than the anchor.

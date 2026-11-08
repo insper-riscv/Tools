@@ -515,3 +515,30 @@ def test_the_table_ratio_is_fit_over_synthesis(tmp_path: Path) -> None:
     if ratio is None:
         pytest.fail("the table has no ratio")
     check_equal(round(total * ratio), 880)
+
+
+def test_a_profile_outside_the_domain_is_neither_fitted_nor_counted(
+    tmp_path: Path,
+) -> None:
+    """A profile marked outside keeps its residual, not its weight."""
+    data = dict(PLAN)
+    profiles = [dict(item) for item in PLAN["profiles"]]
+    for item in profiles:
+        if item["id"] == "ic128":
+            item["outside"] = True
+    data["profiles"] = profiles
+    path = tmp_path / "outside.yaml"
+    path.write_text(yaml.safe_dump(data), encoding="utf-8")
+    plan = cal.load_profile_list(path)
+    coefficients: dict[str, float | None] = {
+        "core.rv32i": 1000.0,
+        "extensions.M": 200.0,
+        "extensions.Zicsr": 100.0,
+        "cache.icache.c1": 2.0,
+        "cache.icache.c0": -64.0,
+    }
+    records = {d.id: synthetic_record(d, coefficients) for d in plan.profiles}
+    records["ic128"]["result"]["logic"] += 5000
+    content = cal.fit_table(plan, records)
+    check_equal(content["error"]["outside"], ["ic128"])
+    check(content["error"]["rms_pct"] < 1.0)

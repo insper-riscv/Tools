@@ -179,19 +179,22 @@ def _errors(
             {
                 "id": definition.id,
                 "holdout": definition.holdout,
+                "outside": definition.outside,
                 "measured": logic,
                 "predicted": round(predicted, 1),
                 "error_pct": round(100 * (predicted - logic) / logic, 3),
                 "missing": list(missing),
             }
         )
-    fit = [r["error_pct"] for r in residuals if not r["holdout"]]
-    held = [abs(r["error_pct"]) for r in residuals if r["holdout"]]
+    inside = [r for r in residuals if not r["outside"]]
+    fit = [r["error_pct"] for r in inside if not r["holdout"]]
+    held = [abs(r["error_pct"]) for r in inside if r["holdout"]]
     error = {
         "rms_pct": round(math.sqrt(sum(e * e for e in fit) / len(fit)), 3),
         "max_fit_pct": round(max(abs(e) for e in fit), 3),
         "max_pct": round(max(held), 3) if held else None,
         "holdout": [r["id"] for r in residuals if r["holdout"]],
+        "outside": [r["id"] for r in residuals if r["outside"]],
     }
     return residuals, error
 
@@ -283,7 +286,9 @@ def fit_table(
         When no profile of the plan has a record.
     """
     rows = _rows(plan, records)
-    fit_rows = [row for row in rows if not row[0].holdout]
+    fit_rows = [
+        row for row in rows if not row[0].holdout and not row[0].outside
+    ]
     if not fit_rows:
         msg = "no measured profile to fit"
         raise ValueError(msg)

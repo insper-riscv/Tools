@@ -39,6 +39,8 @@ O modelo é linear nos coeficientes, e o ajuste é de mínimos quadrados sobre o
 
 O erro registrado traz o erro médio quadrático sobre os perfis do ajuste (`rms_pct`), o maior erro absoluto sobre os de validação (`max_pct`) e a razão entre o ajuste e a estimativa da síntese (`map_to_fit_ratio`). A razão é a média de `fit_result.logic` sobre `result.logic` dos registros que trazem `fit_result` (`fit_ratio_check`); sem nenhum, vale a faixa conhecida do perfil completo (`known_fit` da lista de perfis, usada na Cyclone V).
 
+Um perfil marcado `outside: true` na lista de perfis foi medido, mas está fora do domínio linear do modelo (por exemplo uma cache que a síntese vira em registradores). Ele não entra no ajuste nem nos erros, e o resíduo dele fica na tabela com `outside` verdadeiro.
+
 ## Verificação em outro dispositivo
 
 A tabela de uma família é o ajuste de um dispositivo e de um topo. `calibrate verify` compara a tabela com os perfis medidos em outro dispositivo da mesma família (a lista de perfis traz o `board` dele). Cada perfil é comparado duas vezes: com a tabela como está (`error_pct`) e com o termo do núcleo deslocado pela diferença medida no perfil âncora (`anchored_error_pct`, padrão `p1_rv32i`), de modo que a parte do topo que muda de uma placa para a outra sai da conta e sobram os incrementos das extensões e das caches. O resultado traz o deslocamento (`shift`), o maior erro e o erro médio quadrático dos perfis que não são a âncora.

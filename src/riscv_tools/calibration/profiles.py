@@ -56,6 +56,10 @@ class ProfileDef:
         Generics of the top passed to the compile command.
     holdout : bool
         Left out of the fit, to validate it.
+    outside : bool
+        Measured but outside the linear domain of the model (for
+        instance a cache the synthesis turns into registers): neither
+        fitted nor counted in the errors.
     """
 
     id: str
@@ -66,6 +70,7 @@ class ProfileDef:
     dcache_kbit: int = 32
     generics: dict[str, int] = field(default_factory=dict[str, int])
     holdout: bool = False
+    outside: bool = False
 
 
 @dataclass(frozen=True)
@@ -203,6 +208,7 @@ def _profile(entry: Mapping[str, Any]) -> ProfileDef:
         dcache_kbit=int(entry.get("dcache_kbit", 32)),
         generics={str(k): int(v) for k, v in generics.items()},
         holdout=bool(entry.get("holdout", False)),
+        outside=bool(entry.get("outside", False)),
     )
 
 
