@@ -13,6 +13,7 @@ from riscv_tools.pll_generator.types import (
     RenderedPll,
     format_mhz,
 )
+from riscv_tools.pll_generator.wrapper import module_head
 
 # O `altpll` tem até cinco saídas de relógio nestas famílias.
 WIDTH_CLOCK = 5
@@ -209,14 +210,7 @@ def render_altpll(
     text = f"""// PLL gerado pelo riscv-tools (não edite): altpll da família
 // {quartus_family}, entrada de {ref} MHz.
 //
-{notes}
-`timescale 1ns/10ps
-module {module} (
-\tinput  wire refclk,
-\tinput  wire rst,
-{ports}\toutput wire locked
-);
-
+{module_head(notes, module, ports)}
 \twire [{WIDTH_CLOCK - 1}:0] clk_bus;
 {assigns}
 

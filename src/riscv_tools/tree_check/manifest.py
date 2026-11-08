@@ -108,6 +108,30 @@ def _strings(value: Any) -> list[str] | None:
     return cast("list[str]", items)
 
 
+def _component_problems(
+    name: str,
+    sources: list[str] | None,
+    requires: list[str] | None,
+    needs: list[str] | None,
+) -> list[str]:
+    """List what is malformed in the fields of one component."""
+    problems: list[str] = []
+    if sources is None or (not sources and not requires):
+        problems.append(f"{name}: `sources` is a non-empty list of paths")
+    if requires is None:
+        problems.append(f"{name}: `requires` is a list of names")
+    if needs is None:
+        problems.append(f"{name}: `needs` is a list of resource types")
+    else:
+        problems.extend(
+            f"{name}: `needs` {item} is not one of "
+            f"{', '.join(sorted(NEED_TYPES))}"
+            for item in needs
+            if item not in NEED_TYPES
+        )
+    return problems
+
+
 def _read_component(
     name: str, raw: Any, problems: list[str]
 ) -> Component | None:
@@ -134,19 +158,7 @@ def _read_component(
     sources = _strings(body.get("sources"))
     requires = _strings(body.get("requires"))
     needs = _strings(body.get("needs"))
-    if sources is None or (not sources and not requires):
-        problems.append(f"{name}: `sources` is a non-empty list of paths")
-    if requires is None:
-        problems.append(f"{name}: `requires` is a list of names")
-    if needs is None:
-        problems.append(f"{name}: `needs` is a list of resource types")
-    else:
-        problems.extend(
-            f"{name}: `needs` {item} is not one of "
-            f"{', '.join(sorted(NEED_TYPES))}"
-            for item in needs
-            if item not in NEED_TYPES
-        )
+    problems.extend(_component_problems(name, sources, requires, needs))
     if sources is None or requires is None or needs is None:
         return None
     return Component(tuple(sources), tuple(requires), tuple(needs))

@@ -2,6 +2,7 @@
 
 import re
 import subprocess
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 _CABLE_LINE = re.compile(r"^\s*\d+\)\s+(\S.*?)\s*$")
@@ -210,6 +211,16 @@ def _forced(cables: list[Cable], name: str, wanted: str | None) -> str:
     return found.name
 
 
+def _with_idcode(cables: Sequence[Cable], wanted: str | None) -> str | None:
+    """Return the first cable whose chain lists the IDCODE, if any."""
+    if not wanted:
+        return None
+    for listed in cables:
+        if any(same_idcode(d.idcode, wanted) for d in listed.devices):
+            return listed.name
+    return None
+
+
 def detect_jtag_hardware(
     device_name: str | None = None, cable: str | None = None
 ) -> str:
@@ -253,11 +264,7 @@ def detect_jtag_hardware(
     wanted = idcode_of(device_name)
     if cable is not None:
         return _forced(cables, cable, wanted)
-    if wanted:
-        for listed in cables:
-            if any(same_idcode(d.idcode, wanted) for d in listed.devices):
-                return listed.name
-    return cables[0].name
+    return _with_idcode(cables, wanted) or cables[0].name
 
 
 def jtag_chain_healthy() -> bool:

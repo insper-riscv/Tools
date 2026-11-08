@@ -179,6 +179,23 @@ def _require_sdram_timing(
         raise InputError(f"chip {chip['chip']}: timing without {missing}")
 
 
+def _timing_constants(
+    timing: dict[str, Any],
+) -> list[tuple[str, str, str]]:
+    """Lista as constantes dos tempos do catálogo do chip."""
+    return [
+        (
+            f"{_constant_name(str(key))}|"
+            + _COMMENTS.get(
+                _constant_name(str(key)), f"Tempo {key} do catálogo do chip."
+            ),
+            "natural",
+            _number(math.ceil(float(value))),
+        )
+        for key, value in timing.items()
+    ]
+
+
 def _constants(chip: dict[str, Any], burst: int) -> list[tuple[str, str, str]]:
     """Lista as constantes do pacote.
 
@@ -204,17 +221,7 @@ def _constants(chip: dict[str, Any], burst: int) -> list[tuple[str, str, str]]:
     kind = chip.get("kind")
     if kind == "sdram":
         _require_sdram_timing(chip, timing)
-    out: list[tuple[str, str, str]] = [
-        (
-            f"{_constant_name(str(key))}|"
-            + _COMMENTS.get(
-                _constant_name(str(key)), f"Tempo {key} do catálogo do chip."
-            ),
-            "natural",
-            _number(math.ceil(float(value))),
-        )
-        for key, value in timing.items()
-    ]
+    out = _timing_constants(timing)
     organization = cast(dict[str, Any], chip.get("organization") or {})
     out.extend(
         (

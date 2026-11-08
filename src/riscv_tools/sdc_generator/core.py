@@ -232,8 +232,8 @@ def _domains(plan: ClockPlan, pattern: str | None, has_mem: bool) -> list[str]:
     return lines
 
 
-def _false_paths(ports: tuple[Port, ...]) -> list[str]:
-    """Escreve os caminhos falsos das E/S lentas.
+def _slow_false_paths(ports: tuple[Port, ...]) -> list[str]:
+    """Escreve os caminhos falsos de E/S lentas (reset, chaves, LEDs).
 
     Parameters
     ----------
@@ -251,7 +251,6 @@ def _false_paths(ports: tuple[Port, ...]) -> list[str]:
         if p.role in ("reset", "switches", "keys") and not p.alias
     ]
     free_out = [p for p in ports if p.role == "leds"]
-    nor = [p for p in ports if p.role == "nor"]
     displays = " ".join(
         _targets([p], ("out",)) for p in ports if p.role == "display"
     )
@@ -270,19 +269,53 @@ def _false_paths(ports: tuple[Port, ...]) -> list[str]:
     ]
     if displays:
         lines.append(f"set_false_path -to   [get_ports {{{displays}}}]")
-    if nor:
-        lines += [
-            "",
-            "# A FLASH NOR é assíncrona: o controlador conta os ciclos dos",
-            "# tempos do chip, então os pinos dela não têm requisito.",
-        ]
-        for p in nor:
-            names = _targets([p], (p.direction,))
-            if p.direction in ("in", "inout"):
-                lines.append(f"set_false_path -from [get_ports {{{names}}}]")
-            if p.direction in ("out", "inout"):
-                lines.append(f"set_false_path -to   [get_ports {{{names}}}]")
     return lines
+
+
+def _nor_false_paths(nor: list[Port]) -> list[str]:
+    """Escreve os caminhos falsos dos pinos da FLASH NOR.
+
+    Parameters
+    ----------
+    nor : list of Port
+        As portas do papel nor.
+
+    Returns
+    -------
+    list of str
+        As linhas; vazia sem portas.
+    """
+    if not nor:
+        return []
+    lines = [
+        "",
+        "# A FLASH NOR é assíncrona: o controlador conta os ciclos dos",
+        "# tempos do chip, então os pinos dela não têm requisito.",
+    ]
+    for p in nor:
+        names = _targets([p], (p.direction,))
+        if p.direction in ("in", "inout"):
+            lines.append(f"set_false_path -from [get_ports {{{names}}}]")
+        if p.direction in ("out", "inout"):
+            lines.append(f"set_false_path -to   [get_ports {{{names}}}]")
+    return lines
+
+
+def _false_paths(ports: tuple[Port, ...]) -> list[str]:
+    """Escreve os caminhos falsos das E/S lentas.
+
+    Parameters
+    ----------
+    ports : tuple of Port
+        As portas do topo.
+
+    Returns
+    -------
+    list of str
+        As linhas.
+    """
+    nor = [p for p in ports if p.role == "nor"]
+    return _slow_false_paths(ports) + _nor_false_paths(nor)
 
 
 def render_sdc(

@@ -218,6 +218,41 @@ def _excused(relative: str, exceptions: dict[str, str]) -> list[str]:
     ]
 
 
+def _scope(
+    default: dict[str, Any], extra: dict[str, Any]
+) -> tuple[frozenset[str], tuple[str, ...]]:
+    """Join the vendor folders and suffixes of defaults and extras."""
+    folders = frozenset(
+        name.lower()
+        for name in (
+            *_strings(default.get("vendor_folders")),
+            *_strings(extra.get("vendor_folders")),
+        )
+    )
+    suffixes = tuple(
+        dict.fromkeys(
+            (
+                *_strings(default.get("suffixes")),
+                *_strings(extra.get("suffixes")),
+            )
+        )
+    )
+    return folders, suffixes
+
+
+def _exceptions(
+    default: dict[str, Any], extra: dict[str, Any]
+) -> dict[str, str]:
+    """Join the excused files of defaults and extras, with reasons."""
+    return {
+        str(key): str(why or "").strip()
+        for key, why in {
+            **_mapping(default.get("exceptions")),
+            **_mapping(extra.get("exceptions")),
+        }.items()
+    }
+
+
 def rule_purity(root: Path, _kind: str, config: dict[str, Any]) -> list[str]:
     """Report board, family and vendor names outside the vendor folders.
 
@@ -240,28 +275,8 @@ def rule_purity(root: Path, _kind: str, config: dict[str, Any]) -> list[str]:
     default = _load_defaults()
     extra = _mapping(config.get("purity"))
     terms = _terms(default, extra)
-    folders = frozenset(
-        name.lower()
-        for name in (
-            *_strings(default.get("vendor_folders")),
-            *_strings(extra.get("vendor_folders")),
-        )
-    )
-    suffixes = tuple(
-        dict.fromkeys(
-            (
-                *_strings(default.get("suffixes")),
-                *_strings(extra.get("suffixes")),
-            )
-        )
-    )
-    exceptions = {
-        str(key): str(why or "").strip()
-        for key, why in {
-            **_mapping(default.get("exceptions")),
-            **_mapping(extra.get("exceptions")),
-        }.items()
-    }
+    folders, suffixes = _scope(default, extra)
+    exceptions = _exceptions(default, extra)
     problems = [
         f"exception {key} has no justification"
         for key, why in sorted(exceptions.items())

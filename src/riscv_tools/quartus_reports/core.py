@@ -184,13 +184,35 @@ def _pairs_of_table(text: str, title: str) -> list[tuple[str, str]]:
             if borders == TABLE_BORDERS:
                 break
             continue
-        found = _TABLE_ROW.match(line)
-        if found is None:
-            continue
-        label, usage = found.group("label"), found.group("usage")
-        if label not in ("Resource", "") and usage != "Usage":
-            rows.append((label, usage))
+        row = _usage_row(line)
+        if row is not None:
+            rows.append(row)
     return rows
+
+
+def _usage_row(line: str) -> tuple[str, str] | None:
+    """Return the ``(label, usage)`` of a table line, or None."""
+    found = _TABLE_ROW.match(line)
+    if found is None:
+        return None
+    label, usage = found.group("label"), found.group("usage")
+    if label in ("Resource", "") or usage == "Usage":
+        return None
+    return label, usage
+
+
+def _field_of(label: str) -> str | None:
+    """Return the ResourceUsage quantity a table label feeds, if any."""
+    for name, labels in (
+        ("ram_bits", RAM_BIT_LABELS),
+        ("ram_blocks", RAM_BLOCK_LABELS),
+        ("multipliers", MULTIPLIER_LABELS),
+        ("plls", PLL_LABELS),
+        ("pins", PIN_LABELS),
+    ):
+        if label in labels:
+            return name
+    return None
 
 
 def _usage_of_pairs(
@@ -207,16 +229,10 @@ def _usage_of_pairs(
         if label in LOGIC_LABELS and quantity is not None:
             unit = LOGIC_LABELS[label]
             fields.setdefault("logic", quantity)
-        elif label in RAM_BIT_LABELS and quantity:
-            fields.setdefault("ram_bits", quantity)
-        elif label in RAM_BLOCK_LABELS and quantity:
-            fields.setdefault("ram_blocks", quantity)
-        elif label in MULTIPLIER_LABELS and quantity:
-            fields.setdefault("multipliers", quantity)
-        elif label in PLL_LABELS and quantity:
-            fields.setdefault("plls", quantity)
-        elif label in PIN_LABELS and quantity:
-            fields.setdefault("pins", quantity)
+            continue
+        name = _field_of(label)
+        if name is not None and quantity:
+            fields.setdefault(name, quantity)
         elif label in REGISTER_LABELS and quantity and registers is None:
             registers = quantity.used
         elif label in META_LABELS:

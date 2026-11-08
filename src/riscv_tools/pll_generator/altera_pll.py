@@ -5,6 +5,7 @@ from riscv_tools.pll_generator.types import (
     RenderedPll,
     format_mhz,
 )
+from riscv_tools.pll_generator.wrapper import module_head
 
 
 def _altera_pll_outputs(solution: PllSolution) -> str:
@@ -63,14 +64,7 @@ def render_altera_pll(
     text = f"""// PLL gerado pelo riscv-tools (não edite): VCO de {vco} MHz
 // a partir de {format_mhz(solution.reference_mhz)} MHz.
 //
-{notes}
-`timescale 1ns/10ps
-module {module} (
-\tinput  wire refclk,
-\tinput  wire rst,
-{ports}\toutput wire locked
-);
-
+{module_head(notes, module, ports)}
 \taltera_pll #(
 \t\t.fractional_vco_multiplier("false"),
 \t\t.reference_clock_frequency("{format_mhz(solution.reference_mhz)} MHz"),
