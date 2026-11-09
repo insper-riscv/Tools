@@ -129,6 +129,9 @@ package config_pkg is
 	constant HAS_PLIC           : boolean := false;
 	-- Controlador da memória FLASH presente.
 	constant HAS_FLASH_CTRL     : boolean := false;
+	-- Periféricos estritos: o padding de cada periférico e as janelas sem periférico geram falha de acesso
+	-- quando verdadeiro; a chave strict_periph do platform.yaml o desliga por plataforma.
+	constant STRICT_PERIPH      : boolean := true;
 
 	-- Multiplicação presente, por M ou por Zmmul.
 	constant HAS_MULDIV         : boolean := HAS_M or HAS_ZMMUL;

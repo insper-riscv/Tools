@@ -235,6 +235,30 @@ def platform_dict(platform: dict[str, Any], key: str) -> dict[str, Any]:
     return cast(dict[str, Any], platform.get(key) or {})
 
 
+def strict_periph(platform: dict[str, Any]) -> bool:
+    """Read the `strict_periph` key of the platform.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+
+    Returns
+    -------
+    bool
+        The value of the key; true when it is absent.
+
+    Raises
+    ------
+    ValueError
+        If the key is present and is not a boolean.
+    """
+    value = platform.get("strict_periph", True)
+    if not isinstance(value, bool):
+        raise ValueError(f"strict_periph must be true or false, not {value!r}")
+    return value
+
+
 def _choice(has_base: bool, has_offset: bool) -> str:
     """Say whether an entry gives exactly one of `base` and `offset`.
 
