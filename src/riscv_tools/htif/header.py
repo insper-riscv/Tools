@@ -40,7 +40,7 @@ _TEMPLATE = """\
 #define RV32_TOHOST_ADDR   ((volatile unsigned int *){tohost_hex})
 #define RV32_FROMHOST_ADDR ((volatile unsigned int *){fromhost_hex})
 
-extern void rv32_wait_restart(void) __attribute__((noreturn));
+[[noreturn]] extern void rv32_wait_restart(void);
 
 static inline void RV32_PASS(void) {{
     RV32_TOHOST_ADDR[0] = 1;
