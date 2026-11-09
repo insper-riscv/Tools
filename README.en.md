@@ -44,6 +44,7 @@ It is designed to run on a workstation with all the tools installed, or inside t
 | `path_check`         | Fails when a file path listed in the project configuration does not exist (before and after moving files) | [docs/modules/path_check.md](docs/en/modules/path_check.md) |
 | `tree_check`         | Fails when the tree of a repository strays from the layout all of them share: standard files, language pairs, `.vhd` in `src/`, Common-Components at `src/common`, folder names, the `provides` manifest and the coverage of tests and proofs | [docs/modules/tree_check.md](docs/en/modules/tree_check.md) |
 | `sources`            | Prints the ordered list of the files of a target, read from the `provides` manifests of the repositories | [docs/modules/sources.md](docs/en/modules/sources.md) |
+| `ipxact` | Generates and checks the IP-XACT descriptions (IEEE 1685-2022) of the VHDL blocks: extracts ports and generics with GHDL, writes the `ipxact:component` and validates it against the Accellera schema and the semantic rules of the standard | [docs/modules/ipxact.md](docs/en/modules/ipxact.md) |
 | `vhdl_style`         | Runs the VSG with the configuration and the five local rules of the project (header, libraries, no `component`, `port map` by name, a docstring per declaration) and brings the `vsg-config`, `vsg-rules` and `vhdl-files` subcommands; leaves out `vendor/` and the Quartus IPs | [docs/modules/vhdl_style.md](docs/en/modules/vhdl_style.md) |
 | `board_schema`       | Reads and checks the `board.yaml`, the `pins.yaml`, the family and the chip of the board catalog and the new `platform.yaml` fields | [docs/modules/board_schema.md](docs/en/modules/board_schema.md) |
 | `board_check`        | Checks what the platform requires against what the boards offer (rules V1 to V19) | [docs/modules/board_check.md](docs/en/modules/board_check.md) |
@@ -97,7 +98,7 @@ uv run riscv-tools --config /path/to/project/config.yaml sim
 uv run riscv-tools --config /path/to/project/config.yaml sim --only test-a,test-b
 ```
 
-See `riscv-tools --help` for the full subcommand list (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `generate-config-pkg`, `check-paths`, `check-boards`, `check-tree`, `sources`, `check-vhdl-style`, `vsg-config`, `vsg-rules`, `vhdl-files`, `platform`, `flash-image`, `timing-paths`, and `board generate`).
+See `riscv-tools --help` for the full subcommand list (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `generate-config-pkg`, `check-paths`, `check-boards`, `check-tree`, `sources`, `ipxact`, `check-vhdl-style`, `vsg-config`, `vsg-rules`, `vhdl-files`, `platform`, `flash-image`, `timing-paths`, and `board generate`).
 
 ```bash
 # vhdl-sort needs no --config; pure file-content analysis, e.g. wired
