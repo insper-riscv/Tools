@@ -181,4 +181,4 @@ def test_vhdl_style_runs_through_check_tree(tmp_path: Path) -> None:
     _write(tmp_path, "src/a.vhd", "entity a is end;\n")
     problems = check_tree(tmp_path, "core", ["vhdl-style"])
     check_equal(len(problems), 1)
-    check_in("vhdl-style src/a.vhd:1: header", problems[0])
+    check_in("vhdl-style ERROR: src/a.vhd(1)header_900", problems[0])
