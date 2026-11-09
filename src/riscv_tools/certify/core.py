@@ -354,7 +354,11 @@ def run_suite(
         print(f"No ELFs found for {act_cfg['target_config']}; nothing to run")
         return {}
 
-    vhdl_sources = [str(root / src) for src in cfg["sim"]["vhdl_sources"]]
+    vhdl_sources = sim_runner.with_profile_config_pkg(
+        [str(root / src) for src in cfg["sim"]["vhdl_sources"]],
+        cfg["sim"].get("config_pkg", ""),
+        build_dir / "config_pkg",
+    )
     parameter_templates: dict[str, Any] = {
         **(cfg["sim"].get("parameters") or {}),
         **(act_cfg.get("sim_parameters") or {}),

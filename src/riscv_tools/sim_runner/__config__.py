@@ -34,6 +34,12 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         # memory's, the same for every test). See run_suite. Empty by
         # default, most toplevels need no generic overrides at all.
         "parameters": {},
+        # Text of the config_pkg of the profile (the base and the
+        # extensions of the core are constants of that package, not
+        # generics of the toplevel). `platform sync` writes it from the
+        # platform; the runner compiles it in place of the
+        # config_pkg.vhd of vhdl_sources. Empty keeps the file as is.
+        "config_pkg": "",
         # Format of the .hex a simulation loads: "words" is one 32-bit
         # word per line, with leading zero words so a program linked
         # above address 0 lands at its real word index; "verilog" is

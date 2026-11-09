@@ -78,5 +78,5 @@ Within each base, profiles come out ordered by their number of extensions and, o
 | `tests/test_profiles.py::test_without_the_exclusion_a_profile_may_have_both_letters` | Without the exclusion the profile `rv32ie` with both letters exists |
 | `tests/test_profiles.py::test_an_extension_with_a_letter_may_omit_the_generic` | The extension I adds no generic to the profile |
 | `tests/test_profiles.py::test_an_extension_without_generic_or_letter_fails` | An extension with neither `generic` nor `base_letter` fails |
-| `tests/test_config_from_platform.py::test_the_letter_format_picks_the_base_and_has_e` | The base letter and `HAS_E` follow the letter of the name in the letter format |
+| `tests/test_config_from_platform.py::test_the_letter_format_picks_the_base` | The base letter follows the letter of the name in the letter format |
 | `tests/test_config_from_platform.py::test_the_letter_format_rejects_a_name_with_no_letter` | A name with neither `i` nor `e` is not a profile |

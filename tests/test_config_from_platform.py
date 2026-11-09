@@ -8,9 +8,11 @@ from support import (
     MAP_REGIONS,
     MAP_RESERVED,
     check_equal,
-    check_is,
+    check_in,
     check_not_in,
 )
+from test_config_pkg import MATRIX as CONFIG_PKG_MATRIX
+from test_config_pkg import PLATFORM as CONFIG_PKG_PLATFORM
 
 from riscv_tools.config_files import read_config
 from riscv_tools.memory_map import config_from_platform, set_override
@@ -87,23 +89,9 @@ def test_memory_and_widths_come_from_the_map(tmp_path: Path) -> None:
             "boot_memory_addr_width": "9",
             "rom_addr_width": "13",
             "ram_addr_width": "16",
-            "HAS_E": False,
-            "HAS_M": True,
-            "HAS_ZMMUL": False,
-            "HAS_ZICSR": True,
-            "HAS_ZICNTR": True,
-            "HAS_ZIHPM": False,
-            "HAS_ZIMOP": False,
-            "HAS_ZICOND": False,
-            "HAS_ZIHINTNTL": False,
-            "HAS_ZIHINTPAUSE": False,
-            "HAS_ZIFENCEI": False,
-            "HAS_ZICCLSM": False,
-            "HAS_INTERRUPTS": False,
-            "HAS_SSCOFPMF": False,
-            "HAS_ACCESS_FAULTS": False,
         },
     )
+    check_not_in("config_pkg", config["sim"])
 
 
 def test_the_map_wins_over_what_the_config_says(tmp_path: Path) -> None:
@@ -135,8 +123,8 @@ def test_the_override_replaces_the_profile_of_the_platform(
     set_override("rv32e")
     config = config_from_platform(path)
     check_equal(config["isa"], {"base": "e"})
-    check_is(config["sim"]["parameters"]["HAS_E"], True)
-    check_is(config["sim"]["parameters"]["HAS_M"], False)
+    for generic in ("HAS_E", "HAS_M"):
+        check_not_in(generic, config["sim"]["parameters"])
 
 
 def test_a_name_outside_the_specification_is_rejected(
@@ -170,18 +158,36 @@ def _letter_platform(root: Path) -> Path:
     return path
 
 
-def test_the_letter_format_picks_the_base_and_has_e(tmp_path: Path) -> None:
-    """The base letter and `HAS_E` follow the letter of the name."""
+def test_the_letter_format_picks_the_base(tmp_path: Path) -> None:
+    """The base letter follows the letter of the name."""
     path = _letter_platform(tmp_path)
-    for name, base, has_e in (
-        ("rv32im_zicntr", "i", False),
-        ("rv32em", "e", True),
-        ("rv32e", "e", True),
+    for name, base in (
+        ("rv32im_zicntr", "i"),
+        ("rv32em", "e"),
+        ("rv32e", "e"),
     ):
         set_override(name)
         config = config_from_platform(path)
         check_equal(config["isa"], {"base": base})
-        check_is(config["sim"]["parameters"]["HAS_E"], has_e)
+        check_not_in("HAS_E", config["sim"]["parameters"])
+
+
+def test_the_profile_reaches_the_core_through_the_config_pkg(
+    tmp_path: Path,
+) -> None:
+    """The base and the extensions are constants of `sim.config_pkg`."""
+    (tmp_path / "matrix.yaml").write_text(yaml.safe_dump(CONFIG_PKG_MATRIX))
+    path = tmp_path / "platform.yaml"
+    platform = {**CONFIG_PKG_PLATFORM, "config": PLATFORM["config"]}
+    path.write_text(yaml.safe_dump(platform, sort_keys=False))
+    for name, base_e in (
+        ("rv32im_zicntr", "false"),
+        ("rv32em_zicntr", "true"),
+    ):
+        set_override(name)
+        text = config_from_platform(path)["sim"]["config_pkg"]
+        check_in(f"constant IS_BASE_E          : boolean := {base_e};", text)
+        check_in("constant HAS_M              : boolean := true;", text)
 
 
 def test_the_letter_format_rejects_a_name_with_no_letter(
