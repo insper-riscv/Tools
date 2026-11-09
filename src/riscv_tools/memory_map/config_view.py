@@ -39,7 +39,7 @@ from riscv_tools.memory_map.core import (
     symbols,
 )
 from riscv_tools.memory_map.expressions import evaluate
-from riscv_tools.memory_map.profile import SWITCHES, resolve
+from riscv_tools.memory_map.profile import resolve
 
 DEFAULT_XLEN = 32
 
@@ -96,10 +96,11 @@ def _memory(platform: dict[str, Any], table: dict[str, int]) -> dict[str, int]:
 def _parameters(
     platform: dict[str, Any],
     memory: dict[str, int],
-    base: str,
-    generics: dict[str, bool | int],
 ) -> dict[str, str | bool]:
-    """Read the generics of the simulation top off the map and profile.
+    """Read the generics of the simulation top off the map.
+
+    The base and the extensions of the profile are not generics of the
+    top; the cores read them from the `config_pkg` of the platform.
 
     Parameters
     ----------
@@ -107,15 +108,11 @@ def _parameters(
         The loaded platform: `config.addr_widths` lists the memories.
     memory : dict of {str: int}
         The `memory` keys (see `_memory`).
-    base : str
-        The base letter of the profile, `i` or `e`.
-    generics : dict of {str: bool or int}
-        The generics of the profile.
 
     Returns
     -------
     dict of {str: str or bool}
-        The address widths, `HAS_E` and one `HAS_*` per extension.
+        The address widths and the generics the memory choice fixes.
     """
     words = {
         "boot_memory": memory["boot_memory_words"],
@@ -126,10 +123,6 @@ def _parameters(
         f"{name}_addr_width": _width(words[name])
         for name in memory_choice.addr_width_names(platform)
     }
-    parameters["HAS_E"] = base == "e"
-    for key in SWITCHES:
-        if key in generics:
-            parameters[key.upper()] = bool(generics[key])
     parameters |= memory_choice.parameters(platform)
     return parameters
 
@@ -151,7 +144,7 @@ def config_from_platform(platform_file: Path) -> dict[str, Any]:
     platform = load_platform(platform_file)
     table = symbols(platform)
     memory = _memory(platform, table)
-    base, generics, xlen = resolve(platform, platform_file)
+    base, _, xlen = resolve(platform, platform_file)
     env = {
         key: f"0x{table[symbol]:08X}"
         for key, symbol in (
@@ -160,9 +153,7 @@ def config_from_platform(platform_file: Path) -> dict[str, Any]:
         )
         if symbol in table
     }
-    sim: dict[str, Any] = {
-        "parameters": _parameters(platform, memory, base, generics)
-    }
+    sim: dict[str, Any] = {"parameters": _parameters(platform, memory)}
     if env:
         sim["env"] = env
     config: dict[str, Any] = {

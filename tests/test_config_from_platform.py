@@ -8,7 +8,6 @@ from support import (
     MAP_REGIONS,
     MAP_RESERVED,
     check_equal,
-    check_is,
     check_not_in,
 )
 
@@ -87,21 +86,6 @@ def test_memory_and_widths_come_from_the_map(tmp_path: Path) -> None:
             "boot_memory_addr_width": "9",
             "rom_addr_width": "13",
             "ram_addr_width": "16",
-            "HAS_E": False,
-            "HAS_M": True,
-            "HAS_ZMMUL": False,
-            "HAS_ZICSR": True,
-            "HAS_ZICNTR": True,
-            "HAS_ZIHPM": False,
-            "HAS_ZIMOP": False,
-            "HAS_ZICOND": False,
-            "HAS_ZIHINTNTL": False,
-            "HAS_ZIHINTPAUSE": False,
-            "HAS_ZIFENCEI": False,
-            "HAS_ZICCLSM": False,
-            "HAS_INTERRUPTS": False,
-            "HAS_SSCOFPMF": False,
-            "HAS_ACCESS_FAULTS": False,
         },
     )
 
@@ -135,8 +119,8 @@ def test_the_override_replaces_the_profile_of_the_platform(
     set_override("rv32e")
     config = config_from_platform(path)
     check_equal(config["isa"], {"base": "e"})
-    check_is(config["sim"]["parameters"]["HAS_E"], True)
-    check_is(config["sim"]["parameters"]["HAS_M"], False)
+    check_not_in("HAS_E", config["sim"]["parameters"])
+    check_not_in("HAS_M", config["sim"]["parameters"])
 
 
 def test_a_name_outside_the_specification_is_rejected(
@@ -170,18 +154,18 @@ def _letter_platform(root: Path) -> Path:
     return path
 
 
-def test_the_letter_format_picks_the_base_and_has_e(tmp_path: Path) -> None:
-    """The base letter and `HAS_E` follow the letter of the name."""
+def test_the_letter_format_picks_the_base(tmp_path: Path) -> None:
+    """The base letter follows the letter of the name."""
     path = _letter_platform(tmp_path)
-    for name, base, has_e in (
-        ("rv32im_zicntr", "i", False),
-        ("rv32em", "e", True),
-        ("rv32e", "e", True),
+    for name, base in (
+        ("rv32im_zicntr", "i"),
+        ("rv32em", "e"),
+        ("rv32e", "e"),
     ):
         set_override(name)
         config = config_from_platform(path)
         check_equal(config["isa"], {"base": base})
-        check_is(config["sim"]["parameters"]["HAS_E"], has_e)
+        check_not_in("HAS_E", config["sim"]["parameters"])
 
 
 def test_the_letter_format_rejects_a_name_with_no_letter(
