@@ -14,7 +14,7 @@ Cada regra olha um aspecto da árvore e vale para alguns tipos de repositório. 
 | `common-submodule` | O Common-Components está montado em `src/common` | `core`, `memory`, `peripherals` |
 | `folder-names` | Nomes de pasta em minúsculas, dígitos, hífen, ponto e sublinhado, sem espaço nem acento | VHDL |
 | `entity-coverage` | Toda entidade de RTL de `src/` tem uma entrada em `tests/python/tests.json` com ela (ou o testbench `<nome>_tb`) como `toplevel` e o arquivo dela em `sources`; toda entidade da tabela `formal` tem a prova em `formal/` | VHDL |
-| `manifest` | A seção `provides` do `paths.yaml` lista cada `.vhd` de `src/` uma única vez, só arquivos que existem e dependências sem ciclo; sem a seção, a regra não confere nada | VHDL |
+| `manifest` | A seção `provides` do `paths.yaml` lista cada `.vhd` de `src/` uma única vez, só arquivos que existem e dependências sem ciclo; sem a seção, a regra não confere nada. Confere também a forma das seções `ipxact` e `interfaces` (ver [ipxact](ipxact.md)) | VHDL |
 | `provides-required` | O `paths.yaml` declara a seção `provides`; um repositório de VHDL que a perde (por um merge ou uma reescrita do arquivo) falha em vez de desligar em silêncio a regra `manifest` e o `riscv-tools sources`. A chave `tree.require_provides` troca o padrão do tipo | todos (exige nos de VHDL) |
 
 A regra `vhdl-style` é opcional e só roda quando o `--only` a nomeia, porque o CI tem um passo próprio para o estilo.
@@ -134,6 +134,7 @@ A opção `--only` restringe a verificação às regras listadas. Uma regra que 
 | `tests/test_entity_coverage.py::test_a_named_proof_needs_its_file` | Cada entidade da tabela `formal` exige o arquivo da prova. |
 | `tests/test_entity_coverage.py::test_a_proof_may_follow_the_other_names_or_be_named` | `<nome>_props.sv`, `<nome>/props.sv` e um arquivo nomeado na tabela valem como prova. |
 | `tests/test_entity_coverage.py::test_an_exception_excuses_the_test_but_not_the_proof` | Uma exceção dispensa o teste de entidade e mantém a exigência da prova. |
+| `tests/test_ipxact_manifest.py::test_tree_manifest_rule_reports_them` | A regra `manifest` reporta uma seção `interfaces` malformada. |
 | `tests/test_manifest_sources.py::test_without_provides_the_rule_is_silent` | Sem a seção `provides`, a regra `manifest` não confere nada. |
 | `tests/test_manifest_sources.py::test_a_complete_manifest_passes` | Cada arquivo listado uma vez e existente passa. |
 | `tests/test_manifest_sources.py::test_unlisted_missing_duplicate_and_unknown` | Arquivo inexistente, listado duas vezes, sem componente, requisito desconhecido e ciclo são reportados. |
