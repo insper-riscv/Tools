@@ -357,12 +357,21 @@ def test_vendor_code_is_left_out(tmp_path: Path) -> None:
     check_equal(vhdl_files(tmp_path), ["src/a.vhd"])
 
 
-def test_quartus_megafunction_files_are_left_out(tmp_path: Path) -> None:
-    """A file that uses `altera_mf` is not listed."""
+def test_quartus_megafunction_files_are_listed(tmp_path: Path) -> None:
+    """A file that uses `altera_mf` is listed like any other."""
     _write(tmp_path, "src/a.vhd", GOOD)
     _write(tmp_path, "src/b.vhd", "library altera_mf;\n" + GOOD)
     _write(tmp_path, "src/c.vhd", "-- Megafunction Wizard\n" + GOOD)
-    check_equal(vhdl_files(tmp_path), ["src/a.vhd"])
+    check_equal(vhdl_files(tmp_path), ["src/a.vhd", "src/b.vhd", "src/c.vhd"])
+
+
+def test_instance_by_component_name_is_forbidden(tmp_path: Path) -> None:
+    """The instance `u_x : name` with no `entity` is a component."""
+    text = GOOD.replace("u_sub : entity work.other", "u_sub : altsyncram")
+    check_equal(
+        _rule_lines(tmp_path, text, "component_900"),
+        [_line_of(text, "altsyncram")],
+    )
 
 
 def test_paths_yaml_can_leave_out_more_files(tmp_path: Path) -> None:

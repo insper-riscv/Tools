@@ -22,19 +22,18 @@ Each rule has the identifier `<group>_900` and its message in Portuguese, with t
 | `port_map_900` | Every association of a `port map` is by name (`i_port => signal`) |
 | `docstring_900` | Every `generic`, `port`, `constant`, `subtype`, `type`, `signal`, `alias` and `variable` has a comment on the line right above; a comment at the end of the line or a separator-only line does not count |
 
-`component_900` has no exception, not even for the wrappers of Quartus PLLs and megafunctions. The parameters of a function or a procedure are not declarations for `docstring_900`. A VSG `--fix` that splits `signal a, b : t;` into two lines leaves the second one without a comment, and `docstring_900` reports it.
+`component_900` has no exception, not even for the wrappers of Quartus PLLs and megafunctions. It also reports the instance written with only the name of the component (`u_x : name port map`), which is how the megafunctions of the `altera_mf_components` package are used, because the instance of an entity never has that form. The parameters of a function or a procedure are not declarations for `docstring_900`. A VSG `--fix` that splits `signal a, b : t;` into two lines leaves the second one without a comment, and `docstring_900` reports it.
 
 The port prefixes, the `UPPER_SNAKE_CASE` constants, the `_t` types and the `u_` instance labels are rules of the VSG itself (`port_600` to `port_602`, `constant_004`, `type_600`, `subtype_600` and `instantiation_601`), configured in `vsg.yaml`.
 
 ## 3. Files checked
 
-`riscv-tools vhdl-files` lists `src/**/*.vhd` and `tests/vhdl/*.vhd`, without what nobody edits by hand.
+`riscv-tools vhdl-files` lists `src/**/*.vhd` and `tests/vhdl/*.vhd`, without third-party code, submodules and what `paths.yaml` excludes.
 
 | File | How it is recognized |
 | :--- | :--- |
 | Third-party code | `vendor/` folder |
 | Submodule | Path in `.gitmodules` or folder with `.git`, such as `src/common` |
-| Quartus megafunction | The file uses the `altera_mf` library or carries the text `megafunction wizard` |
 | Others | The globs of `tree.vhdl_style.exclude` in `paths.yaml`, relative to the root |
 
 ```yaml
@@ -113,7 +112,8 @@ Each VHDL repository calls the subcommand in a step of the `vhdl-syntax` job, af
 | `tests/test_vhdl_style.py::test_real_insper_signals_after_the_fix_fail` | The real signals of the Insper-RISC-V after `--fix` fail. |
 | `tests/test_vhdl_style.py::test_ports_and_names_come_from_the_vsg_rules` | Prefix, constant, type and label follow the VSG rules. |
 | `tests/test_vhdl_style.py::test_vendor_code_is_left_out` | `vendor/` is not listed. |
-| `tests/test_vhdl_style.py::test_quartus_megafunction_files_are_left_out` | A file with `altera_mf` or `megafunction wizard` is not listed. |
+| `tests/test_vhdl_style.py::test_quartus_megafunction_files_are_listed` | A file with `altera_mf` is listed. |
+| `tests/test_vhdl_style.py::test_instance_by_component_name_is_forbidden` | The instance `u_x : name` with no `entity` fails. |
 | `tests/test_vhdl_style.py::test_paths_yaml_can_leave_out_more_files` | The globs of `paths.yaml` are left out. |
 | `tests/test_vhdl_style.py::test_the_scope_is_src_and_the_tests_folder` | Only `src/**` and `tests/vhdl/*.vhd` are listed. |
 | `tests/test_vhdl_style.py::test_submodules_are_left_out` | The files of a submodule are not listed. |

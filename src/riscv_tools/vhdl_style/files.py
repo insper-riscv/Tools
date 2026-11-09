@@ -2,11 +2,10 @@
 
 The list is the files the project writes by hand: `src/**/*.vhd` and
 `tests/vhdl/*.vhd`, without third-party code (`vendor/`), submodules
-(`src/common`), the files that `paths.yaml` names under
-`tree.vhdl_style.exclude` and the files Quartus generates from a
-megafunction (the ones that mention `altera_mf` or `megafunction
-wizard`). The top-levels of the board, in `cyclone-v/`, are in the list
-but apart, because their names come from the `.qsf` of Quartus.
+(`src/common`) and the files that `paths.yaml` names under
+`tree.vhdl_style.exclude`. The top-levels of the board, in
+`cyclone-v/`, are in the list but apart, because their names come
+from the `.qsf` of Quartus.
 """
 
 import fnmatch
@@ -140,7 +139,5 @@ def vhdl_files(root: Path, board: bool = False) -> list[str]:
             or any(fnmatch.fnmatch(relative, glob) for glob in excludes)
         ):
             continue
-        text = path.read_text(encoding="utf-8", errors="replace")
-        if not has_ip_marker(text):
-            found.append(relative)
+        found.append(relative)
     return found
