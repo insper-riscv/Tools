@@ -365,6 +365,143 @@ def test_quartus_megafunction_files_are_listed(tmp_path: Path) -> None:
     check_equal(vhdl_files(tmp_path), ["src/a.vhd", "src/b.vhd", "src/c.vhd"])
 
 
+PROCESS_GOOD = GOOD.replace(
+    "end architecture rtl;",
+    "    -- Registrador\n    p_x : process (i_d0) is\n    begin\n"
+    "    end process p_x;\n\nend architecture rtl;",
+)
+
+MEGAFUNCTION = GOOD.replace(
+    "library ieee;", "library altera_mf;\nlibrary ieee;"
+).replace("u_sub : entity work.other", "u_sub : component {name}")
+
+
+def _full(tmp_path: Path, text: str) -> list[str]:
+    """Run every rule of `vsg.yaml` over a single source file."""
+    _write(tmp_path, "src/x.vhd", text)
+    return check_vhdl_style(tmp_path, full=True)
+
+
+@pytest.mark.parametrize("label", ["p_x", "p_x_proc"])
+def test_process_label_with_the_prefix_passes(
+    tmp_path: Path, label: str
+) -> None:
+    """A label that starts with `p_` passes, `_proc` tail or not."""
+    text = PROCESS_GOOD.replace("p_x", label)
+    problems = _full(tmp_path, text)
+    check_equal(_lines_of(problems, "process_900"), [])
+    check_equal(_lines_of(problems, "process_600"), [])
+
+
+@pytest.mark.parametrize("label", ["x", "proc_p"])
+def test_process_label_without_the_prefix_fails(
+    tmp_path: Path, label: str
+) -> None:
+    """Both the label and the one of `end process` are reported."""
+    text = PROCESS_GOOD.replace("p_x", label)
+    problems = _full(tmp_path, text)
+    check_equal(
+        _lines_of(problems, "process_900"),
+        [_line_of(text, "process (i_d0)"), _line_of(text, "end process")],
+    )
+    check_in("CONTRIBUTING", "\n".join(problems))
+
+
+def test_process_without_a_label_fails(tmp_path: Path) -> None:
+    """The unlabeled process is reported by `process_016`."""
+    text = PROCESS_GOOD.replace("p_x : process", "process").replace(
+        "end process p_x", "end process"
+    )
+    check(_lines_of(_full(tmp_path, text), "process_016"), "process_016")
+
+
+def test_the_other_prefix_rules_apply_their_prefix(tmp_path: Path) -> None:
+    """Ports, instances and generates honour the configured prefix."""
+    text = GOOD.replace("i_sel", "sel_i").replace("u_sub", "gen_sub")
+    text = text.replace("o_out", "i_out")
+    problems = _full(tmp_path, text)
+    for rule in ("port_600", "port_601", "instantiation_601"):
+        check(_lines_of(problems, rule), rule)
+    text = GOOD.replace(
+        "    u_sub",
+        "    g_x : for k in 0 to 1 generate\n    end generate g_x;\n\n"
+        "    u_sub",
+    )
+    check(_lines_of(_full(tmp_path, text), "generate_017"), "generate_017")
+    text = text.replace("g_x", "gen_x")
+    check_equal(_lines_of(_full(tmp_path, text), "generate_017"), [])
+
+
+@pytest.mark.parametrize("name", ["altsyncram", "sld_virtual_jtag"])
+def test_vendor_primitive_component_is_accepted(
+    tmp_path: Path, name: str
+) -> None:
+    """A listed primitive passes with the library visible."""
+    text = MEGAFUNCTION.format(name=name)
+    problems = _full(tmp_path, text)
+    check_equal(_lines_of(problems, "component_900"), [])
+    check_equal(_lines_of(problems, "instantiation_034"), [])
+
+
+def test_vendor_primitive_instance_without_keyword_is_accepted(
+    tmp_path: Path,
+) -> None:
+    """`u_x : altsyncram` passes with `use altera_mf...` visible."""
+    text = GOOD.replace(
+        "library ieee;",
+        "library ieee;\nuse altera_mf.altera_mf_components.all;",
+    ).replace("u_sub : entity work.other", "u_sub : altsyncram")
+    check_equal(_rule_lines(tmp_path, text, "component_900"), [])
+
+
+def test_vendor_primitive_component_declaration_is_accepted(
+    tmp_path: Path,
+) -> None:
+    """The declaration of a listed primitive passes as well."""
+    text = MEGAFUNCTION.format(name="altsyncram").replace(
+        "    -- Sinal interno\n",
+        "    component altsyncram is\n    end component altsyncram;\n"
+        "    -- Sinal interno\n",
+    )
+    check_equal(_rule_lines(tmp_path, text, "component_900"), [])
+
+
+def test_vendor_primitive_needs_the_library(tmp_path: Path) -> None:
+    """Without `altera_mf` visible the primitive is reported."""
+    text = GOOD.replace(
+        "u_sub : entity work.other", "u_sub : component altsyncram"
+    )
+    check_equal(
+        _rule_lines(tmp_path, text, "component_900"),
+        [_line_of(text, "altsyncram")],
+    )
+
+
+@pytest.mark.parametrize("name", ["meu_bloco", "pll_0002"])
+def test_component_outside_the_list_is_reported(
+    tmp_path: Path, name: str
+) -> None:
+    """Our own block and a generated PLL fail even with the library."""
+    text = MEGAFUNCTION.format(name=name)
+    check_equal(
+        _rule_lines(tmp_path, text, "component_900"),
+        [_line_of(text, name)],
+    )
+
+
+def test_aligned_others_arrow_is_not_reported(tmp_path: Path) -> None:
+    """The arrow that the fix aligns after `others` passes."""
+    text = GOOD.replace(
+        "    signal sel : std_logic;",
+        "    signal sel : std_logic;\n    -- Vetor\n"
+        "    signal vec : std_logic_vector(3 downto 0)"
+        " := (others           => '0');",
+    )
+    check_equal(
+        _lines_of(_full(tmp_path, text), "element_association_100"), []
+    )
+
+
 def test_instance_by_component_name_is_forbidden(tmp_path: Path) -> None:
     """The instance `u_x : name` with no `entity` is a component."""
     text = GOOD.replace("u_sub : entity work.other", "u_sub : altsyncram")
@@ -455,6 +592,7 @@ def test_the_packaged_data_exist() -> None:
             "component_900.py",
             "port_map_900.py",
             "docstring_900.py",
+            "process_900.py",
         },
     )
 
