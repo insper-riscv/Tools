@@ -489,6 +489,19 @@ def test_component_outside_the_list_is_reported(
     )
 
 
+def test_aligned_others_arrow_is_not_reported(tmp_path: Path) -> None:
+    """The arrow that the fix aligns after `others` passes."""
+    text = GOOD.replace(
+        "    signal sel : std_logic;",
+        "    signal sel : std_logic;\n    -- Vetor\n"
+        "    signal vec : std_logic_vector(3 downto 0)"
+        " := (others           => '0');",
+    )
+    check_equal(
+        _lines_of(_full(tmp_path, text), "element_association_100"), []
+    )
+
+
 def test_instance_by_component_name_is_forbidden(tmp_path: Path) -> None:
     """The instance `u_x : name` with no `entity` is a component."""
     text = GOOD.replace("u_sub : entity work.other", "u_sub : altsyncram")

@@ -60,6 +60,10 @@ rule:
   function_019: {ignore_single_line: 'yes'}
 
   # ---- DESATIVADAS por conflito com o projeto ----
+  # element_association_100 (um só espaço entre others e =>): conflita com o alinhamento das setas => que o próprio
+  # `vsg --fix` aplica (o alinhamento de colunas das outras regras); o fix realinha a seta e desfaz qualquer
+  # correção manual, então a regra reprova o que o fix acabou de escrever (`others           => '0'` em csr_file.vhd).
+  element_association_100: {disable: true}
   # signal_007 (Remove default assignment): o valor inicial de um sinal registrado ('0') é o estado de power-up
   # na FPGA e a condição inicial da simulação; o CONTRIBUTING não o proíbe e removê-lo mudaria o comportamento.
   signal_007: {disable: true}

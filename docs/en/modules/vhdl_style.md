@@ -113,6 +113,7 @@ Each VHDL repository calls the subcommand in a step of the `vhdl-syntax` job, af
 | `tests/test_vhdl_style.py::test_process_label_without_the_prefix_fails` | `x` and `proc_p` fail, on the label and on `end process`. |
 | `tests/test_vhdl_style.py::test_process_without_a_label_fails` | A process with no label is reported by `process_016`. |
 | `tests/test_vhdl_style.py::test_the_other_prefix_rules_apply_their_prefix` | Ports, instances and generates apply the configured prefix. |
+| `tests/test_vhdl_style.py::test_aligned_others_arrow_is_not_reported` | The arrow aligned after `others` is not reported (`element_association_100` disabled). |
 | `tests/test_vhdl_style.py::test_component_instance_is_forbidden` | The instance `u_x : component x` fails. |
 | `tests/test_vhdl_style.py::test_port_map_must_associate_by_name` | A positional association in a `port map` fails. |
 | `tests/test_vhdl_style.py::test_docstrings_are_needed_above_each_declaration` | A missing comment, a trailing comment and a separator fail. |

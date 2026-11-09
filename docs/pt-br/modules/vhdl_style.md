@@ -113,6 +113,7 @@ Cada repositório de VHDL chama o subcomando num passo do job `vhdl-syntax`, dep
 | `tests/test_vhdl_style.py::test_process_label_without_the_prefix_fails` | `x` e `proc_p` falham, no rótulo e no `end process`. |
 | `tests/test_vhdl_style.py::test_process_without_a_label_fails` | O processo sem rótulo é acusado pela `process_016`. |
 | `tests/test_vhdl_style.py::test_the_other_prefix_rules_apply_their_prefix` | Portas, instâncias e generates aplicam o prefixo configurado. |
+| `tests/test_vhdl_style.py::test_aligned_others_arrow_is_not_reported` | A seta alinhada depois de `others` não é acusada (`element_association_100` desativada). |
 | `tests/test_vhdl_style.py::test_component_instance_is_forbidden` | A instância `u_x : component x` falha. |
 | `tests/test_vhdl_style.py::test_port_map_must_associate_by_name` | Associação posicional num `port map` falha. |
 | `tests/test_vhdl_style.py::test_docstrings_are_needed_above_each_declaration` | Falta de comentário, comentário no fim da linha e separador falham. |
