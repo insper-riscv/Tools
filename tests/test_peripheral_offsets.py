@@ -166,3 +166,36 @@ def test_a_legacy_entry_has_no_relative_constants(
     path.write_text(yaml.safe_dump(platform, sort_keys=False))
     text = render_all(path, tmp_path)[tmp_path / "out/offsets_pkg.vhd"]
     check_not_in(f"UART_{field.upper()}", text)
+
+
+def test_strict_periph_must_be_a_boolean() -> None:
+    """V-S1: a `strict_periph` that is not true or false is refused."""
+    _has(_problems(_with(strict_periph="yes")), "V-S1 strict_periph")
+    check_equal(_problems(_with(strict_periph=False)), [])
+    check_equal(_problems(_with()), [])
+
+
+@pytest.mark.parametrize(
+    ("strict", "text"),
+    [
+        (True, "Padding (região de falha de acesso) reservado"),
+        (False, "Padding reservado depois do tamanho"),
+    ],
+)
+def test_the_padding_is_a_fault_region_when_strict(
+    tmp_path: Path, strict: bool, text: str
+) -> None:
+    """The comment of `<NAME>_PAD` follows `strict_periph`."""
+    platform = _with(
+        {
+            "name": "PLIC",
+            "offset": "0x70000000",
+            "size": "4M",
+            "padding": "4M",
+        },
+        strict_periph=strict,
+    )
+    path = tmp_path / "platform.yaml"
+    path.write_text(yaml.safe_dump(platform, sort_keys=False))
+    out = render_all(path, tmp_path)[tmp_path / "out/offsets_pkg.vhd"]
+    check_in(text, out)

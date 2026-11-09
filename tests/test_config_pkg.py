@@ -143,6 +143,7 @@ def test_a_32_bit_platform_gets_the_defaults_of_today(tmp_path: Path) -> None:
         "constant HAS_UART_PINS      : boolean := false;",
         "constant HAS_CLINT          : boolean := true;",
         "constant HAS_PLIC           : boolean := false;",
+        "constant STRICT_PERIPH      : boolean := true;",
         ":= HAS_M or HAS_ZMMUL;",
         ":= HAS_ZICNTR or HAS_ZIHPM;",
         ":= HAS_SSCOFPMF and HAS_ZIHPM and HAS_INTERRUPTS;",
@@ -439,3 +440,17 @@ def test_external_is_reached_through_the_port_of_the_core(
         mapped,
     )
     check_equal(check_memory_map(platform, tmp_path)[1], [])
+
+
+def test_strict_periph_can_be_turned_off_by_the_platform(
+    tmp_path: Path,
+) -> None:
+    """`strict_periph: false` writes the constant as false."""
+    text = _config(tmp_path, {**PLATFORM, "strict_periph": False})
+    _has(text, "constant STRICT_PERIPH      : boolean := false;")
+
+
+def test_strict_periph_can_be_set_by_a_variant(tmp_path: Path) -> None:
+    """`--set STRICT_PERIPH=false` changes the constant."""
+    text = _config(tmp_path, PLATFORM, STRICT_PERIPH=False)
+    _has(text, "constant STRICT_PERIPH      : boolean := false;")

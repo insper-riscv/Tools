@@ -37,6 +37,7 @@ from riscv_tools.memory_map.core import (
     peripheral_list,
     platform_dict,
     platform_list,
+    strict_periph,
 )
 from riscv_tools.memory_map.expressions import evaluate
 from riscv_tools.memory_map.problems import platform_problems
@@ -93,7 +94,8 @@ class Config:
         The width of the physical address.
     flags : dict of {str: bool}
         Every `HAS_*` constant, in the order of the package: the
-        extensions, the caches and the peripherals.
+        extensions, the caches and the peripherals; then the
+        `STRICT_PERIPH` of the platform.
     rom_external : bool
         The ROM is reached through the port of the core (outside the
         chip or behind the instruction cache), `ROM_VIA_PORT` of the
@@ -234,7 +236,8 @@ def _flags(
     -------
     dict of {str: bool}
         The extensions of `SWITCHES`, then `HAS_ICACHE` and
-        `HAS_DCACHE`, then one constant for each name of `PERIPHERALS`.
+        `HAS_DCACHE`, then one constant for each name of `PERIPHERALS`
+        and `STRICT_PERIPH`.
         `HAS_UART_JTAG` and `HAS_UART_PINS` also follow `console` when
         the platform lists a `UART`.
     """
@@ -245,6 +248,7 @@ def _flags(
     flags["HAS_ICACHE"] = choice is not None and choice.has_icache
     flags["HAS_DCACHE"] = choice is not None and choice.has_dcache
     flags |= {flag: name in names for flag, name in PERIPHERALS.items()}
+    flags["STRICT_PERIPH"] = strict_periph(platform)
     if "UART" in names:
         flags["HAS_UART_JTAG"] |= console == "jtag"
         flags["HAS_UART_PINS"] |= console == "pins"

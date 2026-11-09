@@ -320,10 +320,11 @@ peripherals:
 | V-P2 | The given `id` is not the slot of the `offset` |
 | V-P3 | The `size` plus the `padding` go past the end of the slot |
 | V-P4 | Two peripherals take the same bytes (`size` plus `padding`) |
+| V-S1 | The `strict_periph` key, when given, is not a boolean |
 
-The granularity of the peripheral map is the slot: the decoder of the core accepts an address of the window when the bit of the slot is set in `PERIPH_SLOTS`, and the peripheral decodes only the low bits. The padding is recorded as a reserved area with no decoding of its own, so an access to it is handled like any address of an occupied slot, and only a slot with no peripheral raises an access fault.
+The granularity of the peripheral map is the slot: the decoder of the core accepts an address of the window when the bit of the slot is set in `PERIPH_SLOTS`, and the peripheral decodes only the low bits. The padding is a reserved area with no decoding of its own. The `strict_periph` key of the platform, true when absent, chooses the handling: when on, the padding is a fault region and an access to it raises an access fault; with `strict_periph: false` the access is handled like any address of an occupied slot, and only a slot with no peripheral raises an access fault.
 
-The symbols of the `checks` gain `<NAME>.offset`. An entry that uses `offset` or `padding` gets the constants `<NAME>_OFFSET`, `<NAME>_SIZE` (zero without `size`) and `<NAME>_PAD` in the map package, in 32 bits like `<NAME>_BASE`, and a value that does not fit 32 bits is refused. Entries with only `base` and `id` get nothing, and the `config_pkg` does not carry them, which keeps the text of the default package of the Common-Components.
+The symbols of the `checks` gain `<NAME>.offset`. An entry that uses `offset` or `padding` gets the constants `<NAME>_OFFSET`, `<NAME>_SIZE` (zero without `size`) and `<NAME>_PAD` in the map package, in 32 bits like `<NAME>_BASE`, and a value that does not fit 32 bits is refused. The comment of `<NAME>_PAD` describes the padding as an access fault region when `strict_periph` is true. Entries with only `base` and `id` get nothing, and the `config_pkg` does not carry them, which keeps the text of the default package of the Common-Components.
 
 ## 10. The `config_pkg`
 
@@ -336,7 +337,7 @@ The `config_pkg` is the VHDL package of constants of a platform, written from th
 | Base and widths | `IS_64`, `IS_BASE_E`, `ADDR_BITS`, `XLEN`, `REG_BITS`, `NUM_REGS` and the subtypes `word_t`, `reg_t`, `addr_t` and `map_addr_t` |
 | Extensions and caches | One `HAS_<EXTENSION>` per key of the profile (`HAS_M` to `HAS_ACCESS_FAULTS`), `HAS_ICACHE` and `HAS_DCACHE` |
 | Memory | `BOOT_MEMORY_BITS`, the map in bytes of type `map_addr_t` (`ROM_BASE`, `ROM_END`, `RAM_BASE`, `RAM_END`, `EXT_BASE`, `PERIPH_BASE`), `ROM_EXTERNAL`, `RAM_EXTERNAL` and `CACHE_WINDOW_BITS` |
-| Peripherals | One `HAS_<PERIPHERAL>` for `UART`, `UART_PINS`, `UART_JTAG`, `TIMER`, `GPIO`, `DISPLAY`, `SWITCHES`, `KEYS`, `CLINT`, `PLIC` and `FLASH_CTRL` |
+| Peripherals | One `HAS_<PERIPHERAL>` for `UART`, `UART_PINS`, `UART_JTAG`, `TIMER`, `GPIO`, `DISPLAY`, `SWITCHES`, `KEYS`, `CLINT`, `PLIC` and `FLASH_CTRL`, and `STRICT_PERIPH`, the value of the `strict_periph` key of the platform (true when absent), which a variant changes with `--set STRICT_PERIPH=false` |
 | Composed | `HAS_MULDIV` (`HAS_M or HAS_ZMMUL`), `HAS_ANY_COUNTER` (`HAS_ZICNTR or HAS_ZIHPM`) and `HAS_SSCOF` (`HAS_SSCOFPMF and HAS_ZIHPM and HAS_INTERRUPTS`) |
 | Functions | `isa_string`, the ISA text (`rv32im_zicsr_zicntr`), and `check_isa`, which fails at elaboration when a dependency between constants does not hold |
 
@@ -425,7 +426,7 @@ Some platforms need one more declaration so that the generated `config_pkg` refl
 | `tests/test_interrupts.py` | The package has `HAS_INTERRUPTS`, `CLOCK_HZ`, `MTIME_HZ` and `CLINT_TICK_CYCLES`, the header has the registers of the CLINT and the rate of `mtime`, and an inconsistent section (rate, missing CLINT, profile without the interrupts) is rejected. |
 | `tests/test_memory_choice.py` | The `memory` section and the `--memory` option make the 16 combinations 16 different packages, the constants and the simulation parameters come from the choice, and rules V1 to V5, V7 and V10 fail with a clear message. |
 | `tests/test_config_from_platform.py` | The `memory` keys, the `tohost` and `stdout` environment and the address widths come from the map, and the map wins over the file and its `extends`. |
-| `tests/test_peripheral_offsets.py` | `offset` and `base` give the same map, the derived `id`, the same `offset` with another `address_bits`, one rejection for each of V-P1 to V-P4 and the `_OFFSET`, `_SIZE` and `_PAD` constants only on relative entries. |
+| `tests/test_peripheral_offsets.py` | `offset` and `base` give the same map, the derived `id`, the same `offset` with another `address_bits`, one rejection for each of V-P1 to V-P4, V-S1 for `strict_periph`, the comment of `_PAD` according to the key and the `_OFFSET`, `_SIZE` and `_PAD` constants only on relative entries. |
 | `tests/test_address_bits.py` | The `address_bits` field and the derived window, one rejection for each of V-A1 to V-A6, the window fixed by `periph_window`, `resolve` with the `rv64` profiles, `--profile` and the new keys of the `config.yaml`. |
 | `tests/test_config_pkg.py` | The `config_pkg` for 32, 24 and 40 bits, the E base, the variants and what they refuse, the UART by `console`, writing with the map and `--check`, the coherence between the two packages, the command, and the proof that the map package and the `config_pkg` of the DE0-CV do not change. |
 | `tests/test_generate_memory_map.py` | The specs, the linker script and the VHDL package come out of the map; `--check` catches a missing or edited file; an address off the KiB grid and an inconsistent map are rejected; the command writes and checks. |

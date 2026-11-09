@@ -61,6 +61,7 @@ from riscv_tools.memory_map.core import (
     peripheral_list,
     platform_dict,
     platform_list,
+    strict_periph,
 )
 from riscv_tools.memory_map.expressions import evaluate
 from riscv_tools.memory_map.problems import platform_problems
@@ -464,6 +465,11 @@ def _relative_lines(periph: dict[str, Any], platform: dict[str, Any]) -> str:
     slot = 1 << periph_id_shift(address_bits(platform))
     size, padding, _ = slot_extent(periph, slot)
     name = str(periph["name"]).upper()
+    pad_what = (
+        "Padding (região de falha de acesso) reservado depois do tamanho"
+        if strict_periph(platform)
+        else "Padding reservado depois do tamanho"
+    )
     rows = (
         (
             "OFFSET",
@@ -471,7 +477,7 @@ def _relative_lines(periph: dict[str, Any], platform: dict[str, Any]) -> str:
             "Deslocamento na janela de periféricos",
         ),
         ("SIZE", size, "Tamanho"),
-        ("PAD", padding, "Padding reservado depois do tamanho"),
+        ("PAD", padding, pad_what),
     )
     lines = ""
     for suffix, value, what in rows:

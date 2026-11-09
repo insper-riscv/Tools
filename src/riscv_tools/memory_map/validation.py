@@ -12,6 +12,7 @@ from riscv_tools.memory_map.core import (
     peripheral_list,
     platform_dict,
     platform_list,
+    strict_periph,
 )
 from riscv_tools.memory_map.expressions import evaluate
 from riscv_tools.memory_map.profile import (
@@ -226,7 +227,28 @@ def validate_platform(
     problems += _boot_problems(platform_dict(platform, "boot"), spans, execs)
     problems += _address_problems(platform, bits, spans, generics, xlen)
     problems += memory.problems(platform, generics)
+    problems += _strict_problems(platform)
     return problems + _peripheral_problems(peripheral_list(platform), bits)
+
+
+def _strict_problems(platform: dict[str, Any]) -> list[Mismatch]:
+    """Check that `strict_periph`, when given, is a boolean (V-S1).
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+
+    Returns
+    -------
+    list of Mismatch
+        One problem when the key is not a boolean; else empty.
+    """
+    try:
+        strict_periph(platform)
+    except ValueError as error:
+        return [Mismatch("platform", "", f"V-S1 {error}")]
+    return []
 
 
 def _xlen(platform: dict[str, Any], xlen: int | None) -> int:
