@@ -4,7 +4,11 @@ import pytest
 from support import check_equal
 
 from riscv_tools.compiler.__config__ import DEFAULTS
-from riscv_tools.compiler.build import abi_for, optimize_flags
+from riscv_tools.compiler.build import (
+    C_STANDARD_FLAGS,
+    abi_for,
+    optimize_flags,
+)
 from riscv_tools.compiler.headers import canonical_march, parse_header
 
 ISA = DEFAULTS["isa"]
@@ -74,14 +78,13 @@ def test_abi_follows_the_base_isa():
     check_equal(abi_for("rv32im"), "ilp32")
     check_equal(
         optimize_flags("rv32e"),
-        [
-            "-march=rv32e",
-            "-mabi=ilp32e",
-            "-Os",
-            "-std=c23",
-            "-Wall",
-            "-Wextra",
-            "-Wpedantic",
-            "-Werror",
-        ],
+        ["-march=rv32e", "-mabi=ilp32e", "-Os", *C_STANDARD_FLAGS],
+    )
+
+
+def test_c_standard_flags_hold_c23_and_no_warning():
+    """Every C compile asks for ISO C23 and fails on any warning."""
+    check_equal(
+        C_STANDARD_FLAGS,
+        ["-std=c23", "-Wall", "-Wextra", "-Wpedantic", "-Werror"],
     )
