@@ -98,7 +98,7 @@ def test_the_soc_generics_come_from_the_map_package() -> None:
         "rom_end_kib => ROM_END_KIB",
         "icache_size_bits => ICACHE_SIZE_BITS",
         "cache_window_bits => CACHE_WINDOW_BITS",
-        "has_zihpm => HAS_ZIHPM",
+        "hpm_counters => HPM_COUNTERS",
         "clint_tick_cycles => CLINT_TICK_CYCLES",
         "plic_n_sources => PLIC_N_SOURCES",
         "plic_addr_width => PLIC_ADDR_WIDTH",
@@ -111,12 +111,35 @@ def test_the_soc_generics_come_from_the_map_package() -> None:
         check_in(fragment, top)
 
 
+def test_the_soc_generics_leave_the_isa_to_the_config_package() -> None:
+    """No ISA generic is passed; the soc reads `config_pkg`."""
+    top = " ".join(_top("de0-cv").split()).replace(" => ", "=>")
+    for name in (
+        "has_m",
+        "has_zmmul",
+        "has_e",
+        "has_zicsr",
+        "has_zicntr",
+        "has_zihpm",
+        "has_interrupts",
+        "has_sscofpmf",
+        "has_zifencei",
+        "has_zicond",
+        "has_zimop",
+        "has_zihintntl",
+        "has_zihintpause",
+        "has_zicclsm",
+        "has_dcache",
+        "has_access_faults",
+    ):
+        check_not_in(f"{name}=>", top)
+
+
 def test_the_de0_cv_top_keeps_the_timing_cuts_and_the_update_path() -> None:
     """The board top asks the soc for the cuts of the hand top."""
     top = " ".join(_top("de0-cv").split())
     for fragment in (
         "registered_irqs => true",
-        "has_access_faults => HAS_ACCESS_FAULTS",
         "periph_slots => PERIPH_SLOTS",
         "fast_icache_select => true",
         "has_dcache_bypass => true, bypass_page => RAM_LAST_PAGE",

@@ -2,7 +2,6 @@
 
 from typing import Any, cast
 
-from riscv_tools.memory_map.profile import SWITCHES
 from riscv_tools.top_generator.spec import (
     TopSpec,
     console,
@@ -23,7 +22,6 @@ _PLIC_FROM_PACKAGE = {
     "plic_priority_bits": "PLIC_PRIORITY_BITS",
     "plic_addr_width": "PLIC_ADDR_WIDTH",
 }
-_EXTENSIONS = (*(n for n in SWITCHES if n != "has_access_faults"), "has_e")
 
 
 def _interrupt_generics(spec: TopSpec) -> list[str]:
@@ -52,6 +50,9 @@ def _interrupt_generics(spec: TopSpec) -> list[str]:
 def soc_generics(spec: TopSpec) -> list[str]:
     """Monta os generics do SoC.
 
+    As extensões de ISA não são generics do SoC; ele as lê do
+    `config_pkg` da plataforma.
+
     Parameters
     ----------
     spec : TopSpec
@@ -73,11 +74,9 @@ def soc_generics(spec: TopSpec) -> list[str]:
         f"rom_external => {str('rom' in regions).lower()}",
         f"ram_external => {str('ram' in regions).lower()}",
         "has_icache => HAS_ICACHE",
-        "has_dcache => HAS_DCACHE",
         "icache_size_bits => ICACHE_SIZE_BITS",
         "dcache_size_bits => DCACHE_SIZE_BITS",
         "cache_window_bits => CACHE_WINDOW_BITS",
-        *(f"{name} => {name.upper()}" for name in _EXTENSIONS),
         *_interrupt_generics(spec),
         f"clint_id => {_peripheral_id(spec.platform, 'CLINT', 6)}",
         f"plic_id => {_peripheral_id(spec.platform, 'PLIC', 7)}",
@@ -106,7 +105,6 @@ def _timing_generics(spec: TopSpec) -> list[str]:
     staggered = spec.plan.get("fetch") is not None
     out = [
         "registered_irqs => true",
-        "has_access_faults => HAS_ACCESS_FAULTS",
         "periph_slots => PERIPH_SLOTS",
     ]
     if staggered:
