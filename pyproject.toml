@@ -1,6 +1,6 @@
 [project]
 name = "riscv-tools"
-version = "1.12.0"
+version = "1.11.0"
 description = "CLI do Insper-RISC-V: Compila, simula (GHDL/cocotb), testa e certifica (ACT4) os módulos do core RISC-V RV32 a partir de manifestos YAML."
 license = "Apache-2.0"
 # Capped at <3.15: 3.14 is the newest Python version that cocotb run on.
@@ -9,6 +9,7 @@ requires-python = ">=3.14,<3.15"
 dependencies = [
     "cocotb>=2.1",
     "PyYAML>=6.0",
+    "vsg>=3,<4",
 ]
 
 [project.scripts]
@@ -34,12 +35,13 @@ dev = [
 ]
 
 [tool.deptry]
-known_first_party = ["riscv_tools"]
+known_first_party = ["riscv_tools", "capstone_rule"]
 
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
 stubPath = "stubs"
+extraPaths = ["src", "src/riscv_tools/vhdl_style/local_rules"]
 pythonVersion = "3.14"
 typeCheckingMode = "strict"
 reportMissingModuleSource = "none"
@@ -96,6 +98,11 @@ ignore = [
     "S607",
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# The VSG fixes the names its API uses (oFile, lAllObjects, rule_*).
+"src/riscv_tools/vhdl_style/local_rules/*" = ["N801", "N802", "N803", "N815"]
+"stubs/**" = ["N", "D", "PLR0913"]
+
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
 
@@ -129,19 +136,23 @@ max-complexity-allowed = 10
 [tool.pyrefly]
 preset = "strict"
 project-includes = ["src", "tests"]
-search-path = ["tests"]
+search-path = ["tests", "stubs", "src/riscv_tools/vhdl_style/local_rules"]
 python-version = "3.14"
 
 [tool.pylint.main]
-ignore = [".venv"]
+ignore = [".venv", "stubs"]
 fail-under = 10
 source-roots = ["src"]
 # The test modules import their helpers (support.py) as top-level modules.
-init-hook = "import sys; sys.path.append('tests')"
+init-hook = "import sys; sys.path.extend(['tests', 'src/riscv_tools/vhdl_style/local_rules'])"
 
 # The records of the board catalog have one field for each key of a schema.
 [tool.pylint.design]
 max-attributes = 15
+
+[tool.pylint.basic]
+# The VSG loads the classes whose name starts with `rule_`.
+class-rgx = "([A-Z_][a-zA-Z0-9]+|rule_[a-z0-9_]+)$"
 
 [tool.pylint.messages_control]
 disable = [

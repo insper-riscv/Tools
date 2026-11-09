@@ -1,30 +1,41 @@
 # `vhdl_style`
 
-Confere que os arquivos VHDL de um repositório seguem o guia de estilo do projeto, o mesmo das seções de VHDL do `CONTRIBUTING.md` do `Core`. Os repositórios repetem esse guia, e cada um só descobre que um arquivo o desrespeita quando alguém revisa a mão. Este módulo lê os arquivos e lista cada desvio com o arquivo, a linha e a regra, então o estilo é conferido no CI e não na revisão.
+Faz o [VSG](https://vhdl-style-guide.readthedocs.io) conferir o estilo dos arquivos VHDL de um repositório, com a configuração e as regras locais do projeto. O guia de estilo é o das seções de VHDL do `CONTRIBUTING.md` do `Core`, repetido nos repositórios, e cada um só descobria que um arquivo o desrespeita quando alguém revisava à mão. O VSG é a única ferramenta de estilo: ele traz as regras de formato, de nome e de comprimento, e as regras locais acrescentam o que o VSG não conhece.
 
-## Regras
+## 1. O que o módulo guarda
+
+| Dado | Conteúdo |
+| :--- | :--- |
+| `vsg.yaml` | Configuração do VSG para todo o projeto, cada desvio do padrão justificado em comentário |
+| `vsg-board.yaml` | Camada para os topos de placa em `cyclone-v/`, que desliga as regras de nome |
+| `local_rules/` | As cinco regras locais, um arquivo por regra, mais o `capstone_rule.py` que elas compartilham |
+
+## 2. Regras locais
+
+Cada regra tem o identificador `<grupo>_900` e a mensagem em português, com a seção do `CONTRIBUTING.md` que ela cobra. Nenhuma corrige o arquivo.
 
 | Regra | O que confere |
 | :--- | :--- |
-| `header` | O arquivo abre com o bloco de cabeçalho: uma linha de `=` (de qualquer largura), a descrição e uma linha de fechamento |
-| `libraries` | Do pacote IEEE, só `std_logic_1164` e `numeric_std` |
-| `component` | Nenhuma declaração nem instanciação com `component`; a instância é direta, `u_x : entity work.x` |
-| `port-map` | Toda associação de um `port map` é por nome (`i_porta => sinal`) |
-| `ports` | Toda porta começa com `i_` (entrada), `o_` (saída e `buffer`) ou `io_` (`inout`) |
-| `docstrings` | Todo `generic`, `port`, `constant`, `subtype`, `type`, `signal`, `alias` e `variable` tem um comentário na linha imediatamente acima; um comentário no fim da linha ou uma linha só de separador não vale |
-| `naming` | Constantes em `UPPER_SNAKE_CASE`, tipos e subtipos em `snake_case` com o sufixo `_t`, rótulos de instância com o prefixo `u_` |
+| `header_900` | O arquivo abre com o cabeçalho: uma linha de `=` (de qualquer largura), a descrição e uma linha de fechamento |
+| `library_900` | Do pacote IEEE, só `std_logic_1164` e `numeric_std` |
+| `component_900` | Nenhuma declaração nem instância com `component`; a instância é direta, `u_x : entity work.x` |
+| `port_map_900` | Toda associação de um `port map` é por nome (`i_porta => sinal`) |
+| `docstring_900` | Todo `generic`, `port`, `constant`, `subtype`, `type`, `signal`, `alias` e `variable` tem um comentário na linha imediatamente acima; um comentário no fim da linha ou uma linha só de separador não vale |
 
-Comentários e literais de texto e de caractere não contam como código, então uma palavra-chave dentro deles não gera desvio. Os parâmetros de uma função ou de um procedimento não são declarações para a regra `docstrings`.
+A `component_900` não tem exceção, nem para os invólucros de PLL e de megafunção do Quartus. Os parâmetros de uma função ou de um procedimento não são declarações para a `docstring_900`. Um `--fix` do VSG que separa `signal a, b : t;` em duas linhas deixa a segunda sem comentário, e a `docstring_900` a acusa.
 
-## O que fica de fora
+Os prefixos de porta, as constantes em `UPPER_SNAKE_CASE`, os tipos com `_t` e os rótulos de instância com `u_` são regras do próprio VSG (`port_600` a `port_602`, `constant_004`, `type_600`, `subtype_600` e `instantiation_601`), configuradas no `vsg.yaml`.
 
-A varredura é a mesma do `tree_check` (sem pastas ocultas, saída de build e submódulos) e também deixa de fora o que ninguém edita à mão.
+## 3. Arquivos conferidos
+
+`riscv-tools vhdl-files` lista `src/**/*.vhd` e `tests/vhdl/*.vhd`, sem o que ninguém edita à mão.
 
 | Arquivo | Como é reconhecido |
 | :--- | :--- |
 | Código de terceiros | Pasta `vendor/` |
-| IP gerado pelo Quartus | Pasta `cyclone-v/` (sem distinção de maiúsculas) ou o uso da biblioteca `altera_mf` ou do texto `megafunction wizard` no arquivo |
-| Outros | Os globs de `tree.vhdl_style.exclude` no `paths.yaml` do repositório, relativos à raiz |
+| Submódulo | Caminho no `.gitmodules` ou pasta com `.git`, como o `src/common` |
+| Megafunção do Quartus | O arquivo usa a biblioteca `altera_mf` ou traz o texto `megafunction wizard` |
+| Outros | Os globs de `tree.vhdl_style.exclude` no `paths.yaml`, relativos à raiz |
 
 ```yaml
 tree:
@@ -32,46 +43,88 @@ tree:
     exclude: ["src/gerado/*.vhd"]
 ```
 
-## Uso
+Os topos de placa em `cyclone-v/` (sem distinção de maiúsculas) ficam na lista, mas à parte: `vhdl-files --board` os lista, e o VSG os confere com o `vsg-board.yaml` por cima do `vsg.yaml`. Os nomes de pino e de sinal vêm do `.qsf` do Quartus e não seguem as regras de nome, mas cabeçalho, bibliotecas, `component`, `port map` e docstrings valem como nos outros arquivos.
+
+## 4. Subcomandos
+
+Nenhum precisa de `--config`.
+
+| Subcomando | O que faz |
+| :--- | :--- |
+| `vsg-config` | Imprime o caminho do `vsg.yaml`; com `--board`, o do `vsg-board.yaml` |
+| `vsg-rules` | Imprime o caminho da pasta das regras locais |
+| `vhdl-files` | Lista os arquivos conferidos, um por linha; com `--board`, os topos de placa |
+| `check-vhdl-style` | Atalho que roda o VSG com a configuração e as regras do projeto sobre esses arquivos |
+
+O `check-vhdl-style` aplica as regras que o CI exige hoje, as cinco locais mais os prefixos de porta, as constantes, os tipos e os rótulos de instância. Com `--full` aplica todas as regras do `vsg.yaml`, inclusive indentação, alinhamento, caixa e comprimento. Sai com status 1 quando o VSG acusa algum desvio.
+
+## 5. Uso
 
 ```bash
 uv run riscv-tools --root <repositório> check-vhdl-style
-uv run riscv-tools --root <repositório> check-vhdl-style --only header,ports
+uv run riscv-tools --root <repositório> check-vhdl-style --full
 uv run riscv-tools --root <repositório> check-tree --kind memory --only vhdl-style
 ```
 
-Não precisa de `--config`. Cada desvio sai em `STYLE <arquivo>:<linha>: <regra> <mensagem>`, e o status é 1 com pelo menos um desvio, 2 numa regra desconhecida. A regra `vhdl-style` do `check-tree` roda a mesma conferência e só entra quando o `--only` a nomeia.
+O VSG também roda direto, e `--fix` corrige formato:
 
-## Passo de CI
+```bash
+cd <repositório>
+vsg -c "$(riscv-tools vsg-config)" -lr "$(riscv-tools vsg-rules)" -ap -f $(riscv-tools vhdl-files)
+vsg -c "$(riscv-tools vsg-config)" "$(riscv-tools vsg-config --board)" -lr "$(riscv-tools vsg-rules)" -ap -f $(riscv-tools vhdl-files --board)
+```
 
-Cada repositório de VHDL chama o subcomando num passo do job `vhdl-syntax` (ou do `python-static-analysis`), depois de montar o ambiente, quando a imagem `ci-vhdl` traz a versão do Tools que o contém.
+Quem quiser um desvio local cria um `vsg.local.yaml` na raiz e o passa depois do `vsg.yaml`, em `-c`. A regra `vhdl-style` do `check-tree` roda a mesma conferência e só entra quando o `--only` a nomeia.
+
+## 6. Passo de CI
+
+Cada repositório de VHDL chama o subcomando num passo do job `vhdl-syntax`, depois de montar o ambiente, quando a imagem `ci-vhdl` traz a versão do Tools que o contém.
 
 ```yaml
       - name: VHDL style
         run: riscv-tools --root . check-vhdl-style
 ```
 
-## Testes
+## 7. Escrever uma regra local
+
+1. Um arquivo `<grupo>_900.py` em `local_rules/`, com uma classe `rule_<grupo>_900` que herda de `LocalRule` e implementa `find`, devolvendo pares `(linha, mensagem)`.
+2. A mensagem em português cita a seção do `CONTRIBUTING.md` violada.
+3. O arquivo importa só o `capstone_rule`, nunca o `riscv_tools`, porque o VSG pode rodar num ambiente à parte.
+4. A regra entra em `GATE_RULES` no `runner.py` quando o CI passa a exigi-la, e ganha fixtures que passam e que reprovam em `tests/test_vhdl_style.py`.
+
+## 8. Testes
 
 | Teste | O que verifica |
 | :--- | :--- |
 | `tests/test_vhdl_style.py::test_a_conforming_file_has_no_violation` | Um arquivo que segue o guia passa em todas as regras. |
 | `tests/test_vhdl_style.py::test_header_is_required` | Sem cabeçalho, o desvio sai na linha 1. |
 | `tests/test_vhdl_style.py::test_header_needs_description_and_closing_line` | Cabeçalho sem descrição ou sem fechamento falha. |
-| `tests/test_vhdl_style.py::test_header_has_no_minimum_width` | Um cabeçalho de 40 colunas passa, e os de 80 também. |
+| `tests/test_vhdl_style.py::test_header_has_no_minimum_width` | Cabeçalhos de 40 e de 100 colunas passam. |
 | `tests/test_vhdl_style.py::test_libraries_allow_only_the_two_packages` | Outro pacote do IEEE falha. |
 | `tests/test_vhdl_style.py::test_component_is_forbidden_but_not_in_comments` | `component` falha, e o comentário que o cita não. |
+| `tests/test_vhdl_style.py::test_component_has_no_exception_for_generated_wrappers` | O invólucro de PLL também falha. |
+| `tests/test_vhdl_style.py::test_component_instance_is_forbidden` | A instância `u_x : component x` falha. |
 | `tests/test_vhdl_style.py::test_port_map_must_associate_by_name` | Associação posicional num `port map` falha. |
-| `tests/test_vhdl_style.py::test_ports_need_the_prefix_of_their_mode` | Cada modo exige o seu prefixo. |
-| `tests/test_vhdl_style.py::test_docstrings_are_needed_above_each_declaration` | Falta de comentário acima, comentário no fim da linha e separador falham. |
-| `tests/test_vhdl_style.py::test_docstrings_cover_generics_and_skip_subprogram_parameters` | Generics exigem comentário e parâmetros de função não. |
-| `tests/test_vhdl_style.py::test_naming_of_constants_types_and_labels` | Constante, tipo e rótulo seguem a convenção. |
-| `tests/test_vhdl_style.py::test_vendor_code_and_quartus_ips_are_left_out` | `vendor/` e IPs do Quartus não são conferidos. |
+| `tests/test_vhdl_style.py::test_docstrings_are_needed_above_each_declaration` | Falta de comentário, comentário no fim da linha e separador falham. |
+| `tests/test_vhdl_style.py::test_docstrings_cover_generics_and_ports` | Generics e portas exigem comentário. |
+| `tests/test_vhdl_style.py::test_docstrings_skip_subprogram_parameters` | Parâmetros de função não são declarações. |
+| `tests/test_vhdl_style.py::test_real_memory_signals_before_the_fix_pass` | Os sinais reais do Memory, com um comentário para cinco nomes, passam. |
+| `tests/test_vhdl_style.py::test_real_memory_signals_after_the_fix_fail` | Os quatro nomes que o `--fix` separou perdem o comentário e falham. |
+| `tests/test_vhdl_style.py::test_real_insper_signals_after_the_fix_fail` | Os sinais reais do Insper-RISC-V depois do `--fix` falham. |
+| `tests/test_vhdl_style.py::test_ports_and_names_come_from_the_vsg_rules` | Prefixo, constante, tipo e rótulo seguem as regras do VSG. |
+| `tests/test_vhdl_style.py::test_vendor_code_is_left_out` | `vendor/` não entra na lista. |
+| `tests/test_vhdl_style.py::test_quartus_megafunction_files_are_left_out` | Arquivo com `altera_mf` ou `megafunction wizard` não entra. |
 | `tests/test_vhdl_style.py::test_paths_yaml_can_leave_out_more_files` | Os globs do `paths.yaml` ficam de fora. |
-| `tests/test_vhdl_style.py::test_literals_and_comments_do_not_count_as_code` | Palavra-chave em texto, caractere ou comentário é ignorada. |
-| `tests/test_vhdl_style.py::test_an_unknown_rule_is_an_error` | Regra inexistente levanta erro. |
-| `tests/test_vhdl_style.py::test_cmd_check_vhdl_style_exit_status` | O comando imprime OK, ou sai com 1 listando, ou com 2. |
-| `tests/test_vhdl_style.py::test_the_subcommand_is_registered_without_a_config` | O subcomando roda sem `--config`. |
+| `tests/test_vhdl_style.py::test_the_scope_is_src_and_the_tests_folder` | Só `src/**` e `tests/vhdl/*.vhd` entram. |
+| `tests/test_vhdl_style.py::test_submodules_are_left_out` | Os arquivos de um submódulo não entram. |
+| `tests/test_vhdl_style.py::test_board_files_are_listed_apart` | Os topos de `cyclone-v/` só saem com `--board`. |
+| `tests/test_vhdl_style.py::test_board_files_follow_the_rules_but_not_the_naming` | Topo de placa mantém os nomes de pino e ainda exige cabeçalho. |
+| `tests/test_vhdl_style.py::test_the_gate_accepts_what_only_the_full_check_rejects` | Linha longa passa no padrão e falha no `--full`. |
+| `tests/test_vhdl_style.py::test_the_packaged_data_exist` | Configuração, camada e as cinco regras são arquivos do pacote. |
+| `tests/test_vhdl_style.py::test_local_rule_messages_are_in_portuguese` | A mensagem cita o `CONTRIBUTING`. |
+| `tests/test_vhdl_style.py::test_cmd_check_vhdl_style_exit_status` | O comando imprime OK, ou sai com 1 listando. |
+| `tests/test_vhdl_style.py::test_the_vsg_subcommands_print_paths_and_files` | Os subcomandos imprimem caminhos e arquivos. |
+| `tests/test_vhdl_style.py::test_the_subcommands_are_registered_without_a_config` | Os subcomandos rodam sem `--config`. |
 
 ---
 

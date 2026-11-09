@@ -131,6 +131,18 @@ When adding, renaming, or removing any versioned file, immediately update:
 - `docs/pt-br/` e `docs/en/`
 - `README.md`, `README.en.md`, and the affected documentation
 
+## 5. VSG Rules
+
+The VHDL style of the repositories is checked by the VSG, with the configuration and the local rules of this repository (the `vhdl_style` module).
+
+| Rule | Specification |
+| :--- | :--- |
+| Configuration | `src/riscv_tools/vhdl_style/vsg.yaml` is the single configuration of the project; every rule that is disabled or changed has its justification in a comment above it |
+| Local rules | One file for each rule in `src/riscv_tools/vhdl_style/local_rules/`, with the identifier `<group>_900` and a message in Portuguese that cites the section of `CONTRIBUTING.md` it enforces |
+| Isolation | A local rule imports only `capstone_rule`, never `riscv_tools`, because the VSG may run in an environment of its own |
+| Tests | Every local rule and every change to `vsg.yaml` come with passing and failing fixtures in `tests/test_vhdl_style.py` |
+| File list | Changing what `riscv-tools vhdl-files` lists updates `docs/pt-br/modules/vhdl_style.md` and `docs/en/modules/vhdl_style.md` in the same pull request |
+
 ---
 
 Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](LICENSE).

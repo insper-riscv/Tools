@@ -16,7 +16,12 @@ from riscv_tools.cli.tools_cmd import (
     cmd_vhdl_sort,
 )
 from riscv_tools.cli.tree_cmd import cmd_check_tree
-from riscv_tools.cli.vhdl_style_cmd import cmd_check_vhdl_style
+from riscv_tools.cli.vhdl_style_cmd import (
+    cmd_check_vhdl_style,
+    cmd_vhdl_files,
+    cmd_vsg_config,
+    cmd_vsg_rules,
+)
 from riscv_tools.tree_check import KINDS
 
 _DEFAULT_NPATHS = 30
@@ -185,13 +190,47 @@ def add_tool_commands(sub: Any) -> None:
         cmd_check_vhdl_style,
         "check-vhdl-style",
         description=(
-            "Fail when a VHDL file breaks the style guide of the project "
-            "(vendor code and Quartus IPs are left out)"
+            "Shortcut for the VSG: fail when a VHDL file breaks the style "
+            "guide of the project (vendor code and Quartus IPs are left out)"
         ),
     )
     p.add_argument(
-        "--only",
-        help="Comma-separated rules to run (default: every rule)",
+        "--full",
+        action="store_true",
+        help="Apply every rule of vsg.yaml (default: the rules the CI "
+        "gate demands)",
+    )
+
+    p = add_command(
+        sub,
+        cmd_vsg_config,
+        "vsg-config",
+        description="Print the path of the VSG configuration of the project",
+    )
+    p.add_argument(
+        "--board",
+        action="store_true",
+        help="Print the layer for the top-levels of the board instead",
+    )
+
+    add_command(
+        sub,
+        cmd_vsg_rules,
+        "vsg-rules",
+        description="Print the path of the local VSG rules of the project",
+    )
+
+    p = add_command(
+        sub,
+        cmd_vhdl_files,
+        "vhdl-files",
+        description="List the VHDL files the style guide covers",
+    )
+    p.add_argument(
+        "--board",
+        action="store_true",
+        help="List the top-levels of the board (cyclone-v/) instead of "
+        "the other files",
     )
 
     p = add_command(

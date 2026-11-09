@@ -291,11 +291,12 @@ wheels = [
 
 [[package]]
 name = "riscv-tools"
-version = "1.12.0"
+version = "1.11.0"
 source = { editable = "." }
 dependencies = [
     { name = "cocotb" },
     { name = "pyyaml" },
+    { name = "vsg" },
 ]
 
 [package.dev-dependencies]
@@ -311,6 +312,7 @@ dev = [
 requires-dist = [
     { name = "cocotb", specifier = ">=2.1" },
     { name = "pyyaml", specifier = ">=6.0" },
+    { name = "vsg", specifier = ">=3,<4" },
 ]
 
 [package.metadata.requires-dev]
@@ -390,4 +392,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f6/cc/6253133b5bb138fc3306cebfbda2c520f545d36b5be2c7255cc528bb45d6/typing_extensions-4.16.0.tar.gz", hash = "sha256:dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5", size = 113555, upload-time = "2026-07-02T08:40:05.92Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl", hash = "sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8", size = 45571, upload-time = "2026-07-02T08:40:04.659Z" },
+]
+
+[[package]]
+name = "vsg"
+version = "3.35.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyyaml" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/42/51/130009a136c8145100819d2e841f9e24b12011c24e28ae3e7944a690f9bc/vsg-3.35.0-py3-none-any.whl", hash = "sha256:dd87a7cc9b98b0d407ec0e22c20a947cfad5e5a36e55dfb98783eb8f89f3bba4", size = 1057530, upload-time = "2025-09-07T20:08:09.941Z" },
 ]

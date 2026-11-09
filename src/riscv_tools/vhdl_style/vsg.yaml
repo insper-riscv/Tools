@@ -1,0 +1,83 @@
+# Configuração do VSG 3.35.0 (VHDL Style Guide) para todo o projeto Capstone RISC-V (VHDL-2008).
+# Verificar: vsg -c vsg.yaml -ap -f <arquivos.vhd>      Corrigir: acrescentar --fix
+# Cada regra desativada ou alterada tem a justificativa no comentário acima dela.
+rule:
+  global:
+    # Indentação com 4 espaços por nível (decisão do usuário, 2026-11-08); tabulação proibida. O alinhamento de colunas também usa espaços.
+    indent_style: spaces
+    indent_size: 4
+    # A docstring acima de cada declaração não quebra o grupo de alinhamento dos dois-pontos e do :=.
+    comment_line_ends_group: 'no'
+    blank_line_ends_group: 'yes'
+    compact_alignment: 'yes'
+
+  # ---- Tamanho (decisão do usuário): 120 colunas por linha, 2000 linhas por arquivo, 500 linhas por processo ----
+  # As três vêm desabilitadas no VSG 3.35.0 e são habilitadas aqui. O --fix NÃO quebra linha longa (correção manual).
+  length_001: {disable: false, length: 120, severity: Error}
+  length_002: {disable: false, length: 2000, severity: Error}
+  length_003: {disable: false, length: 500, severity: Error}
+
+  # ---- Nomes (CONTRIBUTING seção 2) ----
+  # Portas com prefixo de direção: i_ (in), o_ (out). io_ para inout (o CONTRIBUTING não trata inout; só pinos de placa).
+  port_600: {disable: false, prefixes: [i_]}
+  port_601: {disable: false, prefixes: [o_]}
+  port_602: {disable: false, prefixes: [io_]}
+  # Tipos e subtipos com sufixo _t.
+  type_600: {disable: false, suffixes: [_t]}
+  subtype_600: {disable: false, suffixes: [_t]}
+  # Rótulo de instância com u_ e de generate com gen_.
+  instantiation_601: {disable: false, prefixes: [u_]}
+  generate_017: {disable: false, prefixes: [gen_]}
+  # Rótulo de processo obrigatório (process_016 e process_018) e com prefixo p_ (process_600), no mesmo espírito do u_
+  # das instâncias e do gen_ dos generates. A process_016 não é corrigível sozinha: o rótulo se escreve à mão; a
+  # process_018 repete o rótulo no end process automaticamente.
+  process_016: {disable: false}
+  process_018: {disable: false}
+  process_600: {disable: false, prefixes: [p_]}
+  # constant_014 (indentação das linhas de continuação de uma constante de várias linhas que não é array): com o
+  # padrão do VSG o --fix oscilava uma coluna por passada (Memory e Insper-RISC-V). Com align_left sim e align_paren não
+  # (linhas alinhadas à esquerda, um recuo por parêntese aberto) a segunda passada não altera nenhum byte nos dois.
+  constant_014: {disable: false, align_left: 'yes', align_paren: 'no'}
+  # Constantes em UPPER_SNAKE_CASE (o padrão do VSG exige minúsculas).
+  constant_004: {case: upper}
+  # Literais de enumeração (estados de FSM) em UPPER_SNAKE_CASE (skill vhdl, seção 1); o padrão do VSG exige minúsculas.
+  type_500: {case: upper}
+
+  # ---- Regras que o CONTRIBUTING decide ----
+  # Seção 1: instanciação direta de entidade, sem declaração component. method: entity inverte o padrão do VSG,
+  # que exige component, e passa a apontar as instanciações por component.
+  instantiation_034: {method: entity}
+  # Seção 1: u_nome : entity work.nome, sem arquitetura entre parênteses. action: remove aponta o uso de work.x(rtl).
+  instantiation_036: {action: remove}
+  # Estilo majoritário do código: if sem parênteses (cerca de 85% das ocorrências nos 5 repositórios).
+  if_002: {parenthesis: remove}
+  # O código usa a atribuição condicional de uma linha (a <= x when c else y;).
+  conditional_waveforms_001: {allow_single_line: 'yes'}
+  # Funções de uma linha (function f(e : boolean) return natural is) ficam como estão.
+  function_019: {ignore_single_line: 'yes'}
+
+  # ---- DESATIVADAS por conflito com o projeto ----
+  # signal_007 (Remove default assignment): o valor inicial de um sinal registrado ('0') é o estado de power-up
+  # na FPGA e a condição inicial da simulação; o CONTRIBUTING não o proíbe e removê-lo mudaria o comportamento.
+  signal_007: {disable: true}
+  # variable_007: mesma razão de signal_007, para variável de processo ou função.
+  variable_007: {disable: true}
+  # port_012 (Remove assignment): valor padrão em porta de entrada deixa a porta opcional na instanciação
+  # (portas de extensão); removê-lo quebraria instâncias que a omitem. O CONTRIBUTING pede padrão documentado.
+  port_012: {disable: true}
+  # type_010 e subtype_201 (linha acima da declaração): ficam LIGADAS com style: allow_comment, que aceita a
+  # docstring colada na declaração e exige a linha em branco ACIMA do comentário (CONTRIBUTING seção 3.2: comentário
+  # imediatamente acima de cada declaração). Com o padrão do VSG (require_blank_line) o --fix inseria a linha em branco
+  # ENTRE a docstring e a declaração e reprovava no riscv-tools check-vhdl-style (rule docstrings).
+  type_010: {disable: false, style: allow_comment}
+  subtype_201: {disable: false, style: allow_comment}
+
+indent:
+  tokens:
+    # O projeto não indenta a cláusula use sob library (library ieee; use ieee.std_logic_1164.all; na coluna 0).
+    use_clause:
+      keyword:
+        after: current
+        token: current
+        token_after_library_clause: current
+        token_if_no_matching_library_clause: current

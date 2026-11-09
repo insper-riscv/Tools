@@ -130,6 +130,18 @@ Ao adicionar, renomear ou remover qualquer arquivo versionado, atualize imediata
 - `docs/pt-br/` e `docs/en/`
 - `README.md`, `README.en.md` e a documentação afetada
 
+## 5. Regras do VSG
+
+O estilo de VHDL dos repositórios é conferido pelo VSG, com a configuração e as regras locais deste repositório (módulo `vhdl_style`).
+
+| Regra | Especificação |
+| :--- | :--- |
+| Configuração | `src/riscv_tools/vhdl_style/vsg.yaml` é a configuração única do projeto; toda regra desativada ou alterada tem a justificativa em comentário acima dela |
+| Regras locais | Um arquivo por regra em `src/riscv_tools/vhdl_style/local_rules/`, com o identificador `<grupo>_900` e a mensagem em português que cita a seção do `CONTRIBUTING.md` violada |
+| Isolamento | Uma regra local importa só o `capstone_rule`, nunca o `riscv_tools`, porque o VSG pode rodar num ambiente à parte |
+| Testes | Toda regra local e toda mudança do `vsg.yaml` acompanham fixtures que passam e que reprovam em `tests/test_vhdl_style.py` |
+| Lista de arquivos | Mudar o que o `riscv-tools vhdl-files` lista atualiza `docs/pt-br/modules/vhdl_style.md` e `docs/en/modules/vhdl_style.md` no mesmo pull request |
+
 ---
 
 Copyright 2026 Insper. Licenciado sob a [Apache License, Version 2.0](LICENSE).
