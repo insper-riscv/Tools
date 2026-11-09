@@ -1,13 +1,16 @@
-# Primitivas de fabricante que o projeto instancia por `component`.
-# O Quartus Lite só expõe estas megafunções pelo pacote altera_mf_components, sem unidade primária de entidade:
-# `entity altera_mf.altsyncram` é rejeitado pelo quartus_map 25.1 (Error 10481). A component_900 aceita a
-# declaração e a instância destes nomes quando a biblioteca da primitiva está visível no arquivo (`library <biblioteca>;`
-# ou `use <biblioteca>.<pacote>.all;`). Todo outro `component` continua acusado. IP gerado (PLL, por exemplo) NÃO entra
-# aqui: o arquivo gerado vai para `tree.vhdl_style.exclude` do `paths.yaml` do repositório.
+# Primitivas de fabricante e IP gerado que o projeto instancia por `component`, três nomes: altsyncram,
+# sld_virtual_jtag e sdram_platform_pll. Nenhuma tem unidade primária de entidade visível ao VHDL do Quartus Lite
+# (`entity` é rejeitado pelo quartus_map 25.1 com Error 10481), então só o `component` é aceito. A component_900
+# aceita a declaração e a instância destes nomes. Se a entrada tem `requires_library`, a biblioteca precisa estar
+# visível no arquivo (`library <biblioteca>;` ou `use <biblioteca>.<pacote>.all;`); sem o campo, vale em qualquer
+# arquivo. Todo outro `component` continua acusado; o IP gerado que não está aqui (pll_0002) vai para
+# `tree.vhdl_style.exclude` do `paths.yaml` do repositório.
 primitives:
   - name: altsyncram
-    library: altera_mf
+    requires_library: altera_mf
     reason: Megafunção de RAM do Quartus, exposta só pelo pacote altera_mf_components (sem entidade visível).
   - name: sld_virtual_jtag
-    library: altera_mf
+    requires_library: altera_mf
     reason: Megafunção de JTAG virtual do Quartus, exposta só pelo pacote altera_mf_components (sem entidade visível).
+  - name: sdram_platform_pll
+    reason: IP gerado pelo Quartus em Verilog, sem entidade VHDL visível na biblioteca work; só se instancia por component (Error 10481 em `entity work.sdram_platform_pll`), documentado como gerado.
