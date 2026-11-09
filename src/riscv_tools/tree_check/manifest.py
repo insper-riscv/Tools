@@ -17,8 +17,10 @@ without a prefix is a component of the same repository;
 `<repository>/<component>` names one of another repository. The
 `manifest` rule of `check-tree` runs only on repositories that declare
 `provides`; `riscv-tools sources` reads the manifests to emit the list
-of files of a target. The `provides-required` rule fails a repository of
-a VHDL kind that declares none, unless its `tree` section sets
+of files of a target. The rule also checks the shape of the `ipxact`
+and `interfaces` sections (see `riscv_tools.ipxact.manifest`). The
+`provides-required` rule fails a repository of a VHDL kind that
+declares none, unless its `tree` section sets
 `require_provides: false`; any other kind can ask for it with
 `require_provides: true`.
 """
@@ -29,6 +31,7 @@ from typing import Any, cast
 
 import yaml
 
+from riscv_tools.ipxact.manifest import manifest_problems
 from riscv_tools.repo_walk import list_files
 
 REQUIRED_KINDS = frozenset(
@@ -336,6 +339,7 @@ def rule_manifest(
         repository declares no `provides`.
     """
     provides, problems = load_provides(root)
+    problems.extend(manifest_problems(root))
     if provides is None:
         return problems
     file_problems, listed = _file_problems(root, provides)

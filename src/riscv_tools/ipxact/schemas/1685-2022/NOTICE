@@ -1,0 +1,10 @@
+IP-XACT XML schemas, IEEE Std 1685-2022
+
+Copyright (c) Accellera Systems Initiative Inc. (Accellera).
+
+The files in this folder (*.xsd) are the schemas that Accellera publishes
+for IEEE Std 1685-2022 at
+http://www.accellera.org/XMLSchema/IPXACT/1685-2022/ under the Apache
+License, Version 2.0 (the text is in the LICENSE file of this folder).
+They are copied unchanged, so that the validation of the IP-XACT files
+runs without network access.

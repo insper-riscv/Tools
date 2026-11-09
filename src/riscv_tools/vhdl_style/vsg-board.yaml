@@ -1,0 +1,17 @@
+# Camada para os topos de placa em src/cyclone-v/ (usar depois do vsg.yaml: vsg -c vsg.yaml vsg-board.yaml).
+# Os nomes de pino e de sinal desses arquivos vêm do .qsf do Quartus e não seguem as convenções de nome do
+# projeto; as demais regras (cabeçalho, bibliotecas, component, port map e docstrings) valem como nos outros.
+# O VSG troca a configuração inteira de uma regra por vez, então cada entrada abaixo só desativa a regra.
+rule:
+  port_600: {disable: true}
+  port_601: {disable: true}
+  port_602: {disable: true}
+  type_600: {disable: true}
+  subtype_600: {disable: true}
+  type_500: {disable: true}
+  constant_004: {disable: true}
+  instantiation_601: {disable: true}
+  generate_017: {disable: true}
+  process_016: {disable: true}
+  process_018: {disable: true}
+  process_600: {disable: true}

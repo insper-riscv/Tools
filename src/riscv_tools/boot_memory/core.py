@@ -11,6 +11,7 @@ from typing import Any
 
 from riscv_tools.bin_to_image.core import bin_to_hex
 from riscv_tools.compiler.build import (
+    C_STANDARD_FLAGS,
     elf_to_bin,
     elf_to_verilog_hex,
     run_gcc,
@@ -83,6 +84,7 @@ def build_boot_memory(
             f"-march=rv32{base}",
             f"-mabi={'ilp32e' if base == 'e' else 'ilp32'}",
             "-O0",
+            *C_STANDARD_FLAGS,
             "-ffreestanding",
             "-nostdlib",
             "-nostartfiles",

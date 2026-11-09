@@ -44,7 +44,8 @@ Ele foi projetado para rodar em uma workstation com todas as ferramentas instala
 | `path_check`         | Falha quando um caminho de arquivo listado na configuração do projeto não existe (antes e depois de mover arquivos) | [docs/modules/path_check.md](docs/pt-br/modules/path_check.md) |
 | `tree_check`         | Falha quando a árvore de um repositório sai do layout que todos compartilham: arquivos padrão, pares de idioma, `.vhd` em `src/`, Common-Components em `src/common`, nomes de pasta, o manifesto `provides` e a cobertura de testes e provas | [docs/modules/tree_check.md](docs/pt-br/modules/tree_check.md) |
 | `sources`            | Emite a lista ordenada dos arquivos de um alvo, lida dos manifestos `provides` dos repositórios | [docs/modules/sources.md](docs/pt-br/modules/sources.md) |
-| `vhdl_style`         | Falha quando um `.vhd` desrespeita o guia de estilo do projeto (cabeçalho, prefixos `i_`/`o_`, docstring por declaração, sem `component`, `port map` por nome); deixa de fora `vendor/` e os IPs do Quartus | [docs/modules/vhdl_style.md](docs/pt-br/modules/vhdl_style.md) |
+| `ipxact` | Gera e confere as descrições IP-XACT (IEEE 1685-2022) dos blocos VHDL: extrai portas e generics com o GHDL, escreve o `ipxact:component` e valida contra o esquema da Accellera e as regras semânticas do padrão | [docs/modules/ipxact.md](docs/pt-br/modules/ipxact.md) |
+| `vhdl_style`         | Roda o VSG com a configuração e as cinco regras locais do projeto (cabeçalho, bibliotecas, sem `component`, `port map` por nome, docstring por declaração) e traz os subcomandos `vsg-config`, `vsg-rules` e `vhdl-files`; deixa de fora `vendor/` e os IPs do Quartus | [docs/modules/vhdl_style.md](docs/pt-br/modules/vhdl_style.md) |
 | `board_schema`       | Lê e confere o `board.yaml`, o `pins.yaml`, a família e o chip do catálogo de placas e os campos novos do `platform.yaml` | [docs/modules/board_schema.md](docs/pt-br/modules/board_schema.md) |
 | `board_check`        | Confere o que a plataforma exige contra o que as placas oferecem (regras V1 a V19) | [docs/modules/board_check.md](docs/pt-br/modules/board_check.md) |
 | `platform_sync`      | Escreve o `config.yaml` de uma plataforma para o projeto que a consome, com a pasta do submódulo na frente de cada caminho dela | [docs/modules/platform_sync.md](docs/pt-br/modules/platform_sync.md) |
@@ -97,7 +98,7 @@ uv run riscv-tools --config /path/to/project/config.yaml sim
 uv run riscv-tools --config /path/to/project/config.yaml sim --only test-a,test-b
 ```
 
-Veja `riscv-tools --help` para a lista completa de subcomandos (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `generate-config-pkg`, `check-paths`, `check-boards`, `check-tree`, `sources`, `check-vhdl-style`, `platform`, `flash-image`, `timing-paths`, `board generate`, `calibrate` e `check-fit`).
+Veja `riscv-tools --help` para a lista completa de subcomandos (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `generate-config-pkg`, `check-paths`, `check-boards`, `check-tree`, `sources`, `ipxact`, `check-vhdl-style`, `vsg-config`, `vsg-rules`, `vhdl-files`, `platform`, `flash-image`, `timing-paths`, `board generate`, `calibrate` e `check-fit`).
 
 ```bash
 # vhdl-sort não precisa de --config; é só análise do conteúdo dos arquivos,

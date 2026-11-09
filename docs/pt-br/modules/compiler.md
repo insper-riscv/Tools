@@ -24,6 +24,10 @@ O fonte de cada teste declara os requisitos de build/execução em comentários 
 
 O código de startup continua sendo o `crt0.S` do próprio projeto (`-nostartfiles` nos dois casos). O `picolibc.specs` liga o `--gc-sections`, que descarta toda seção que um link script não mantém nem alcança a partir da entrada, então ele é desligado de novo. Essa toolchain tem uma única variante de biblioteca (`rv32im`/`ilp32`), então um teste compilado para um `-march` mais estreito linka código de biblioteca que pode usar instruções que o seu núcleo não tem, como multiplicação e divisão no `printf`.
 
+## Norma C23
+
+Todo fonte C compilado por este pacote segue a ISO/IEC 9899:2024 (C23). O compile de um teste, o `c_to_asm`, a memória de boot e o programador de NOR passam ao GCC `-std=c23` (e não `-std=gnu23`) e `-Wall -Wextra -Wpedantic -Werror`, de modo que qualquer aviso interrompe o build. As flags ficam na constante `C_STANDARD_FLAGS`, já incluída em `optimize_flags`. O `rv32_test.h` gerado declara `rv32_wait_restart` com o atributo padrão `[[noreturn]]`, e não com `__attribute__`.
+
 ## Arquivo de especificação da plataforma
 
 Com `toolchain.specs`, o projeto não tem `crt0.S` nem linker script. O arquivo de especificação é a descrição inteira da plataforma, e a toolchain faz o resto:

@@ -15,7 +15,7 @@ Each rule looks at one aspect of the tree and applies to some kinds of repositor
 | `folder-names` | Folder names in lowercase letters, digits, hyphen, dot and underscore, with no space or accent | VHDL |
 
 | `entity-coverage` | Every RTL entity of `src/` has an entry in `tests/python/tests.json` with it (or the testbench `<name>_tb`) as `toplevel` and its file in `sources`; every entity of the `formal` table has its proof in `formal/` | VHDL |
-| `manifest` | The `provides` section of `paths.yaml` lists each `.vhd` of `src/` exactly once, only files that exist, and acyclic requirements; without the section the rule checks nothing | VHDL |
+| `manifest` | The `provides` section of `paths.yaml` lists each `.vhd` of `src/` exactly once, only files that exist, and acyclic requirements; without the section the rule checks nothing It also checks the shape of the `ipxact` and `interfaces` sections (see [ipxact](ipxact.md)) | VHDL |
 | `provides-required` | `paths.yaml` declares the `provides` section; a VHDL repository that loses it (through a merge or a rewrite of the file) fails instead of silently turning off the `manifest` rule and `riscv-tools sources`. The `tree.require_provides` key changes the default of the kind | all (requires it on the VHDL kinds) |
 
 The `vhdl-style` rule is optional and only runs when `--only` names it, because the CI has a step of its own for style.
@@ -135,6 +135,7 @@ The `--only` option restricts the check to the listed rules. A rule that does no
 | `tests/test_entity_coverage.py::test_a_named_proof_needs_its_file` | Each entity of the `formal` table needs the file of its proof. |
 | `tests/test_entity_coverage.py::test_a_proof_may_follow_the_other_names_or_be_named` | `<name>_props.sv`, `<name>/props.sv` and a file named in the table count as the proof. |
 | `tests/test_entity_coverage.py::test_an_exception_excuses_the_test_but_not_the_proof` | An exception excuses the entity test and keeps the proof required. |
+| `tests/test_ipxact_manifest.py::test_tree_manifest_rule_reports_them` | The `manifest` rule reports a malformed `interfaces` section. |
 | `tests/test_manifest_sources.py::test_without_provides_the_rule_is_silent` | Without the `provides` section, the `manifest` rule checks nothing. |
 | `tests/test_manifest_sources.py::test_a_complete_manifest_passes` | Each file listed once and existing passes. |
 | `tests/test_manifest_sources.py::test_unlisted_missing_duplicate_and_unknown` | A missing file, a file listed twice, a file with no component, an unknown requirement and a cycle are reported. |

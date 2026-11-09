@@ -9,6 +9,7 @@ from riscv_tools.cli.parser_board_id import add_board_id_commands
 from riscv_tools.cli.parser_build import add_build_commands
 from riscv_tools.cli.parser_catalog import add_catalog_commands
 from riscv_tools.cli.parser_fit import add_fit_commands
+from riscv_tools.cli.parser_ipxact import add_ipxact_commands
 from riscv_tools.cli.parser_run import add_run_commands
 from riscv_tools.cli.parser_tools import add_tool_commands
 from riscv_tools.memory_map.memory import set_override as set_memory_override
@@ -25,9 +26,13 @@ _COMMANDS_WITHOUT_CONFIG = frozenset(
         "check-paths",
         "check-tree",
         "check-vhdl-style",
+        "vsg-config",
+        "vsg-rules",
+        "vhdl-files",
         "flash-image",
         "generate-config-pkg",
         "generate-memory-map",
+        "ipxact",
         "platform",
         "profiles",
         "sources",
@@ -122,6 +127,7 @@ def main() -> None:
     add_tool_commands(sub)
     add_catalog_commands(sub)
     add_fit_commands(sub)
+    add_ipxact_commands(sub)
 
     args = parser.parse_args()
     set_profile_override(args.profile)

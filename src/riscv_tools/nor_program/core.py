@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from riscv_tools import htif, ram_target, sdram_debug
-from riscv_tools.compiler.build import elf_to_bin, run_gcc
+from riscv_tools.compiler.build import C_STANDARD_FLAGS, elf_to_bin, run_gcc
 from riscv_tools.jtag import JtagLink
 
 # 'RAMB': a magia da entrada de RAM do BOOT_MEMORY.
@@ -122,6 +122,7 @@ def build_programmer(cfg: dict[str, Any], root: Path, build_dir: Path) -> Path:
             "-march=rv32im_zifencei",
             "-mabi=ilp32",
             "-Os",
+            *C_STANDARD_FLAGS,
             f"--specs={root / toolchain['specs']}",
             f"-I{root / paths['include_dir']}",
             f"-DNOR_JOB_ADDR={layout.job:#x}u",

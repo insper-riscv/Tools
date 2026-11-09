@@ -27,6 +27,13 @@ def test_fail_encoding_and_model_macros() -> None:
     check_in("#define RVMODEL_HALT_FAIL(code)", text)
 
 
+def test_noreturn_uses_the_standard_attribute() -> None:
+    """The header declares rv32_wait_restart with C23 [[noreturn]]."""
+    text = generate_header(TOHOST)
+    check_in("[[noreturn]] extern void rv32_wait_restart(void);", text)
+    check_equal("__attribute__" in text, False)
+
+
 def test_write_header(tmp_path: Path) -> None:
     """The file holds exactly the generated text."""
     out = tmp_path / "rv32_test.h"
