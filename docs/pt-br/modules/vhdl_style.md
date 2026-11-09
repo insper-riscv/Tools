@@ -8,7 +8,8 @@ Faz o [VSG](https://vhdl-style-guide.readthedocs.io) conferir o estilo dos arqui
 | :--- | :--- |
 | `vsg.yaml` | Configuração do VSG para todo o projeto, cada desvio do padrão justificado em comentário |
 | `vsg-board.yaml` | Camada para os topos de placa em `cyclone-v/`, que desliga as regras de nome |
-| `local_rules/` | As cinco regras locais, um arquivo por regra, mais o `capstone_rule.py` que elas compartilham |
+| `local_rules/` | As seis regras locais, um arquivo por regra, mais o `capstone_rule.py` que elas compartilham |
+| `vendor_primitives.yaml` | Lista das primitivas de fabricante que a `component_900` aceita por `component`, cada uma com biblioteca e justificativa |
 
 ## 2. Regras locais
 
@@ -18,13 +19,14 @@ Cada regra tem o identificador `<grupo>_900` e a mensagem em português, com a s
 | :--- | :--- |
 | `header_900` | O arquivo abre com o cabeçalho: uma linha de `=` (de qualquer largura), a descrição e uma linha de fechamento |
 | `library_900` | Do pacote IEEE, só `std_logic_1164` e `numeric_std` |
-| `component_900` | Nenhuma declaração nem instância com `component`; a instância é direta, `u_x : entity work.x` |
+| `component_900` | Nenhuma declaração nem instância com `component`, salvo as primitivas de fabricante de `vendor_primitives.yaml`; a instância é direta, `u_x : entity work.x` |
 | `port_map_900` | Toda associação de um `port map` é por nome (`i_porta => sinal`) |
+| `process_900` | O rótulo de todo processo (e o do `end process`) começa com `p_`; o processo sem rótulo é acusado pela `process_016` do VSG |
 | `docstring_900` | Todo `generic`, `port`, `constant`, `subtype`, `type`, `signal`, `alias` e `variable` tem um comentário na linha imediatamente acima; um comentário no fim da linha ou uma linha só de separador não vale |
 
-A `component_900` não tem exceção, nem para os invólucros de PLL e de megafunção do Quartus. Ela acusa também a instância escrita só com o nome do componente (`u_x : nome port map`), que é como se usam as megafunções do pacote `altera_mf_components`, porque a instância de uma entidade nunca tem essa forma. Os parâmetros de uma função ou de um procedimento não são declarações para a `docstring_900`. Um `--fix` do VSG que separa `signal a, b : t;` em duas linhas deixa a segunda sem comentário, e a `docstring_900` a acusa.
+A `component_900` não tem exceção para código nosso nem para IP gerado (PLL), cujo arquivo o repositório deixa de fora em `tree.vhdl_style.exclude` do `paths.yaml`. A única exceção são as primitivas de fabricante de `vendor_primitives.yaml`, hoje `altsyncram` e `sld_virtual_jtag`: o Quartus Lite as expõe só como `component` do pacote `altera_mf_components`, sem unidade primária de entidade, e o `quartus_map` 25.1 rejeita `entity altera_mf.altsyncram` com o erro 10481. A exceção vale só no arquivo em que a biblioteca da primitiva está visível, por `library altera_mf;` ou por `use altera_mf.altera_mf_components.all;`. Ela vale para a declaração, para `u_x : component nome` e para `u_x : nome`; qualquer outro nome continua acusado. Para incluir uma primitiva, acrescente nome, biblioteca e justificativa ao `vendor_primitives.yaml`. A `instantiation_034` do VSG, que não conhece a lista, fica desativada no `vsg.yaml`. Os parâmetros de uma função ou de um procedimento não são declarações para a `docstring_900`. Um `--fix` do VSG que separa `signal a, b : t;` em duas linhas deixa a segunda sem comentário, e a `docstring_900` a acusa.
 
-Os prefixos de porta, as constantes em `UPPER_SNAKE_CASE`, os tipos com `_t` e os rótulos de instância com `u_` são regras do próprio VSG (`port_600` a `port_602`, `constant_004`, `type_600`, `subtype_600` e `instantiation_601`), configuradas no `vsg.yaml`.
+Os prefixos de porta, as constantes em `UPPER_SNAKE_CASE`, os tipos com `_t`, os rótulos de instância com `u_` e os de generate com `gen_` são regras do próprio VSG (`port_600` a `port_602`, `constant_004`, `type_600`, `subtype_600`, `instantiation_601` e `generate_017`), configuradas no `vsg.yaml`; todas aplicam o prefixo configurado. A `process_600` do VSG só aceita sufixo (`_proc`) e ignora a opção `prefixes`, então fica desativada e o prefixo `p_` é conferido pela `process_900`.
 
 ## 3. Arquivos conferidos
 
@@ -102,6 +104,15 @@ Cada repositório de VHDL chama o subcomando num passo do job `vhdl-syntax`, dep
 | `tests/test_vhdl_style.py::test_libraries_allow_only_the_two_packages` | Outro pacote do IEEE falha. |
 | `tests/test_vhdl_style.py::test_component_is_forbidden_but_not_in_comments` | `component` falha, e o comentário que o cita não. |
 | `tests/test_vhdl_style.py::test_component_has_no_exception_for_generated_wrappers` | O invólucro de PLL também falha. |
+| `tests/test_vhdl_style.py::test_vendor_primitive_component_is_accepted` | `altsyncram` e `sld_virtual_jtag` por `component` passam com `library altera_mf`. |
+| `tests/test_vhdl_style.py::test_vendor_primitive_instance_without_keyword_is_accepted` | `u_x : altsyncram` passa com `use altera_mf...` visível. |
+| `tests/test_vhdl_style.py::test_vendor_primitive_component_declaration_is_accepted` | A declaração de uma primitiva da lista passa. |
+| `tests/test_vhdl_style.py::test_vendor_primitive_needs_the_library` | Sem `altera_mf` visível a primitiva é acusada. |
+| `tests/test_vhdl_style.py::test_component_outside_the_list_is_reported` | `meu_bloco` e `pll_0002` falham mesmo com a biblioteca. |
+| `tests/test_vhdl_style.py::test_process_label_with_the_prefix_passes` | `p_x` e `p_x_proc` passam. |
+| `tests/test_vhdl_style.py::test_process_label_without_the_prefix_fails` | `x` e `proc_p` falham, no rótulo e no `end process`. |
+| `tests/test_vhdl_style.py::test_process_without_a_label_fails` | O processo sem rótulo é acusado pela `process_016`. |
+| `tests/test_vhdl_style.py::test_the_other_prefix_rules_apply_their_prefix` | Portas, instâncias e generates aplicam o prefixo configurado. |
 | `tests/test_vhdl_style.py::test_component_instance_is_forbidden` | A instância `u_x : component x` falha. |
 | `tests/test_vhdl_style.py::test_port_map_must_associate_by_name` | Associação posicional num `port map` falha. |
 | `tests/test_vhdl_style.py::test_docstrings_are_needed_above_each_declaration` | Falta de comentário, comentário no fim da linha e separador falham. |
@@ -120,7 +131,7 @@ Cada repositório de VHDL chama o subcomando num passo do job `vhdl-syntax`, dep
 | `tests/test_vhdl_style.py::test_board_files_are_listed_apart` | Os topos de `cyclone-v/` só saem com `--board`. |
 | `tests/test_vhdl_style.py::test_board_files_follow_the_rules_but_not_the_naming` | Topo de placa mantém os nomes de pino e ainda exige cabeçalho. |
 | `tests/test_vhdl_style.py::test_the_gate_accepts_what_only_the_full_check_rejects` | Linha longa passa no padrão e falha no `--full`. |
-| `tests/test_vhdl_style.py::test_the_packaged_data_exist` | Configuração, camada e as cinco regras são arquivos do pacote. |
+| `tests/test_vhdl_style.py::test_the_packaged_data_exist` | Configuração, camada, lista de primitivas e as seis regras são arquivos do pacote. |
 | `tests/test_vhdl_style.py::test_local_rule_messages_are_in_portuguese` | A mensagem cita o `CONTRIBUTING`. |
 | `tests/test_vhdl_style.py::test_cmd_check_vhdl_style_exit_status` | O comando imprime OK, ou sai com 1 listando. |
 | `tests/test_vhdl_style.py::test_the_vsg_subcommands_print_paths_and_files` | Os subcomandos imprimem caminhos e arquivos. |

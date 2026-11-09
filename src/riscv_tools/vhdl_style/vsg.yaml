@@ -1,4 +1,4 @@
-# Configuração do VSG 3.35.0 (VHDL Style Guide) para todo o projeto Capstone RISC-V (VHDL-2008).
+# Configuração do VSG 3.35.0 e 3.36.0 (VHDL Style Guide) para todo o projeto Capstone RISC-V (VHDL-2008).
 # Verificar: vsg -c vsg.yaml -ap -f <arquivos.vhd>      Corrigir: acrescentar --fix
 # Cada regra desativada ou alterada tem a justificativa no comentário acima dela.
 rule:
@@ -28,12 +28,14 @@ rule:
   # Rótulo de instância com u_ e de generate com gen_.
   instantiation_601: {disable: false, prefixes: [u_]}
   generate_017: {disable: false, prefixes: [gen_]}
-  # Rótulo de processo obrigatório (process_016 e process_018) e com prefixo p_ (process_600), no mesmo espírito do u_
-  # das instâncias e do gen_ dos generates. A process_016 não é corrigível sozinha: o rótulo se escreve à mão; a
+  # Rótulo de processo obrigatório (process_016 e process_018) e com prefixo p_, no mesmo espírito do u_ das
+  # instâncias e do gen_ dos generates. A process_016 não é corrigível sozinha: o rótulo se escreve à mão; a
   # process_018 repete o rótulo no end process automaticamente.
   process_016: {disable: false}
   process_018: {disable: false}
-  process_600: {disable: false, prefixes: [p_]}
+  # process_600 DESATIVADA: a regra do VSG 3.36.0 só tem `suffixes` (padrão _proc) e ignora a opção `prefixes`, então
+  # com `prefixes: [p_]` ela acusava todo rótulo p_*. O prefixo p_ é conferido pela regra local process_900.
+  process_600: {disable: true}
   # constant_014 (indentação das linhas de continuação de uma constante de várias linhas que não é array): com o
   # padrão do VSG o --fix oscilava uma coluna por passada (Memory e Insper-RISC-V). Com align_left sim e align_paren não
   # (linhas alinhadas à esquerda, um recuo por parêntese aberto) a segunda passada não altera nenhum byte nos dois.
@@ -44,9 +46,10 @@ rule:
   type_500: {case: upper}
 
   # ---- Regras que o CONTRIBUTING decide ----
-  # Seção 1: instanciação direta de entidade, sem declaração component. method: entity inverte o padrão do VSG,
-  # que exige component, e passa a apontar as instanciações por component.
-  instantiation_034: {method: entity}
+  # Seção 1: instanciação direta de entidade, sem declaração component. A component_900 (regra local) já acusa todo component e aceita só as primitivas de fabricante de
+  # vendor_primitives.yaml (altsyncram, sld_virtual_jtag), que o Quartus Lite expõe só como component; a
+  # instantiation_034 não conhece essa lista e as acusaria, por isso fica DESATIVADA.
+  instantiation_034: {disable: true}
   # Seção 1: u_nome : entity work.nome, sem arquitetura entre parênteses. action: remove aponta o uso de work.x(rtl).
   instantiation_036: {action: remove}
   # Estilo majoritário do código: if sem parênteses (cerca de 85% das ocorrências nos 5 repositórios).
