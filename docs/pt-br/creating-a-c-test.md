@@ -33,10 +33,12 @@ Três comentários `//` opcionais no topo do `src.c` configuram como o [`compile
 
 ```c
 // c/example-mem/src.c
+#include <stdint.h>
+
 #include "rv32_test.h"
 
 int main(void) {
-    volatile unsigned int *buf = (volatile unsigned int *)0x10;
+    volatile uint32_t *buf = (volatile uint32_t *)0x10;
     buf[0] = 0x11111111;
 
     if (buf[0] == 0x11111111) {
@@ -70,9 +72,11 @@ Evite `(volatile unsigned int *)0x0`: o GCC trata um ponteiro nulo literal como 
 
   ```c
   // RV32_TEST_KIND: memory
+  #include <stdint.h>
+
   #include "rv32_test.h"
 
-  volatile unsigned int results[3];
+  volatile uint32_t results[3];
 
   int main(void) {
       results[0] = ...;

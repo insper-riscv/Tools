@@ -149,8 +149,19 @@ def abi_for(march: str) -> str:
     return "ilp32e" if march.startswith("rv32e") else "ilp32"
 
 
+#: Flags that hold every C source to ISO/IEC 9899:2024 (C23): the
+#: standard mode (not gnu23) and every diagnostic as an error.
+C_STANDARD_FLAGS = [
+    "-std=c23",
+    "-Wall",
+    "-Wextra",
+    "-Wpedantic",
+    "-Werror",
+]
+
+
 def optimize_flags(march: str) -> list[str]:
-    """Return the gcc flags that pick the ISA, the ABI and -Os.
+    """Return the gcc flags that pick the ISA, the ABI, -Os and C23.
 
     Parameters
     ----------
@@ -160,9 +171,15 @@ def optimize_flags(march: str) -> list[str]:
     Returns
     -------
     list of str
-        The flags shared by every compile of a test source.
+        The flags shared by every compile of a test source, ending
+        with `C_STANDARD_FLAGS`.
     """
-    return [f"-march={march}", f"-mabi={abi_for(march)}", "-Os"]
+    return [
+        f"-march={march}",
+        f"-mabi={abi_for(march)}",
+        "-Os",
+        *C_STANDARD_FLAGS,
+    ]
 
 
 def run_gcc(toolchain_cfg: dict[str, Any], args: list[str]) -> None:

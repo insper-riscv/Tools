@@ -24,6 +24,10 @@ A test's own source file declares its build/run requirements in comments at the 
 
 The startup code stays the project's own `crt0.S` (`-nostartfiles` in both cases). `picolibc.specs` turns on `--gc-sections`, which drops every section a link script neither keeps nor reaches from its entry, so it is switched off again. That toolchain has a single library variant (`rv32im`/`ilp32`), so a test built for a narrower `-march` links library code that may use instructions its core lacks, such as multiplication and division in `printf`.
 
+## C23 standard
+
+Every C source compiled by this package follows ISO/IEC 9899:2024 (C23). The test compile, `c_to_asm`, the boot memory and the NOR programmer pass GCC `-std=c23` (not `-std=gnu23`) and `-Wall -Wextra -Wpedantic -Werror`, so any warning stops the build. The flags live in the `C_STANDARD_FLAGS` constant, already included in `optimize_flags`. The generated `rv32_test.h` declares `rv32_wait_restart` with the standard `[[noreturn]]` attribute, not `__attribute__`.
+
 ## Platform specs file
 
 With `toolchain.specs`, the project has no `crt0.S` and no linker script. The specs file is the whole description of the platform, and the toolchain does the rest:

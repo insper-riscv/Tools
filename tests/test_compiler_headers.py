@@ -73,5 +73,15 @@ def test_abi_follows_the_base_isa():
     check_equal(abi_for("rv32em_zicsr"), "ilp32e")
     check_equal(abi_for("rv32im"), "ilp32")
     check_equal(
-        optimize_flags("rv32e"), ["-march=rv32e", "-mabi=ilp32e", "-Os"]
+        optimize_flags("rv32e"),
+        [
+            "-march=rv32e",
+            "-mabi=ilp32e",
+            "-Os",
+            "-std=c23",
+            "-Wall",
+            "-Wextra",
+            "-Wpedantic",
+            "-Werror",
+        ],
     )
