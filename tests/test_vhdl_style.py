@@ -466,6 +466,14 @@ def test_vendor_primitive_component_declaration_is_accepted(
     check_equal(_rule_lines(tmp_path, text, "component_900"), [])
 
 
+def test_generated_pll_component_needs_no_library(tmp_path: Path) -> None:
+    """`sdram_platform_pll` passes in a file with no `altera_mf`."""
+    text = GOOD.replace(
+        "u_sub : entity work.other", "u_sub : component sdram_platform_pll"
+    )
+    check_equal(_rule_lines(tmp_path, text, "component_900"), [])
+
+
 def test_vendor_primitive_needs_the_library(tmp_path: Path) -> None:
     """Without `altera_mf` visible the primitive is reported."""
     text = GOOD.replace(

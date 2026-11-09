@@ -32,11 +32,14 @@ def _vendor_libraries() -> dict[str, str]:
     Returns
     -------
     dict of str to str
-        The library of each primitive, keyed by its lower-case name.
+        The library each primitive requires, keyed by its lower-case
+        name; empty when the primitive needs no library.
     """
     data = yaml.safe_load(VENDOR_PRIMITIVES.read_text("utf-8"))
     return {
-        str(item["name"]).lower(): str(item["library"]).lower()
+        str(item["name"]).lower(): str(
+            item.get("requires_library", "")
+        ).lower()
         for item in data["primitives"]
     }
 
@@ -94,12 +97,12 @@ class rule_component_900(LocalRule):
     The rule has no exception for generated IP (PLLs), which the
     repository leaves out of the check in `paths.yaml`. The only
     exception is a vendor primitive listed in `vendor_primitives.yaml`
-    (`altsyncram`, `sld_virtual_jtag`), which the Quartus Lite exposes
-    only as a component of `altera_mf_components`, and only in a file
-    that makes the library of the primitive visible. The rule reports
-    the instance written with the name of a component and no `entity`
-    (`u_x : name port map`) when the name is not in the list; the
-    instance of an entity never has that form.
+    (`altsyncram`, `sld_virtual_jtag`, `sdram_platform_pll`), which the
+    Quartus Lite exposes only as a component, and for the entries that
+    name a `requires_library` only in a file that makes it visible.
+    The rule reports the instance written with the name of a component
+    and no `entity` (`u_x : name port map`) when the name is not in the
+    list; the instance of an entity never has that form.
     """
 
     group = "component"
@@ -126,7 +129,8 @@ class rule_component_900(LocalRule):
             {
                 line
                 for line, name in _uses(tokens)
-                if vendor.get(name) not in visible
+                if name not in vendor
+                or (vendor[name] and vendor[name] not in visible)
             }
         )
         return [(line, _MESSAGE) for line in lines]
