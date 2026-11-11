@@ -52,6 +52,37 @@ def snake(name: str) -> str:
     return name.replace("-", "_")
 
 
+def _candidate(repo: Path, path: Path, board: str) -> Template | None:
+    """Read one platform file as a starting point for a board.
+
+    Parameters
+    ----------
+    repo : Path
+        Root of the `Insper-RISC-V` checkout.
+    path : Path
+        A `platform.yaml` under `src/`.
+    board : str
+        A board of the catalog.
+
+    Returns
+    -------
+    Template or None
+        The platform, or None when it is a calibration platform, was
+        created by this command, does not list the board or names no
+        `top`.
+    """
+    if path.parts[-3] == CALIBRATION:
+        return None
+    text = path.read_text()
+    data = yaml.safe_load(text)
+    if CREATED_MARK in text or not isinstance(data, dict):
+        return None
+    fields = cast(dict[str, Any], data)
+    if board not in fields.get("boards", []) or not fields.get("top"):
+        return None
+    return Template(path.parent.relative_to(repo), board, str(fields["top"]))
+
+
 def find_template(repo: Path, board: str) -> Template:
     """Pick the platform that is built on a board.
 
@@ -73,18 +104,11 @@ def find_template(repo: Path, board: str) -> Template:
     ValueError
         If no platform, or more than one, fits the board.
     """
-    found: list[Template] = []
-    for path in sorted((repo / "src").glob("*/*/platform.yaml")):
-        if path.parts[-3] == CALIBRATION:
-            continue
-        text = path.read_text()
-        data = yaml.safe_load(text)
-        if CREATED_MARK in text or not isinstance(data, dict):
-            continue
-        fields = cast(dict[str, Any], data)
-        if board in fields.get("boards", []) and fields.get("top"):
-            folder = path.parent.relative_to(repo)
-            found.append(Template(folder, board, str(fields["top"])))
+    candidates = (
+        _candidate(repo, path, board)
+        for path in sorted((repo / "src").glob("*/*/platform.yaml"))
+    )
+    found = [t for t in candidates if t is not None]
     if len(found) != 1:
         names = ", ".join(t.name for t in found) or "none"
         raise ValueError(
