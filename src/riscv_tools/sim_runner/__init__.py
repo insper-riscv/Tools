@@ -1,5 +1,6 @@
 """Drives cocotb/GHDL simulation, the sim side of `orchestrator`."""
 
+from riscv_tools.sim_runner.config_pkg import with_profile_config_pkg
 from riscv_tools.sim_runner.core import run_test
 from riscv_tools.sim_runner.libraries import (
     build_libraries,
@@ -14,4 +15,5 @@ __all__ = [
     "extend_python_path",
     "run_suite",
     "run_test",
+    "with_profile_config_pkg",
 ]

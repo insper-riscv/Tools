@@ -100,7 +100,7 @@ A plataforma escolhe o seu perfil em `profile:` (`rv32im`, `rv32em_zicsr`, ...) 
 | Saída | Conteúdo |
 | :--- | :--- |
 | Pacote VHDL | `HAS_E` (verdadeiro no RV32E) e um `HAS_<EXTENSÃO>` booleano por extensão do núcleo (`HAS_M`, `HAS_ZMMUL`, `HAS_ZICSR`, `HAS_ZICNTR`, `HAS_ZIHPM`, `HAS_ZIMOP`, `HAS_ZICOND`, `HAS_ZIHINTNTL`, `HAS_ZIHINTPAUSE`, `HAS_ZIFENCEI`, `HAS_ZICCLSM`, `HAS_INTERRUPTS`, `HAS_SSCOFPMF`, `HAS_ACCESS_FAULTS`) e `PERIPH_SLOTS`, a máscara de 8 bits das janelas de 256 MiB do barramento de periféricos que têm periférico (o bit `n` vale para o `id` `n` da lista `peripherals`) |
-| `config.yaml` | `isa.base`, que escolhe o `-march` e o `-mabi` dos programas e da memória de boot (`rv32e` com `ilp32e`, os demais com `ilp32`), e os `sim.parameters` `HAS_E` e `HAS_*` que o runner passa ao GHDL |
+| `config.yaml` | `isa.base`, que escolhe o `-march` e o `-mabi` dos programas e da memória de boot (`rv32e` com `ilp32e`, os demais com `ilp32`), e o `sim.config_pkg`, o texto do `config_pkg` do perfil que o runner compila no lugar do `config_pkg.vhd` das fontes (a base e as extensões do núcleo são constantes desse pacote, não generics do topo) |
 
 `--profile NOME`, opção global do `riscv-tools`, troca o `profile:` da plataforma sem editá-la, para rodar a mesma plataforma sobre vários perfis numa matriz de testes. Vale para o `generate-memory-map` (escreve o pacote daquele perfil), para o `platform sync` e para todo comando que lê a configuração. Um nome que a especificação não lista é rejeitado antes de qualquer coisa rodar.
 

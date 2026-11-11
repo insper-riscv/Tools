@@ -21,6 +21,7 @@ variável vazia de CI transforme `--only` numa execução da suíte inteira.
 | `sim.test_module` | O módulo de teste cocotb do próprio projeto. Sem padrão; é a peça que conhece os nomes de sinal do DUT e consulta o `tohost` dele. |
 | `sim.ghdl_std` | Padrão VHDL contra o qual o GHDL analisa (padrão `"08"`, VHDL-2008). |
 | `sim.parameters` | Generics VHDL definidos no toplevel na etapa de execução do GHDL, por exemplo um modelo de ROM só de simulação que carrega a imagem por um generic em vez de uma variável de ambiente. Vazio por padrão. |
+| `sim.config_pkg` | Texto do `config_pkg` do perfil, que o `platform sync` escreve a partir da plataforma. O runner o grava no diretório do perfil e o compila no lugar do `config_pkg.vhd` de `sim.vhdl_sources`, porque a base e as extensões do núcleo são constantes desse pacote e não generics do topo. Vazio por padrão, que mantém as fontes como estão. |
 | `sim.image` | `hex` (padrão) ou `mif`: a imagem que a simulação carrega, veja Simulando com as memórias do hardware abaixo. |
 | `sim.ghdl_flags` | Argumentos extras do GHDL, aplicados nas etapas de análise, elaboração e execução. Vazio por padrão. |
 | `sim.libraries` | Bibliotecas VHDL analisadas uma vez antes das fontes, como `{biblioteca: [arquivos]}`. Vazio por padrão. |
@@ -59,6 +60,10 @@ Os testes são pulados quando o GHDL ou o cocotb não estão disponíveis.
 | `tests/test_sim_runner.py::test_sim_runner_parameters_reach_ghdl` | `sim.parameters` viram generics VHDL na etapa de execução do GHDL. |
 | `tests/test_sim_runner.py::test_sim_runner_libraries_flags_run_files_and_env` | Uma biblioteca analisada à parte é encontrada, `sim.ghdl_flags` chegam a ela, `sim.run_files` caem no diretório de execução e `sim.env` chega ao módulo cocotb. |
 | `tests/test_sim_runner.py::test_sim_runner_env_reaches_the_test_module` | Um valor esperado errado em `sim.env` faz o teste falhar, então o teste anterior prova que o valor chega. |
+| `tests/test_sim_config_pkg.py::test_the_profile_copy_takes_the_place_of_the_file` | O `config_pkg` do perfil troca o `config_pkg.vhd` das fontes na mesma posição e o resto fica como está. |
+| `tests/test_sim_config_pkg.py::test_an_empty_text_keeps_the_sources` | Sem `sim.config_pkg` as fontes não mudam. |
+| `tests/test_sim_config_pkg.py::test_a_text_with_no_file_to_replace_is_refused` | Um `sim.config_pkg` sem `config_pkg.vhd` nas fontes é recusado. |
+| `tests/test_config_from_platform.py::test_the_profile_reaches_the_core_through_the_config_pkg` | A base E e as extensões do perfil saem como constantes do `sim.config_pkg`, não como `sim.parameters`. |
 | `tests/test_sim_runner_python_path.py::test_extend_python_path_adds_the_root_relative_entries_once` | As entradas de `sim.python_path` (e a raiz do projeto) entram uma vez no `sys.path`, antes do que já está lá. |
 | `tests/test_sim_runner.py::test_build_libraries_needs_the_flags_the_library_needs` | Uma biblioteca que exige `-fsynopsys` não é analisada sem ele. |
 | `tests/test_sim_runner.py::test_expand_env_replaces_variables` | `$VAR` e `${VAR}` num caminho são substituídos a partir do ambiente. |

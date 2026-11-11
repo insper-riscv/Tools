@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TypedDict, Unpack
 
+from riscv_tools.sim_runner.config_pkg import with_profile_config_pkg
 from riscv_tools.sim_runner.core import run_test
 from riscv_tools.sim_runner.libraries import (
     build_libraries,
@@ -173,9 +174,11 @@ def run_suite(
         cfg=cfg,
         root=root,
         profile_build_dir=profile_build_dir,
-        vhdl_sources=[
-            str(root / expand_env(src)) for src in sim_cfg["vhdl_sources"]
-        ],
+        vhdl_sources=with_profile_config_pkg(
+            [str(root / expand_env(src)) for src in sim_cfg["vhdl_sources"]],
+            sim_cfg.get("config_pkg", ""),
+            profile_build_dir / "config_pkg",
+        ),
         libraries_dir=_build_suite_libraries(sim_cfg, root, profile_build_dir),
         boot_memories=boot_memories,
     )

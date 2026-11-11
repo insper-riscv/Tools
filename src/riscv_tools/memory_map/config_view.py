@@ -30,6 +30,7 @@ from typing import Any
 
 from riscv_tools.memory_map import memory as memory_choice
 from riscv_tools.memory_map.banks import bank_list
+from riscv_tools.memory_map.config_pkg import render_variant
 from riscv_tools.memory_map.core import (
     DEFAULT_ADDRESS_BITS,
     address_bits,
@@ -39,7 +40,7 @@ from riscv_tools.memory_map.core import (
     symbols,
 )
 from riscv_tools.memory_map.expressions import evaluate
-from riscv_tools.memory_map.profile import SWITCHES, resolve
+from riscv_tools.memory_map.profile import resolve
 
 DEFAULT_XLEN = 32
 
@@ -94,12 +95,9 @@ def _memory(platform: dict[str, Any], table: dict[str, int]) -> dict[str, int]:
 
 
 def _parameters(
-    platform: dict[str, Any],
-    memory: dict[str, int],
-    base: str,
-    generics: dict[str, bool | int],
+    platform: dict[str, Any], memory: dict[str, int]
 ) -> dict[str, str | bool]:
-    """Read the generics of the simulation top off the map and profile.
+    """Read the generics of the simulation top off the map.
 
     Parameters
     ----------
@@ -107,15 +105,14 @@ def _parameters(
         The loaded platform: `config.addr_widths` lists the memories.
     memory : dict of {str: int}
         The `memory` keys (see `_memory`).
-    base : str
-        The base letter of the profile, `i` or `e`.
-    generics : dict of {str: bool or int}
-        The generics of the profile.
 
     Returns
     -------
     dict of {str: str or bool}
-        The address widths, `HAS_E` and one `HAS_*` per extension.
+        The address widths and the generics of the memories and caches
+        (see `memory.parameters`). The base and the extensions are not
+        generics of the top: they reach the core through the
+        `config_pkg` (see `_config_pkg`).
     """
     words = {
         "boot_memory": memory["boot_memory_words"],
@@ -126,12 +123,34 @@ def _parameters(
         f"{name}_addr_width": _width(words[name])
         for name in memory_choice.addr_width_names(platform)
     }
-    parameters["HAS_E"] = base == "e"
-    for key in SWITCHES:
-        if key in generics:
-            parameters[key.upper()] = bool(generics[key])
     parameters |= memory_choice.parameters(platform)
     return parameters
+
+
+def _config_pkg(platform: dict[str, Any], platform_file: Path) -> str:
+    """Render the `config_pkg` of the profile for the simulation.
+
+    The base and the extensions of the core are constants of the
+    `config_pkg`, not generics of the top, so the simulation of a
+    profile other than the platform's own (`--profile`) compiles this
+    text in place of the file of the platform.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+    platform_file : Path
+        The platform YAML, named in the header of the package.
+
+    Returns
+    -------
+    str
+        The package, or an empty string when the platform asks for no
+        `generate.config_pkg`.
+    """
+    if "config_pkg" not in platform_dict(platform, "generate"):
+        return ""
+    return render_variant(platform, platform_file, platform_file.parent)
 
 
 def config_from_platform(platform_file: Path) -> dict[str, Any]:
@@ -151,7 +170,7 @@ def config_from_platform(platform_file: Path) -> dict[str, Any]:
     platform = load_platform(platform_file)
     table = symbols(platform)
     memory = _memory(platform, table)
-    base, generics, xlen = resolve(platform, platform_file)
+    base, _, xlen = resolve(platform, platform_file)
     env = {
         key: f"0x{table[symbol]:08X}"
         for key, symbol in (
@@ -160,11 +179,12 @@ def config_from_platform(platform_file: Path) -> dict[str, Any]:
         )
         if symbol in table
     }
-    sim: dict[str, Any] = {
-        "parameters": _parameters(platform, memory, base, generics)
-    }
+    sim: dict[str, Any] = {"parameters": _parameters(platform, memory)}
     if env:
         sim["env"] = env
+    config_pkg = _config_pkg(platform, platform_file)
+    if config_pkg:
+        sim["config_pkg"] = config_pkg
     config: dict[str, Any] = {
         "memory": memory,
         "isa": {"base": base},
