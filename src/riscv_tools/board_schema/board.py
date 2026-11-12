@@ -16,12 +16,14 @@ from riscv_tools.board_schema.model import (
     MemoryDevice,
     Resources,
     UsbId,
+    VideoRole,
 )
+from riscv_tools.board_schema.video import parse_video_role
 
 CONFIRMATIONS = ("manual", "repo", "inferred", "measured")
 LEVELS = ("N0", "N1", "N2", "N3", "N4")
 CABLES = ("usb-blaster", "usb-blaster-ii", "samd21-usbblaster", "external")
-IO_ROLES = ("leds", "switches", "keys", "display")
+IO_ROLES = ("leds", "switches", "keys", "display", "video")
 MEMORY_KEYS = ("sdram", "sram", "nor", "onchip_flash", "serial_flash")
 ACTIVE_LEVELS = ("high", "low")
 _IDCODE = re.compile(r"^[0-9A-Fa-f]{8}$")
@@ -221,6 +223,28 @@ def _clocks(top: Section) -> Clocks | None:
     return Clocks(tuple(inputs), reference, signal, level)
 
 
+def role_section(io: Section, role: str) -> Section | None:
+    """Open the section of an I/O role with the `signals` form.
+
+    Parameters
+    ----------
+    io : Section
+        The `io` section.
+    role : str
+        The key being read.
+
+    Returns
+    -------
+    Section or None
+        The role section; None for an unknown role (reported) and for
+        the video, which has fields of its own.
+    """
+    if role not in IO_ROLES:
+        io.fail(role, f"is not a role ({', '.join(IO_ROLES)})")
+        return None
+    return None if role == "video" else io.section(role)
+
+
 def _io(top: Section) -> dict[str, IoRole]:
     """Read the `io` section.
 
@@ -239,10 +263,7 @@ def _io(top: Section) -> dict[str, IoRole]:
     if io is None:
         return roles
     for role in io.names():
-        if role not in IO_ROLES:
-            io.fail(role, f"is not a role ({', '.join(IO_ROLES)})")
-            continue
-        entry = io.section(role)
+        entry = role_section(io, role)
         if entry is None:
             continue
         signals = entry.text("signals")
@@ -251,6 +272,26 @@ def _io(top: Section) -> dict[str, IoRole]:
         if signals and active:
             roles[role] = IoRole(signals, active)
     return roles
+
+
+def _video(top: Section) -> VideoRole | None:
+    """Read the `io.video` section.
+
+    Parameters
+    ----------
+    top : Section
+        The board.
+
+    Returns
+    -------
+    VideoRole or None
+        The video output; None when the board has none or it is invalid.
+    """
+    io = top.section("io", required=False)
+    if io is None or "video" not in io.names():
+        return None
+    entry = io.section("video")
+    return None if entry is None else parse_video_role(entry)
 
 
 def _memory(key: str, entry: Section) -> MemoryDevice:
@@ -383,6 +424,7 @@ def parse_board(raw: Any, label: str = "board") -> Board:
         "console": _console(top),
         "pins": top.text("pins"),
         "notes": tuple(top.texts("notes", required=False)),
+        "video": _video(top),
     }
     top.done()
     raise_if(problems)

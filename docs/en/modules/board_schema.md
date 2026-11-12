@@ -12,6 +12,7 @@ The catalog is found from the project root.
 | Pins | `boards/<board>/pins.yaml` | Pin, I/O standard, direction and certainty seal of each signal |
 | Family | `boards/families/<family>.yaml` | Logic unit, PLL, RAM block, measured Fmax by grade and calibration |
 | Chip | `Memory/chips/<chip>.yaml`, or `chips/<chip>.yaml` when the root is Memory itself | Organization, timings and clock ceiling |
+| Video modes | `boards/video-modes.yaml` | Timing and pixel clock of each mode, shared by every board |
 
 The name inside a file is the name of the file (or of the folder, for a board), and a file that says another name is refused.
 
@@ -38,6 +39,31 @@ Besides the fields of the schema in the architecture document, the `board.yaml` 
 
 The signals of `io.<role>` follow the grammar of the `pins.yaml`: `LEDR[9:0]` are bits 0 to 9, and `HEX[5:0][6:0]` are digits 0 to 5 (first range, the index in the name) with segments 0 to 6 (second range).
 
+### 3.1. The `video` role and the catalog of modes
+
+The `video` role is one of the I/O roles and the only one with no `active`.
+
+| `io.video` field | Rule |
+| :--- | :--- |
+| `kind` | `vga` or `hdmi` |
+| `channel_bits` | `4` or `8`, the bits of each color channel the board wires |
+| `signals` | Prefix of the video signals in the `pins.yaml` (`VGA` cites every signal that starts with `VGA_`) |
+| `default_mode` | Mode used when the platform asks for none; it must be in `modes` |
+| `modes` | Modes the manual of the board specifies, written `<width>x<height>@<hertz>` |
+
+The catalog `boards/video-modes.yaml` has the key `modes`, a map from the mode name to its timing. The name repeats the visible area, and the reader refuses a name that disagrees with it.
+
+```yaml
+modes:
+  640x480:
+    pixel_clock_mhz: 25
+    source: VESA monitor timing   # optional
+    horizontal: {visible: 640, front_porch: 16, sync: 96, back_porch: 48, total: 800, polarity: negative}
+    vertical:   {visible: 480, front_porch: 10, sync: 2,  back_porch: 33, total: 525, polarity: negative}
+```
+
+On each axis, `visible + front_porch + sync + back_porch` must equal `total`, and `polarity` is `negative` or `positive`, the polarity of the synchronism pulse. How the mode of a platform is resolved is in [board_video](board_video.md).
+
 ## 4. New fields of the `platform.yaml`
 
 | Field | Rule |
@@ -50,6 +76,7 @@ The signals of `io.<role>` follow the grammar of the `pins.yaml`: `LEDR[9:0]` ar
 | `clocks.core`, `clocks.fetch`, `clocks.mem` | `{mhz, phase_ps}`; `core` is required and `mem` is required with a `dispositivo` backend |
 | `console` | `jtag` (default) or `pinos` |
 | `io.<role>` | `{count, need}` with `need` equal to `required` or `optional` |
+| `io.video` | Every field is optional. `width` and `height` (together), `aspect` (`4:3` or `16:9`, quoted or not), `refresh_hz`, `channel_bits` (`4` or `8`), `fb_width` and `fb_height` (together) and `outside_manual`. Writing an empty `io.video`, or listing the `VIDEO` peripheral, asks for the default mode of the board |
 | `top` | Component, or list of components, whose `requires` closure gathers the `needs` for the validator |
 
 The fields of the map (regions, peripherals, profile) are still read and checked by the `memory_map` module.
@@ -78,6 +105,7 @@ The `check-boards` command reads the whole catalog and checks each file against 
 | `tests/test_board_schema.py::test_platform_fields_are_read_and_typed` | The new platform fields load |
 | `tests/test_board_schema.py::test_platform_field_problems` | Each invalid use of the new fields is a typed problem |
 | `tests/test_board_schema.py::test_platform_extends_is_resolved_by_the_config_reader` | A platform variant says only what changes |
+| `tests/test_board_video.py` | The `video` role, the catalog of modes and the video request of the platform |
 
 ## 7. Usage
 

@@ -13,7 +13,7 @@ class Finding:
     Parameters
     ----------
     rule : str
-        The rule that produced it (`V1` to `V19`, or `schema`).
+        The rule that produced it (`V1` to `V22`, or `schema`).
     level : str
         `E` for an error, `W` for a warning.
     text : str

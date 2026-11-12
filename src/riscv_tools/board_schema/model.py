@@ -218,6 +218,96 @@ class IoRole:
 
 
 @dataclass(frozen=True)
+class VideoRole:
+    """The video output of the board, from `io.video`.
+
+    Parameters
+    ----------
+    kind : str
+        `vga` or `hdmi`.
+    channel_bits : int
+        The bits of each color channel the board wires (4 or 8).
+    signals : str
+        The prefix of the video signals in the pins file (`VGA`).
+    default_mode : str
+        The mode used when the platform asks for none.
+    modes : tuple of str
+        The modes the manual of the board specifies.
+    """
+
+    kind: str
+    channel_bits: int
+    signals: str
+    default_mode: str
+    modes: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class VideoAxis:
+    """The timing of one axis of a video mode, in pixels or lines.
+
+    Parameters
+    ----------
+    visible : int
+        The visible pixels (columns or lines).
+    front_porch : int
+        The blank before the synchronism.
+    sync : int
+        The width of the synchronism.
+    back_porch : int
+        The blank after the synchronism.
+    total : int
+        The whole period.
+    positive : bool
+        Whether the synchronism pulse is high (`polarity: positive`).
+    """
+
+    visible: int
+    front_porch: int
+    sync: int
+    back_porch: int
+    total: int
+    positive: bool
+
+
+@dataclass(frozen=True)
+class VideoMode:
+    """One entry of the catalog of video modes.
+
+    Parameters
+    ----------
+    name : str
+        The identifier, `<width>x<height>@<hertz>`.
+    pixel_clock_mhz : float
+        The pixel clock.
+    horizontal : VideoAxis
+        The timing of a line.
+    vertical : VideoAxis
+        The timing of a frame.
+    """
+
+    name: str
+    pixel_clock_mhz: float
+    horizontal: VideoAxis
+    vertical: VideoAxis
+
+    @property
+    def width(self) -> int:
+        """Give the visible columns."""
+        return self.horizontal.visible
+
+    @property
+    def height(self) -> int:
+        """Give the visible lines."""
+        return self.vertical.visible
+
+    @property
+    def refresh_hz(self) -> int:
+        """Give the refresh rate written in the name."""
+        return int(self.name.rsplit("@", 1)[1])
+
+
+@dataclass(frozen=True)
 class MemoryDevice:
     """A memory the board carries, in the shape each kind needs.
 
@@ -374,7 +464,7 @@ class Board:
     clocks : Clocks
         The clocks and the reset.
     io : dict of str to IoRole
-        The roles of inputs and outputs.
+        The roles of inputs and outputs, except the video.
     memories : dict of str to MemoryDevice
         The memories, keyed `sdram`, `sram`, `nor`, `onchip_flash`,
         `serial_flash`.
@@ -384,6 +474,8 @@ class Board:
         The pins file, relative to the board folder.
     notes : tuple of str
         The traps of the board.
+    video : VideoRole or None
+        The video output; None when the board has none.
     """
 
     board: str
@@ -400,6 +492,7 @@ class Board:
     console: Console
     pins: str = "pins.yaml"
     notes: tuple[str, ...] = field(default_factory=tuple)
+    video: VideoRole | None = None
 
 
 @dataclass(frozen=True)

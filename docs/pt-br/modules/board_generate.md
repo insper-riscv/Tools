@@ -18,6 +18,8 @@ Chama cada gerador e junta o texto, sem escrever conteúdo próprio. A pasta de 
 
 O mapa de memória (pacote VHDL, linker, `.specs` e cabeçalhos) não é gerado aqui: o comando chama o mesmo código do `generate-memory-map` para a plataforma e escreve os arquivos nos caminhos de `generate`. O projeto fica em `<saída>/<plataforma>-<placa>/`. O comando de compilação é o `program` (ver [quartus_program](quartus_program.md)).
 
+Quando a plataforma pede vídeo (`io.video`), a geração resolve o modo pelo [board_video](board_video.md) e recusa um pedido impossível com a mensagem da regra V20. O plano resolvido fica em `Generated.video`, e a conferência de V21 e V22 roda junto com a do cabimento.
+
 O módulo `project` (`build`) é o único caminho da geração: o `board generate`, o `program` (com a chave `quartus.generate` da configuração) e o orquestrador de testes na placa, antes de reconfigurá-la, escrevem o projeto e o mapa de memória por ele, e nunca por um segundo código.
 
 ## 3. Uso
@@ -37,8 +39,6 @@ uv run riscv-tools --root <espaço de trabalho> board generate \
 | `--accept-inferred-pins` | Aceita construir com pino `inferred` |
 | `--check` | Não escreve nada; sai com status 1 quando o projeto ou um arquivo do mapa de memória no disco difere do que seria gerado |
 | `--hand-qsf`, `--hand-sdc`, `--hand-pll`, `--ignore-source` | Imprimem o relatório de [board_equivalence](board_equivalence.md) contra os arquivos escritos à mão |
-
-A lista de fontes parte do clone do repositório que contém a plataforma, a pasta mais próxima acima do `platform.yaml` que tem um `paths.yaml`. Num projeto consumidor, como o Tests, a plataforma está num submódulo, e os repositórios que os componentes pedem são submódulos dele, e não da raiz do consumidor. Os arquivos do mapa de memória também são escritos nesse clone.
 
 Os avisos (fase do `DRAM_CLK` não medida, papel opcional ausente, backend sem entidade) saem em `stderr`. Sai com status 2 quando uma entrada é inválida, e com status 1 quando o relatório de equivalência acha uma perda.
 

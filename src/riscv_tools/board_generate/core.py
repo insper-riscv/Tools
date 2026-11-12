@@ -13,6 +13,8 @@ from typing import Any, cast
 from riscv_tools.board_clocks import clock_plan
 from riscv_tools.board_inputs import BoardInputs, InputError, load_inputs
 from riscv_tools.board_ports import PortPlan, build_ports
+from riscv_tools.board_schema import SchemaError, read_platform_video
+from riscv_tools.board_video import VideoError, VideoPlan, plan_video
 from riscv_tools.chip_package import (
     IoDelays,
     chip_io_delays,
@@ -71,12 +73,16 @@ class Generated:
         Texto de cada arquivo, por nome.
     warnings : list of str
         Avisos achados.
+    video : VideoPlan or None
+        O vídeo resolvido, com os generics para o periférico; `None`
+        quando a plataforma não pede vídeo.
     """
 
     name: str
     folder: str
     files: dict[str, str]
     warnings: list[str] = field(default_factory=list[str])
+    video: VideoPlan | None = None
 
 
 def _slug(text: str) -> str:
@@ -222,6 +228,41 @@ def _qsf_and_qpf(
     }
 
 
+def _video_plan(inputs: BoardInputs) -> VideoPlan | None:
+    """Resolve o vídeo que a plataforma pede.
+
+    Parameters
+    ----------
+    inputs : BoardInputs
+        Os dados da placa.
+
+    Returns
+    -------
+    VideoPlan or None
+        O vídeo resolvido; `None` quando a plataforma não pede vídeo.
+
+    Raises
+    ------
+    InputError
+        Se o pedido é inválido ou a placa não o atende.
+    """
+    try:
+        request = read_platform_video(inputs.platform)
+    except SchemaError as bad:
+        raise InputError(str(bad)) from bad
+    if request is None:
+        return None
+    if inputs.video is None:
+        raise InputError(
+            f"E io.video asked but board {inputs.board['board']!r} "
+            f"has no io.video"
+        )
+    try:
+        return plan_video(inputs.video, inputs.video_modes, request)
+    except VideoError as bad:
+        raise InputError(f"E {bad}") from bad
+
+
 def generate(request: GenerateRequest) -> Generated:
     """Gera os arquivos do projeto de uma plataforma numa placa.
 
@@ -251,6 +292,7 @@ def generate(request: GenerateRequest) -> Generated:
     stem = _slug(f"{platform_name}_{board_name}")
     plan = clock_plan(inputs)
     ports = build_ports(inputs)
+    video = _video_plan(inputs)
     pll_info = cast(dict[str, Any], inputs.family.get("pll") or {})
     if not pll_info:
         raise InputError(f"family {inputs.board['family']!r}: no pll section")
@@ -271,6 +313,7 @@ def generate(request: GenerateRequest) -> Generated:
             rendered.module,
             top,
             packages,
+            video,
         )
     )
     files = {
@@ -291,7 +334,13 @@ def generate(request: GenerateRequest) -> Generated:
         stem,
         f"{platform_name}-{board_name}",
         files,
-        [*plan.warnings, *ports.warnings, *rendered_top.warnings],
+        [
+            *plan.warnings,
+            *ports.warnings,
+            *rendered_top.warnings,
+            *(video.warnings if video else ()),
+        ],
+        video,
     )
 
 
