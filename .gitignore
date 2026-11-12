@@ -17,3 +17,6 @@ build
 # IDEs
 .vscode
 .claude
+
+# HOME temporário das ferramentas (semgrep)
+.home/
