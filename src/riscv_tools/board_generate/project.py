@@ -115,6 +115,34 @@ def sources_of(
     )
 
 
+def repository_root(platform: Path, fallback: Path) -> Path:
+    """Acha o clone do repositório que contém a plataforma.
+
+    Num projeto consumidor (Tests, Certification) o repositório da
+    plataforma é um submódulo, e os repositórios que os componentes
+    pedem (Common-Components, Memory e os outros) são submódulos dele, e
+    não da raiz do consumidor. A lista de fontes parte, por isso, da
+    pasta que tem o `paths.yaml` da plataforma.
+
+    Parameters
+    ----------
+    platform : Path
+        O `platform.yaml`.
+    fallback : Path
+        A raiz do espaço de trabalho, quando nenhuma pasta acima da
+        plataforma tem `paths.yaml`.
+
+    Returns
+    -------
+    Path
+        A pasta mais próxima acima da plataforma com `paths.yaml`.
+    """
+    for folder in platform.parents:
+        if (folder / "paths.yaml").is_file():
+            return folder
+    return fallback
+
+
 def targets_of(platform: Path, given: tuple[str, ...]) -> list[str]:
     """Escolhe os componentes cujo fecho de fontes entra no `.qsf`.
 
@@ -248,6 +276,7 @@ def build(request: ProjectRequest) -> ProjectResult:
     probe = generate(base)
     project = out / probe.folder
     targets = targets_of(platform, request.targets)
+    repository = repository_root(platform, root)
     result = _with_capacity(
         generate(
             GenerateRequest(
@@ -255,7 +284,7 @@ def build(request: ProjectRequest) -> ProjectResult:
                 request.board,
                 base.boards_dir,
                 base.chips_dir,
-                sources_of(root, targets, project),
+                sources_of(repository, targets, project),
                 request.accept_inferred,
                 request.seed,
             )
@@ -265,10 +294,10 @@ def build(request: ProjectRequest) -> ProjectResult:
     )
     if request.check:
         problems = check_project(out, result)
-        map_problems, _ = _memory_map(root, platform, True)
+        map_problems, _ = _memory_map(repository, platform, True)
         return ProjectResult(result, project, problems + map_problems)
     folder = write_project(out, result)
-    _, written = _memory_map(root, platform, False)
+    _, written = _memory_map(repository, platform, False)
     return ProjectResult(result, folder, [], written)
 
 

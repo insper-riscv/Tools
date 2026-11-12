@@ -38,6 +38,8 @@ uv run riscv-tools --root <workspace> board generate \
 | `--check` | Write nothing; exit with status 1 when the project or a memory map file on disk differs from what would be generated |
 | `--hand-qsf`, `--hand-sdc`, `--hand-pll`, `--ignore-source` | Print the [board_equivalence](board_equivalence.md) report against the hand-written files |
 
+The source list starts from the checkout of the repository that holds the platform: the closest folder above the `platform.yaml` that has a `paths.yaml`. In a consumer project such as Tests the platform is in a submodule, and the repositories the components need are submodules of it, not of the consumer root. The memory map files are also written in that checkout.
+
 Warnings (unmeasured `DRAM_CLK` phase, missing optional role, backend without an entity) go to `stderr`. Exits with status 2 when an input is invalid, and with status 1 when the equivalence report finds a loss.
 
 The project gets a `capacity.json` (estimate of logic and RAM blocks, with the warnings) when the family has a calibration table; a profile above 100 % of a resource refuses the generation with status 2 (rules V11 and V12 of [board_check](board_check.md)).
