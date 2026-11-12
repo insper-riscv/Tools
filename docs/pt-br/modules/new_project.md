@@ -34,7 +34,7 @@ Uma opção de memória que não é dada mantém o valor da plataforma de partid
 ## O que o comando faz
 
 1. Baixa o repositório com os submódulos, ou usa o clone de `--repo`.
-2. Confere o nome, a placa, o perfil e os tamanhos. O perfil precisa estar entre os que `Core/profiles/matrix.yaml` expande, a ROM precisa ser múltiplo de dois setores de 4 KiB (duas bancas) e a RAM múltiplo de 4 KiB.
+2. Confere o nome, a placa, o perfil e os tamanhos. O perfil precisa estar entre os que `Core/profiles/matrix.yaml` expande e ter Zifencei quando a BOOT_MEMORY da partida executa `fence.i` (sem a extensão a instrução é ilegal e o boot reinicia para sempre), a ROM precisa ser múltiplo de dois setores de 4 KiB (duas bancas) e a RAM múltiplo de 4 KiB.
 3. Escolhe a plataforma de partida, a única fora de `calibration/` que lista a placa e tem `top`.
 4. Calcula o novo `platform.yaml` e as edições do `paths.yaml` antes de escrever qualquer coisa, de modo que um repositório fora do formato esperado não recebe uma pasta pela metade.
 5. Copia a pasta da plataforma, renomeia arquivos e nomes VHDL e dá ao topo de simulação uma entidade própria.
@@ -65,6 +65,8 @@ Os periféricos, os relógios, as entradas e saídas e as interrupções vêm da
 | `tests/test_new_project.py::test_a_malformed_size_is_refused` | Tamanhos malformados são recusados |
 | `tests/test_new_project.py::test_caches_are_a_size_or_off` | A cache é um número de bits ou `off` |
 | `tests/test_new_project.py::test_the_choices_are_checked_against_the_catalog` | Nome, placa, perfil e tamanhos inválidos são recusados |
+| `tests/test_new_project.py::test_a_profile_without_zifencei_is_refused_when_the_boot_needs_it` | Sem Zifencei, o perfil é recusado quando a BOOT_MEMORY executa `fence.i`, com o perfil certo na mensagem |
+| `tests/test_new_project.py::test_a_boot_without_fence_i_accepts_any_profile` | Sem `fence.i` na BOOT_MEMORY o perfil é livre |
 | `tests/test_new_project.py::test_the_host_words_sit_at_the_top_of_the_ram` | As palavras do hospedeiro seguem o fim da RAM |
 | `tests/test_new_project.py::test_the_flash_splits_into_two_banks_of_whole_sectors` | As bancas ocupam setores inteiros |
 | `tests/test_new_project.py::test_the_platform_file_follows_the_choices` | O `platform.yaml` reflete todas as escolhas e guarda os comentários |

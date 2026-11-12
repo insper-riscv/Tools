@@ -394,3 +394,24 @@ def test_the_command_writes_the_manifest_and_the_launcher(
     check_equal(data["platform"], "src/fam/demo-64k")
     check_equal(data["repo"], "Insper-RISC-V")
     check((project / "rt").is_file())
+
+
+def test_a_profile_without_zifencei_is_refused_when_the_boot_needs_it(
+    tmp_path: Path,
+) -> None:
+    """A boot memory with `fence.i` needs a core with Zifencei."""
+    repo = _repo(tmp_path)
+    boot = repo / "src/fam/fpga-demo/runtime/boot_memory.S"
+    boot.write_text("    .word 0x0000100F  // fence.i\n")
+    with pytest.raises(ValueError, match=r"Zifencei.*rv32im_zifencei"):
+        create_platform(repo, SPEC)
+    check_false((repo / "src/fam/demo-64k").exists())
+
+
+def test_a_boot_without_fence_i_accepts_any_profile(tmp_path: Path) -> None:
+    """Without `fence.i` in the boot memory the profile is free."""
+    repo = _repo(tmp_path)
+    boot = repo / "src/fam/fpga-demo/runtime/boot_memory.S"
+    boot.write_text("_reset:\n    j _reset\n")
+    created = create_platform(repo, SPEC)
+    check_equal(created.folder, Path("src/fam/demo-64k"))

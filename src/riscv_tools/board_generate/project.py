@@ -276,7 +276,7 @@ def build(request: ProjectRequest) -> ProjectResult:
     probe = generate(base)
     project = out / probe.folder
     targets = targets_of(platform, request.targets)
-    sources_root = repository_root(platform, root)
+    repository = repository_root(platform, root)
     result = _with_capacity(
         generate(
             GenerateRequest(
@@ -284,7 +284,7 @@ def build(request: ProjectRequest) -> ProjectResult:
                 request.board,
                 base.boards_dir,
                 base.chips_dir,
-                sources_of(sources_root, targets, project),
+                sources_of(repository, targets, project),
                 request.accept_inferred,
                 request.seed,
             )
@@ -294,10 +294,10 @@ def build(request: ProjectRequest) -> ProjectResult:
     )
     if request.check:
         problems = check_project(out, result)
-        map_problems, _ = _memory_map(root, platform, True)
+        map_problems, _ = _memory_map(repository, platform, True)
         return ProjectResult(result, project, problems + map_problems)
     folder = write_project(out, result)
-    _, written = _memory_map(root, platform, False)
+    _, written = _memory_map(repository, platform, False)
     return ProjectResult(result, folder, [], written)
 
 

@@ -34,7 +34,7 @@ A memory option that is not given keeps the value of the starting platform.
 ## What the command does
 
 1. Downloads the repository with its submodules, or uses the clone of `--repo`.
-2. Checks the name, the board, the profile and the sizes. The profile must be among those that `Core/profiles/matrix.yaml` expands, the ROM must be a multiple of two 4 KiB sectors (two banks) and the RAM a multiple of 4 KiB.
+2. Checks the name, the board, the profile and the sizes. The profile must be among those that `Core/profiles/matrix.yaml` expands and have Zifencei when the BOOT_MEMORY of the start executes `fence.i` (without the extension the instruction is illegal and the boot restarts forever), the ROM must be a multiple of two 4 KiB sectors (two banks) and the RAM a multiple of 4 KiB.
 3. Picks the starting platform: the only one outside `calibration/` that lists the board and has a `top`.
 4. Works out the new `platform.yaml` and the edits of `paths.yaml` before writing anything, so a repository that does not have the expected shape does not get a half-made folder.
 5. Copies the platform folder, renames files and VHDL names and gives the simulation top an entity of its own.
@@ -65,6 +65,8 @@ The peripherals, clocks, inputs and outputs and interrupts come from the startin
 | `tests/test_new_project.py::test_a_malformed_size_is_refused` | Malformed sizes are refused |
 | `tests/test_new_project.py::test_caches_are_a_size_or_off` | A cache is a number of bits or `off` |
 | `tests/test_new_project.py::test_the_choices_are_checked_against_the_catalog` | An invalid name, board, profile or size is refused |
+| `tests/test_new_project.py::test_a_profile_without_zifencei_is_refused_when_the_boot_needs_it` | Without Zifencei the profile is refused when the BOOT_MEMORY executes `fence.i`, with the right profile in the message |
+| `tests/test_new_project.py::test_a_boot_without_fence_i_accepts_any_profile` | Without `fence.i` in the BOOT_MEMORY the profile is free |
 | `tests/test_new_project.py::test_the_host_words_sit_at_the_top_of_the_ram` | The host words follow the end of the RAM |
 | `tests/test_new_project.py::test_the_flash_splits_into_two_banks_of_whole_sectors` | The banks fill whole sectors |
 | `tests/test_new_project.py::test_the_platform_file_follows_the_choices` | The `platform.yaml` reflects every choice and keeps the comments |

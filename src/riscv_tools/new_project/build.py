@@ -47,6 +47,51 @@ class Created:
         return self.folder / "platform.yaml"
 
 
+def check_boot_needs(
+    repo: Path, template: Template, spec: ProjectSpec, names: list[str]
+) -> None:
+    """Refuse a profile the boot memory of the template cannot run on.
+
+    The boot memory executes `fence.i`, which a core without Zifencei
+    takes as an illegal instruction; the trap vector is address 0, so
+    the boot would start over forever.
+
+    Parameters
+    ----------
+    repo : Path
+        Root of the `Insper-RISC-V` checkout.
+    template : Template
+        The platform the new one is copied from.
+    spec : ProjectSpec
+        The choices of the project.
+    names : list of str
+        The names of the valid profiles.
+
+    Raises
+    ------
+    ValueError
+        If the profile lacks Zifencei while the boot memory needs it;
+        the message names the profile that has it.
+    """
+    boot = repo / template.folder / "runtime" / "boot_memory.S"
+    if spec.profile is None or not boot.is_file():
+        return
+    if "fence.i" not in boot.read_text():
+        return
+    tokens = set(spec.profile.split("_"))
+    if "zifencei" in tokens:
+        return
+    fixed = next(
+        (n for n in names if set(n.split("_")) == tokens | {"zifencei"}),
+        f"{spec.profile}_zifencei",
+    )
+    raise ValueError(
+        f"the boot memory of {template.name} executes fence.i, which a "
+        f"core without Zifencei takes as an illegal instruction and the "
+        f"boot restarts forever; use the profile {fixed}"
+    )
+
+
 def create_platform(repo: Path, spec: ProjectSpec) -> Created:
     """Copy, edit and register the platform of a project.
 
@@ -73,6 +118,7 @@ def create_platform(repo: Path, spec: ProjectSpec) -> Created:
     names = [p.name for p in expand(load_spec(repo / MATRIX))]
     validate(spec, Catalog.for_root(repo).board_names(), names)
     template = find_template(repo, spec.board)
+    check_boot_needs(repo, template, spec, names)
     top = f"{TOP_PREFIX}{snake(spec.name)}_board"
     source = repo / template.folder / "platform.yaml"
     text = rewrite_platform(

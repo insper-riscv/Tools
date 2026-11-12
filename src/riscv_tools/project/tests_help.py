@@ -40,6 +40,9 @@ Rodar os testes e compilar um programa seu
        build_dir: build-{name}
        c_dir: c
        asm_dir: asm
+   Depois de mudar o platform.yaml, rode de novo o generate-memory-map
+   (na pasta Tests/Insper-RISC-V) e o platform sync: a configuração do
+   Tests guarda uma cópia do pacote da plataforma.
 
 4. Compile e rode os testes que já existem:
      ./rt --root Tests --config Tests/tools/riscv_build/config.{name}.yaml \\
@@ -97,6 +100,9 @@ Run the tests and compile a program of your own
        build_dir: build-{name}
        c_dir: c
        asm_dir: asm
+   After changing the platform.yaml, run the generate-memory-map again
+   (in the Tests/Insper-RISC-V folder) and the platform sync: the
+   configuration of Tests keeps a copy of the platform package.
 
 4. Compile and run the tests that already exist:
      ./rt --root Tests --config Tests/tools/riscv_build/config.{name}.yaml \\

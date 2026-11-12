@@ -210,3 +210,28 @@ def test_without_a_manifest_the_workspace_root_is_the_fallback(
     platform.write_text("platform: p\n")
     fallback = tmp_path / "workspace"
     check_equal(project.repository_root(platform, fallback), fallback)
+
+
+def test_a_consumer_root_writes_the_map_files_in_the_platform_repo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The files of the map belong to the repository of the platform."""
+    repo = _root(tmp_path / "consumer" / "Insper-RISC-V")
+    (repo / "paths.yaml").write_text("tree: {}\n")
+    roots: list[Path] = []
+
+    def write_all(_platform: Path, root: Path) -> list[Path]:
+        roots.append(root)
+        return []
+
+    monkeypatch.setattr(memory_map, "write_all", write_all)
+    consumer = tmp_path / "consumer"
+    cmd_board_generate(
+        _args(
+            consumer,
+            platform="Insper-RISC-V/platforms/de0-cv.yaml",
+            boards_dir="Insper-RISC-V/boards",
+            chips_dir="Insper-RISC-V/Memory/chips",
+        )
+    )
+    check_equal(roots, [repo])

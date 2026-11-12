@@ -32,6 +32,8 @@ Como mudar o projeto
                  --spec Core/profiles/matrix.yaml --format names
                (Zimop, Zicond, Interrupts e outras fora da matriz
                ficam em `extras`)
+               A BOOT_MEMORY executa fence.i: o perfil precisa de
+               zifencei, ou o boot reinicia para sempre
   memórias     `size` das regiões FLASH e RAM; mantenha `reserved`
                dentro da RAM e as bancas de `flash` dentro da FLASH
   caches       `memory.icache` e `memory.dcache` (`enabled`,
@@ -76,6 +78,8 @@ How to change the project
                  --spec Core/profiles/matrix.yaml --format names
                (Zimop, Zicond, Interrupts and others outside the
                matrix go in `extras`)
+               The BOOT_MEMORY executes fence.i: the profile needs
+               zifencei, or the boot restarts forever
   memories     `size` of the FLASH and RAM regions; keep `reserved`
                inside the RAM and the `flash` banks inside the FLASH
   caches       `memory.icache` and `memory.dcache` (`enabled`,
