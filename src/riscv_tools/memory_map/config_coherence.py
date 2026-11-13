@@ -1,8 +1,8 @@
 """Check that the `config_pkg` and the package of the map agree.
 
 The first stage of the migration writes the constants that both packages
-carry (the extensions, the caches, the externals, the memory map and the
-slots) in both files. `check-memory-map` reads the two files of a
+carry (the extensions, the caches, the memory on the bus and the memory
+map) in both files. `check-memory-map` reads the two files of a
 platform that asks for both (`generate.vhdl` and `generate.config_pkg`)
 and fails when a constant has another value in each.
 """
@@ -16,19 +16,18 @@ from riscv_tools.memory_map.profile import SWITCHES
 
 # Pares do pacote do mapa e deste, com o fator do mapa em bytes.
 COHERENT_PAIRS = (
-    ("HAS_E", "IS_BASE_E", 1),
+    ("IS_E", "IS_E", 1),
     ("HAS_ICACHE", "HAS_ICACHE", 1),
     ("HAS_DCACHE", "HAS_DCACHE", 1),
-    ("ROM_VIA_PORT", "ROM_EXTERNAL", 1),
-    ("RAM_VIA_PORT", "RAM_EXTERNAL", 1),
+    ("FLASH_ON_BUS", "FLASH_ON_BUS", 1),
+    ("RAM_ON_BUS", "RAM_ON_BUS", 1),
     ("BOOT_MEMORY_BITS", "BOOT_MEMORY_BITS", 1),
-    ("CACHE_WINDOW_BITS", "CACHE_WINDOW_BITS", 1),
-    ("ROM_BASE_KIB", "ROM_BASE", 1024),
-    ("ROM_END_KIB", "ROM_END", 1024),
+    ("I_CACHE_WINDOW_BITS", "I_CACHE_WINDOW_BITS", 1),
+    ("D_CACHE_WINDOW_BITS", "D_CACHE_WINDOW_BITS", 1),
+    ("FLASH_BASE_KIB", "FLASH_BASE", 1024),
+    ("FLASH_END_KIB", "FLASH_END", 1024),
     ("RAM_BASE_KIB", "RAM_BASE", 1024),
     ("RAM_END_KIB", "RAM_END", 1024),
-    ("EXT_BASE_KIB", "EXT_BASE", 1024),
-    ("PERIPH_BASE_KIB", "PERIPH_BASE", 1024),
     *((key.upper(), key.upper(), 1) for key in SWITCHES),
 )
 
@@ -69,38 +68,6 @@ def _number(value: str) -> int | bool | None:
     if re.fullmatch(r'"[01]+"', value):
         return int(value.strip('"'), 2)
     return None
-
-
-def _with_ports(constants: dict[str, str]) -> dict[str, str]:
-    """Add the values of `ROM_VIA_PORT` and `RAM_VIA_PORT`.
-
-    The package of the map writes them as expressions
-    (`ROM_EXTERNAL or HAS_ICACHE`), so they are computed from the
-    literals of the constants they use.
-
-    Parameters
-    ----------
-    constants : dict of {str: str}
-        The constants of the package of the map.
-
-    Returns
-    -------
-    dict of {str: str}
-        The same constants with the two ports added where the
-        constants they use are literals.
-    """
-    found = dict(constants)
-    for port, external, cache in (
-        ("ROM_VIA_PORT", "ROM_EXTERNAL", "HAS_ICACHE"),
-        ("RAM_VIA_PORT", "RAM_EXTERNAL", "HAS_DCACHE"),
-    ):
-        values = [
-            _number(constants.get(name, "")) for name in (external, cache)
-        ]
-        flags = [value for value in values if isinstance(value, bool)]
-        if len(flags) == len(values):
-            found[port] = str(any(flags)).lower()
-    return found
 
 
 def _disagrees(
@@ -170,9 +137,7 @@ def coherence_problems(platform: dict[str, Any], root: Path) -> list[Mismatch]:
     ]
     if missing:
         return missing
-    old = _with_ports(
-        _constants((root / map_path).read_text(encoding="utf-8"))
-    )
+    old = _constants((root / map_path).read_text(encoding="utf-8"))
     new = _constants((root / config_path).read_text(encoding="utf-8"))
     return [
         Mismatch(

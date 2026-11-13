@@ -95,9 +95,14 @@ def test_the_soc_generics_come_from_the_map_package() -> None:
     top = " ".join(_top("de0-cv").split())
     for fragment in (
         "boot_memory_size_bytes => BOOT_MEMORY_SIZE_BYTES",
-        "rom_end_kib => ROM_END_KIB",
+        "rom_end_kib => FLASH_END_KIB",
         "icache_size_bits => ICACHE_SIZE_BITS",
-        "cache_window_bits => CACHE_WINDOW_BITS",
+        "cache_window_bits => I_CACHE_WINDOW_BITS",
+        "periph_count => PERIPH_COUNT",
+        "periph_bases => PERIPH_BASES",
+        "periph_masks => PERIPH_MASKS",
+        "clint_index => CLINT_INDEX",
+        "plic_index => PLIC_INDEX",
         "hpm_counters => HPM_COUNTERS",
         "clint_tick_cycles => CLINT_TICK_CYCLES",
         "plic_n_sources => PLIC_N_SOURCES",
@@ -106,9 +111,13 @@ def test_the_soc_generics_come_from_the_map_package() -> None:
         "keys_active_low => true",
         "display_active_low => true",
         "display_digits => 6",
-        "uart_jtag_id => 4",
+        "uart_jtag_index => UART_INDEX",
+        "display_index => DISPLAY_INDEX",
     ):
         check_in(fragment, top)
+    for gone in ("clint_id", "plic_id", "uart_jtag_id", "ext_base_kib"):
+        check_not_in(gone, top)
+    check_not_in("periph_base_kib", top)
 
 
 def test_the_soc_generics_leave_the_isa_to_the_config_package() -> None:
@@ -140,10 +149,10 @@ def test_the_de0_cv_top_keeps_the_timing_cuts_and_the_update_path() -> None:
     top = " ".join(_top("de0-cv").split())
     for fragment in (
         "registered_irqs => true",
-        "periph_slots => PERIPH_SLOTS",
+        "strict_periph => STRICT_PERIPH",
         "fast_icache_select => true",
         "has_dcache_bypass => true, bypass_page => RAM_LAST_PAGE",
-        "has_flash_ctrl => true, flash_ctrl_id => 3",
+        "has_flash_ctrl => true, flash_ctrl_index => FLASH_CTRL_INDEX",
         "o_flash_cmd_valid => fcmd_valid",
         "i_inval_valid => fcmd_inval_valid",
         "flash_cmd_inst : entity work.flash_cmd_port",
@@ -200,7 +209,7 @@ def test_the_nor_backend_subtracts_the_start_of_the_flash_region() -> None:
     check_in("nor_rd_addr <= std_logic_vector(unsigned(fx_addr) - ", top)
     check_in("nor_cmd_addr <= std_logic_vector(unsigned(fcmd_addr) - ", top)
     check_in(
-        "base_addr => std_logic_vector(to_unsigned(ROM_BASE_KIB * 1024", top
+        "base_addr => std_logic_vector(to_unsigned(FLASH_BASE_KIB * 1024", top
     )
     check_in("o_flash_addr => fx_addr", top)
     check_not_in("o_flash_addr => fl_addr", top)

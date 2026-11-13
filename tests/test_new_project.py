@@ -40,7 +40,10 @@ platform: fpga-demo
 board: auto
 boards: [demo-board]
 top: Insper-RISC-V/fpga_demo_board
-profile: rv32i
+core:
+  type: 32
+  base: I
+  extensions: []
 regions:
   - {name: BOOT_MEMORY, base: 0x00000000, size: 4K,   kind: rom, exec: true}
   - {name: FLASH,    base: 0x00001000, size: 252K, kind: rom, exec: true}
@@ -60,7 +63,7 @@ memory:
   icache: {enabled: true, size_bits: 32768}
   dcache: {enabled: true, size_bits: 32768}
 peripherals:
-  - {name: UART, offset: 0x40000000, id: 4, size: 1K, padding: 0x0FFFFC00}
+  - {name: UART, base: 0xC0000000, size: 1K}
 """
 CONFIG = """\
 toolchain:
@@ -206,7 +209,7 @@ def test_the_platform_file_follows_the_choices() -> None:
     data = yaml.safe_load(text)
     check_equal(data["platform"], "demo-64k")
     check_equal(data["top"], top)
-    check_equal(data["profile"], "rv32im")
+    check_equal(data["core"], {"type": 32, "base": "I", "extensions": ["M"]})
     sizes = {r["name"]: r["size"] for r in data["regions"]}
     check_equal((sizes["FLASH"], sizes["RAM"]), ("64K", "64K"))
     check_equal(data["reserved"]["tohost"]["base"], 0x4000FFE8)
@@ -222,7 +225,7 @@ def test_a_choice_left_out_keeps_the_template_value() -> None:
     """A field at None changes nothing in the template's file."""
     spec = ProjectSpec(name="demo-keep", board="demo-board")
     data = yaml.safe_load(rewrite_platform(PLATFORM, spec, "fpga-demo", "t"))
-    check_equal(data["profile"], "rv32i")
+    check_equal(data["core"], {"type": 32, "base": "I", "extensions": []})
     check_equal(data["regions"][2]["size"], "64M")
     check_equal(data["memory"]["icache"]["size_bits"], 32768)
 

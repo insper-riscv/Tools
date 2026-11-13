@@ -3,7 +3,8 @@
 The platform picks four independent choices: whether the ROM (the
 FLASH) and the RAM are outside the chip, and whether an instruction
 cache (`icache`, the $I) and a data cache (`dcache`, the $D) exist.
-Sixteen combinations come out of them.
+Nine of the sixteen combinations are valid: the instruction cache needs
+the ROM on the bus and the data cache needs the RAM on the bus.
 
 ```yaml
 memory:
@@ -94,28 +95,6 @@ class Memory:
     has_dcache: bool
     icache_size_bits: int
     dcache_size_bits: int
-
-    @property
-    def rom_via_port(self) -> bool:
-        """Say whether the core reaches the ROM through its port.
-
-        Returns
-        -------
-        bool
-            True when the ROM is external or sits behind the $I.
-        """
-        return self.rom_external or self.has_icache
-
-    @property
-    def ram_via_port(self) -> bool:
-        """Say whether the core reaches the RAM through its port.
-
-        Returns
-        -------
-        bool
-            True when the RAM is external or sits behind the $D.
-        """
-        return self.ram_external or self.has_dcache
 
 
 def _entry(key: str, value: str) -> dict[str, Any]:
@@ -423,7 +402,7 @@ def resolve(platform: dict[str, Any]) -> Memory | None:
     return memory
 
 
-def _region_span(
+def region_span(
     platform: dict[str, Any], key: str
 ) -> tuple[str, int, int] | None:
     """Find the region the platform names as its ROM or its RAM.
@@ -520,7 +499,7 @@ def cache_window_bits(platform: dict[str, Any]) -> int:
         narrower than the window has the whole space as its window.
     """
     found = window_bits(
-        _region_span(platform, "rom"), _region_span(platform, "ram")
+        region_span(platform, "rom"), region_span(platform, "ram")
     )
     bits = MIN_WINDOW_BITS if found is None else found
     return min(bits, address_bits(platform))
@@ -547,6 +526,42 @@ def _window_problems(
     ]
 
 
+def _bus_problems(memory: Memory) -> list[Mismatch]:
+    """Check that each cache sits over a memory on the bus (V-C1, V-C2).
+
+    Parameters
+    ----------
+    memory : Memory
+        The choice.
+
+    Returns
+    -------
+    list of Mismatch
+        V-C1 when the instruction cache has the FLASH inside the core
+        and V-C2 when the data cache has the RAM inside the core: each
+        cache belongs to a region and needs it on the bus
+        (`FLASH_ON_BUS`, `RAM_ON_BUS`).
+    """
+    return [
+        _problem(f"{code} {name} needs memory.{region}.external to be true")
+        for code, name, region, wrong in (
+            (
+                "V-C1",
+                "icache",
+                "rom",
+                memory.has_icache and not memory.rom_external,
+            ),
+            (
+                "V-C2",
+                "dcache",
+                "ram",
+                memory.has_dcache and not memory.ram_external,
+            ),
+        )
+        if wrong
+    ]
+
+
 def _cache_problems(
     memory: Memory,
     rom: tuple[str, int, int] | None,
@@ -569,8 +584,8 @@ def _cache_problems(
         A region that fits no aligned window of the cache tag, and a
         ROM larger than the window of the router.
     """
-    problems = _window_problems(memory, rom, ram)
-    if memory.rom_via_port and rom and rom[2] > ROUTER_WINDOW_KIB * 1024:
+    problems = _bus_problems(memory) + _window_problems(memory, rom, ram)
+    if memory.rom_external and rom and rom[2] > ROUTER_WINDOW_KIB * 1024:
         problems.append(
             _problem(
                 f"ROM {rom[0]} is larger than the {ROUTER_WINDOW_KIB} "
@@ -611,12 +626,12 @@ def _exec_problems(
     if not code:
         return []
     problems: list[Mismatch] = []
-    if not (memory.ram_external and memory.rom_via_port):
+    if not (memory.ram_external and memory.rom_external):
         problems.append(
             _problem(
                 f"region {code[0]} is executable in the RAM, which needs "
-                "an external RAM and an instruction port (external ROM "
-                "or icache)"
+                "an external RAM and an external ROM "
+                "(on the bus)"
             )
         )
     if (
@@ -726,8 +741,8 @@ def problems(
     memory, found = read(platform)
     if memory is None or found:
         return found
-    rom = _region_span(platform, "rom")
-    ram = _region_span(platform, "ram")
+    rom = region_span(platform, "rom")
+    ram = region_span(platform, "ram")
     return (
         _legacy_problems(platform)
         + _cache_problems(memory, rom, ram)
@@ -747,28 +762,17 @@ def notes(platform: dict[str, Any]) -> list[str]:
     Returns
     -------
     list of str
-        A cache over an internal memory (it only adds latency and
-        blocks, since the memory answers without wait), and the path
-        that peripherals need in every combination.
+        The path that peripherals need in every combination.
     """
     memory = resolve(platform)
     if memory is None:
         return []
-    out = [
-        f"{name} over an internal {what}: it answers without wait, so "
-        "the cache only adds latency on a miss and memory blocks"
-        for name, what, over in (
-            ("icache", "ROM", memory.has_icache and not memory.rom_external),
-            ("dcache", "RAM", memory.has_dcache and not memory.ram_external),
-        )
-        if over
-    ]
     if peripheral_list(platform):
-        out.append(
+        return [
             "peripherals need the external bus path to the "
             "interconnect in every combination"
-        )
-    return out
+        ]
+    return []
 
 
 def addr_width_names(platform: dict[str, Any]) -> list[str]:
@@ -865,7 +869,7 @@ def externals(
 
 
 def vhdl_lines(memory: Memory, window: int = MIN_WINDOW_BITS) -> str:
-    """Write the VHDL constants of the caches and of the core port.
+    """Write the VHDL constants of the caches.
 
     Parameters
     ----------
@@ -878,8 +882,8 @@ def vhdl_lines(memory: Memory, window: int = MIN_WINDOW_BITS) -> str:
     -------
     str
         `HAS_ICACHE`, `HAS_DCACHE`, `ICACHE_SIZE_BITS`,
-        `DCACHE_SIZE_BITS`, `CACHE_WINDOW_BITS`, `ROM_VIA_PORT` and
-        `RAM_VIA_PORT`, each with its comment.
+        `DCACHE_SIZE_BITS`, `I_CACHE_WINDOW_BITS` and
+        `D_CACHE_WINDOW_BITS`, each with its comment.
     """
     rows = (
         (
@@ -902,23 +906,18 @@ def vhdl_lines(memory: Memory, window: int = MIN_WINDOW_BITS) -> str:
             memory.dcache_size_bits,
         ),
         (
-            "Largura da janela de endereços das caches, em bits: a tag guarda "
-            "os bits abaixo dela (26 é 64 MiB, 27 é 128 MiB).",
-            "CACHE_WINDOW_BITS",
+            "Largura da janela de endereços da cache de instruções, em bits: "
+            "a tag guarda os bits abaixo dela (26 é 64 MiB, 27 é 128 MiB).",
+            "I_CACHE_WINDOW_BITS",
             "natural",
             window,
         ),
         (
-            "A ROM é alcançada pela porta do núcleo (externa ou com cache).",
-            "ROM_VIA_PORT",
-            "boolean",
-            "ROM_EXTERNAL or HAS_ICACHE",
-        ),
-        (
-            "A RAM é alcançada pela porta do núcleo (externa ou com cache).",
-            "RAM_VIA_PORT",
-            "boolean",
-            "RAM_EXTERNAL or HAS_DCACHE",
+            "Largura da janela de endereços da cache de dados, em bits: "
+            "a tag guarda os bits abaixo dela (26 é 64 MiB, 27 é 128 MiB).",
+            "D_CACHE_WINDOW_BITS",
+            "natural",
+            window,
         ),
     )
     return "".join(

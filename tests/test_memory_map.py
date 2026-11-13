@@ -40,7 +40,7 @@ PLATFORM: dict[str, Any] = {
         "last_word": {"base": "0x2FFFC", "size": 4},
     },
     "boot": {"entry": "0x800", "wait_restart": "0x100"},
-    "peripherals": [{"name": "GPIO", "base": "0xA0000000", "id": 2}],
+    "peripherals": [{"name": "GPIO", "base": "0xA0000000", "size": "16"}],
     "checks": [
         {
             "name": "config ram base",
@@ -134,7 +134,9 @@ def test_symbols_flattens_regions_reserved_boot_and_peripherals() -> None:
     check_equal(table["FLASH.words"], 7680)
     check_equal(table["stdout.size"], 1032)
     check_equal(table["boot.wait_restart"], 0x100)
-    check_equal(table["GPIO.id"], 2)
+    check_equal(table["GPIO.index"], 0)
+    check_equal(table["GPIO.size"], 16)
+    check_equal(table["GPIO.window"], 16)
 
 
 def test_the_reference_platform_is_consistent() -> None:
@@ -180,9 +182,11 @@ def _with(**changes: Any) -> dict[str, Any]:
         (_with(boot={"wait_restart": "0x900"}), "boot.wait_restart"),
         (
             _with(
-                peripherals=[{"name": "GPIO", "base": "0x90000000", "id": 2}]
+                peripherals=[
+                    {"name": "GPIO", "base": "0x90000008", "size": "16"}
+                ]
             ),
-            "peripheral GPIO base",
+            "V-P2 peripheral GPIO base",
         ),
     ],
 )

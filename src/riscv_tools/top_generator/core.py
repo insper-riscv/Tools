@@ -33,7 +33,7 @@ from riscv_tools.top_generator.spec import (
     TopSpec,
     console,
     external,
-    flash_ctrl_id,
+    flash_ctrl_index,
     role_ports,
 )
 
@@ -294,7 +294,7 @@ def _soc_ports(spec: TopSpec) -> list[str]:
             f"i_flash_rdata => {fl}_rdata",
             f"i_flash_rdata_x => {fl}_rdx",
         ]
-        if flash_ctrl_id(spec) is not None:
+        if flash_ctrl_index(spec) is not None:
             maps += [
                 "o_flash_cmd_valid => fcmd_valid",
                 "o_flash_cmd_op => fcmd_op",
@@ -669,7 +669,7 @@ def _flash_backend(
     tuple of (list of str, str)
         Sinais e corpo.
     """
-    updatable = flash_ctrl_id(spec) is not None
+    updatable = flash_ctrl_index(spec) is not None
     names = ("st_address_b", "st_wren_b", "st_data_b")
     plain = ("ld_address_b", "ld_wren_b", "ld_data_b")
     addr, wren, data = names if updatable else plain

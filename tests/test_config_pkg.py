@@ -13,6 +13,7 @@ from support import (
     check_equal,
     check_in,
     check_not_in,
+    dump_platform,
     profile_matrix,
 )
 
@@ -34,6 +35,25 @@ REAL_PLATFORM = "src/cyclone-v/de0-cv/platform.yaml"
 
 MATRIX = profile_matrix("rv32i", "rv32e", "rv64i")
 
+# Constantes que saíram do pacote do núcleo.
+REMOVED = (
+    "IS_BASE_E",
+    "HAS_MULDIV",
+    "ROM_",
+    "ROM_EXTERNAL",
+    "RAM_EXTERNAL",
+    "EXT_BASE",
+    "PERIPH_BASE",
+    "STRICT_PERIPH",
+    "HAS_UART",
+    "HAS_DISPLAY",
+    "HAS_SWITCHES",
+    "HAS_KEYS",
+    "HAS_FLASH_CTRL",
+    "PERIPH_SLOTS",
+    " CACHE_WINDOW_BITS",
+)
+
 PLATFORM: dict[str, Any] = {
     "profile": "rv32im_zicntr",
     "profiles": "matrix.yaml",
@@ -42,10 +62,9 @@ PLATFORM: dict[str, Any] = {
     "reserved": MAP_RESERVED,
     "boot": {"entry": "0x800", "wait_restart": "0x100"},
     "peripherals": [
-        {"name": "UART", "base": "0xC0000000", "id": 4},
-        {"name": "CLINT", "base": "0xE0000000", "id": 6},
+        {"name": "UART", "base": "0xC0000000", "size": "16"},
+        {"name": "CLINT", "base": "0xE0000000", "size": "64K"},
     ],
-    "console": "jtag",
     "memory": {
         "rom": {"external": True},
         "ram": {"external": False},
@@ -72,8 +91,8 @@ SMALL: dict[str, Any] = {
         {"name": "RAM", "base": "0x8000", "size": "160K", "kind": "ram"},
     ],
     "peripherals": [
-        {"name": "UART", "base": "0xC00000", "id": 4},
-        {"name": "CLINT", "base": "0xE00000", "id": 6},
+        {"name": "UART", "base": "0xC00000", "size": "16"},
+        {"name": "CLINT", "base": "0xE00000", "size": "64K"},
     ],
 }
 
@@ -82,8 +101,8 @@ WIDE: dict[str, Any] = {
     "profile": "rv64im_zicntr",
     "address_bits": 40,
     "peripherals": [
-        {"name": "UART", "base": "0xC000000000", "id": 4},
-        {"name": "CLINT", "base": "0xE000000000", "id": 6},
+        {"name": "UART", "base": "0xC000000000", "size": "16"},
+        {"name": "CLINT", "base": "0xE000000000", "size": "64K"},
     ],
 }
 
@@ -92,7 +111,7 @@ def _write(root: Path, platform: dict[str, Any]) -> Path:
     """Write the platform and the matrix of its profiles."""
     (root / "matrix.yaml").write_text(yaml.safe_dump(MATRIX))
     path = root / "platform.yaml"
-    path.write_text(yaml.safe_dump(platform, sort_keys=False))
+    path.write_text(dump_platform(platform))
     return path
 
 
@@ -118,32 +137,28 @@ def test_a_32_bit_platform_gets_the_defaults_of_today(tmp_path: Path) -> None:
     _has(
         text,
         "use work.utils_pkg.all;",
-        "constant IS_64              : boolean := false;",
-        "constant IS_BASE_E          : boolean := false;",
-        "constant ADDR_BITS          : natural := 32;",
-        "constant XLEN               : natural := pick(IS_64, 64, 32);",
+        "constant IS_64     : boolean := false;",
+        "constant IS_E : boolean := false;",
+        "constant ADDR_BITS : natural := 32;",
+        "constant XLEN     : natural := pick(IS_64, 64, 32);",
         "subtype map_addr_t is unsigned(ADDR_BITS downto 0);",
-        "constant HAS_M              : boolean := true;",
-        "constant HAS_ZICNTR         : boolean := true;",
-        "constant HAS_ZIHPM          : boolean := false;",
-        "constant HAS_INTERRUPTS     : boolean := true;",
-        "constant HAS_ACCESS_FAULTS  : boolean := true;",
-        "constant HAS_ICACHE         : boolean := true;",
-        "constant HAS_DCACHE         : boolean := false;",
-        "constant ROM_EXTERNAL       : boolean := true;",
-        "constant RAM_EXTERNAL       : boolean := false;",
-        "constant BOOT_MEMORY_BITS   : natural := 11;",
-        "constant CACHE_WINDOW_BITS  : natural := 26;",
-        "constant ROM_BASE           : map_addr_t :=",
+        "constant HAS_M             : boolean := true;",
+        "constant HAS_ZICNTR        : boolean := true;",
+        "constant HAS_ZIHPM         : boolean := false;",
+        "constant HAS_INTERRUPTS    : boolean := true;",
+        "constant HAS_ACCESS_FAULTS : boolean := true;",
+        "constant HAS_ICACHE   : boolean := true;",
+        "constant HAS_DCACHE   : boolean := false;",
+        "constant FLASH_ON_BUS : boolean := true;",
+        "constant RAM_ON_BUS   : boolean := false;",
+        "constant BOOT_MEMORY_BITS  : natural    := 11;",
+        "constant I_CACHE_WINDOW_BITS : natural    := 26;",
+        "constant D_CACHE_WINDOW_BITS : natural    := 26;",
+        "constant FLASH_BASE          : map_addr_t :=",
         'unsigned\'(x"00000800"), ADDR_BITS + 1);',
         'unsigned\'(x"00008000"), ADDR_BITS + 1);',
-        'unsigned\'(x"80000000"), ADDR_BITS + 1);',
-        "constant HAS_UART           : boolean := true;",
-        "constant HAS_UART_JTAG      : boolean := true;",
-        "constant HAS_UART_PINS      : boolean := false;",
-        "constant HAS_CLINT          : boolean := true;",
-        "constant HAS_PLIC           : boolean := false;",
-        "constant STRICT_PERIPH      : boolean := true;",
+        "constant HAS_CLINT      : boolean := true;",
+        "constant HAS_PLIC       : boolean := false;",
         ":= HAS_M or HAS_ZMMUL;",
         ":= HAS_ZICNTR or HAS_ZIHPM;",
         ":= HAS_SSCOFPMF and HAS_ZIHPM and HAS_INTERRUPTS;",
@@ -152,7 +167,8 @@ def test_a_32_bit_platform_gets_the_defaults_of_today(tmp_path: Path) -> None:
         "end package body config_pkg;",
     )
     check_not_in("std_logic_arith", text)
-    check_not_in("PERIPH_SLOTS", text)
+    for gone in REMOVED:
+        check_not_in(gone, text)
 
 
 def test_a_24_bit_platform_narrows_the_package(tmp_path: Path) -> None:
@@ -160,10 +176,11 @@ def test_a_24_bit_platform_narrows_the_package(tmp_path: Path) -> None:
     text = _config(tmp_path, SMALL)
     _has(
         text,
-        "constant ADDR_BITS          : natural := 24;",
-        "constant CACHE_WINDOW_BITS  : natural := 24;",
-        'unsigned\'(x"800000"), ADDR_BITS + 1);',
+        "constant ADDR_BITS : natural := 24;",
+        "constant I_CACHE_WINDOW_BITS : natural    := 24;",
+        "constant D_CACHE_WINDOW_BITS : natural    := 24;",
         'unsigned\'(x"000800"), ADDR_BITS + 1);',
+        'unsigned\'(x"008000"), ADDR_BITS + 1);',
     )
 
 
@@ -172,17 +189,17 @@ def test_a_64_bit_platform_gets_the_wide_package(tmp_path: Path) -> None:
     text = _config(tmp_path, WIDE)
     _has(
         text,
-        "constant IS_64              : boolean := true;",
-        "constant ADDR_BITS          : natural := 40;",
-        'unsigned\'(x"8000000000"), ADDR_BITS + 1);',
+        "constant IS_64     : boolean := true;",
+        "constant ADDR_BITS : natural := 40;",
         'unsigned\'(x"0000000800"), ADDR_BITS + 1);',
+        'unsigned\'(x"0000008000"), ADDR_BITS + 1);',
     )
 
 
 def test_the_base_e_is_a_constant_of_the_package(tmp_path: Path) -> None:
-    """The E base turns `IS_BASE_E` on."""
+    """The E base turns `IS_E` on."""
     text = _config(tmp_path, {**PLATFORM, "profile": "rv32em_zicntr"})
-    _has(text, "constant IS_BASE_E          : boolean := true;")
+    _has(text, "constant IS_E : boolean := true;")
 
 
 def test_a_variant_changes_the_width_and_the_base(tmp_path: Path) -> None:
@@ -192,16 +209,15 @@ def test_a_variant_changes_the_width_and_the_base(tmp_path: Path) -> None:
         text,
         "-- Variante: IS_64=true.",
         "-- Variante: ADDR_BITS=40.",
-        "constant IS_64              : boolean := true;",
-        "constant ADDR_BITS          : natural := 40;",
-        # As bases dos periféricos seguem a janela da nova largura.
-        'unsigned\'(x"8000000000"), ADDR_BITS + 1);',
+        "constant IS_64     : boolean := true;",
+        "constant ADDR_BITS : natural := 40;",
+        'unsigned\'(x"0000000800"), ADDR_BITS + 1);',
     )
-    flipped = _config(tmp_path, PLATFORM, HAS_ZIHPM=True, IS_BASE_E=True)
+    flipped = _config(tmp_path, PLATFORM, HAS_ZIHPM=True, IS_E=True)
     _has(
         flipped,
-        "constant HAS_ZIHPM          : boolean := true;",
-        "constant IS_BASE_E          : boolean := true;",
+        "constant HAS_ZIHPM         : boolean := true;",
+        "constant IS_E : boolean := true;",
     )
 
 
@@ -233,28 +249,29 @@ def test_parse_overrides_reads_booleans_and_the_width() -> None:
             parse_overrides([bad])
 
 
-def test_the_uart_follows_the_console(tmp_path: Path) -> None:
-    """The kind of UART comes from `console` or from its name."""
-    pins = _config(tmp_path, {**PLATFORM, "console": "pins"})
-    _has(
-        pins,
-        "constant HAS_UART_PINS      : boolean := true;",
-        "constant HAS_UART_JTAG      : boolean := false;",
-    )
-    named = _config(
+def test_the_peripherals_that_talk_to_the_core_follow_the_list(
+    tmp_path: Path,
+) -> None:
+    """Only the GPIO, CLINT, PLIC and timer are constants."""
+    text = _config(
         tmp_path,
         {
             **PLATFORM,
             "peripherals": [
-                {"name": "UART_JTAG", "base": "0xC0000000", "id": 4}
+                {"name": "GPIO", "base": "0xA0000000", "size": "64"},
+                {"name": "PLIC", "base": "0xF0000000", "size": "4M"},
+                {"name": "UART", "base": "0xC0000000", "size": "16"},
             ],
         },
     )
     _has(
-        named,
-        "constant HAS_UART           : boolean := false;",
-        "constant HAS_UART_JTAG      : boolean := true;",
+        text,
+        "constant HAS_GPIO       : boolean := true;",
+        "constant HAS_CLINT      : boolean := false;",
+        "constant HAS_PLIC       : boolean := true;",
+        "constant HAS_TIMER      : boolean := false;",
     )
+    check_not_in("HAS_UART", text)
 
 
 def test_the_rom_and_the_ram_must_be_named(tmp_path: Path) -> None:
@@ -294,8 +311,8 @@ def test_check_memory_map_compares_the_two_packages(tmp_path: Path) -> None:
     config = tmp_path / "out/config_pkg.vhd"
     config.write_text(
         config.read_text().replace(
-            "HAS_ICACHE         : boolean := true",
-            "HAS_ICACHE         : boolean := false",
+            "HAS_ICACHE   : boolean := true",
+            "HAS_ICACHE   : boolean := false",
         )
     )
     _, problems = check_memory_map(platform, tmp_path)
@@ -304,7 +321,7 @@ def test_check_memory_map_compares_the_two_packages(tmp_path: Path) -> None:
     write_all(platform, tmp_path)
     config.write_text(config.read_text().replace('x"00008000"', 'x"00008400"'))
     _, problems = check_memory_map(platform, tmp_path)
-    check_in("ROM_END is 33792 but ROM_END_KIB", str(problems[0]))
+    check_in("FLASH_END is 33792 but FLASH_END_KIB", str(problems[0]))
 
 
 def test_a_platform_without_config_pkg_is_not_compared(
@@ -339,7 +356,7 @@ def test_cmd_generate_config_pkg_prints_and_writes(
     _has(
         out,
         "package config_pkg is",
-        "constant IS_64              : boolean := true;",
+        "constant IS_64     : boolean := true;",
     )
     args.output = "rtl/config_pkg.vhd"
     cli.cmd_generate_config_pkg(args)
@@ -369,7 +386,7 @@ def test_the_real_platform_config_pkg_is_stable(tmp_path: Path) -> None:
     platform = tmp_path / REAL_PLATFORM
     text = render_variant(load_platform(platform), platform, tmp_path)
     check_equal(text, (REAL / "expected/config_pkg.vhd").read_text())
-    data = load_platform(platform)
+    data = yaml.safe_load(platform.read_text())
     data["generate"]["config_pkg"] = {"path": "rtl/config_pkg.vhd"}
     data.pop("checks", None)
     platform.write_text(yaml.safe_dump(data, sort_keys=False))
@@ -378,7 +395,7 @@ def test_the_real_platform_config_pkg_is_stable(tmp_path: Path) -> None:
 
 
 DEFAULT_PLATFORM: dict[str, Any] = {
-    "profile": "rv32im_zicclsm",
+    "profile": "rv32i_zicclsm",
     "profiles": "matrix.yaml",
     "regions": [
         {"name": "BOOT_MEMORY", "base": "0x0", "size": "4K", "exec": True},
@@ -390,7 +407,6 @@ DEFAULT_PLATFORM: dict[str, Any] = {
         "vhdl": {
             "rom": "FLASH",
             "ram": "RAM",
-            "ext_base": "0x40000000",
             "package": "map_pkg",
             "path": "out/map_pkg.vhd",
         },
@@ -409,48 +425,87 @@ def test_the_defaults_are_the_package_of_the_common_components(
     """With the default values the package is the one of the Common."""
     default = (REAL.parent / "config_pkg_default.vhd").read_text()
     text = _config(tmp_path, DEFAULT_PLATFORM)
+    # A janela das caches é a da etiqueta (26 é 64 MiB), não os 12.
+    text = text.replace(
+        "WINDOW_BITS : natural    := 26;", "WINDOW_BITS : natural    := 12;"
+    )
     check_equal(_after_header(text), _after_header(default))
 
 
-@pytest.mark.parametrize("external", [False, True])
-@pytest.mark.parametrize("cache", [False, True])
-def test_external_is_reached_through_the_port_of_the_core(
-    tmp_path: Path, external: bool, cache: bool
+@pytest.mark.parametrize("flash", [False, True])
+@pytest.mark.parametrize("ram", [False, True])
+def test_on_bus_is_the_external_flag_of_the_memory(
+    tmp_path: Path, flash: bool, ram: bool
 ) -> None:
-    """`ROM_EXTERNAL` and `RAM_EXTERNAL` are the `*_VIA_PORT` values."""
+    """`FLASH_ON_BUS` and `RAM_ON_BUS` follow `memory.*.external`."""
     memory = {
-        "rom": {"external": external},
-        "ram": {"external": external},
-        "icache": {"enabled": cache, "size_bits": 4096},
-        "dcache": {"enabled": cache, "size_bits": 4096},
+        "rom": {"external": flash},
+        "ram": {"external": ram},
+        "icache": {"enabled": False},
+        "dcache": {"enabled": False},
     }
     platform = _write(tmp_path, {**PLATFORM, "memory": memory})
     write_all(platform, tmp_path)
     config = (tmp_path / "out/config_pkg.vhd").read_text()
-    want = str(external or cache).lower()
     _has(
         config,
-        f"constant ROM_EXTERNAL       : boolean := {want};",
-        f"constant RAM_EXTERNAL       : boolean := {want};",
+        f"constant FLASH_ON_BUS : boolean := {str(flash).lower()};",
+        f"constant RAM_ON_BUS   : boolean := {str(ram).lower()};",
     )
     mapped = (tmp_path / "out/map_pkg.vhd").read_text()
     check_in(
-        "constant ROM_VIA_PORT        : boolean  :="
-        " ROM_EXTERNAL or HAS_ICACHE;",
+        f"constant FLASH_ON_BUS        : boolean  := {str(flash).lower()};",
         mapped,
     )
     check_equal(check_memory_map(platform, tmp_path)[1], [])
 
 
-def test_strict_periph_can_be_turned_off_by_the_platform(
+@pytest.mark.parametrize(
+    ("memory", "message"),
+    [
+        (
+            {
+                "rom": {"external": False},
+                "ram": {"external": True},
+                "icache": {"enabled": True, "size_bits": 4096},
+                "dcache": {"enabled": False},
+            },
+            "V-C1 icache needs memory.rom.external",
+        ),
+        (
+            {
+                "rom": {"external": True},
+                "ram": {"external": False},
+                "icache": {"enabled": False},
+                "dcache": {"enabled": True, "size_bits": 4096},
+            },
+            "V-C2 dcache needs memory.ram.external",
+        ),
+    ],
+)
+def test_a_cache_needs_its_memory_on_the_bus(
+    tmp_path: Path, memory: dict[str, Any], message: str
+) -> None:
+    """Each cache needs its memory on the bus."""
+    with pytest.raises(ValueError, match=message):
+        _config(tmp_path, {**PLATFORM, "memory": memory})
+
+
+def test_a_variant_cannot_put_a_cache_over_a_memory_off_the_bus(
     tmp_path: Path,
 ) -> None:
-    """`strict_periph: false` writes the constant as false."""
-    text = _config(tmp_path, {**PLATFORM, "strict_periph": False})
-    _has(text, "constant STRICT_PERIPH      : boolean := false;")
+    """A data cache over an internal RAM is refused (V-C2)."""
+    with pytest.raises(ValueError, match="V-C2 HAS_DCACHE needs RAM_ON_BUS"):
+        _config(tmp_path, PLATFORM, HAS_DCACHE=True)
 
 
-def test_strict_periph_can_be_set_by_a_variant(tmp_path: Path) -> None:
-    """`--set STRICT_PERIPH=false` changes the constant."""
-    text = _config(tmp_path, PLATFORM, STRICT_PERIPH=False)
-    _has(text, "constant STRICT_PERIPH      : boolean := false;")
+def test_the_core_map_must_be_in_order(tmp_path: Path) -> None:
+    """V-M1 to V-M5: BOOT_MEMORY at 0, then FLASH, then RAM."""
+    flash = {"name": "FLASH", "base": "0x800", "size": "0", "exec": True}
+    empty = {**PLATFORM, "regions": [MAP_REGIONS[0], flash, MAP_REGIONS[2]]}
+    with pytest.raises(ValueError, match="V-M3 the FLASH FLASH needs"):
+        _config(tmp_path, empty)
+    late = {**MAP_REGIONS[0], "base": "0x100"}
+    moved = {**PLATFORM, "regions": [late, *MAP_REGIONS[1:]]}
+    with pytest.raises(ValueError, match="V-M1"):
+        _config(tmp_path, moved)

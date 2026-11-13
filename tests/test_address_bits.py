@@ -11,11 +11,13 @@ from support import (
     check,
     check_equal,
     check_in,
+    dump_platform,
     profile_matrix,
 )
 
 from riscv_tools.memory_map import (
     config_from_platform,
+    load_platform,
     resolve,
     set_override,
     validate_platform,
@@ -29,7 +31,7 @@ PLATFORM: dict[str, Any] = {
     "regions": MAP_REGIONS,
     "reserved": MAP_RESERVED,
     "boot": {"entry": "0x800", "wait_restart": "0x100"},
-    "peripherals": [{"name": "UART", "base": "0xC0000000", "id": 4}],
+    "peripherals": [{"name": "UART", "base": "0xC0000000", "size": "16"}],
     "config": {"rom": "FLASH", "ram": "RAM", "addr_widths": ["rom"]},
 }
 GENERICS = {"has_access_faults": True}
@@ -45,7 +47,9 @@ def _small(**changes: Any) -> dict[str, Any]:
     return _with(
         **{
             "address_bits": 24,
-            "peripherals": [{"name": "UART", "base": "0xC00000", "id": 4}],
+            "peripherals": [
+                {"name": "UART", "base": "0xC00000", "size": "16"}
+            ],
             **changes,
         }
     )
@@ -57,7 +61,9 @@ def _wide(**changes: Any) -> dict[str, Any]:
         **{
             "profile": "rv64im",
             "address_bits": 40,
-            "peripherals": [{"name": "UART", "base": "0xC000000000", "id": 4}],
+            "peripherals": [
+                {"name": "UART", "base": "0xC000000000", "size": "16"}
+            ],
             **changes,
         }
     )
@@ -72,7 +78,7 @@ def _write(root: Path, platform: dict[str, Any]) -> Path:
     """Write the platform and its matrix."""
     (root / "matrix.yaml").write_text(yaml.safe_dump(MATRIX))
     path = root / "platform.yaml"
-    path.write_text(yaml.safe_dump(platform, sort_keys=False))
+    path.write_text(dump_platform(platform))
     return path
 
 
@@ -95,11 +101,14 @@ def test_v_a1_address_bits_is_an_integer_from_16_to_64(value: Any) -> None:
     check(any("V-A1 address_bits" in p for p in problems), str(problems))
 
 
-def test_v_a2_above_32_bits_needs_an_rv64_profile() -> None:
-    """V-A2: 33 bits or more with an rv32 profile is refused."""
+def test_v_a2_address_bits_above_xlen_is_refused() -> None:
+    """V-A2: more bits than XLEN is refused."""
     problems = _problems(_with(address_bits=40))
     check(any("V-A2 address_bits 40" in p for p in problems), str(problems))
+    check_in("ADDR_BITS maior que XLEN", problems[0])
     check_equal([p for p in _problems(_wide()) if "V-A2" in p], [])
+    narrow = _problems(_wide(address_bits=48))
+    check_equal([p for p in narrow if "V-A2" in p], [])
 
 
 def test_v_a3_a_region_must_fit_the_space() -> None:
@@ -120,8 +129,8 @@ def test_v_a3_a_region_must_fit_the_space() -> None:
     check(any("V-A3 region RAM" in p for p in problems), str(problems))
 
 
-def test_v_a4_the_window_and_the_ids_follow_the_width() -> None:
-    """V-A4: a region above the window or a base off the id fails."""
+def test_v_a4_the_window_must_fit_and_the_base_must_be_aligned() -> None:
+    """V-A4: a window past the space and a base off its window fail."""
     high = _small(
         regions=[
             *MAP_REGIONS[:2],
@@ -129,34 +138,32 @@ def test_v_a4_the_window_and_the_ids_follow_the_width() -> None:
         ]
     )
     check(
-        any(
-            "not below the peripheral window 0x800000" in p
-            for p in _problems(high)
-        ),
+        not any("peripheral window" in p for p in _problems(high)),
         str(_problems(high)),
     )
-    off = _small(peripherals=[{"name": "UART", "base": "0xD00000", "id": 4}])
+    off = _small(
+        peripherals=[{"name": "UART", "base": "0xD00008", "size": "16"}]
+    )
     check(
-        any(
-            "peripheral UART base is not in the slot of id 4" in p
-            for p in _problems(off)
-        ),
+        any("V-P2 peripheral UART base 0xD00008" in p for p in _problems(off)),
         str(_problems(off)),
     )
-    far = _with(peripherals=[{"name": "X", "base": "0x0", "id": 16}])
+    far = _with(
+        peripherals=[{"name": "X", "base": "0xFFFFFF0000000000", "size": "16"}]
+    )
     check(
-        any("V-A4 peripheral X id 16" in p for p in _problems(far)),
+        any("V-A4 peripheral X window" in p for p in _problems(far)),
         str(_problems(far)),
     )
 
 
-def test_v_a4_a_fixed_window_replaces_the_derived_one() -> None:
-    """`periph_window` fixes the base the peripherals are or-ed into."""
-    fixed = _with(
-        periph_window="0xA0000000",
-        peripherals=[{"name": "UART", "base": "0xB0000000", "id": 1}],
+def test_v_p6_the_fixed_window_key_is_refused() -> None:
+    """`periph_window` no longer exists: the core has no such window."""
+    fixed = _with(periph_window="0xA0000000")
+    check(
+        any("V-P6 periph_window" in p for p in _problems(fixed)),
+        str(_problems(fixed)),
     )
-    check_equal(_problems(fixed), [])
 
 
 def test_v_a5_a_narrow_address_needs_the_access_faults() -> None:
@@ -167,7 +174,7 @@ def test_v_a5_a_narrow_address_needs_the_access_faults() -> None:
     wide32 = _problems(
         _wide(
             address_bits=32,
-            peripherals=[{"name": "UART", "base": "0xC0000000", "id": 4}],
+            peripherals=[{"name": "UART", "base": "0xC0000000", "size": "16"}],
         ),
         generics={},
     )
@@ -189,15 +196,13 @@ def test_resolve_accepts_the_rv64_profiles(tmp_path: Path) -> None:
         ("rv64em", "e", 64),
     ):
         path = _write(tmp_path, _with(profile=name))
-        platform = yaml.safe_load(path.read_text())
+        platform = load_platform(path)
         got = resolve(platform, path)
         check_equal((got[0], got[2]), (base, xlen), name)
     check_in(
         "has_m",
         resolve(
-            yaml.safe_load(
-                _write(tmp_path, _with(profile="rv64im")).read_text()
-            ),
+            load_platform(_write(tmp_path, _with(profile="rv64im"))),
             tmp_path / "platform.yaml",
         )[1],
     )
@@ -207,16 +212,15 @@ def test_resolve_rejects_a_name_without_a_valid_base(tmp_path: Path) -> None:
     """Only `rv32i`, `rv32e`, `rv64i` and `rv64e` start a profile."""
     for name in ("rv128i", "rv64x", "rv6", "arm"):
         platform = {k: v for k, v in PLATFORM.items() if k != "profiles"}
-        path = _write(tmp_path, {**platform, "profile": name})
         with pytest.raises(ValueError, match="rv64e"):
-            resolve(yaml.safe_load(path.read_text()), path)
+            _write(tmp_path, {**platform, "profile": name})
 
 
 def test_the_override_can_pick_an_rv64_profile(tmp_path: Path) -> None:
     """`--profile rv64im` replaces the profile of the platform."""
     path = _write(tmp_path, PLATFORM)
     set_override("rv64im")
-    check_equal(resolve(yaml.safe_load(path.read_text()), path)[2], 64)
+    check_equal(resolve(load_platform(path), path)[2], 64)
 
 
 def test_the_config_gets_the_new_keys_only_off_the_default(

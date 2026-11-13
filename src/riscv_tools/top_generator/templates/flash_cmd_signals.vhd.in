@@ -5,6 +5,6 @@
 	signal fcmd_buf_idx : std_logic_vector(5 downto 0);
 	signal fcmd_inval_valid : std_logic;
 	signal fcmd_inval_first, fcmd_inval_last : std_logic_vector(31 downto 0);
-	signal st_address_b : std_logic_vector(log2_exact(ROM_STORAGE_BYTES) - 3 downto 0);
+	signal st_address_b : std_logic_vector(log2_exact(FLASH_STORAGE_BYTES) - 3 downto 0);
 	signal st_wren_b : std_logic;
 	signal st_data_b : std_logic_vector(31 downto 0);

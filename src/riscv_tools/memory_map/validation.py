@@ -1,14 +1,12 @@
 """Check the consistency of a memory map before any copy is read."""
 
-from typing import Any
+from typing import Any, cast
 
 from riscv_tools.memory_map import memory
 from riscv_tools.memory_map.core import (
     DEFAULT_ADDRESS_BITS,
     Mismatch,
     address_bits,
-    periph_id_shift,
-    periph_window,
     peripheral_list,
     platform_dict,
     platform_list,
@@ -17,12 +15,11 @@ from riscv_tools.memory_map.core import (
 from riscv_tools.memory_map.expressions import evaluate
 from riscv_tools.memory_map.profile import (
     RV32_XLEN,
-    RV64_XLEN,
     profile_name,
     xlen_of,
 )
 
-PERIPH_SLOTS = 8
+LEGACY_FIELDS = ("id", "offset", "padding")
 
 
 def hex_text(value: int) -> str:
@@ -125,10 +122,8 @@ def _boot_problems(
     return problems
 
 
-def _bits_and_window(
-    platform: dict[str, Any],
-) -> tuple[int, int, list[Mismatch]]:
-    """Read the address width and the peripheral window.
+def _bits(platform: dict[str, Any]) -> tuple[int, list[Mismatch]]:
+    """Read the address width.
 
     Parameters
     ----------
@@ -137,19 +132,103 @@ def _bits_and_window(
 
     Returns
     -------
-    tuple of (int, int, list of Mismatch)
-        The width (the default when `address_bits` is invalid), the
-        base of the peripheral window and the V-A1 problem, if any.
+    tuple of (int, list of Mismatch)
+        The width (the default when `address_bits` is invalid) and the
+        V-A1 problem, if any.
     """
     try:
-        return address_bits(platform), periph_window(platform), []
+        return address_bits(platform), []
     except ValueError as error:
-        fixed = {**platform, "address_bits": DEFAULT_ADDRESS_BITS}
-        return (
-            DEFAULT_ADDRESS_BITS,
-            periph_window(fixed),
-            [Mismatch("platform", "", f"V-A1 {error}")],
+        return DEFAULT_ADDRESS_BITS, [
+            Mismatch("platform", "", f"V-A1 {error}")
+        ]
+
+
+def _removed_problems(platform: dict[str, Any]) -> list[Mismatch]:
+    """Refuse the keys that the free peripheral addresses removed.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+
+    Returns
+    -------
+    list of Mismatch
+        One per `periph_window` at the top and per `ext_base` or
+        `periph_base` in `generate.vhdl`: the core no longer knows an
+        external or peripheral window.
+    """
+    vhdl = cast(
+        dict[str, Any], platform_dict(platform, "generate").get("vhdl") or {}
+    )
+    found = [("periph_window", platform)] + [
+        (f"generate.vhdl.{key}", vhdl) for key in ("ext_base", "periph_base")
+    ]
+    return [
+        Mismatch(
+            "platform",
+            "",
+            f"V-P6 {name.rsplit('.', 1)[-1]} is no longer accepted: the "
+            "core does not know the peripheral window; give each "
+            "peripheral its `base` and `size`",
         )
+        for name, where in found
+        if name.rsplit(".", 1)[-1] in where
+    ]
+
+
+def _core_map_problems(platform: dict[str, Any], bits: int) -> list[Mismatch]:
+    """Check the order of the regions of the core (V-M1 to V-M5).
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform: `config` or `generate.vhdl` names the FLASH
+        and the RAM in `rom` and `ram`.
+    bits : int
+        The width of the physical address.
+
+    Returns
+    -------
+    list of Mismatch
+        The BOOT_MEMORY (the first region) must start at 0, end at or
+        before the FLASH, which has a positive size and ends at or
+        before the RAM, which has a positive size and fits the address
+        space. Empty when the platform names neither the FLASH nor the
+        RAM.
+    """
+    flash = memory.region_span(platform, "rom")
+    ram = memory.region_span(platform, "ram")
+    regions = platform_list(platform, "regions")
+    if flash is None or ram is None or not regions:
+        return []
+    boot = evaluate(regions[0]["base"]), evaluate(regions[0]["size"])
+    checks = [
+        ("V-M1", "the BOOT_MEMORY must start at address 0", boot[0] == 0),
+        (
+            "V-M2",
+            f"the BOOT_MEMORY must end before the FLASH {flash[0]}",
+            sum(boot) <= flash[1],
+        ),
+        ("V-M3", f"the FLASH {flash[0]} needs a positive size", flash[2] > 0),
+        (
+            "V-M4",
+            f"the FLASH {flash[0]} must end before the RAM {ram[0]}",
+            flash[1] + flash[2] <= ram[1],
+        ),
+        (
+            "V-M5",
+            f"the RAM {ram[0]} needs a positive size and must fit "
+            f"2**{bits} bytes",
+            ram[2] > 0 and ram[1] + ram[2] <= 1 << bits,
+        ),
+    ]
+    return [
+        Mismatch("platform", "", f"{code} {text}")
+        for code, text, ok in checks
+        if not ok
+    ]
 
 
 def validate_platform(
@@ -160,15 +239,12 @@ def validate_platform(
     """Check the map's own consistency, before any copy is read.
 
     Regions must not overlap; reserved words must sit inside a RAM
-    region and not overlap each other; every region must end at or
-    below the peripheral window (the upper half of the address space,
-    `2**(address_bits - 1)`, unless `periph_window` fixes another
-    base), since the lower half belongs to the BOOT_MEMORY, the ROM and
-    the RAM and the upper half to the peripherals; the boot entry must
-    be inside an executable region and `wait_restart` inside the first
-    one; a peripheral's base must be the window base or-ed with
-    `id << (address_bits - 4)` (the L2IP window convention); the width
-    `address_bits` must satisfy V-A1 to V-A6 (see
+    region and not overlap each other; the boot entry must be inside an
+    executable region and `wait_restart` inside the first one; every
+    peripheral must have an aligned window that overlaps neither another
+    peripheral nor a region (see `_peripheral_problems`); the three
+    regions the core knows must be in order (see `_core_map_problems`);
+    the width `address_bits` must satisfy V-A1 to V-A6 (see
     `_address_problems`); and the `memory` choice, when there is one,
     must be well formed and fit the map (see `memory.problems`).
 
@@ -203,7 +279,7 @@ def validate_platform(
         for n, v in platform_dict(platform, "reserved").items()
     ]
     execs = [s for s, r in zip(spans, regions, strict=True) if r.get("exec")]
-    bits, window, problems = _bits_and_window(platform)
+    bits, problems = _bits(platform)
     problems += overlaps("regions", spans) + overlaps("reserved", reserved)
     problems += [
         Mismatch(
@@ -214,21 +290,14 @@ def validate_platform(
         for name, base, size in reserved
         if not any(b <= base and base + size <= b + s for _, b, s in rams)
     ]
-    problems += [
-        Mismatch(
-            "platform",
-            "",
-            f"region {name} ({span(base, size)}) is not below the "
-            f"peripheral window 0x{window:X} (V-A4, address_bits {bits})",
-        )
-        for name, base, size in spans
-        if base + size > window
-    ]
     problems += _boot_problems(platform_dict(platform, "boot"), spans, execs)
     problems += _address_problems(platform, bits, spans, generics, xlen)
     problems += memory.problems(platform, generics)
-    problems += _strict_problems(platform)
-    return problems + _peripheral_problems(peripheral_list(platform), bits)
+    problems += _strict_problems(platform) + _removed_problems(platform)
+    problems += _core_map_problems(platform, bits)
+    return problems + _peripheral_problems(
+        platform_list(platform, "peripherals"), spans, bits
+    )
 
 
 def _strict_problems(platform: dict[str, Any]) -> list[Mismatch]:
@@ -332,19 +401,20 @@ def _address_problems(
     Returns
     -------
     list of Mismatch
-        V-A2 (above 32 bits needs an rv64 profile), V-A3 (a region
+        V-A2 (above `xlen` bits), V-A3 (a region
         beyond `2**bits` bytes), V-A5 (a width below `xlen` needs the
         access faults) and V-A6 (a boot address beyond `2**bits`).
     """
     width = _xlen(platform, xlen)
     problems: list[Mismatch] = []
-    if bits > RV32_XLEN and width != RV64_XLEN:
+    if bits > width:
         problems.append(
             Mismatch(
                 "platform",
                 "",
-                f"V-A2 address_bits {bits} is above 32 but the profile "
-                f"{profile_name(platform)} is not rv64",
+                f"V-A2 address_bits {bits} is above XLEN {width} of the "
+                f"core (type {width}, profile {profile_name(platform)}): "
+                "ADDR_BITS maior que XLEN",
             )
         )
     problems += [
@@ -377,94 +447,103 @@ def _address_problems(
     )
 
 
-def slot_extent(periph: dict[str, Any], slot: int) -> tuple[int, int, int]:
-    """Measure what a peripheral takes of its slot.
+def _legacy_problems(raw: dict[str, Any]) -> list[Mismatch]:
+    """Refuse the fields that the window derived from `size` replaced.
 
     Parameters
     ----------
-    periph : dict of {str: Any}
-        A peripheral completed by `peripheral_list`.
-    slot : int
-        The bytes of a slot, `2**(address_bits - 4)`.
+    raw : dict of {str: Any}
+        One entry of `peripherals`, as written.
 
     Returns
     -------
-    tuple of (int, int, int)
-        The size, the padding (by default what is left of the slot
-        after the size) and the offset inside the slot.
+    list of Mismatch
+        One per `id`, `offset` and `padding`, with the migration: the
+        entry gives its absolute `base` (`id: 5` becomes
+        `base: 0xD0000000`) and the `size` in bytes of its registers.
     """
-    size = evaluate(periph["size"]) if "size" in periph else 0
-    inside = int(periph["offset"]) % slot
-    padding = (
-        evaluate(periph["padding"])
-        if "padding" in periph
-        else max(slot - inside - size, 0)
-    )
-    return size, padding, inside
+    return [
+        Mismatch(
+            "platform",
+            "",
+            f"V-P1 peripheral {raw.get('name')}: `{key}` is no longer "
+            "accepted; give `base` (the absolute address, aligned to the "
+            "window, so `id: 5` becomes `base: 0xD0000000`) and `size` "
+            "(the bytes of registers)",
+        )
+        for key in LEGACY_FIELDS
+        if key in raw
+    ]
 
 
-def _slot_problems(
-    periph: dict[str, Any], slot: int, bits: int
-) -> list[Mismatch]:
-    """Check the id and the room of one peripheral (V-P2 and V-P3).
+def _window_problems(item: dict[str, Any], bits: int) -> list[Mismatch]:
+    """Check the size, the alignment and the room of one peripheral.
 
     Parameters
     ----------
-    periph : dict of {str: Any}
-        A peripheral completed by `peripheral_list`, with a valid
-        `offset`.
-    slot : int
-        The bytes of a slot, `2**(address_bits - 1)` divided by eight.
+    item : dict of {str: Any}
+        A peripheral completed by `peripheral_list`, with `base` and
+        `size`.
     bits : int
         The width of the physical address.
 
     Returns
     -------
     list of Mismatch
-        V-P2 when `id` is not the slot of the offset, V-P3 when the
-        size and the padding go past the end of the slot.
+        V-P1 for a size that is not positive, V-P2 for a base that is
+        not a multiple of the window and V-A4 for a window that goes
+        past `2**bits`.
     """
-    name = periph["name"]
-    problems: list[Mismatch] = []
-    derived = int(periph["offset"]) >> periph_id_shift(bits)
-    if int(periph["id"]) != derived:
-        problems.append(
+    name, base, size = item["name"], int(item["base"]), int(item["size"])
+    if size <= 0:
+        return [
             Mismatch(
                 "platform",
                 "",
-                f"V-P2 peripheral {name} base is not in the slot of id "
-                f"{periph['id']}: offset 0x{periph['offset']:X} is in the "
-                f"slot of id {derived}",
+                f"V-P1 peripheral {name}: `size` must be positive",
             )
-        )
-    size, padding, inside = slot_extent(periph, slot)
-    if inside + size + padding > slot:
-        problems.append(
+        ]
+    window = int(item["window"])
+    found: list[Mismatch] = []
+    if base % window:
+        found.append(
             Mismatch(
                 "platform",
                 "",
-                f"V-P3 peripheral {name}: size + padding "
-                f"(0x{size + padding:X}) from offset 0x{inside:X} goes "
-                f"past the slot of 0x{slot:X} bytes",
+                f"V-P2 peripheral {name} base 0x{base:X} is not aligned "
+                f"to its window of 0x{window:X} bytes (size 0x{size:X})",
             )
         )
-    return problems
+    if base + window > 1 << bits:
+        found.append(
+            Mismatch(
+                "platform",
+                "",
+                f"V-A4 peripheral {name} window ({span(base, window)}) "
+                f"does not fit address_bits {bits}",
+            )
+        )
+    return found
 
 
 def _peripheral_problems(
-    peripherals: list[dict[str, Any]], bits: int
+    peripherals: list[dict[str, Any]],
+    spans: list[tuple[str, int, int]],
+    bits: int,
 ) -> list[Mismatch]:
-    """Check the peripherals against the window and the slots.
+    """Check the peripherals against the address space and the regions.
 
-    Each entry gives exactly one of `base` and `offset` (V-P1), a given
-    `id` is the slot of the offset (V-P2), the size and the padding stay
-    inside the slot (V-P3), no two peripherals take the same bytes of a
-    slot (V-P4), and the slot is inside the address space (V-A4).
+    Each entry gives `base` and `size` and none of the removed fields
+    (V-P1), its base is aligned to its window (V-P2), no two windows
+    overlap (V-P4), no window overlaps a region (V-P5) and the window is
+    inside the address space (V-A4).
 
     Parameters
     ----------
     peripherals : list of dict of {str: Any}
-        The `peripherals` section completed by `peripheral_list`.
+        The `peripherals` section, as written.
+    spans : list of tuple of (str, int, int)
+        Every region, as `(name, base, size)`.
     bits : int
         The width of the physical address.
 
@@ -474,103 +553,84 @@ def _peripheral_problems(
         The problems; empty when the peripherals are consistent.
     """
     problems: list[Mismatch] = []
-    slot = 1 << periph_id_shift(bits)
-    extents: list[tuple[str, int, int]] = []
-    for periph in peripherals:
-        name = periph["name"]
-        if periph["choice"] != "ok":
-            problems.append(_choice_problem(name, periph["choice"]))
+    windows: list[tuple[str, int, int]] = []
+    for raw in peripherals:
+        problems += _legacy_problems(raw)
+        missing = [key for key in ("base", "size") if key not in raw]
+        if missing:
+            problems.append(
+                Mismatch(
+                    "platform",
+                    "",
+                    f"V-P1 peripheral {raw.get('name')}: `base` and `size` "
+                    f"are needed, `{missing[0]}` is missing",
+                )
+            )
             continue
-        problems += _id_space_problems(periph, bits)
-        offset = int(periph["offset"])
-        if offset < 0:
-            problems.append(
-                Mismatch(
-                    "platform",
-                    "",
-                    f"V-P1 peripheral {name} base 0x{periph['base']:X} is "
-                    "below the peripheral window",
-                )
+        item = _completed(raw)
+        problems += _window_problems(item, bits)
+        if "window" in item:
+            windows.append(
+                (str(item["name"]), int(item["base"]), int(item["window"]))
             )
-        elif offset >> periph_id_shift(bits) >= PERIPH_SLOTS:
-            problems.append(
-                Mismatch(
-                    "platform",
-                    "",
-                    f"V-A4 peripheral {name} offset 0x{offset:X} goes past "
-                    "the peripheral window (id << (address_bits - 4) is "
-                    "outside 2**address_bits)",
-                )
-            )
-        elif "id" in periph:
-            problems += _slot_problems(periph, slot, bits)
-            size, padding, _ = slot_extent(periph, slot)
-            extents.append((name, offset, size + padding))
-    return problems + _overlap_problems(extents)
-
-
-def _choice_problem(name: str, kind: str) -> Mismatch:
-    """Report an entry without exactly one of base and offset (V-P1)."""
-    return Mismatch(
-        "platform",
-        "",
-        f"V-P1 peripheral {name}: exactly one of `base` and `offset` is "
-        f"needed, the entry has {'both' if kind == 'both' else 'neither'}",
+    problems += _overlap_problems(windows, windows, "V-P4 peripherals", True)
+    return problems + _overlap_problems(
+        windows, spans, "V-P5 peripheral", False
     )
 
 
-def _id_space_problems(periph: dict[str, Any], bits: int) -> list[Mismatch]:
-    """Check that a given `id` shifted fits the address space (V-A4).
+def _completed(raw: dict[str, Any]) -> dict[str, Any]:
+    """Evaluate the numbers of one entry and derive its window.
 
     Parameters
     ----------
-    periph : dict of {str: Any}
-        A peripheral completed by `peripheral_list`.
-    bits : int
-        The width of the physical address.
+    raw : dict of {str: Any}
+        An entry of `peripherals` that has `base` and `size`.
 
     Returns
     -------
-    list of Mismatch
-        One when `id << (address_bits - 4)` is outside `2**bits`.
+    dict of {str: Any}
+        The entry with `base`, `size` and `window` (when `size` is
+        positive) as numbers.
     """
-    if "id" not in periph:
-        return []
-    shifted = int(periph["id"]) << periph_id_shift(bits)
-    if shifted < 1 << bits:
-        return []
-    return [
-        Mismatch(
-            "platform",
-            "",
-            f"V-A4 peripheral {periph['name']} id {periph['id']}: "
-            f"id << (address_bits - 4) = 0x{shifted:X} is outside "
-            f"2**address_bits (address_bits {bits})",
-        )
-    ]
+    return peripheral_list({"peripherals": [raw]})[0]
 
 
-def _overlap_problems(extents: list[tuple[str, int, int]]) -> list[Mismatch]:
-    """Find peripherals that take the same bytes of a slot (V-P4).
+def _overlap_problems(
+    first: list[tuple[str, int, int]],
+    second: list[tuple[str, int, int]],
+    label: str,
+    same: bool,
+) -> list[Mismatch]:
+    """Find windows that take the same bytes as a window or a region.
 
     Parameters
     ----------
-    extents : list of tuple of (str, int, int)
-        `(name, offset, size + padding)` of each peripheral.
+    first : list of tuple of (str, int, int)
+        `(name, base, size)` of each peripheral window.
+    second : list of tuple of (str, int, int)
+        The windows (`same`) or the regions to compare with.
+    label : str
+        The start of the message, with the code of the rule.
+    same : bool
+        The two lists are one, so each pair counts once.
 
     Returns
     -------
     list of Mismatch
         One per overlapping pair.
     """
-    return [
-        Mismatch(
-            "platform",
-            "",
-            f"V-P4 peripherals {name_a} and {name_b} overlap: size plus "
-            "padding take the same bytes of a slot",
-        )
-        for i, (name_a, base_a, size_a) in enumerate(extents)
-        for name_b, base_b, size_b in extents[i + 1 :]
-        if base_a < base_b + size_b and base_b < base_a + size_a
-    ]
+    found: list[Mismatch] = []
+    for i, (name_a, base_a, size_a) in enumerate(first):
+        for name_b, base_b, size_b in second[i + 1 :] if same else second:
+            if base_a < base_b + size_b and base_b < base_a + size_a:
+                found.append(
+                    Mismatch(
+                        "platform",
+                        "",
+                        f"{label} {name_a} and {name_b} overlap: "
+                        f"{span(base_a, size_a)} and "
+                        f"{span(base_b, size_b)}",
+                    )
+                )
+    return found

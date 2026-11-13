@@ -23,8 +23,8 @@ PLATFORM: dict[str, Any] = {
     "reserved": MAP_RESERVED,
     "boot": {"entry": "0x800", "wait_restart": "0x100"},
     "peripherals": [
-        {"name": "CLINT", "base": "0xE0000000", "id": 6},
-        {"name": "EXT_IRQ", "base": "0xF0000000", "id": 7},
+        {"name": "CLINT", "base": "0xE0000000", "size": "64K"},
+        {"name": "EXT_IRQ", "base": "0xF0000000", "size": "16"},
     ],
     "interrupts": {"clock_hz": 50000000, "mtime_hz": 1000000},
     "generate": {
@@ -34,7 +34,6 @@ PLATFORM: dict[str, Any] = {
             "package": "irq_pkg",
             "rom": "FLASH",
             "ram": "RAM",
-            "ext_base": "0x80000000",
         },
     },
 }
@@ -52,8 +51,8 @@ def test_the_package_has_the_tick_and_the_switch(tmp_path: Path) -> None:
     check_in("constant CLOCK_HZ          : positive := 50000000;", text)
     check_in("constant MTIME_HZ          : positive := 1000000;", text)
     check_in("constant CLINT_TICK_CYCLES : positive := 50;", text)
-    check_in("constant CLINT_BASE : std_logic_vector(31 downto 0)", text)
-    check_in("constant EXT_IRQ_ID   : natural := 7;", text)
+    check_in("constant CLINT_BASE : addr_t", text)
+    check_in("constant EXT_IRQ_INDEX : natural := 1;", text)
 
 
 @pytest.mark.parametrize(
@@ -121,8 +120,8 @@ def test_an_inconsistent_section_is_rejected(
 
 PLIC_PLATFORM: dict[str, Any] = {
     "peripherals": [
-        {"name": "CLINT", "base": "0xE0000000", "id": 6},
-        {"name": "PLIC", "base": "0xF0000000", "id": 7, "size": "4M"},
+        {"name": "CLINT", "base": "0xE0000000", "size": "64K"},
+        {"name": "PLIC", "base": "0xF0000000", "size": "4M"},
     ],
     "interrupts": {
         "clock_hz": 50000000,
@@ -198,11 +197,10 @@ def _plic_with(**changes: Any) -> dict[str, Any]:
         (
             {
                 "peripherals": [
-                    {"name": "CLINT", "base": "0xE0000000", "id": 6},
+                    {"name": "CLINT", "base": "0xE0000000", "size": "64K"},
                     {
                         "name": "PLIC",
                         "base": "0xF0000000",
-                        "id": 7,
                         "size": "64K",
                     },
                 ]
@@ -212,8 +210,8 @@ def _plic_with(**changes: Any) -> dict[str, Any]:
         (
             {
                 "peripherals": [
-                    {"name": "CLINT", "base": "0xE0000000", "id": 6},
-                    {"name": "PLIC", "base": "0xF0000000", "id": 7},
+                    {"name": "CLINT", "base": "0xE0000000", "size": "64K"},
+                    {"name": "PLIC", "base": "0xF0000000"},
                 ]
             },
             "has no size",
@@ -221,7 +219,7 @@ def _plic_with(**changes: Any) -> dict[str, Any]:
         (
             {
                 "peripherals": [
-                    {"name": "CLINT", "base": "0xE0000000", "id": 6}
+                    {"name": "CLINT", "base": "0xE0000000", "size": "64K"}
                 ]
             },
             "no PLIC",

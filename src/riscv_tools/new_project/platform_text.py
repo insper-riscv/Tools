@@ -12,6 +12,7 @@ from typing import Any, cast
 import yaml
 
 from riscv_tools.memory_map import evaluate
+from riscv_tools.memory_map.core_profile import EXTRAS, legacy_to_core
 from riscv_tools.new_project.layout import (
     flash_banks,
     reserved_bases,
@@ -22,6 +23,70 @@ from riscv_tools.new_project.template import CREATED_MARK
 
 BOOT_REGION = "BOOT_MEMORY"
 _RESERVED = ("stdout", "tohost", "fromhost")
+
+
+def _core_text(profile: str, extras: list[str]) -> str:
+    """Write the `core` block of a profile.
+
+    Parameters
+    ----------
+    profile : str
+        The name of the profile.
+    extras : list of str
+        The extras of the template, which the new profile keeps.
+
+    Returns
+    -------
+    str
+        The block, `core:` and its three keys, ending in a line break.
+    """
+    core = legacy_to_core(profile, extras)
+    listed = "".join(f"    - {name}\n" for name in core["extensions"])
+    return (
+        f"core:\n  type: {core['type']}\n  base: {core['base']}\n"
+        f"  extensions:{'\n' + listed if listed else ' []\n'}"
+    )
+
+
+def _set_core(text: str, platform: dict[str, Any], profile: str) -> str:
+    """Replace the `core` block of the template by the one of a profile.
+
+    Parameters
+    ----------
+    text : str
+        The file.
+    platform : dict of {str: Any}
+        The template platform, parsed.
+    profile : str
+        The name of the new profile.
+
+    Returns
+    -------
+    str
+        The file with the block replaced; the extras of the template
+        (Zihintntl, Interrupts and the like) stay in it.
+
+    Raises
+    ------
+    ValueError
+        If the template has no `core` block.
+    """
+    block = cast("dict[str, Any]", platform.get("core") or {})
+    kept = [
+        str(name)
+        for name in cast("list[Any]", block.get("extensions") or [])
+        if str(name).lower() in {e.lower() for e in EXTRAS}
+    ]
+    new, count = re.subn(
+        r"^core:[^\n]*\n(?:[ \t][^\n]*\n)*",
+        lambda _: _core_text(profile, kept),
+        text,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    if count == 0:
+        raise ValueError("the template platform has no `core` block")
+    return new
 
 
 def _replace(
@@ -239,9 +304,7 @@ def rewrite_platform(
     text = _replace(text, r"^(platform: ).*$", lambda m: f"{m[1]}{spec.name}")
     text = _replace(text, r"^(top: ).*$", lambda m: f"{m[1]}{top}")
     if spec.profile is not None:
-        text = _replace(
-            text, r"^(profile: ).*$", lambda m: f"{m[1]}{spec.profile}"
-        )
+        text = _set_core(text, platform, spec.profile)
     if spec.rom_bytes is not None:
         text = _set_region_size(text, rom, spec.rom_bytes)
         text = _set_banks(text, platform, rom, spec.rom_bytes)

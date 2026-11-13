@@ -1,7 +1,15 @@
 platform: de0-cv
 board: auto
 boards: [de0-cv]
-profile: rv32im_zicclsm_zicntr_zihpm_zifencei
+core:
+  type: 32
+  base: I
+  extensions:
+    - M
+    - Zicclsm
+    - Zicntr
+    - Zihpm
+    - Zifencei
 regions:
   - {name: BOOT_MEMORY, base: 0x00000000, size: 4K,   kind: rom, exec: true}
   - {name: FLASH,       base: 0x00001000, size: 252K, kind: rom, exec: true}
@@ -24,15 +32,15 @@ io:
 generate:
   vhdl: {path: de0_cv_map_pkg.vhd, package: de0_cv_map_pkg, rom: FLASH, ram: RAM}
 peripherals:
-  - {name: FLASH_CTRL, base: 0xB0000000, id: 3}
-  - {name: UART,    base: 0xC0000000, id: 4}
-  - {name: DISPLAY, base: 0xD0000000, id: 5}
-  - {name: CLINT,   base: 0xE0000000, id: 6}
-  - {name: PLIC,    base: 0xF0000000, id: 7, size: 4M}
+  - {name: FLASH_CTRL, base: 0xB0000000, size: 16}
+  - {name: UART,    base: 0xC0000000, size: 16}
+  - {name: DISPLAY, base: 0xD0000000, size: 16}
+  - {name: CLINT,   base: 0xE0000000, size: 64K}
+  - {name: PLIC,    base: 0xF0000000, size: 4M}
 interrupts:
   clock_hz: 50000000
   mtime_hz: 1000000
   plic: {priority_bits: 3}
   sources:
-    - {name: UART_JTAG, id: 2}
+    - {name: UART_JTAG, size: 16}
     - {name: FLASH,     id: 6}
