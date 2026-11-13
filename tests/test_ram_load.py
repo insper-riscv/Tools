@@ -34,23 +34,35 @@ class FakeSdram:
     def __call__(self, _link: JtagLink, _script: str, *args: Any) -> Any:
         """Responde a um comando do script como a placa responderia."""
         command = args[0]
-        stdout = "OK"
-        if command == "write":
-            self.memory[int(args[1])] = int(args[2])
-        elif command == "load":
-            text = Path(args[2]).read_text(encoding="utf-8").split()
-            for index, word in enumerate(text):
-                self.memory[int(args[1]) + index] = int(word, 16)
-        elif command == "read":
-            first, count = int(args[1]), int(args[2])
-            values = [self.memory.get(first + i, 0) for i in range(count)]
-            if self.corrupt_word is not None:
-                for i in range(count):
-                    if first + i == self.corrupt_word:
-                        values[i] ^= 1
-            stdout = "WORDS=" + " ".join(str(v) for v in values)
+        handler = {
+            "write": self._write,
+            "load": self._load,
+            "read": self._read,
+        }[command]
+        stdout = handler(int(args[1]), args[2])
         self.events.append((command, int(args[1])))
         return type("Completed", (), {"stdout": stdout})()
+
+    def _write(self, first: int, value: Any) -> str:
+        """Guarda uma palavra."""
+        self.memory[first] = int(value)
+        return "OK"
+
+    def _load(self, first: int, path: Any) -> str:
+        """Guarda as palavras de um arquivo de texto em hexadecimal."""
+        text = Path(path).read_text(encoding="utf-8").split()
+        for index, word in enumerate(text):
+            self.memory[first + index] = int(word, 16)
+        return "OK"
+
+    def _read(self, first: int, count: Any) -> str:
+        """Devolve as palavras, com a escolhida errada num bit."""
+        values = [
+            self.memory.get(first + i, 0)
+            ^ (1 if first + i == self.corrupt_word else 0)
+            for i in range(int(count))
+        ]
+        return "WORDS=" + " ".join(str(v) for v in values)
 
     def kinds(self, command: str) -> list[int]:
         """Dá as posições, no registro, dos eventos de um comando."""
