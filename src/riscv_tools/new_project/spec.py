@@ -40,6 +40,10 @@ class ProjectSpec:
     title : str or None
         The name of the project as the person typed it; None means the
         identifier.
+    peripherals : tuple of str
+        The peripherals asked for (the table of
+        `riscv_tools.new_project.peripherals`); none leaves
+        `peripherals: {}`.
     """
 
     name: str
@@ -50,6 +54,7 @@ class ProjectSpec:
     icache_bits: int | None = None
     dcache_bits: int | None = None
     title: str | None = None
+    peripherals: tuple[str, ...] = ()
 
     @property
     def display(self) -> str:

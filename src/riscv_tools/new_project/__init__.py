@@ -13,6 +13,7 @@ from riscv_tools.new_project.guide_text import (
     render_help,
 )
 from riscv_tools.new_project.naming import check_slug, check_title, slugify
+from riscv_tools.new_project.peripherals import parse_peripherals
 from riscv_tools.new_project.readme import write_readme
 from riscv_tools.new_project.spec import (
     ProjectSpec,
@@ -34,6 +35,7 @@ __all__ = [
     "create_platform",
     "generation_steps",
     "parse_cache",
+    "parse_peripherals",
     "parse_size",
     "render_help",
     "run_steps",

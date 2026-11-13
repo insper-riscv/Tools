@@ -46,6 +46,8 @@ derives them. The old keys are refused with the way to migrate.
 
 from typing import Any, cast
 
+from riscv_tools.memory_map import groups
+
 BOOT = "BOOT_MEMORY"
 FLASH = "FLASH"
 RAM = "RAM"
@@ -290,6 +292,91 @@ def _memory(segments: list[dict[str, Any]]) -> dict[str, Any] | None:
     return out
 
 
+def _block_roles(where: str, kind: str, value: dict[str, Any]) -> list[str]:
+    """Read the roles of a block of groups.
+
+    Parameters
+    ----------
+    where : str
+        The path of the entry, for the messages.
+    kind : str
+        `gpio` or `seg_display`.
+    value : dict of {str: Any}
+        The entry.
+
+    Returns
+    -------
+    list of str
+        `role` or `roles`; `display` for a `seg_display`.
+
+    Raises
+    ------
+    ValueError
+        If the roles are missing, unknown or both written.
+    """
+    if kind == "seg_display":
+        if "roles" in value or value.get("role", "display") != "display":
+            raise ValueError(f"{where} shows only the role display")
+        return ["display"]
+    if ("role" in value) == ("roles" in value):
+        raise ValueError(f"{where} needs exactly one of role and roles")
+    raw = value["roles"] if "roles" in value else [value["role"]]
+    listed = [str(role) for role in cast("list[Any]", raw)]
+    bad = [role for role in listed if role not in groups.ROLES]
+    if bad or not listed:
+        raise ValueError(
+            f"{where} role {bad or listed} must be one of {list(groups.ROLES)}"
+        )
+    return listed
+
+
+def _peripheral(name: str, value: dict[str, Any]) -> dict[str, Any]:
+    """Read one entry of `peripherals`.
+
+    Parameters
+    ----------
+    name : str
+        The key of the entry.
+    value : dict of {str: Any}
+        The entry.
+
+    Returns
+    -------
+    dict of {str: Any}
+        The entry with its `name`; a block of groups (`kind`) has
+        `roles` as a list and no `size`.
+
+    Raises
+    ------
+    ValueError
+        If a block of groups is not well formed.
+    """
+    if "kind" not in value:
+        return {"name": name, **value}
+    where = f"peripherals.{name}"
+    kind = value["kind"]
+    if kind not in groups.KINDS:
+        raise ValueError(f"{where}.kind must be one of {list(groups.KINDS)}")
+    extra = sorted(set(value) - {"kind", "role", "roles", "base", "groups"})
+    if "size" in value:
+        raise ValueError(
+            f"{where}.size is derived from the groups (64 bytes each): "
+            "do not write it"
+        )
+    if extra:
+        raise ValueError(f"{where} has unknown keys {extra}")
+    for key in ("base", "groups"):
+        if key not in value:
+            raise ValueError(f"{where}.{key} is required")
+    return {
+        "name": name,
+        "kind": kind,
+        "roles": _block_roles(where, kind, value),
+        "base": value["base"],
+        "groups": value["groups"],
+    }
+
+
 def _peripherals(raw: Any) -> list[dict[str, Any]]:
     """Turn the mapping of peripherals into the list the Tools read.
 
@@ -320,7 +407,7 @@ def _peripherals(raw: Any) -> list[dict[str, Any]]:
         )
     block = _mapping(raw, "peripherals")
     return [
-        {"name": str(name), **_mapping(value, f"peripherals.{name}")}
+        _peripheral(str(name), _mapping(value, f"peripherals.{name}"))
         for name, value in block.items()
     ]
 
@@ -444,6 +531,33 @@ def _memory_block(
     }
 
 
+def _written(entry: dict[str, Any]) -> dict[str, Any]:
+    """Write one peripheral as the file has it.
+
+    Parameters
+    ----------
+    entry : dict of {str: Any}
+        The peripheral of the internal form.
+
+    Returns
+    -------
+    dict of {str: Any}
+        Without `name`; a block of groups also without the derived
+        `size` and `plan`, and with `role` or `roles`.
+    """
+    out = {k: v for k, v in entry.items() if k != "name"}
+    if "kind" not in entry:
+        return out
+    for key in ("size", "plan", "roles"):
+        out.pop(key, None)
+    roles = entry["roles"]
+    if entry["kind"] == "gpio":
+        out["role" if len(roles) == 1 else "roles"] = (
+            roles[0] if len(roles) == 1 else roles
+        )
+    return out
+
+
 def _peripheral_map(items: Any) -> dict[str, dict[str, Any]]:
     """Write the list of peripherals as a mapping by name.
 
@@ -458,7 +572,7 @@ def _peripheral_map(items: Any) -> dict[str, dict[str, Any]]:
         The entries without `name`, in the order of the list.
     """
     return {
-        str(p["name"]): {k: v for k, v in p.items() if k != "name"}
+        str(p["name"]): _written(p)
         for p in cast("list[dict[str, Any]]", items)
     }
 

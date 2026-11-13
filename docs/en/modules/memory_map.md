@@ -404,6 +404,36 @@ The symbols of a peripheral in the `checks` are `<NAME>.base`, `<NAME>.size`, `<
 | `PERIPH_MASKS` | `periph_addr_array_t(0 to PERIPH_COUNT - 1)` | The window mask of each peripheral |
 
 
+The VHDL package gains the constants below. `FLASH_ON_BUS` and `RAM_ON_BUS` say that the memory is reached through the bus, inside or outside the chip, and not through the direct port of the core. A cache only exists over a memory on the bus.
+
+| Constant | Type | Value |
+| :--- | :--- | :--- |
+| `FLASH_ON_BUS` | boolean | `memory.rom.external` |
+| `RAM_ON_BUS` | boolean | `memory.ram.external` |
+| `HAS_ICACHE` | boolean | `memory.icache.enabled` |
+| `HAS_DCACHE` | boolean | `memory.dcache.enabled` |
+| `ICACHE_SIZE_BITS` | positive | `memory.icache.size_bits`, or 256 without the cache |
+| `DCACHE_SIZE_BITS` | positive | `memory.dcache.size_bits`, or 256 without the cache |
+| `I_CACHE_WINDOW_BITS`, `D_CACHE_WINDOW_BITS` | natural | Smallest width from 26 to 29 such that the FLASH and the RAM each fit one aligned window of $2^{\text{width}}$ bytes (26 is 64 MiB, 27 is 128 MiB), derived from the regions; both have the same value |
+
+In the `config.yaml` the values arrive as `sim.parameters` named `ROM_EXTERNAL`, `RAM_EXTERNAL`, `HAS_ICACHE`, `HAS_DCACHE`, `ICACHE_SIZE_BITS` and `DCACHE_SIZE_BITS`, and `CACHE_WINDOW_BITS` only when it is above 26, and the simulation top must declare the matching generics. Without `config.addr_widths` in the platform, the address widths come from the choice, and the `boot_memory` and each internal memory come out, since an external memory is a chip that the top sizes by itself. With `config.addr_widths` listed, the list wins.
+
+### 7.2. Validation
+
+| Rule | Condition | Result |
+| :--- | :--- | :--- |
+| V1 | The four booleans exist and there is no unknown key | Error |
+| V2 | `size_bits` is a power of two and at least 256 | Error |
+| V3 | With any cache, the FLASH and the RAM each fit one aligned window of up to 512 MiB (the tag of the caches keeps the bits below the window) | Error |
+| V4 | With the FLASH on the bus, its size fits the 1024 KiB window of the router | Error |
+| V5 | An `exec` region in the RAM needs the RAM and the FLASH on the bus | Error |
+| V7 | An `exec` region in the RAM behind the instruction cache needs Zifencei in the profile | Error |
+| V9 | A platform with peripherals | Note |
+| V10 | With any cache, `reserved.fromhost` exists and sits in the last 4 KiB page of the RAM, the one the cache skips | Error |
+| V-C1 | `icache.enabled` with `rom.external: false`: the instruction cache needs `FLASH_ON_BUS` | Error |
+| V-C2 | `dcache.enabled` with `ram.external: false`: the data cache needs `RAM_ON_BUS` | Error |
+
+Of the 16 combinations of `rom.external`, `ram.external`, `icache.enabled` and `dcache.enabled`, 9 are valid and 7 are refused by V-C1 and V-C2. The FLASH on the bus without an instruction cache is valid. The note comes out as `NOTE` on the standard error of `generate-memory-map`, and the errors stop the generation.
 ## 10. The `config_pkg`
 
 ### 10.1. Contents
@@ -502,6 +532,7 @@ Some platforms need one more declaration so that the generated `config_pkg` refl
 | `tests/test_interrupts.py` | The package has `HAS_INTERRUPTS`, `CLOCK_HZ`, `MTIME_HZ` and `CLINT_TICK_CYCLES`, the header has the registers of the CLINT and the rate of `mtime`, and an inconsistent section (rate, missing CLINT, profile without the interrupts) is rejected. |
 | `tests/test_memory_choice.py` | The `memory` section and the `--memory` option generate the 9 valid combinations as 9 different packages and refuse the 7 invalid ones, the constants and the simulation parameters come from the choice, and rules V1 to V5, V7 and V10 fail with a clear message. |
 | `tests/test_config_from_platform.py` | The `memory` keys, the `tohost` and `stdout` environment and the address widths come from the map, and the map wins over the file and its `extends`. |
+| `tests/test_groups.py` | The `gpio` and `seg_display` blocks: the size of 64 bytes per group for `solo`, `all`, `pairs`, `trios` and the explicit list, the off pins, `roles`, rules G-0 to G-6 against each board, the size that is not written, `RV32_<NAME>_G<k>_BASE` and the generated `rv32_platform.h`. |
 | `tests/test_layout.py` | The `memory` block becomes the regions and the four choices, two segments are refused ("vários segmentos ainda não são suportados"), the old keys (`regions`, `memory.rom`, `kind`, `exec`) are refused with the migration, and `on_bus` comes in both segments or in none. `tests/test_peripheral_offsets.py` proves that the order of the peripherals in the file is the order of the indexes. |
 | `tests/test_core_profile.py` | The `core` block and the inferred profile (matrix order, `Zicsr` beside `Zicntr`, extras), `--profile` keeping the extras, each error (unknown or repeated extension, refused combination, `type: 64` without an `rv64` base, `isa` in place of `base`), the refusal of `profile:` and `extras:` with the migration, and the name without a matrix. |
 | `tests/test_peripheral_offsets.py` | The window derived from `size`, the `base`, `size`, `window` and `index` symbols, one rejection for each V-P1 to V-P5, the refusal of `id`, `offset` and `padding` with the migration message, the `PERIPH_BASES` and `PERIPH_MASKS` tables, V-S1 and `STRICT_PERIPH` in the map package. |

@@ -43,6 +43,13 @@ def add_new_project_command(sub: Any) -> None:
         help="Profile of the core, such as rv32im_zicclsm_zicntr_zihpm "
         "(default: the template's)",
     )
+    p.add_argument(
+        "--peripherals",
+        dest="project_peripherals",
+        metavar="LIST",
+        help="Peripherals to write, separated by commas: ledr, sw, key, "
+        "hex, uart, clint, plic (default: none, `peripherals: {}`)",
+    )
     p.add_argument("--rom", help="ROM (FLASH) size, such as 64K")
     p.add_argument("--ram", help="RAM size, such as 64K")
     p.add_argument("--icache", help="Instruction cache size in bits, or off")
