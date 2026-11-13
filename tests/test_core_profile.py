@@ -16,11 +16,11 @@ MATRIX = profile_matrix("rv32i", "rv32e", "rv64i")
 def _load(
     root: Path,
     core: Any,
-    matrix: dict[str, Any] = MATRIX,
+    matrix: dict[str, Any] | None = None,
     **changes: Any,
 ) -> dict[str, Any]:
     """Write a platform with a `core` block and load it."""
-    (root / "matrix.yaml").write_text(yaml.safe_dump(matrix))
+    (root / "matrix.yaml").write_text(yaml.safe_dump(matrix or MATRIX))
     data = {"core": core, "profiles": "matrix.yaml"} | changes
     path = root / "platform.yaml"
     path.write_text(yaml.safe_dump(data, sort_keys=False))

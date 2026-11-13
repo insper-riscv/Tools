@@ -122,6 +122,39 @@ def _migration(data: dict[str, Any]) -> str:
     )
 
 
+def _keys(core: Any) -> dict[str, Any]:
+    """Check that the block is a mapping with exactly the three keys.
+
+    Parameters
+    ----------
+    core : Any
+        The value of `core`.
+
+    Returns
+    -------
+    dict of {str: Any}
+        The block.
+
+    Raises
+    ------
+    ValueError
+        If it is not a mapping, has `isa` (renamed `base`), another
+        unknown key, or lacks one of the three.
+    """
+    if not isinstance(core, dict):
+        raise ValueError("core must be a mapping with type, base, extensions")
+    block = cast("dict[str, Any]", core)
+    if "isa" in block:
+        raise ValueError("core.isa: the key is called base")
+    unknown = sorted(str(key) for key in block if key not in KEYS)
+    if unknown:
+        raise ValueError(f"core has unknown keys {unknown}; use {list(KEYS)}")
+    missing = [key for key in KEYS if key not in block]
+    if missing:
+        raise ValueError(f"core.{missing[0]} is required")
+    return block
+
+
 def _read(core: Any, known: dict[str, str]) -> tuple[int, str, list[str]]:
     """Check the `core` block and read its three keys.
 
@@ -144,23 +177,46 @@ def _read(core: Any, known: dict[str, str]) -> tuple[int, str, list[str]]:
     ValueError
         If the block is not well formed.
     """
-    if not isinstance(core, dict):
-        raise ValueError("core must be a mapping with type, base, extensions")
-    block = cast("dict[str, Any]", core)
-    if "isa" in block:
-        raise ValueError("core.isa: the key is called base")
-    unknown = sorted(str(key) for key in block if key not in KEYS)
-    if unknown:
-        raise ValueError(f"core has unknown keys {unknown}; use {list(KEYS)}")
-    missing = [key for key in KEYS if key not in block]
-    if missing:
-        raise ValueError(f"core.{missing[0]} is required")
+    block = _keys(core)
     kind, base = block["type"], str(block["base"]).lower()
     if isinstance(kind, bool) or kind not in TYPES:
         raise ValueError(f"core.type must be 32 or 64, not {kind!r}")
     if base not in ("i", "e"):
         raise ValueError(f"core.base must be I or E, not {block['base']!r}")
     return kind, base, _extensions(block["extensions"], known)
+
+
+def _one(item: Any, known: dict[str, str], found: list[str]) -> str:
+    """Read one extension of the list.
+
+    Parameters
+    ----------
+    item : Any
+        The entry as written.
+    known : dict of {str: str}
+        The extensions that may be listed, by lower-case name.
+    found : list of str
+        The ones read before it.
+
+    Returns
+    -------
+    str
+        The canonical spelling.
+
+    Raises
+    ------
+    ValueError
+        If the extension is unknown or already listed.
+    """
+    name = known.get(str(item).lower())
+    if name is None:
+        raise ValueError(
+            f"core.extensions: unknown extension {item!r}; "
+            f"known: {', '.join(known.values())}"
+        )
+    if name in found:
+        raise ValueError(f"core.extensions: {name} is listed twice")
+    return name
 
 
 def _extensions(raw: Any, known: dict[str, str]) -> list[str]:
@@ -189,15 +245,7 @@ def _extensions(raw: Any, known: dict[str, str]) -> list[str]:
         raise ValueError("core.extensions must be a list (or [])")
     found: list[str] = []
     for item in cast("list[Any]", raw):
-        name = known.get(str(item).lower())
-        if name is None:
-            raise ValueError(
-                f"core.extensions: unknown extension {item!r}; "
-                f"known: {', '.join(known.values())}"
-            )
-        if name in found:
-            raise ValueError(f"core.extensions: {name} is listed twice")
-        found.append(name)
+        found.append(_one(item, known, found))
     if any(name in found for name in IMPLYING_ZICSR):
         found = [name for name in found if name != "Zicsr"]
     return found
@@ -285,6 +333,45 @@ def _plain_name(kind: int, base: str, wanted: list[str], named: bool) -> str:
     return "_".join([head, *(n.lower() for n in order if n in wanted)])
 
 
+def _split(
+    found: list[str], listed: tuple[str, ...]
+) -> tuple[list[str], list[str]]:
+    """Split the extensions into the ones of the matrix and the extras.
+
+    Parameters
+    ----------
+    found : list of str
+        The extensions of the block.
+    listed : tuple of str
+        The extensions the specification lists.
+
+    Returns
+    -------
+    tuple of (list of str, list of str)
+        The extensions the specification lists, which choose the
+        profile, and the extras.
+
+    Raises
+    ------
+    ValueError
+        If an extension is in neither group.
+    """
+    inside = {name.lower() for name in listed}
+    wanted = [name for name in found if name.lower() in inside]
+    extras = [
+        name
+        for name in EXTRAS + OPTIONAL
+        if name in found and name not in wanted
+    ]
+    lost = [n for n in found if n not in wanted and n not in extras]
+    if lost:
+        raise ValueError(
+            f"core.extensions: {lost[0]} is not in the specification "
+            "of the profiles"
+        )
+    return wanted, extras
+
+
 def infer(
     core: Any,
     spec_path: Path | None,
@@ -320,19 +407,7 @@ def infer(
     listed = tuple(e.name for e in spec.extensions) if spec else KNOWN
     known = _canonical(listed + KNOWN + EXTRAS)
     kind, base, found = _read(core, known)
-    inside = {name.lower() for name in listed}
-    wanted = [name for name in found if name.lower() in inside]
-    extras = [
-        name
-        for name in EXTRAS + OPTIONAL
-        if name in found and name not in wanted
-    ]
-    lost = [n for n in found if n not in wanted and n not in extras]
-    if lost:
-        raise ValueError(
-            f"core.extensions: {lost[0]} is not in the specification "
-            "of the profiles"
-        )
+    wanted, extras = _split(found, listed)
     if spec is None:
         return _plain_name(kind, base, wanted, check_profile), extras
     if not check_profile:
