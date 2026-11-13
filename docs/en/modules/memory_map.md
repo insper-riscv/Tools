@@ -294,7 +294,7 @@ config:
 
 ### 9.1. The `address_bits` field
 
-The top-level `address_bits` field of the `platform.yaml` is an integer from 16 to 64 with the width of the physical address. When absent it is 32, and no platform written for 32 bits needs to change. An `rv64...` profile turns on `IS_64` of the `config_pkg`, and above 32 bits only an `rv64` profile is valid.
+The top-level `address_bits` field of the `platform.yaml` is an integer from 16 to `XLEN` (the `type` of the `core` block: 32 or 64) with the width of the physical address. When absent it is 32, and no platform written for 32 bits needs to change. A `type: 64` turns on `IS_64` of the `config_pkg` and accepts 16 to 64 bits, including fewer than 64.
 
 ```yaml
 address_bits: 24      # optional, 32 by default
@@ -318,7 +318,7 @@ Each validation is a `platform` problem before generation and in `check-memory-m
 | Rule | Rejection condition |
 | :--- | :--- |
 | V-A1 | `address_bits` is not an integer or is outside 16 to 64 |
-| V-A2 | `address_bits` above 32 with a profile that is not `rv64` |
+| V-A2 | `address_bits` greater than `XLEN` (32 with `type: 32`, 64 with `type: 64`), message "ADDR_BITS maior que XLEN" |
 | V-A3 | A region (`base + size`) goes past $2^{\text{address\_bits}}$ bytes |
 | V-A4 | The window of a peripheral goes past $2^{\text{address\_bits}}$ bytes |
 | V-A5 | `address_bits` below `xlen` without `has_access_faults` in the profile (an access above the window must raise an access fault) |
@@ -389,7 +389,7 @@ The `config_pkg` is the VHDL package of constants of a platform, written from th
 
 `map_addr_t` is `unsigned(ADDR_BITS downto 0)`, one bit wider to represent the exclusive end $2^{\text{ADDR\_BITS}}$. Each address comes out as `resize(unsigned'(x"..."), ADDR_BITS + 1)`, with the hexadecimal digits that `ADDR_BITS` asks for (eight with 32 bits), so the width holds below and above 32 bits too. `FLASH_ON_BUS` and `RAM_ON_BUS` say that the memory is reached through the bus, and they are `memory.rom.external` and `memory.ram.external` of the platform. The two cache windows have the width of the tag window of section 7.1. The package has no constants for the peripherals of the SoC (UART, display, switches, keys, FLASH controller), nor `EXT_BASE`, `PERIPH_BASE` and `STRICT_PERIPH`, which stay in the map package.
 
-`check_isa` checks that the counters, the interrupts and the access faults have `Zicsr`, that `Sscofpmf` has `Zihpm` and interrupts, that `ADDR_BITS` is from 16 to 64 and above 32 only with `IS_64`, that the instruction cache requires `FLASH_ON_BUS` and the data cache requires `RAM_ON_BUS`, and the order of the BOOT_MEMORY, the FLASH and the RAM inside $2^{\text{ADDR\_BITS}}$. The entities call it once, in an `if check_isa generate`.
+`check_isa` checks that the counters, the interrupts and the access faults have `Zicsr`, that `Sscofpmf` has `Zihpm` and interrupts, that `ADDR_BITS` is from 16 to `XLEN` (the core has no MMU, so the effective address never passes `XLEN` bits), that the instruction cache requires `FLASH_ON_BUS` and the data cache requires `RAM_ON_BUS`, and the order of the BOOT_MEMORY, the FLASH and the RAM inside $2^{\text{ADDR\_BITS}}$. The entities call it once, in an `if check_isa generate`.
 
 ### 10.2. Generating it with the map
 

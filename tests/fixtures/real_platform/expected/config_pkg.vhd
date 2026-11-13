@@ -21,7 +21,7 @@ package config_pkg is
     constant IS_64     : boolean := false;
     -- Base E (16 registradores) quando verdadeiro, base I (32) quando falso.
     constant IS_E : boolean := false;
-    -- Largura do endereço físico em bits, de 16 a 64 (acima de 32 só com IS_64).
+    -- Largura do endereço físico em bits, de 16 a XLEN (o núcleo não tem MMU, então o endereço efetivo nunca passa de XLEN bits).
     constant ADDR_BITS : natural := 32;
 
     -- Constantes auxiliares derivadas da configuração base
@@ -248,8 +248,8 @@ package body config_pkg is
         assert ADDR_BITS >= 16 and ADDR_BITS <= 64
             report "ADDR_BITS fora de 16..64"
             severity failure;
-        assert IS_64 or ADDR_BITS <= 32
-            report "ADDR_BITS > 32 exige IS_64"
+        assert ADDR_BITS <= XLEN
+            report "ADDR_BITS maior que XLEN"
             severity failure;
         assert BOOT_MEMORY_BITS < ADDR_BITS
             report "BOOT_MEMORY_BITS deve ser menor que ADDR_BITS"

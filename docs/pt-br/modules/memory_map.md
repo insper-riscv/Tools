@@ -294,7 +294,7 @@ O `platform sync` grava os valores já trocados, de modo que Tests e Certificati
 
 ### 9.1. O campo `address_bits`
 
-O campo de topo `address_bits` do `platform.yaml` é um inteiro de 16 a 64 com a largura do endereço físico. Ausente, vale 32, e nenhuma plataforma escrita para 32 bits precisa mudar. O perfil `rv64...` liga o `IS_64` do `config_pkg`, e acima de 32 bits só um perfil `rv64` é válido.
+O campo de topo `address_bits` do `platform.yaml` é um inteiro de 16 a `XLEN` (o `type` do bloco `core`: 32 ou 64) com a largura do endereço físico. Ausente, vale 32, e nenhuma plataforma escrita para 32 bits precisa mudar. Um `type: 64` liga o `IS_64` do `config_pkg` e aceita de 16 a 64 bits, inclusive menos de 64.
 
 ```yaml
 address_bits: 24      # opcional, 32 por padrão
@@ -318,7 +318,7 @@ Cada validação é um problema `platform` antes de gerar e no `check-memory-map
 | Regra | Condição de rejeição |
 | :--- | :--- |
 | V-A1 | `address_bits` não é inteiro ou está fora de 16 a 64 |
-| V-A2 | `address_bits` acima de 32 com um perfil que não é `rv64` |
+| V-A2 | `address_bits` maior que `XLEN` (32 com `type: 32`, 64 com `type: 64`), mensagem "ADDR_BITS maior que XLEN" |
 | V-A3 | Uma região (`base + size`) passa de $2^{\text{address\_bits}}$ bytes |
 | V-A4 | A janela de um periférico passa de $2^{\text{address\_bits}}$ bytes |
 | V-A5 | `address_bits` abaixo de `xlen` sem `has_access_faults` no perfil (o acesso acima da janela precisa gerar falha de acesso) |
@@ -389,7 +389,7 @@ O `config_pkg` é o pacote VHDL de constantes de uma plataforma, escrito a parti
 
 O `map_addr_t` é `unsigned(ADDR_BITS downto 0)`, com um bit a mais para representar o fim exclusivo $2^{\text{ADDR\_BITS}}$. Cada endereço sai como `resize(unsigned'(x"..."), ADDR_BITS + 1)`, com os dígitos hexadecimais que `ADDR_BITS` pede (oito com 32 bits), de modo que a largura vale também abaixo e acima de 32 bits. `FLASH_ON_BUS` e `RAM_ON_BUS` dizem que a memória é alcançada pelo barramento, e são o `memory.rom.external` e o `memory.ram.external` da plataforma. As duas janelas das caches valem a largura da janela da tag da seção 7.1. O pacote não tem constantes dos periféricos do SoC (UART, display, chaves, botões, controlador da FLASH), nem `EXT_BASE`, `PERIPH_BASE` e `STRICT_PERIPH`, que ficam no pacote do mapa.
 
-A `check_isa` confere que os contadores, as interrupções e as falhas de acesso têm `Zicsr`, que a `Sscofpmf` tem `Zihpm` e interrupções, que `ADDR_BITS` está de 16 a 64 e acima de 32 só com `IS_64`, que a cache de instruções exige `FLASH_ON_BUS` e a de dados exige `RAM_ON_BUS`, e a ordem da BOOT_MEMORY, da FLASH e da RAM dentro de $2^{\text{ADDR\_BITS}}$. As entidades a chamam uma vez, num `if check_isa generate`.
+A `check_isa` confere que os contadores, as interrupções e as falhas de acesso têm `Zicsr`, que a `Sscofpmf` tem `Zihpm` e interrupções, que `ADDR_BITS` está de 16 a `XLEN` (o núcleo não tem MMU, então o endereço efetivo nunca passa de `XLEN` bits), que a cache de instruções exige `FLASH_ON_BUS` e a de dados exige `RAM_ON_BUS`, e a ordem da BOOT_MEMORY, da FLASH e da RAM dentro de $2^{\text{ADDR\_BITS}}$. As entidades a chamam uma vez, num `if check_isa generate`.
 
 ### 10.2. Gerar junto com o mapa
 

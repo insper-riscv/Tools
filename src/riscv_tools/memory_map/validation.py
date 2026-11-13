@@ -15,7 +15,6 @@ from riscv_tools.memory_map.core import (
 from riscv_tools.memory_map.expressions import evaluate
 from riscv_tools.memory_map.profile import (
     RV32_XLEN,
-    RV64_XLEN,
     profile_name,
     xlen_of,
 )
@@ -402,19 +401,20 @@ def _address_problems(
     Returns
     -------
     list of Mismatch
-        V-A2 (above 32 bits needs an rv64 profile), V-A3 (a region
+        V-A2 (above `xlen` bits), V-A3 (a region
         beyond `2**bits` bytes), V-A5 (a width below `xlen` needs the
         access faults) and V-A6 (a boot address beyond `2**bits`).
     """
     width = _xlen(platform, xlen)
     problems: list[Mismatch] = []
-    if bits > RV32_XLEN and width != RV64_XLEN:
+    if bits > width:
         problems.append(
             Mismatch(
                 "platform",
                 "",
-                f"V-A2 address_bits {bits} is above 32 but the profile "
-                f"{profile_name(platform)} is not rv64",
+                f"V-A2 address_bits {bits} is above XLEN {width} of the "
+                f"core (type {width}, profile {profile_name(platform)}): "
+                "ADDR_BITS maior que XLEN",
             )
         )
     problems += [

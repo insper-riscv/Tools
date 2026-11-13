@@ -101,11 +101,14 @@ def test_v_a1_address_bits_is_an_integer_from_16_to_64(value: Any) -> None:
     check(any("V-A1 address_bits" in p for p in problems), str(problems))
 
 
-def test_v_a2_above_32_bits_needs_an_rv64_profile() -> None:
-    """V-A2: 33 bits or more with an rv32 profile is refused."""
+def test_v_a2_address_bits_above_xlen_is_refused() -> None:
+    """V-A2: more bits than XLEN is refused."""
     problems = _problems(_with(address_bits=40))
     check(any("V-A2 address_bits 40" in p for p in problems), str(problems))
+    check_in("ADDR_BITS maior que XLEN", problems[0])
     check_equal([p for p in _problems(_wide()) if "V-A2" in p], [])
+    narrow = _problems(_wide(address_bits=48))
+    check_equal([p for p in narrow if "V-A2" in p], [])
 
 
 def test_v_a3_a_region_must_fit_the_space() -> None:
