@@ -2,7 +2,7 @@
 
 from riscv_tools.board_check.context import Context
 from riscv_tools.board_check.findings import Finding, error, warning
-from riscv_tools.board_schema import IoNeed, IoRole, group_count
+from riscv_tools.board_schema import IoNeed, IoRole, role_count
 
 
 def rule_v4(ctx: Context) -> list[Finding]:
@@ -50,7 +50,7 @@ def _io_finding(
     Finding or None
         The message, None when the board has enough units.
     """
-    count = 0 if have is None else group_count(have.signals)
+    count = 0 if have is None else role_count(have)
     if count >= need.count:
         return None
     shown = "none" if have is None else str(count)

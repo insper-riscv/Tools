@@ -4,7 +4,7 @@ import re
 from typing import Any, cast
 
 from riscv_tools.board_schema.fields import Section, raise_if
-from riscv_tools.board_schema.model import Pin
+from riscv_tools.board_schema.model import IoRole, Pin
 
 DIRECTIONS = ("in", "out", "inout")
 CONFIRMATIONS = ("manual", "repo", "inferred")
@@ -156,3 +156,54 @@ def parse_pins(raw: Any, label: str = "pins") -> list[Pin]:
     top.done()
     raise_if(problems)
     return found
+
+
+def role_count(role: IoRole) -> int:
+    """Count the units of an I/O role, over all its groups.
+
+    Parameters
+    ----------
+    role : IoRole
+        The role of the board.
+
+    Returns
+    -------
+    int
+        The sum of `group_count` of each group: the pins of the role or,
+        for the display, its digits.
+    """
+    return sum(group_count(spec) for spec in role.all_groups)
+
+
+def role_signals(role: IoRole) -> list[str]:
+    """List the signals of an I/O role, group after group.
+
+    Parameters
+    ----------
+    role : IoRole
+        The role of the board.
+
+    Returns
+    -------
+    list of str
+        The signals of each group, as `expand_group` lists them.
+    """
+    return [name for spec in role.all_groups for name in expand_group(spec)]
+
+
+def bracketed(name: str) -> str:
+    """Write a flat pin name the way a bus names its bits.
+
+    Parameters
+    ----------
+    name : str
+        The name in the pins file.
+
+    Returns
+    -------
+    str
+        `HSMC_CLKIN_N1` as `HSMC_CLKIN_N[1]`; the name itself when it
+        does not end in digits.
+    """
+    found = re.fullmatch(r"(.*[A-Za-z_])(\d+)", name)
+    return name if found is None else f"{found[1]}[{found[2]}]"

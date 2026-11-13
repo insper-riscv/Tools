@@ -15,7 +15,8 @@ from riscv_tools.board_schema import (
     Pin,
     SchemaError,
     VideoMode,
-    expand_group,
+    bracketed,
+    role_signals,
 )
 
 
@@ -38,7 +39,7 @@ def _cited(board: Board) -> list[tuple[str, str]]:
     ]
     cited.append((board.clocks.reset_signal, "clocks.reset"))
     for role, entry in board.io.items():
-        cited += [(s, f"io.{role}") for s in expand_group(entry.signals)]
+        cited += [(s, f"io.{role}") for s in role_signals(entry)]
     if board.video is not None:
         cited.append((f"{board.video.signals}_", "io.video"))
     cited += [(signal, "console.uart") for signal in board.console.uart]
@@ -68,6 +69,7 @@ def _pin_problems(
         each pin used twice outside `conflicts`.
     """
     names = {pin.name for pin in pins}
+    names |= {bracketed(pin.name) for pin in pins}
     problems = [
         f"board {board.board}: {where} cites {name}, which is not in pins"
         for name, where in _cited(board)

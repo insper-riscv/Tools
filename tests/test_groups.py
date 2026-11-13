@@ -16,7 +16,7 @@ from riscv_tools.memory_map import (
 )
 from riscv_tools.memory_map.layout import to_layout
 
-BOARDS = {
+BOARDS: dict[str, dict[str, tuple[Any, str]]] = {
     "big": {
         "leds": ("LEDR[17:0]", "high"),
         "switches": ("SW[17:0]", "high"),
@@ -30,6 +30,10 @@ BOARDS = {
         "display": ("HEX[5:0][6:0]", "low"),
     },
     "nano": {"leds": ("LED[7:0]", "high"), "keys": ("KEY[1:0]", "low")},
+    "wide": {
+        "gpio": (["GPIO_0[35:0]", "GPIO_1[35:0]"], "high"),
+        "hsmc": (["HSMC_D[3:0]", "HSMC_RX_D_N[16:0]"], "high"),
+    },
 }
 MEMORY = {
     "boot": {"base": 0, "size": "4K"},
@@ -317,3 +321,31 @@ def test_the_platform_header_of_the_tests_is_generated(tmp_path: Path) -> None:
         "#define RVMODEL_HALT_PASS",
     ):
         check_in(line, text)
+
+
+def test_the_roles_of_general_use_number_their_pins_by_group(
+    tmp_path: Path,
+) -> None:
+    """`gpio` has the pins of `GPIO_0` and then those of `GPIO_1`."""
+    block = {
+        "HEADERS": {
+            "kind": "gpio",
+            "role": "gpio",
+            "base": 0x80100000,
+            "groups": [[0, 35], [36, 71]],
+        },
+        "HSMC": {
+            "kind": "gpio",
+            "role": "hsmc",
+            "base": 0x80200000,
+            "groups": "pairs",
+        },
+    }
+    platform = load_platform(_write(tmp_path, block, boards=["wide"]))
+    check_equal(platform["_group_problems"], [])
+    plans = [p["plan"]["wide"] for p in platform["peripherals"]]
+    check_equal(plans[0]["pins"], 72)
+    check_equal(plans[0]["dirs"], [0] * 72)
+    check_equal(plans[1]["pins"], 21)
+    check_equal(len(plans[1]["groups"]), 11)
+    check_equal(symbols(platform)["HSMC.size"], 11 * 64)

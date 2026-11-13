@@ -434,6 +434,51 @@ In the `config.yaml` the values arrive as `sim.parameters` named `ROM_EXTERNAL`,
 | V-C2 | `dcache.enabled` with `ram.external: false`: the data cache needs `RAM_ON_BUS` | Error |
 
 Of the 16 combinations of `rom.external`, `ram.external`, `icache.enabled` and `dcache.enabled`, 9 are valid and 7 are refused by V-C1 and V-C2. The FLASH on the bus without an instruction cache is valid. The note comes out as `NOTE` on the standard error of `generate-memory-map`, and the errors stop the generation.
+### 9.5. Blocks of the GPIO and of the display, with groups
+
+A peripheral with `kind: gpio` or `kind: seg_display` is a block that gathers the pins of one or more roles of the board into groups, each group with its own register file. `size` is not written, because the window is derived from the groups.
+
+```yaml
+peripherals:
+  LEDR:
+    kind: gpio
+    role: leds
+    base: 0x80002000
+    groups: solo
+  KEY:
+    kind: gpio
+    role: keys
+    base: 0x80004000
+    groups: [[0, 1], [2, 3]]
+  HEX:
+    kind: seg_display
+    base: 0x80005000
+    groups: [[0, 1, 2, 3], [4, 5]]
+```
+
+| Field | Meaning |
+| :--- | :--- |
+| `kind` | `gpio` or `seg_display` |
+| `role` or `roles` | Role of the pins (`leds`, `switches`, `keys`, `display`, `leds_green`, `gpio`, `ex_io`, `hsmc`); `roles: [a, b]` gathers the pins of `a` and then those of `b`. A `seg_display` shows only the role `display`, and a `gpio` with `role: display` has one pin per segment (7 per digit). The roles `gpio`, `ex_io` and `hsmc` have a free direction, and a role of several groups of signals numbers its pins in the order of the list (see [board_schema](board_schema.md)) |
+| `base` | Base of the block, aligned to the window |
+| `groups` | `solo` (a group per pin), `all` (one group with all), `pairs` or `trios` (groups of 2 or 3 consecutive pins, the last one may be smaller) or a list of lists of pin indexes |
+
+The pins of a role are numbered from 0, and a pin that is in no group is off. Each group takes 64 bytes, so the block has $64 G$ bytes and the window is the smallest power of two that covers them, with at least 16 bytes. The number of pins and the polarity of each role come from the `io` of the `board.yaml` of each board in `boards`, and the `gpio` has the fixed direction of the role (output for `leds`, `leds_green` and `display`, input for `switches` and `keys`).
+
+| Rule | Rejection condition |
+| :--- | :--- |
+| G-0 | A shortcut that needs the pins (`solo`, `pairs`, `trios`) without `boards` or without the catalog of boards |
+| G-1 | A pin index at or above the number of pins of the roles on the board |
+| G-2 | A repeated pin, in two groups or twice in the same one |
+| G-3 | An empty group or one with more than 32 pins |
+| G-4 | The board lacks one of the roles of the block |
+| G-5 | `groups` that is neither a shortcut nor a list of lists of integers |
+| G-6 | The boards of `boards` give the same block a different number of groups, and the window would differ |
+
+The off pins come out as notes (`NOTE`) of `generate-memory-map`, and a `required` role of `io` whose blocks have no group at all comes out as a warning. The map package gains `<NAME>_BASE`, `<NAME>_INDEX` and the entries of the `PERIPH_BASES` and `PERIPH_MASKS` tables as for the other peripherals, and `memory_map.h` gains `RV32_<NAME>_G<k>_BASE`, the base plus $64k$ bytes.
+
+The key `generate.platform_h` writes the `rv32_platform.h` of the test programs from the platform: `RV32_RAM_BASE`, `RV32_RAM_END`, `RV32_STDOUT_BASE`, `RV32_TOHOST`, the `RV32_<NAME>_BASE` of each peripheral, the `RV32_<NAME>_G<k>_BASE`, the FLASH banks, `RV32_TICK_CYCLES` and the macros `RVMODEL_HALT_PASS` and `RVMODEL_HALT_FAIL`.
+
 ## 10. The `config_pkg`
 
 ### 10.1. Contents

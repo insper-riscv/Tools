@@ -16,9 +16,12 @@ from riscv_tools.board_schema.model import (
     VideoRole,
 )
 from riscv_tools.board_schema.pins import (
+    bracketed,
     expand_group,
     group_count,
     parse_pins,
+    role_count,
+    role_signals,
 )
 from riscv_tools.board_schema.platform_fields import (
     IoNeed,
@@ -47,6 +50,7 @@ __all__ = [
     "VideoAxis",
     "VideoMode",
     "VideoRole",
+    "bracketed",
     "declares_board",
     "expand_group",
     "group_count",
@@ -57,4 +61,6 @@ __all__ = [
     "parse_platform_fields",
     "parse_video_modes",
     "read_platform_video",
+    "role_count",
+    "role_signals",
 ]

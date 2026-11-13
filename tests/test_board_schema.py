@@ -293,7 +293,8 @@ PLATFORM_CASES: list[tuple[tuple[str, ...], str, object, str]] = [
         "buzzer",
         {"count": 1, "need": "required"},
         "platform.io.buzzer is not a role "
-        "(leds, switches, keys, display, video)",
+        "(leds, switches, keys, display, video, leds_green, gpio, ex_io, "
+        "hsmc, clock_extra)",
     ),
 ]
 

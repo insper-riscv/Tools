@@ -43,14 +43,33 @@ from typing import Any, cast
 import yaml
 
 KINDS = ("gpio", "seg_display")
-ROLES = ("leds", "switches", "keys", "display")
+ROLES = (
+    "leds",
+    "switches",
+    "keys",
+    "display",
+    "leds_green",
+    "gpio",
+    "ex_io",
+    "hsmc",
+)
 SHORTCUTS = ("solo", "all", "pairs", "trios")
 GROUP_BYTES = 64
 MAX_GROUP_PINS = 32
 SEGMENTS = 7
 _STEP = {"pairs": 2, "trios": 3}
 _BUS = re.compile(r"\[(\d+):(\d+)\]")
-_DIRECTION = {"leds": 2, "display": 2, "switches": 1, "keys": 1}
+# Direção fixa do pino por papel: 2 saída, 1 entrada, 0 livre.
+_DIRECTION = {
+    "leds": 2,
+    "leds_green": 2,
+    "display": 2,
+    "switches": 1,
+    "keys": 1,
+    "gpio": 0,
+    "ex_io": 0,
+    "hsmc": 0,
+}
 
 
 def block_size(group_count: int) -> int:
@@ -67,6 +86,58 @@ def block_size(group_count: int) -> int:
         64 bytes for each group.
     """
     return GROUP_BYTES * group_count
+
+
+def _shortcut(spec: str, count: int) -> list[list[int]] | None:
+    """Write the groups of a shortcut.
+
+    Parameters
+    ----------
+    spec : str
+        `solo`, `all`, `pairs` or `trios`.
+    count : int
+        The number of pins.
+
+    Returns
+    -------
+    list of list of int or None
+        The groups; None when `spec` is not a shortcut.
+    """
+    if spec == "solo":
+        return [[pin] for pin in range(count)]
+    if spec == "all":
+        return [list(range(count))] if count else []
+    if spec not in _STEP:
+        return None
+    step = _STEP[spec]
+    return [
+        list(range(i, min(i + step, count))) for i in range(0, count, step)
+    ]
+
+
+def _is_pin_lists(spec: Any) -> bool:
+    """Say whether a value is a list of lists of pin indexes.
+
+    Parameters
+    ----------
+    spec : Any
+        The value.
+
+    Returns
+    -------
+    bool
+        True for a list whose items are lists of integers.
+    """
+    if not isinstance(spec, list):
+        return False
+    return all(
+        isinstance(group, list)
+        and all(
+            isinstance(pin, int) and not isinstance(pin, bool)
+            for pin in cast("list[Any]", group)
+        )
+        for group in cast("list[Any]", spec)
+    )
 
 
 def expand(spec: Any, count: int) -> list[list[int]]:
@@ -90,28 +161,44 @@ def expand(spec: Any, count: int) -> list[list[int]]:
         If the value is neither a shortcut nor a list of lists of
         integers.
     """
-    if spec == "solo":
-        return [[pin] for pin in range(count)]
-    if spec == "all":
-        return [list(range(count))] if count else []
-    if isinstance(spec, str) and spec in _STEP:
-        step = _STEP[spec]
-        return [
-            list(range(i, min(i + step, count))) for i in range(0, count, step)
-        ]
-    if isinstance(spec, list) and all(
-        isinstance(group, list)
-        and all(
-            isinstance(pin, int) and not isinstance(pin, bool)
-            for pin in cast("list[Any]", group)
-        )
-        for group in cast("list[Any]", spec)
-    ):
+    if isinstance(spec, str):
+        shortcut = _shortcut(spec, count)
+        if shortcut is not None:
+            return shortcut
+    elif _is_pin_lists(spec):
         return [list(cast("list[int]", g)) for g in cast("list[Any]", spec)]
     raise ValueError(
         f"groups must be one of {list(SHORTCUTS)} or a list of lists of "
         "pin indexes"
     )
+
+
+def _size_problems(name: str, groups: list[list[int]]) -> list[str]:
+    """Report the groups that are empty or too big (G-3)."""
+    return [
+        f"G-3 peripheral {name} group {index} has {len(group)} pins, "
+        f"from 1 to {MAX_GROUP_PINS} are allowed"
+        for index, group in enumerate(groups)
+        if not group or len(group) > MAX_GROUP_PINS
+    ]
+
+
+def _range_problems(name: str, pins: list[int], count: int) -> list[str]:
+    """Report the pins at or above the number of pins (G-1)."""
+    return [
+        f"G-1 peripheral {name} pin {pin} is out of range: the board "
+        f"has {count} pins in the roles"
+        for pin in pins
+        if pin < 0 or pin >= count
+    ]
+
+
+def _repeat_problems(name: str, pins: list[int]) -> list[str]:
+    """Report the pins that are listed more than once (G-2)."""
+    return [
+        f"G-2 peripheral {name} repeats pin {pin}"
+        for pin in sorted({p for p in pins if pins.count(p) > 1})
+    ]
 
 
 def problems(name: str, groups: list[list[int]], count: int) -> list[str]:
@@ -132,24 +219,12 @@ def problems(name: str, groups: list[list[int]], count: int) -> list[str]:
         G-1 (an index at or above `count`), G-2 (a repeated pin), G-3
         (an empty group or one with more than 32 pins).
     """
-    found = [
-        f"G-3 peripheral {name} group {index} has {len(group)} pins, "
-        f"from 1 to {MAX_GROUP_PINS} are allowed"
-        for index, group in enumerate(groups)
-        if not group or len(group) > MAX_GROUP_PINS
-    ]
     pins = [pin for group in groups for pin in group]
-    found += [
-        f"G-1 peripheral {name} pin {pin} is out of range: the board "
-        f"has {count} pins in the roles"
-        for pin in pins
-        if pin < 0 or pin >= count
-    ]
-    found += [
-        f"G-2 peripheral {name} repeats pin {pin}"
-        for pin in sorted({p for p in pins if pins.count(p) > 1})
-    ]
-    return found
+    return (
+        _size_problems(name, groups)
+        + _range_problems(name, pins, count)
+        + _repeat_problems(name, pins)
+    )
 
 
 def off_pins(groups: list[list[int]], count: int) -> list[int]:
@@ -191,6 +266,23 @@ def find_catalog(platform_file: Path) -> Path | None:
     return None
 
 
+def _span_count(spec: str) -> int:
+    """Count the units of one group of signals.
+
+    Parameters
+    ----------
+    spec : str
+        A signal (`CLOCK_50`) or a bus (`LEDR[9:0]`).
+
+    Returns
+    -------
+    int
+        The width of the first index; 1 for a single signal.
+    """
+    found = _BUS.search(spec)
+    return abs(int(found[1]) - int(found[2])) + 1 if found else 1
+
+
 def role_pins(catalog: Path, board: str) -> dict[str, tuple[int, str]]:
     """Read the pins of each role of a board.
 
@@ -220,8 +312,11 @@ def role_pins(catalog: Path, board: str) -> dict[str, tuple[int, str]]:
     out: dict[str, tuple[int, str]] = {}
     for role, entry in cast("dict[str, Any]", data.get("io") or {}).items():
         fields = cast("dict[str, Any]", entry)
-        found = _BUS.search(str(fields.get("signals", "")))
-        count = abs(int(found[1]) - int(found[2])) + 1 if found else 1
+        specs = fields.get("signals", "")
+        listed = cast(
+            "list[Any]", specs if isinstance(specs, list) else [specs]
+        )
+        count = sum(_span_count(str(spec)) for spec in listed)
         out[str(role)] = (count, str(fields.get("active", "high")))
     return out
 
@@ -455,6 +550,39 @@ def _on_boards(
     return found, notes
 
 
+def _blocks(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """List the peripherals that are blocks of groups.
+
+    Parameters
+    ----------
+    data : dict of {str: Any}
+        The platform.
+
+    Returns
+    -------
+    list of dict of {str: Any}
+        The peripherals with a `kind`, in order.
+    """
+    items = cast("list[dict[str, Any]]", data.get("peripherals") or [])
+    return [item for item in items if item.get("kind")]
+
+
+def _unplanned(entries: list[dict[str, Any]]) -> list[str]:
+    """Size the blocks without a board and collect the problems.
+
+    Parameters
+    ----------
+    entries : list of dict of {str: Any}
+        The blocks, changed in place.
+
+    Returns
+    -------
+    list of str
+        The G-0 problems.
+    """
+    return [text for entry in entries for text in _fallback(entry)]
+
+
 def resolve(data: dict[str, Any], platform_file: Path) -> None:
     """Resolve the groups of the blocks against the boards.
 
@@ -467,11 +595,7 @@ def resolve(data: dict[str, Any], platform_file: Path) -> None:
     platform_file : Path
         The platform YAML, which locates the catalog of boards.
     """
-    entries = [
-        cast("dict[str, Any]", p)
-        for p in cast("list[Any]", data.get("peripherals") or [])
-        if cast("dict[str, Any]", p).get("kind")
-    ]
+    entries = _blocks(data)
     if not entries:
         return
     boards = [str(b) for b in cast("list[Any]", data.get("boards") or [])]
@@ -481,7 +605,7 @@ def resolve(data: dict[str, Any], platform_file: Path) -> None:
     if boards and catalog is not None:
         found, notes = _on_boards(data, entries, boards, catalog)
     else:
-        found, notes = [t for e in entries for t in _fallback(e)], []
+        found, notes = _unplanned(entries), []
     data["_group_problems"] = found
     data["_group_notes"] = notes
 

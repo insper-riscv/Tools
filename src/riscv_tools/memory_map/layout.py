@@ -292,6 +292,39 @@ def _memory(segments: list[dict[str, Any]]) -> dict[str, Any] | None:
     return out
 
 
+def _gpio_roles(where: str, value: dict[str, Any]) -> list[str]:
+    """Read `role` or `roles` of a block of the GPIO.
+
+    Parameters
+    ----------
+    where : str
+        The path of the entry, for the messages.
+    value : dict of {str: Any}
+        The entry.
+
+    Returns
+    -------
+    list of str
+        The roles.
+
+    Raises
+    ------
+    ValueError
+        If both or none of `role` and `roles` are written, or a role
+        cannot be a GPIO.
+    """
+    if ("role" in value) == ("roles" in value):
+        raise ValueError(f"{where} needs exactly one of role and roles")
+    raw = value["roles"] if "roles" in value else [value["role"]]
+    listed = [str(role) for role in cast("list[Any]", raw)]
+    bad = [role for role in listed if role not in groups.ROLES]
+    if bad or not listed:
+        raise ValueError(
+            f"{where} role {bad or listed} must be one of {list(groups.ROLES)}"
+        )
+    return listed
+
+
 def _block_roles(where: str, kind: str, value: dict[str, Any]) -> list[str]:
     """Read the roles of a block of groups.
 
@@ -318,16 +351,7 @@ def _block_roles(where: str, kind: str, value: dict[str, Any]) -> list[str]:
         if "roles" in value or value.get("role", "display") != "display":
             raise ValueError(f"{where} shows only the role display")
         return ["display"]
-    if ("role" in value) == ("roles" in value):
-        raise ValueError(f"{where} needs exactly one of role and roles")
-    raw = value["roles"] if "roles" in value else [value["role"]]
-    listed = [str(role) for role in cast("list[Any]", raw)]
-    bad = [role for role in listed if role not in groups.ROLES]
-    if bad or not listed:
-        raise ValueError(
-            f"{where} role {bad or listed} must be one of {list(groups.ROLES)}"
-        )
-    return listed
+    return _gpio_roles(where, value)
 
 
 def _peripheral(name: str, value: dict[str, Any]) -> dict[str, Any]:
