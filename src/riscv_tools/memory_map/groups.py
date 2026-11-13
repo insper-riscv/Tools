@@ -601,11 +601,11 @@ def resolve(data: dict[str, Any], platform_file: Path) -> None:
     boards = [str(b) for b in cast("list[Any]", data.get("boards") or [])]
     catalog = find_catalog(platform_file)
     for entry in entries:
-        entry["plan"] = {}
+        entry["plan"] = dict[str, Any]()
     if boards and catalog is not None:
         found, notes = _on_boards(data, entries, boards, catalog)
     else:
-        found, notes = _unplanned(entries), []
+        found, notes = _unplanned(entries), list[str]()
     data["_group_problems"] = found
     data["_group_notes"] = notes
 
