@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from support import check, check_equal, check_in
+from support import MEMORY_TEXT, check, check_equal, check_in
 
 from riscv_tools import cli, flash_image
 from riscv_tools.flash_image import send as send_module
@@ -112,11 +112,7 @@ def test_the_command_packs_verifies_and_checks_the_bank(
     """The command writes an image, checks it and honours the bank."""
     (tmp_path / "prog.bin").write_bytes(PROGRAM)
     (tmp_path / "platform.yaml").write_text(
-        "regions:\n"
-        "  - {name: FLASH, base: 0x1000, size: 8K, kind: rom}\n"
-        "flash:\n"
-        "  region: FLASH\n"
-        "  banks:\n"
+        MEMORY_TEXT + "flash:\n  region: FLASH\n  banks:\n"
         "    - {name: A, base: 0x1000, size: 4K}\n"
     )
     root = str(tmp_path)

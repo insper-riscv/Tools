@@ -7,16 +7,32 @@ Confere que todas as cópias escritas à mão do mapa de memória de uma platafo
 Sem seção no `config.yaml`: o arquivo da plataforma se descreve sozinho e é passado com `--platform`.
 
 ```yaml
-regions:                      # o mapa em si
-  - {name: BOOT_MEMORY, base: 0x0,    size: 2K,   kind: rom, exec: true}
-  - {name: FLASH,    base: 0x800,  size: 30K,  kind: rom, exec: true}
-  - {name: RAM,      base: 0x8000, size: 160K, kind: ram}
-reserved:                     # palavras no topo da RAM (dentro de uma região ram)
-  stdout:  {base: 0x2FBE0, size: 1K+8}
-  tohost:  {base: 0x2FFF0, size: 16}
-boot: {entry: 0x800, wait_restart: 0x100}
-peripherals:                  # base absoluta e size em bytes de registradores
-  - {name: GPIO, base: 0xA0000000, size: 64}
+memory:                       # o mapa em si: três blocos de nomes fixos
+  boot:
+    base: 0x0
+    size: 2K
+  instructions:
+    - type: onchip
+      base: 0x800
+      size: 30K
+  data:
+    - type: onchip
+      base: 0x8000
+      size: 160K
+reserved:                     # palavras no topo dos dados
+  stdout:
+    base: 0x2FBE0
+    size: 1K+8
+  tohost:
+    base: 0x2FFF0
+    size: 16
+boot:
+  entry: 0x800
+  wait_restart: 0x100
+peripherals:                  # um bloco por nome, na ordem dos índices
+  GPIO:
+    base: 0xA0000000
+    size: 64
 checks:                       # onde mora cada cópia
   - name: config ram base
     file: tools/riscv_build/config.yaml      # relativo a --root
@@ -208,26 +224,45 @@ Todo relógio declarado precisa de `mhz` positivo, e `clocks.mem` precisa ter pe
 
 ## 7. As memórias e as caches da plataforma
 
-A seção `memory` do `platform.yaml` escolhe, por plataforma, quatro coisas independentes, e das 16 combinações 9 são válidas. Nenhum campo tem valor padrão, então esquecer um deles é um erro e a plataforma nunca monta uma combinação diferente da que o autor escreveu. Uma plataforma sem a seção continua gerando o pacote de antes.
+A seção `memory` do `platform.yaml` descreve as três memórias do núcleo em blocos de nomes fixos e escolhe, por plataforma, quatro coisas independentes, e das 16 combinações 9 são válidas. O `boot` é um bloco único (`base` 0 e `size`). `instructions` e `data` são listas de segmentos, e nesta fase cada uma tem exatamente um segmento; um segundo é recusado com "vários segmentos ainda não são suportados". O `boot` e as `instructions` são executáveis e os `data` não, e os nomes das regiões no pacote são fixos (`BOOT_MEMORY`, `FLASH` e `RAM`). O módulo `riscv_tools.memory_map.layout` lê o bloco.
 
 ```yaml
 memory:
-  rom:    {external: true}
-  ram:    {external: true}
-  icache: {enabled: true, size_bits: 4096}
-  dcache: {enabled: true, size_bits: 4096}
+  boot:
+    base: 0x00000000
+    size: 4K
+  instructions:
+    - type: emulated
+      base: 0x00001000
+      size: 252K
+      on_bus: true
+      latency:
+        first: 24
+        next: 4
+      sector_bytes: 4096
+      cache:
+        size_bits: 32768
+  data:
+    - type: sdram
+      base: 0x40000000
+      size: 64M
+      on_bus: true
+      cache:
+        size_bits: 32768
 ```
 
-| Campo | Tipo | Significado |
+| Campo do segmento | Tipo | Significado |
 | :--- | :--- | :--- |
-| `rom.external` | booleano | A FLASH fica fora do chip |
-| `ram.external` | booleano | A RAM fica fora do chip |
-| `icache.enabled` | booleano | Existe cache de instruções |
-| `icache.size_bits` | potência de dois, no mínimo 256 | Tamanho da cache de instruções em bits; obrigatório só com `enabled: true` |
-| `dcache.enabled` | booleano | Existe cache de dados |
-| `dcache.size_bits` | potência de dois, no mínimo 256 | Tamanho da cache de dados em bits; obrigatório só com `enabled: true` |
+| `type` | `flash`, `sdram`, `sram`, `onchip` ou `emulated` | O que a memória é: um chip NOR, a SDRAM ou a SRAM da placa, blocos de memória do FPGA, ou blocos do FPGA com a latência de um chip (`emulated`) |
+| `base`, `size` | endereço e tamanho | Onde o segmento fica; obrigatórios |
+| `on_bus` | booleano | A memória é alcançada pelo barramento (`FLASH_ON_BUS` e `RAM_ON_BUS`) e não pela porta direta. Um tipo diferente de `onchip` exige `on_bus: true`. Vale nos dois segmentos ou em nenhum, e sem ele a escolha vem do `--memory` |
+| `latency` | `first` e `next` | Só na memória `emulated`: ciclos do primeiro acesso e dos seguintes |
+| `sector_bytes` | potência de dois | Setor de apagamento da FLASH emulada |
+| `cache` | `size_bits` | Presente: existe a cache do segmento (de instruções em `instructions`, de dados em `data`); `size_bits` é potência de dois de pelo menos 256 |
 
-Os campos `rom_external` e `ram_external` de `generate.vhdl` saem da seção `memory`, e os dois juntos com ela são um erro.
+As chaves antigas são recusadas com a migração: a lista `regions` (`BOOT_MEMORY`, `FLASH` e `RAM` viram `boot`, `instructions` e `data`, e `kind` e `exec` deixam de existir), `memory.rom` e `memory.ram` (viram os segmentos, com `external` virando `on_bus` e `backend` e `device` virando `type`) e `memory.icache` e `memory.dcache` (viram `cache` do segmento). A `peripherals` em lista também é recusada: ela é um mapa por nome, na ordem dos índices.
+
+Os campos `rom_external` e `ram_external` de `generate.vhdl` saem de `on_bus`, e os dois juntos com ele são um erro.
 
 ### 7.1. Constantes geradas
 
@@ -253,8 +288,6 @@ No `config.yaml` os valores chegam como `sim.parameters` com os nomes `ROM_EXTER
 | V2 | `size_bits` é potência de dois e vale pelo menos 256 | Erro |
 | V3 | Com alguma cache, a FLASH e a RAM cabem cada uma numa janela alinhada de até 512 MiB (a tag das caches guarda os bits abaixo da janela) | Erro |
 | V4 | Com a FLASH no barramento, o tamanho dela cabe na janela de 1024 KiB do roteador | Erro |
-| V5 | Região `exec` na RAM exige RAM e FLASH no barramento | Erro |
-| V7 | Região `exec` na RAM atrás da cache de instruções exige Zifencei no perfil | Erro |
 | V9 | Plataforma com periféricos | Nota |
 | V10 | Com alguma cache, `reserved.fromhost` existe e está na última página de 4 KiB da RAM, a que a cache ignora | Erro |
 | V-C1 | `icache.enabled` com `rom.external: false`: a cache de instruções exige `FLASH_ON_BUS` | Erro |
@@ -466,6 +499,7 @@ Algumas plataformas precisam de uma declaração a mais para que o `config_pkg` 
 | `tests/test_memory_map.py::test_check_stops_at_an_inconsistent_map` | Nenhuma cópia é lida se o próprio mapa é inconsistente. |
 | `tests/test_memory_map.py::test_load_platform_rejects_a_non_mapping` | Um arquivo que não é mapeamento é rejeitado. |
 | `tests/test_memory_map.py::test_cmd_check_memory_map_exit_status` | O comando imprime OK, ou sai com 1 listando as divergências. |
+| `tests/test_layout.py` | O bloco `memory` vira as regiões e as quatro escolhas, dois segmentos são recusados ("vários segmentos ainda não são suportados"), as chaves antigas (`regions`, `memory.rom`, `kind`, `exec`) são recusadas com a migração, e `on_bus` vem nos dois segmentos ou em nenhum. O `tests/test_peripheral_offsets.py` prova que a ordem dos periféricos no arquivo é a ordem dos índices. |
 | `tests/test_core_profile.py` | O bloco `core` e o perfil inferido (ordem da matriz, `Zicsr` junto de `Zicntr`, extras), `--profile` que mantém os extras, cada erro (extensão desconhecida ou repetida, combinação recusada, `type: 64` sem base `rv64`, `isa` no lugar de `base`), a recusa de `profile:` e `extras:` com a migração e o nome sem matriz. |
 | `tests/test_peripheral_offsets.py` | A janela derivada do `size`, os símbolos `base`, `size`, `window` e `index`, uma rejeição para cada V-P1 a V-P5, a recusa de `id`, `offset` e `padding` com a mensagem de migração, as tabelas `PERIPH_BASES` e `PERIPH_MASKS`, a V-S1 e a `STRICT_PERIPH` no pacote do mapa. |
 | `tests/test_address_bits.py` | O campo `address_bits`, uma rejeição para cada V-A1 a V-A6, a recusa de `periph_window` (V-P6), `resolve` com os perfis `rv64`, o `--profile` e as chaves novas do `config.yaml`. |

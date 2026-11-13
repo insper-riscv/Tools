@@ -24,8 +24,8 @@ from typing import Any, cast
 
 import yaml
 
-from riscv_tools.memory_map.core_profile import normalize
 from riscv_tools.memory_map.expressions import evaluate
+from riscv_tools.memory_map.platform_format import normalize
 from riscv_tools.memory_map.profile import profile_replaced
 
 NUM_REGS = {"i": 32, "e": 16}

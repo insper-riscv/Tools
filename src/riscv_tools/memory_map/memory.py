@@ -44,6 +44,7 @@ from riscv_tools.memory_map.core import (
     platform_list,
 )
 from riscv_tools.memory_map.expressions import evaluate
+from riscv_tools.memory_map.layout import FLASH, RAM
 
 MIN_CACHE_BITS = 256
 DEFAULT_CACHE_BITS = 4096
@@ -424,7 +425,10 @@ def region_span(
     vhdl = cast(
         dict[str, Any], platform_dict(platform, "generate").get("vhdl") or {}
     )
-    name = platform_dict(platform, "config").get(key) or vhdl.get(key)
+    default = {"rom": FLASH, "ram": RAM}[key]
+    name = (
+        platform_dict(platform, "config").get(key) or vhdl.get(key) or default
+    )
     for region in platform_list(platform, "regions"):
         if region["name"] == name:
             return (
@@ -595,60 +599,6 @@ def _cache_problems(
     return problems
 
 
-def _exec_problems(
-    memory: Memory,
-    platform: dict[str, Any],
-    generics: dict[str, bool | int] | None,
-) -> list[Mismatch]:
-    """Check the executable regions in the RAM (V5, V7).
-
-    Parameters
-    ----------
-    memory : Memory
-        The choice.
-    platform : dict of {str: Any}
-        The loaded platform.
-    generics : dict of {str: bool or int} or None
-        The generics of the profile; None skips the Zifencei check.
-
-    Returns
-    -------
-    list of Mismatch
-        Code in the RAM needs the RAM and the instruction fetch
-        reached through the port of the core, and a $I over it needs
-        Zifencei in the profile.
-    """
-    code = [
-        r["name"]
-        for r in platform_list(platform, "regions")
-        if r.get("kind") == "ram" and r.get("exec")
-    ]
-    if not code:
-        return []
-    problems: list[Mismatch] = []
-    if not (memory.ram_external and memory.rom_external):
-        problems.append(
-            _problem(
-                f"region {code[0]} is executable in the RAM, which needs "
-                "an external RAM and an external ROM "
-                "(on the bus)"
-            )
-        )
-    if (
-        memory.has_icache
-        and generics is not None
-        and "has_zifencei" in generics
-        and not generics["has_zifencei"]
-    ):
-        problems.append(
-            _problem(
-                f"region {code[0]} is executable in the RAM behind an "
-                "icache, which needs Zifencei in the profile"
-            )
-        )
-    return problems
-
-
 def _host_problems(
     memory: Memory,
     platform: dict[str, Any],
@@ -719,19 +669,13 @@ def _legacy_problems(platform: dict[str, Any]) -> list[Mismatch]:
     ]
 
 
-def problems(
-    platform: dict[str, Any],
-    generics: dict[str, bool | int] | None = None,
-) -> list[Mismatch]:
-    """Check the memory choice against the map and the profile.
+def problems(platform: dict[str, Any]) -> list[Mismatch]:
+    """Check the memory choice against the map.
 
     Parameters
     ----------
     platform : dict of {str: Any}
         The loaded platform.
-    generics : dict of {str: bool or int}, optional
-        The generics of the profile, to check Zifencei; without them
-        that check is skipped.
 
     Returns
     -------
@@ -746,7 +690,6 @@ def problems(
     return (
         _legacy_problems(platform)
         + _cache_problems(memory, rom, ram)
-        + _exec_problems(memory, platform, generics)
         + _host_problems(memory, platform, ram)
     )
 

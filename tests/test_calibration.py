@@ -16,15 +16,33 @@ from riscv_tools.calibration import harness
 MAX_ROUNDING_PCT = 0.1
 PLATFORM: dict[str, Any] = {
     "platform": "demo",
-    "profile": "rv32im",
-    "extras": ["Interrupts"],
+    "core": {"type": 32, "base": "I", "extensions": ["M", "Interrupts"]},
     "interrupts": {"plic": {"priority_bits": 3}},
-    "peripherals": [
-        {"name": "UART", "base": 1, "id": 4},
-        {"name": "CLINT", "base": 2, "id": 6},
-        {"name": "PLIC", "base": 3, "id": 7},
-    ],
-    "memory": {"icache": {"enabled": True, "size_bits": 32768}},
+    "peripherals": {
+        "UART": {"base": 1, "size": 16},
+        "CLINT": {"base": 2, "size": 16},
+        "PLIC": {"base": 3, "size": 16},
+    },
+    "memory": {
+        "boot": {"base": 0, "size": 4096},
+        "instructions": [
+            {
+                "type": "onchip",
+                "base": 4096,
+                "size": 4096,
+                "on_bus": False,
+                "cache": {"size_bits": 32768},
+            }
+        ],
+        "data": [
+            {
+                "type": "onchip",
+                "base": 8192,
+                "size": 4096,
+                "on_bus": False,
+            }
+        ],
+    },
     "generate": {"vhdl": {"path": "demo/pkg.vhd"}},
 }
 PLAN: dict[str, Any] = {
@@ -151,9 +169,10 @@ def test_apply_profile_drops_the_interrupts_without_the_extra(
     check_not_in("profile", data)
     check_not_in("extras", data)
     check("interrupts" not in data)
-    check_equal([p["name"] for p in data["peripherals"]], ["UART"])
-    check_equal(data["memory"]["icache"]["size_bits"], 8192)
-    check_equal(data["memory"]["dcache"]["size_bits"], 16384)
+    check_equal(list(data["peripherals"]), ["UART"])
+    memory = data["memory"]
+    check_equal(memory["instructions"][0]["cache"]["size_bits"], 8192)
+    check_equal(memory["data"][0]["cache"]["size_bits"], 16384)
 
 
 def test_apply_profile_keeps_the_interrupts_with_the_extra(

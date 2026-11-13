@@ -2,9 +2,10 @@
 
 import copy
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
+from support import dump_platform
 
 SDRAM_CHIP: dict[str, Any] = {
     "chip": "SDR-A",
@@ -162,6 +163,9 @@ def write(path: Path, data: Any) -> None:
         The content.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
+    if isinstance(data, dict) and ("regions" in data or "profile" in data):
+        path.write_text(dump_platform(cast("dict[str, Any]", data)))
+        return
     path.write_text(yaml.safe_dump(data, sort_keys=False))
 
 

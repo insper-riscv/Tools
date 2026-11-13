@@ -23,7 +23,7 @@ from riscv_tools.board_schema import (
     VideoMode,
     VideoRole,
 )
-from riscv_tools.memory_map.core_profile import normalize
+from riscv_tools.memory_map.platform_format import normalize
 
 # Chaves de `board.memories` que citam um chip do catálogo de tempos.
 CHIP_KEYS = ("sdram", "sram", "nor")

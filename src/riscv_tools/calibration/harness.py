@@ -158,18 +158,19 @@ def apply_profile(platform: Path, definition: ProfileDef) -> None:
     data.pop("extras", None)
     data["core"] = legacy_to_core(definition.profile, list(definition.extras))
     memory = cast("dict[str, Any]", data["memory"])
-    for name, kbit in (
-        ("icache", definition.icache_kbit),
-        ("dcache", definition.dcache_kbit),
+    for side, kbit in (
+        ("instructions", definition.icache_kbit),
+        ("data", definition.dcache_kbit),
     ):
-        memory[name] = {"enabled": True, "size_bits": kbit * 1024}
+        segment = cast("list[dict[str, Any]]", memory[side])[0]
+        segment["cache"] = {"size_bits": kbit * 1024}
     if "Interrupts" not in definition.extras:
         data.pop("interrupts", None)
-        data["peripherals"] = [
-            item
-            for item in data["peripherals"]
-            if item["name"] not in INTERRUPT_PERIPHERALS
-        ]
+        data["peripherals"] = {
+            name: item
+            for name, item in data["peripherals"].items()
+            if name not in INTERRUPT_PERIPHERALS
+        }
     platform.write_text(
         yaml.safe_dump(data, sort_keys=False), encoding="utf-8"
     )

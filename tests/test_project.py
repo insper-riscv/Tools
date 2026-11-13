@@ -6,7 +6,14 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from support import check, check_equal, check_false, check_in, check_not_in
+from support import (
+    MEMORY_TEXT,
+    check,
+    check_equal,
+    check_false,
+    check_in,
+    check_not_in,
+)
 
 from riscv_tools import cli
 from riscv_tools.project import (
@@ -54,11 +61,9 @@ def _project(root: Path) -> Path:
     folder.mkdir(parents=True)
     (folder / "config.yaml").write_text("quartus: {}\n")
     (folder / "platform.yaml").write_text(
-        "platform: demo-64k\nregions:\n"
-        "  - {name: RAM, base: 0x40000000, size: 64K, kind: ram}\n"
-        "reserved:\n"
-        "  stdout: {base: 0x4000FBE0}\n"
-        "  tohost: {base: 0x4000FFE8}\n"
+        "platform: demo-64k\n" + MEMORY_TEXT + "reserved:\n"
+        "  stdout:\n    base: 0x4000FBE0\n"
+        "  tohost:\n    base: 0x4000FFE8\n"
     )
     return root
 

@@ -1,0 +1,409 @@
+"""The memory layout of a platform, written in blocks.
+
+The platform YAML describes the memories of the core in a `memory`
+block with three fixed names, and its peripherals as a mapping by name:
+
+```yaml
+memory:
+  boot:                  # executable, always at address 0
+    base: 0x00000000
+    size: 4K
+  instructions:          # executable; one segment in this phase
+    - type: emulated     # flash, sdram, sram, onchip or emulated
+      base: 0x00001000
+      size: 252K
+      on_bus: true       # reached through the bus (true) or the port
+      latency:           # the emulated memory only
+        first: 24
+        next: 4
+      sector_bytes: 4096
+      cache:             # present: the instruction cache exists
+        size_bits: 32768
+  data:                  # not executable; one segment in this phase
+    - type: sdram
+      base: 0x40000000
+      size: 64M
+      on_bus: true
+      cache:
+        size_bits: 32768
+peripherals:             # the order is the order of `<NAME>_INDEX`
+  UART:
+    base: 0xC0000000
+    size: 16
+```
+
+`type` says what the memory is: `flash` (a NOR chip), `sdram`, `sram`,
+`onchip` (blocks of the FPGA) or `emulated` (blocks of the FPGA with the
+latency of a chip). A type that is not `onchip` is outside the core and
+so needs `on_bus: true`. `on_bus` is given in both segments or in none
+(the choice then comes from `--memory`).
+
+The rest of the Tools reads the lists `regions` (`BOOT_MEMORY`, `FLASH`,
+`RAM`), the section `memory` of the four choices (`rom`, `ram`,
+`icache`, `dcache`) and the list `peripherals`, so `normalize_layout`
+derives them. The old keys are refused with the way to migrate.
+"""
+
+from typing import Any, cast
+
+BOOT = "BOOT_MEMORY"
+FLASH = "FLASH"
+RAM = "RAM"
+TYPES = ("flash", "sdram", "sram", "onchip", "emulated")
+_DEVICE = {"flash": "nor", "sdram": "sdram", "sram": "sram"}
+_OF_DEVICE = {value: key for key, value in _DEVICE.items()}
+_SEGMENT_KEYS = (
+    "type",
+    "base",
+    "size",
+    "on_bus",
+    "cache",
+    "latency",
+    "sector_bytes",
+)
+_SIDES = (("instructions", "rom", "icache"), ("data", "ram", "dcache"))
+_OLD_MEMORY = ("rom", "ram", "icache", "dcache")
+_MAX_SEGMENTS = 1
+
+
+def _mapping(value: Any, what: str) -> dict[str, Any]:
+    """Check that a value is a mapping.
+
+    Parameters
+    ----------
+    value : Any
+        The value.
+    what : str
+        What it is, for the message.
+
+    Returns
+    -------
+    dict of {str: Any}
+        The value.
+
+    Raises
+    ------
+    ValueError
+        If it is not a mapping.
+    """
+    if not isinstance(value, dict):
+        raise ValueError(f"{what} must be a mapping")
+    return cast("dict[str, Any]", value)
+
+
+def _boot(raw: Any) -> dict[str, Any]:
+    """Read `memory.boot`.
+
+    Parameters
+    ----------
+    raw : Any
+        The value.
+
+    Returns
+    -------
+    dict of {str: Any}
+        The region `BOOT_MEMORY`: `base`, `size`, read only and
+        executable.
+
+    Raises
+    ------
+    ValueError
+        If it has other keys than `base` and `size`.
+    """
+    block = _mapping(raw, "memory.boot")
+    for old in ("kind", "exec"):
+        if old in block:
+            raise ValueError(
+                f"memory.boot.{old} no longer exists: boot and "
+                "instructions are executable and data is not"
+            )
+    extra = sorted(set(block) - {"base", "size"})
+    if extra or len(block) != len(("base", "size")):
+        raise ValueError("memory.boot takes exactly base and size")
+    return {"name": BOOT, **block, "kind": "rom", "exec": True}
+
+
+def _segment(raw: Any, side: str) -> dict[str, Any]:
+    """Read the one segment of `instructions` or `data`.
+
+    Parameters
+    ----------
+    raw : Any
+        The list of segments.
+    side : str
+        `instructions` or `data`.
+
+    Returns
+    -------
+    dict of {str: Any}
+        The segment.
+
+    Raises
+    ------
+    ValueError
+        If the list does not have exactly one segment, or the segment
+        lacks `type`, `base` or `size`, has an unknown key or a type
+        that does not exist.
+    """
+    where = f"memory.{side}"
+    if not isinstance(raw, list):
+        raise ValueError(f"{where} must be a list of segments")
+    items = cast("list[Any]", raw)
+    if len(items) > _MAX_SEGMENTS:
+        raise ValueError(f"{where}: vários segmentos ainda não são suportados")
+    if not items:
+        raise ValueError(f"{where} needs one segment")
+    seg = _mapping(items[0], f"{where}[0]")
+    for old in ("kind", "exec", "external", "backend", "device"):
+        if old in seg:
+            raise ValueError(
+                f"{where}.{old} no longer exists: use `type` and `on_bus`"
+            )
+    extra = sorted(str(key) for key in seg if key not in _SEGMENT_KEYS)
+    if extra:
+        raise ValueError(f"{where} has unknown keys {extra}")
+    missing = [key for key in ("type", "base", "size") if key not in seg]
+    if missing:
+        raise ValueError(f"{where}.{missing[0]} is required")
+    if seg["type"] not in TYPES:
+        raise ValueError(
+            f"{where}.type {seg['type']!r} must be one of {list(TYPES)}"
+        )
+    return seg
+
+
+def _side(seg: dict[str, Any], where: str) -> dict[str, Any]:
+    """Write the four-choice entry (`rom` or `ram`) of a segment.
+
+    Parameters
+    ----------
+    seg : dict of {str: Any}
+        The segment.
+    where : str
+        `memory.instructions` or `memory.data`, for the message.
+
+    Returns
+    -------
+    dict of {str: Any}
+        `external` and, by `type`, `backend` and `device`, with the
+        `latency` and `sector_bytes` the segment has.
+
+    Raises
+    ------
+    ValueError
+        If a type outside the core is not on the bus.
+    """
+    kind = seg["type"]
+    if kind != "onchip" and seg.get("on_bus") is not True:
+        raise ValueError(f"{where}: type {kind} needs on_bus: true")
+    entry: dict[str, Any] = {"external": seg["on_bus"]}
+    if kind == "emulated":
+        entry["backend"] = "emulado"
+    elif kind in _DEVICE:
+        entry |= {"backend": "dispositivo", "device": _DEVICE[kind]}
+    for key in ("latency", "sector_bytes"):
+        if key in seg:
+            entry[key] = seg[key]
+    return entry
+
+
+def _memory(segments: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Write the section `memory` of the four choices.
+
+    Parameters
+    ----------
+    segments : list of dict of {str: Any}
+        The segment of `instructions` and the one of `data`.
+
+    Returns
+    -------
+    dict of {str: Any} or None
+        `rom`, `ram`, `icache` and `dcache`; None when neither segment
+        gives `on_bus` or a `cache` (the choice is left out).
+
+    Raises
+    ------
+    ValueError
+        If only one segment gives `on_bus`, or a segment is outside the
+        core without it.
+    """
+    given = ["on_bus" in seg for seg in segments]
+    if not any(given) and not any("cache" in seg for seg in segments):
+        if any(seg["type"] != "onchip" for seg in segments):
+            raise ValueError("a type outside the core needs on_bus: true")
+        return None
+    if not all(given):
+        raise ValueError("on_bus is given in both segments or in none")
+    out: dict[str, Any] = {}
+    for seg, (side, old, cache) in zip(segments, _SIDES, strict=True):
+        out[old] = _side(seg, f"memory.{side}")
+        have = seg.get("cache")
+        if have is None:
+            out[cache] = {"enabled": False}
+        else:
+            block = _mapping(have, f"memory.{side}.cache")
+            out[cache] = {"enabled": True, **block}
+    return out
+
+
+def _peripherals(raw: Any) -> list[dict[str, Any]]:
+    """Turn the mapping of peripherals into the list the Tools read.
+
+    Parameters
+    ----------
+    raw : Any
+        The value of `peripherals`: a mapping by name, in file order.
+
+    Returns
+    -------
+    list of dict of {str: Any}
+        One entry per peripheral, with `name`, `base` and `size`, in the
+        order of the file, which is the order of `<NAME>_INDEX`.
+
+    Raises
+    ------
+    ValueError
+        If `peripherals` is a list (the old form) or an entry is not a
+        mapping.
+    """
+    if raw is None or raw == []:
+        return []
+    if isinstance(raw, list):
+        raise ValueError(
+            "peripherals is no longer a list: write a mapping by name, "
+            "`UART:` with `base:` and `size:` below it, in the order of "
+            "the indexes"
+        )
+    block = _mapping(raw, "peripherals")
+    return [
+        {"name": str(name), **_mapping(value, f"peripherals.{name}")}
+        for name, value in block.items()
+    ]
+
+
+def normalize_layout(data: dict[str, Any]) -> None:
+    """Derive `regions`, `memory` and `peripherals` for the Tools.
+
+    Parameters
+    ----------
+    data : dict of {str: Any}
+        The platform as read, changed in place.
+
+    Raises
+    ------
+    ValueError
+        If the platform has the old `regions` list or the old four
+        choices in `memory`, or a block is not valid.
+    """
+    if "regions" in data:
+        raise ValueError(
+            "regions is no longer accepted: write the memory block with "
+            "`boot`, `instructions` and `data` (BOOT_MEMORY, FLASH and "
+            "RAM become those three; `kind` and `exec` are gone)"
+        )
+    if "peripherals" in data:
+        data["peripherals"] = _peripherals(data["peripherals"])
+    if "memory" not in data:
+        return
+    block = _mapping(data["memory"], "memory")
+    old = [key for key in _OLD_MEMORY if key in block]
+    if old:
+        raise ValueError(
+            f"memory.{old[0]} is no longer accepted: rom becomes the "
+            "segment of `instructions`, ram the one of `data`, `external` "
+            "becomes `on_bus`, backend and device become `type`, and "
+            "icache and dcache become `cache` of the segment"
+        )
+    unknown = sorted(set(block) - {"boot", "instructions", "data"})
+    if unknown or len(block) != len(("boot", "instructions", "data")):
+        raise ValueError("memory takes boot, instructions and data")
+    boot = _boot(block["boot"])
+    inst = _segment(block["instructions"], "instructions")
+    data_seg = _segment(block["data"], "data")
+    data["regions"] = [
+        boot,
+        {"name": FLASH, **_region(inst), "kind": "rom", "exec": True},
+        {"name": RAM, **_region(data_seg), "kind": "ram"},
+    ]
+    choice = _memory([inst, data_seg])
+    if choice is None:
+        del data["memory"]
+    else:
+        data["memory"] = choice
+
+
+def _region(seg: dict[str, Any]) -> dict[str, Any]:
+    """Give the `base` and `size` of a segment."""
+    return {"base": seg["base"], "size": seg["size"]}
+
+
+def _segment_of(
+    region: dict[str, Any], entry: dict[str, Any] | None, cache: Any
+) -> dict[str, Any]:
+    """Write a segment from a region and its four-choice entries.
+
+    Parameters
+    ----------
+    region : dict of {str: Any}
+        The region.
+    entry : dict of {str: Any} or None
+        The `rom` or `ram` entry; None without a `memory` choice.
+    cache : Any
+        The `icache` or `dcache` entry, or None.
+
+    Returns
+    -------
+    dict of {str: Any}
+        The segment.
+    """
+    seg: dict[str, Any] = {"type": "onchip"}
+    seg |= {"base": region["base"], "size": region["size"]}
+    if entry is None:
+        return seg
+    device = entry.get("device")
+    if entry.get("backend") == "emulado":
+        seg["type"] = "emulated"
+    elif device in _OF_DEVICE:
+        seg["type"] = _OF_DEVICE[device]
+    seg["on_bus"] = entry["external"]
+    seg |= {k: entry[k] for k in ("latency", "sector_bytes") if k in entry}
+    if cache and cache.get("enabled"):
+        seg["cache"] = {"size_bits": cache["size_bits"]}
+    return seg
+
+
+def to_layout(platform: dict[str, Any]) -> dict[str, Any]:
+    """Write a platform of the internal form in the block form.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        A platform with the list `regions` (boot, FLASH and RAM, in
+        that order), the optional section `memory` of the four choices
+        and the list `peripherals`.
+
+    Returns
+    -------
+    dict of {str: Any}
+        A copy with `memory` in blocks and `peripherals` as a mapping.
+    """
+    out = {k: v for k, v in platform.items() if k != "regions"}
+    regions = cast("list[dict[str, Any]]", platform.get("regions") or [])
+    if regions:
+        old = cast("dict[str, Any]", platform.get("memory") or {})
+        boot = {"base": regions[0]["base"], "size": regions[0]["size"]}
+        out["memory"] = {
+            "boot": boot,
+            "instructions": [
+                _segment_of(regions[1], old.get("rom"), old.get("icache"))
+            ],
+            "data": [
+                _segment_of(regions[2], old.get("ram"), old.get("dcache"))
+            ],
+        }
+    if "peripherals" in out:
+        out["peripherals"] = {
+            str(p["name"]): {k: v for k, v in p.items() if k != "name"}
+            for p in cast("list[dict[str, Any]]", out["peripherals"])
+        }
+    return out

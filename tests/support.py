@@ -16,6 +16,7 @@ from riscv_tools import cli
 from riscv_tools.htif import write_header
 from riscv_tools.memory_map import set_override
 from riscv_tools.memory_map.core_profile import legacy_to_core
+from riscv_tools.memory_map.layout import to_layout
 
 GCC = "riscv32-unknown-elf-gcc"
 OBJCOPY = "riscv32-unknown-elf-objcopy"
@@ -517,4 +518,15 @@ def dump_platform(platform: dict[str, Any]) -> str:
             [str(e) for e in extras],
         )
         data = {"core": core, **data}
-    return yaml.safe_dump(data, sort_keys=False)
+    return yaml.safe_dump(to_layout(data), sort_keys=False)
+
+
+# A memory block of the smallest platform: every segment on chip.
+MEMORY_TEXT = (
+    "memory:\n"
+    "  boot:\n    base: 0x0\n    size: 4K\n"
+    "  instructions:\n"
+    "    - type: onchip\n      base: 0x1000\n      size: 8K\n"
+    "  data:\n"
+    "    - type: onchip\n      base: 0x40000000\n      size: 64K\n"
+)

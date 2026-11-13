@@ -21,7 +21,6 @@ from riscv_tools.new_project.layout import (
 from riscv_tools.new_project.spec import SECTOR_BYTES, ProjectSpec
 from riscv_tools.new_project.template import CREATED_MARK
 
-BOOT_REGION = "BOOT_MEMORY"
 _RESERVED = ("stdout", "tohost", "fromhost")
 
 
@@ -119,76 +118,112 @@ def _replace(
     return new
 
 
-def _region_names(platform: dict[str, Any]) -> tuple[str, str]:
-    """Name the ROM and the RAM region of the template.
+def _segment_of(platform: dict[str, Any], side: str) -> dict[str, Any]:
+    """Read the segment of `instructions` or `data` of the template.
 
     Parameters
     ----------
     platform : dict of {str: Any}
         The template, parsed.
+    side : str
+        `instructions` or `data`.
 
     Returns
     -------
-    tuple of (str, str)
-        The ROM region (the one after the BOOT_MEMORY) and the RAM.
+    dict of {str: Any}
+        The one segment of the side.
 
     Raises
     ------
     ValueError
-        If the template has no such regions.
+        If the template has no segment on the side.
     """
-    regions = cast(list[dict[str, Any]], platform.get("regions", []))
-    roms = [
-        r["name"]
-        for r in regions
-        if r.get("kind", "rom") == "rom" and r["name"] != BOOT_REGION
-    ]
-    rams = [r["name"] for r in regions if r.get("kind") == "ram"]
-    if len(roms) != 1 or len(rams) != 1:
-        raise ValueError("the template needs one ROM and one RAM region")
-    return roms[0], rams[0]
+    memory = cast(dict[str, Any], platform.get("memory") or {})
+    items = cast(list[dict[str, Any]], memory.get(side) or [])
+    if len(items) != 1:
+        raise ValueError(f"the template needs one segment in memory.{side}")
+    return items[0]
 
 
-def _base_of(platform: dict[str, Any], name: str) -> int:
-    """Read the base address of a region.
+def _base_of(platform: dict[str, Any], side: str) -> int:
+    """Read the base address of a side.
 
     Parameters
     ----------
     platform : dict of {str: Any}
         The template, parsed.
-    name : str
-        Name of the region.
+    side : str
+        `instructions` or `data`.
 
     Returns
     -------
     int
         The base address.
     """
-    for region in platform["regions"]:
-        if region["name"] == name:
-            return int(evaluate(region["base"]))
-    raise ValueError(f"the template has no region {name}")
+    return int(evaluate(_segment_of(platform, side)["base"]))
 
 
-def _set_region_size(text: str, name: str, size: int) -> str:
-    """Change the size written on the line of a region.
+def _edit_side(text: str, side: str, edit: Callable[[str], str]) -> str:
+    """Edit the text of the segment of one side of `memory`.
 
     Parameters
     ----------
     text : str
         The file.
-    name : str
-        Name of the region.
+    side : str
+        `instructions` or `data`.
+    edit : Callable
+        Builds the new text of the segment (its lines, indented below
+        `<side>:`).
+
+    Returns
+    -------
+    str
+        The file with the segment changed.
+
+    Raises
+    ------
+    ValueError
+        If the file has no such side.
+    """
+    pattern = rf"^(  {side}:\n)((?:    [^\n]*\n|[ \t]*\n)*)"
+    found = re.search(pattern, text, flags=re.MULTILINE)
+    if found is None:
+        raise ValueError(f"platform.yaml has no `{side}:` block in memory")
+    return text[: found.start(2)] + edit(found[2]) + text[found.end(2) :]
+
+
+def _set_region_size(text: str, side: str, size: int) -> str:
+    """Change the size written in the segment of a side.
+
+    Parameters
+    ----------
+    text : str
+        The file.
+    side : str
+        `instructions` or `data`.
     size : int
         New size in bytes.
 
     Returns
     -------
     str
-        The file with the region resized.
+        The file with the segment resized.
     """
-    pattern = rf"^(\s*- \{{name: {name},\s*base: [^,]+, size: )[^,}}]+"
-    return _replace(text, pattern, lambda m: f"{m[1]}{size_text(size)}")
+
+    def edit(block: str) -> str:
+        new, count = re.subn(
+            r"^(      size: )[^\n#]*",
+            lambda m: f"{m[1]}{size_text(size)}",
+            block,
+            count=1,
+            flags=re.MULTILINE,
+        )
+        if count == 0:
+            raise ValueError(f"memory.{side} has no `size:` line")
+        return new
+
+    return _edit_side(text, side, edit)
 
 
 def _set_reserved(text: str, bases: dict[str, int]) -> str:
@@ -209,15 +244,13 @@ def _set_reserved(text: str, bases: dict[str, int]) -> str:
     for word in _RESERVED:
         text = _replace(
             text,
-            rf"^(\s+{word}:\s+\{{base: )0x[0-9A-Fa-f]+",
+            rf"^(  {word}:\n    base: )0x[0-9A-Fa-f]+",
             lambda m, word=word: f"{m[1]}0x{bases[word]:08X}",
         )
     return text
 
 
-def _set_banks(
-    text: str, platform: dict[str, Any], rom: str, size: int
-) -> str:
+def _set_banks(text: str, platform: dict[str, Any], size: int) -> str:
     """Re-split the FLASH banks for a new FLASH size.
 
     Parameters
@@ -226,10 +259,8 @@ def _set_banks(
         The file.
     platform : dict of {str: Any}
         The template, parsed.
-    rom : str
-        Name of the ROM region.
     size : int
-        New size of the ROM in bytes.
+        New size of the instruction segment in bytes.
 
     Returns
     -------
@@ -239,9 +270,9 @@ def _set_banks(
     """
     if "flash" not in platform:
         return text
-    memory = cast(dict[str, Any], platform.get("memory", {}))
-    sector = int(memory.get("rom", {}).get("sector_bytes", SECTOR_BYTES))
-    for bank in flash_banks(_base_of(platform, rom), size, sector):
+    segment = _segment_of(platform, "instructions")
+    sector = int(segment.get("sector_bytes", SECTOR_BYTES))
+    for bank in flash_banks(_base_of(platform, "instructions"), size, sector):
         text = _replace(
             text,
             rf"^(\s*- \{{name: {bank.name},\s*base: )0x[0-9A-Fa-f]+"
@@ -253,29 +284,41 @@ def _set_banks(
     return text
 
 
-def _set_cache(text: str, name: str, bits: int) -> str:
-    """Turn a cache on with a size, or off.
+def _set_cache(text: str, side: str, bits: int) -> str:
+    """Turn the cache of a side on with a size, or off.
 
     Parameters
     ----------
     text : str
         The file.
-    name : str
-        `icache` or `dcache`.
+    side : str
+        `instructions` or `data`.
     bits : int
         Size in bits; 0 turns the cache off.
 
     Returns
     -------
     str
-        The file with the cache line changed.
+        The file with the `cache` block of the segment changed.
     """
-    value = f"enabled: true, size_bits: {bits}" if bits else "enabled: false"
-    return _replace(
-        text,
-        rf"^(\s*{name}: \{{)[^}}]*",
-        lambda m: f"{m[1]}{value}",
-    )
+
+    def edit(block: str) -> str:
+        bare = re.sub(
+            r"^      cache:\n(?:        [^\n]*\n)*", "", block, flags=re.M
+        )
+        if not bits:
+            return bare
+        cache = f"      cache:\n        size_bits: {bits}\n"
+        new, count = re.subn(
+            r"^(      on_bus: [^\n]*\n)",
+            lambda m: m[1] + cache,
+            bare,
+            count=1,
+            flags=re.MULTILINE,
+        )
+        return new if count else bare + cache
+
+    return _edit_side(text, side, edit)
 
 
 def rewrite_platform(
@@ -300,23 +343,22 @@ def rewrite_platform(
         The new file.
     """
     platform = cast(dict[str, Any], yaml.safe_load(text))
-    rom, ram = _region_names(platform)
     text = _replace(text, r"^(platform: ).*$", lambda m: f"{m[1]}{spec.name}")
     text = _replace(text, r"^(top: ).*$", lambda m: f"{m[1]}{top}")
     if spec.profile is not None:
         text = _set_core(text, platform, spec.profile)
     if spec.rom_bytes is not None:
-        text = _set_region_size(text, rom, spec.rom_bytes)
-        text = _set_banks(text, platform, rom, spec.rom_bytes)
+        text = _set_region_size(text, "instructions", spec.rom_bytes)
+        text = _set_banks(text, platform, spec.rom_bytes)
     if spec.ram_bytes is not None:
-        text = _set_region_size(text, ram, spec.ram_bytes)
+        text = _set_region_size(text, "data", spec.ram_bytes)
         text = _set_reserved(
-            text, reserved_bases(_base_of(platform, ram), spec.ram_bytes)
+            text, reserved_bases(_base_of(platform, "data"), spec.ram_bytes)
         )
     if spec.icache_bits is not None:
-        text = _set_cache(text, "icache", spec.icache_bits)
+        text = _set_cache(text, "instructions", spec.icache_bits)
     if spec.dcache_bits is not None:
-        text = _set_cache(text, "dcache", spec.dcache_bits)
+        text = _set_cache(text, "data", spec.dcache_bits)
     header = (
         f"# Platform {spec.name}, {CREATED_MARK} from {template}.\n"
         "# Edit this file and run `riscv-tools generate-memory-map` again.\n"
