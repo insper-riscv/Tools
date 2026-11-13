@@ -410,7 +410,7 @@ def _profile_problems(
             "interrupts",
             "",
             "the profile does not turn on has_interrupts "
-            "(extras: [Interrupts])",
+            "(the Interrupts extension of `core`)",
         )
     ]
 

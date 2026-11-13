@@ -23,6 +23,7 @@ from riscv_tools.board_schema import (
     VideoMode,
     VideoRole,
 )
+from riscv_tools.memory_map.core_profile import normalize
 
 # Chaves de `board.memories` que citam um chip do catálogo de tempos.
 CHIP_KEYS = ("sdram", "sram", "nor")
@@ -228,7 +229,12 @@ def _read_platform(path: Path) -> dict[str, Any]:
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise InputError(f"{path}: not a YAML mapping")
-    return cast(dict[str, Any], data)
+    platform = cast(dict[str, Any], data)
+    try:
+        normalize(platform, path)
+    except ValueError as error:
+        raise InputError(f"{path}: {error}") from error
+    return platform
 
 
 def load_inputs(

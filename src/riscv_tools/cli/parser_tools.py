@@ -122,7 +122,7 @@ def add_tool_commands(sub: Any) -> None:
         "--set",
         action="append",
         metavar="NAME=VALUE",
-        help="Variant: IS_64, IS_BASE_E or a HAS_* constant take true or "
+        help="Variant: IS_64, IS_E or a HAS_* constant take true or "
         "false and ADDR_BITS an integer (repeatable)",
     )
     p.add_argument(

@@ -11,7 +11,8 @@ out of it (a regular expression with one capture group, or a dotted
 symbols. A check whose pattern matches nothing fails.
 
 Symbols are `<REGION>.base|size|end|words`, `<reserved>.base|size|end`,
-`boot.entry`, `boot.wait_restart` and `<PERIPHERAL>.base|id`.
+`boot.entry`, `boot.wait_restart` and
+`<PERIPHERAL>.base|size|window|index`.
 Expressions accept `+ - * /` (exact division only), `log2()` (exact),
 `clog2()` (rounded up), and hexadecimal, decimal, VHDL-based
 (`16#800#`) and suffixed (`30K`, `0x800u`) numbers.
@@ -23,12 +24,15 @@ from typing import Any, cast
 
 import yaml
 
+from riscv_tools.memory_map.core_profile import normalize
 from riscv_tools.memory_map.expressions import evaluate
+from riscv_tools.memory_map.profile import profile_replaced
 
 NUM_REGS = {"i": 32, "e": 16}
 DEFAULT_ADDRESS_BITS = 32
 MIN_ADDRESS_BITS = 16
 MAX_ADDRESS_BITS = 64
+MIN_WINDOW = 16
 
 
 @dataclass(frozen=True)
@@ -83,7 +87,9 @@ def load_platform(path: Path) -> dict[str, Any]:
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError(f"{path}: not a YAML mapping")
-    return cast(dict[str, Any], data)
+    platform = cast(dict[str, Any], data)
+    normalize(platform, path, replaced=profile_replaced())
+    return platform
 
 
 def address_bits(platform: dict[str, Any]) -> int:
@@ -116,59 +122,6 @@ def address_bits(platform: dict[str, Any]) -> int:
             f"{MAX_ADDRESS_BITS}, got {value!r}"
         )
     return value
-
-
-def periph_window_base(bits: int) -> int:
-    """Name the base of the peripheral window of an address width.
-
-    Parameters
-    ----------
-    bits : int
-        The width of the physical address.
-
-    Returns
-    -------
-    int
-        The upper half of the address space, `1 << (bits - 1)`
-        (`0x80000000` for 32 bits).
-    """
-    return 1 << (bits - 1)
-
-
-def periph_id_shift(bits: int) -> int:
-    """Name the bit where the identifier of a peripheral starts.
-
-    Parameters
-    ----------
-    bits : int
-        The width of the physical address.
-
-    Returns
-    -------
-    int
-        `bits - 4`: the identifier takes the three bits below the
-        window bit (28 for 32 bits).
-    """
-    return bits - 4
-
-
-def periph_window(platform: dict[str, Any]) -> int:
-    """Find the base of the peripheral window of the platform.
-
-    Parameters
-    ----------
-    platform : dict of {str: Any}
-        The loaded platform: `periph_window` fixes the base, which
-        otherwise is derived from `address_bits`.
-
-    Returns
-    -------
-    int
-        The base address of the window.
-    """
-    if "periph_window" in platform:
-        return evaluate(platform["periph_window"])
-    return periph_window_base(address_bits(platform))
 
 
 def profile_base(platform: dict[str, Any]) -> str:
@@ -259,72 +212,59 @@ def strict_periph(platform: dict[str, Any]) -> bool:
     return value
 
 
-def _choice(has_base: bool, has_offset: bool) -> str:
-    """Say whether an entry gives exactly one of `base` and `offset`.
+def window_of(size: int) -> int:
+    """Name the window of a peripheral, derived from its size.
 
     Parameters
     ----------
-    has_base : bool
-        The entry has `base`.
-    has_offset : bool
-        The entry has `offset`.
+    size : int
+        The bytes of registers of the peripheral.
 
     Returns
     -------
-    str
-        `ok` for exactly one, `both` or `none` otherwise.
+    int
+        The smallest power of two that is not below `size`, and never
+        below `MIN_WINDOW` (16 bytes).
     """
-    if has_base != has_offset:
-        return "ok"
-    return "both" if has_base else "none"
+    return 1 << (max(size, MIN_WINDOW) - 1).bit_length()
 
 
-def _complete(raw: dict[str, Any], window: int, bits: int) -> dict[str, Any]:
-    """Complete one peripheral with its `base`, `offset` and `id`.
+def _complete(raw: dict[str, Any], index: int) -> dict[str, Any]:
+    """Complete one peripheral with its numbers and its `window`.
 
     Parameters
     ----------
     raw : dict of {str: Any}
         The entry as written.
-    window : int
-        The base of the peripheral window.
-    bits : int
-        The width of the physical address.
+    index : int
+        The position of the entry in `peripherals`.
 
     Returns
     -------
     dict of {str: Any}
-        A copy with `choice`, `relative` and, when the entry gives
-        exactly one of `base` and `offset`, both of them and the `id`.
+        A copy with `index` and, for each of `base` and `size` that the
+        entry gives, the evaluated number; `window` when `size` is
+        positive. A field that is missing stays missing, for the
+        validation to report.
     """
     item = dict(raw)
-    item["relative"] = "offset" in raw or "padding" in raw
-    item["choice"] = _choice("base" in raw, "offset" in raw)
-    if item["choice"] != "ok":
-        return item
-    if "offset" in raw:
-        offset = evaluate(raw["offset"])
-        base = window + offset
-    else:
-        base = evaluate(raw["base"])
-        offset = base - window
-    item |= {"base": base, "offset": offset}
-    if "id" not in raw and offset >= 0:
-        item["id"] = offset >> periph_id_shift(bits)
+    item["index"] = index
+    for key in ("base", "size"):
+        if key in raw:
+            item[key] = evaluate(raw[key])
+    if int(item.get("size", 0)) > 0:
+        item["window"] = window_of(int(item["size"]))
     return item
 
 
 def peripheral_list(platform: dict[str, Any]) -> list[dict[str, Any]]:
-    """Read the peripherals, each with a `base` and an `offset`.
+    """Read the peripherals, each with its `base`, `size` and `window`.
 
-    A peripheral gives exactly one of `base` (absolute) and `offset`
-    (from the base of the peripheral window), and `id` is optional.
-    Every entry comes back with both `base` and `offset` and, when it
-    can be derived, `id` (`offset >> (address_bits - 4)`). An entry
-    that gives neither or both of `base` and `offset` comes back as
-    written, for the validation to report. `choice` is `ok`, `both` or
-    `none`, and `relative` is true when the entry uses `offset` or
-    `padding`.
+    A peripheral gives its `base` (absolute, aligned to its window) and
+    its `size` (bytes of registers). The window is derived: the
+    smallest power of two that is not below `size`, with at least 16
+    bytes. The `index` of a peripheral is its position in the list,
+    which is also its position in the tables of the SoC.
 
     Parameters
     ----------
@@ -336,14 +276,9 @@ def peripheral_list(platform: dict[str, Any]) -> list[dict[str, Any]]:
     list of dict of {str: Any}
         A copy of each entry of `peripherals`, completed.
     """
-    try:
-        bits = address_bits(platform)
-    except ValueError:
-        bits = DEFAULT_ADDRESS_BITS
-    window = periph_window({**platform, "address_bits": bits})
     return [
-        _complete(raw, window, bits)
-        for raw in platform_list(platform, "peripherals")
+        _complete(raw, index)
+        for index, raw in enumerate(platform_list(platform, "peripherals"))
     ]
 
 
@@ -359,7 +294,7 @@ def symbols(platform: dict[str, Any]) -> dict[str, int]:
     -------
     dict of {str: int}
         `REGION.base|size|end|words`, `reserved.base|size|end`,
-        `boot.entry|wait_restart`, `PERIPHERAL.base|id`.
+        `boot.entry|wait_restart`, `PERIPHERAL.base|size|window|index`.
     """
     out: dict[str, int] = {}
     for region in platform_list(platform, "regions"):
@@ -383,7 +318,9 @@ def symbols(platform: dict[str, Any]) -> dict[str, int]:
     for key, value in (platform_dict(platform, "boot")).items():
         out[f"boot.{key}"] = evaluate(value)
     for periph in peripheral_list(platform):
-        out[f"{periph['name']}.base"] = evaluate(periph["base"])
-        out[f"{periph['name']}.offset"] = int(periph["offset"])
-        out[f"{periph['name']}.id"] = int(periph["id"])
+        name = periph["name"]
+        out[f"{name}.index"] = int(periph["index"])
+        for key in ("base", "size", "window"):
+            if key in periph:
+                out[f"{name}.{key}"] = int(periph[key])
     return out

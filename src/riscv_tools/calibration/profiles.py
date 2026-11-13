@@ -16,19 +16,11 @@ from typing import Any, cast
 import yaml
 
 from riscv_tools.fit_estimate import ProfileSpec
+from riscv_tools.memory_map.core_profile import NAME_ORDER
 
 DEFAULT_HPM_COUNTERS = 29
 DEFAULT_HPM_WIDTH = 64
-KNOWN_EXTENSIONS = (
-    "Zicclsm",
-    "Zicsr",
-    "Zicntr",
-    "Zihpm",
-    "Zifencei",
-    "Zimop",
-    "Zicond",
-    "Zmmul",
-)
+KNOWN_EXTENSIONS = NAME_ORDER
 BASES = ("rv32i", "rv32e")
 GENERIC_HPM_COUNTERS = "HPM_COUNTERS"
 GENERIC_HPM_WIDTH = "HPM_WIDTH"

@@ -50,7 +50,7 @@ O arquivo da plataforma de partida é editado linha a linha, e os comentários d
 | Escolha | Linhas alteradas |
 | :--- | :--- |
 | Nome | `platform` e `top` |
-| `--profile` | `profile` |
+| `--profile` | bloco `core` (`type`, `base`, `extensions`) |
 | `--rom` | Tamanho da região de FLASH e as duas bancas de `flash`, divididas em setores inteiros |
 | `--ram` | Tamanho da região de RAM e as palavras `stdout`, `tohost` e `fromhost` no topo dela |
 | `--icache`, `--dcache` | Linha da cache em `memory`, com `enabled: false` quando `off` |

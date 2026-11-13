@@ -1,6 +1,6 @@
 	-- Backend emulado da FLASH: modelo de chip com latência, armazenamento e carregador pela JTAG.
 	flash_chip_inst : entity work.flash_chip
-		generic map (first_latency => {first}, next_latency => {nxt}, size_bytes => ROM_STORAGE_BYTES)
+		generic map (first_latency => {first}, next_latency => {nxt}, size_bytes => FLASH_STORAGE_BYTES)
 		port map (
 			i_clk => clk_core, i_rst => soc_rst,
 			i_addr => fl_addr, i_rden => fl_rden, i_line => fl_line, i_advance => fl_adv,
@@ -9,17 +9,17 @@
 		);
 
 	flash_store_inst : entity work.flash
-		generic map (size_bytes => ROM_STORAGE_BYTES)
+		generic map (size_bytes => FLASH_STORAGE_BYTES)
 		port map (
 			i_clk_a => clk_core,
-			i_address_a => fl_mem_addr(log2_exact(ROM_STORAGE_BYTES) - 1 downto 2),
+			i_address_a => fl_mem_addr(log2_exact(FLASH_STORAGE_BYTES) - 1 downto 2),
 			i_rden_a => '1', o_q_a => fl_mem_data,
 			i_clk_b => clk_core, i_address_b => {addr_b},
 			i_rden_b => '1', i_wren_b => {wren_b}, i_data_b => {data_b}, o_q_b => fl_b_data
 		);
 
 	flash_loader_inst : entity work.flash_loader
-		generic map (addr_width => log2_exact(ROM_STORAGE_BYTES) - 2)
+		generic map (addr_width => log2_exact(FLASH_STORAGE_BYTES) - 2)
 		port map (
 			i_clk => clk_core, i_rst => not pll_locked,
 			i_cmd_tog => flash_cmd_tog, o_done_tog => flash_done_tog,

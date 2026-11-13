@@ -15,9 +15,25 @@ board: auto
 boards: [de0-cv]
 # The component of paths.yaml whose closure of `requires` is the source list of the generated project.
 top: Insper-RISC-V/de0_cv_board
-# The profile of the platform: its base ISA (rv32i: 32 registers, rv32e: 16) and the extensions of the core.
-# `--profile NAME` of riscv-tools replaces it for one run (a matrix of tests); `profiles` is the specification.
-profile: rv32im_zicclsm_zicntr_zihpm_zifencei
+# The core of the platform: the width (type), the base ISA (I: 32 registers, E: 16) and the extensions, from which the
+# Tools infer the profile of the matrix; the ones the matrix lacks (Zihintntl, Zihintpause, Interrupts, Sscofpmf, AccessFaults)
+# stay on. `--profile NAME` of riscv-tools replaces the profile of the matrix for one run; `profiles` is the specification.
+core:
+  type: 32
+  base: I
+  extensions:
+    - M
+    - Zicclsm
+    - Zicntr
+    - Zihpm
+    - Zifencei
+    - Zimop
+    - Zicond
+    - Zihintntl
+    - Zihintpause
+    - Interrupts
+    - Sscofpmf
+    - AccessFaults
 profiles: ../../../Core/profiles/matrix.yaml
 
 regions:
@@ -45,16 +61,16 @@ flash:
     - {name: A, base: 0x00001000, size: 124K}
     - {name: B, base: 0x00020000, size: 128K}
 
-# The slots of the external interconnect (bits 30:28 of the address): the FLASH controller of the program update
+# The windows of the external interconnect (base and size of the registers; the window is the next power of two, at least 16 bytes): the FLASH controller of the program update
 # (commands of the FLASH chip; wired in the board top and, with HAS_FLASH_CONTROLLER, in the simulation top), the
 # JTAG UART and the seven-segment display of the board top, the CLINT (a 64 KiB slot: msip, mtimecmp and mtime) and the
 # PLIC (a 4 MiB window), the controller of the external interrupt lines, whose output is the MEIP of the core.
 peripherals:
-  - {name: FLASH_CTRL, base: 0xB0000000, id: 3}
-  - {name: UART,    base: 0xC0000000, id: 4}
-  - {name: DISPLAY, base: 0xD0000000, id: 5}
-  - {name: CLINT,   base: 0xE0000000, id: 6}
-  - {name: PLIC,    base: 0xF0000000, id: 7, size: 4M}
+  - {name: FLASH_CTRL, base: 0xB0000000, size: 64}
+  - {name: UART,    base: 0xC0000000, size: 16}
+  - {name: DISPLAY, base: 0xD0000000, size: 16}
+  - {name: CLINT,   base: 0xE0000000, size: 64K}
+  - {name: PLIC,    base: 0xF0000000, size: 4M}
 
 # The machine interrupts: MTIP and MSIP come from the CLINT, MEIP from the PLIC, all in the clock domain of the core
 # (76.923077 MHz here), so no synchronizer is needed. The mtime of the CLINT counts at mtime_hz (77 cycles per tick) and is
@@ -100,10 +116,6 @@ io:
   switches: {count: 10, need: optional}
   keys:     {count: 4,  need: optional}
   display:  {count: 6,  need: optional}
-
-# Extensions outside the matrix of the Core that the platform turns on (HAS_ZIMOP, HAS_ZICOND, HAS_ZIHINTNTL, HAS_ZIHINTPAUSE and HAS_INTERRUPTS of the package).
-extras: [Zimop, Zicond, Zihintntl, Zihintpause, Interrupts, Sscofpmf, AccessFaults]
-
 # The files written from this map by `riscv-tools generate-memory-map` (`make generate`): the linker
 # flags of the test programs and the linker script of the boot memory. `make memory-map` checks they are up to date.
 generate:
@@ -129,7 +141,7 @@ config:
 
 checks:
   # --- config.yaml ---------------------------------------------------------
-  - {name: config.yaml UART_SLOT, file: src/cyclone-v/de0-cv/config.yaml, pattern: 'UART_SLOT: "(\d+)"', expect: UART.id}
+  - {name: config.yaml UART_SLOT, file: src/cyclone-v/de0-cv/config.yaml, pattern: 'UART_SLOT: "(\d+)"', expect: UART.index}
 
   # --- boot memory (boot_memory.S; its linker script is generated) --------------
 

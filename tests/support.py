@@ -7,7 +7,7 @@ import struct
 import subprocess
 from collections.abc import Container, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 import yaml
@@ -15,6 +15,7 @@ import yaml
 from riscv_tools import cli
 from riscv_tools.htif import write_header
 from riscv_tools.memory_map import set_override
+from riscv_tools.memory_map.core_profile import legacy_to_core
 
 GCC = "riscv32-unknown-elf-gcc"
 OBJCOPY = "riscv32-unknown-elf-objcopy"
@@ -261,7 +262,7 @@ def write_zicsr_platform(
     (base / "matrix.yaml").write_text(yaml.safe_dump(spec))
     merged = yaml.safe_load(yaml.safe_dump(platform)) | changes
     path = base / "platform.yaml"
-    path.write_text(yaml.safe_dump(merged, sort_keys=False))
+    path.write_text(dump_platform(merged))
     set_override(None)
     return path
 
@@ -500,3 +501,20 @@ def read_manifest(project: Path, flavor: str) -> list[dict[str, Any]]:
     """
     path = project / "build" / flavor / "manifest.json"
     return json.loads(path.read_text())
+
+
+def dump_platform(platform: dict[str, Any]) -> str:
+    """Write a platform as YAML, with the `core` block.
+
+    The tests describe a platform by a profile name and extras, and the
+    file that the Tools read has the `core` block that stands for them.
+    """
+    data = dict(platform)
+    if "profile" in data or "extras" in data:
+        extras = cast("list[Any]", data.pop("extras", None) or [])
+        core = legacy_to_core(
+            str(data.pop("profile", "rv32i")),
+            [str(e) for e in extras],
+        )
+        data = {"core": core, **data}
+    return yaml.safe_dump(data, sort_keys=False)

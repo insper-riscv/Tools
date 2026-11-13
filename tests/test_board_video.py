@@ -155,7 +155,7 @@ def test_an_empty_video_request_takes_the_board_default() -> None:
     """`io.video: {}`, a null value and the peripheral ask for it."""
     check_equal(_platform_video("io: {video: {}}"), PlatformVideo())
     check_equal(_platform_video("io: {video: null}"), PlatformVideo())
-    peripheral = "peripherals: [{name: VIDEO, base: 0x1, id: 8}]"
+    peripheral = "peripherals: [{name: VIDEO, base: 0x10, size: 16}]"
     check_equal(_platform_video(peripheral), PlatformVideo())
 
 

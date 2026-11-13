@@ -1,7 +1,10 @@
 platform: de0-nano-soc
 board: auto
 boards: [de0-nano-soc]
-profile: rv32i
+core:
+  type: 32
+  base: I
+  extensions: []
 regions:
   - {name: BOOT_MEMORY, base: 0x00000000, size: 4K,  kind: rom, exec: true}
   - {name: FLASH,       base: 0x00001000, size: 12K, kind: rom, exec: true}

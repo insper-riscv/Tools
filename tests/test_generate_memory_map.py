@@ -14,6 +14,7 @@ from support import (
     check_equal,
     check_in,
     check_not_in,
+    dump_platform,
 )
 
 from riscv_tools import cli
@@ -29,7 +30,7 @@ PLATFORM: dict[str, Any] = {
     "regions": MAP_REGIONS,
     "reserved": MAP_RESERVED,
     "boot": {"entry": "0x800", "wait_restart": "0x100"},
-    "peripherals": [{"name": "UART", "base": "0xC0000000", "id": 4}],
+    "peripherals": [{"name": "UART", "base": "0xC0000000", "size": "16"}],
     "generate": {
         "specs": {
             "path": "out/x.specs",
@@ -51,7 +52,7 @@ PLATFORM: dict[str, Any] = {
 
 def _write(root: Path, platform: dict[str, Any] | None = None) -> Path:
     path = root / "platform.yaml"
-    path.write_text(yaml.safe_dump(platform or PLATFORM, sort_keys=False))
+    path.write_text(dump_platform(platform or PLATFORM))
     return path
 
 
@@ -103,26 +104,30 @@ def test_vhdl_package_has_the_generics_in_kib(tmp_path: Path) -> None:
     text = _map_package(tmp_path)
     _has(
         text,
-        "constant HAS_E               : boolean  := false;",
+        "constant IS_E                : boolean  := false;",
         "constant BOOT_MEMORY_BITS       : natural  := 11;",
         "constant BOOT_MEMORY_SIZE_BYTES : positive := 2048;",
-        "constant ROM_BASE_KIB        : natural  := 2;",
-        "constant ROM_END_KIB         : natural  := 32;",
-        "constant ROM_STORAGE_BYTES   : positive := 32768;",
+        "constant FLASH_BASE_KIB      : natural  := 2;",
+        "constant FLASH_END_KIB       : natural  := 32;",
+        "constant FLASH_STORAGE_BYTES : positive := 32768;",
         "constant RAM_BASE_KIB        : natural  := 32;",
         "constant RAM_END_KIB         : natural  := 192;",
         "constant RAM_STORAGE_BYTES   : positive := 262144;",
         "constant RAM_LAST_PAGE       :",
         'x"0002F"',
-        "constant EXT_BASE_KIB        : natural  := 2097152;",
-        "constant PERIPH_BASE_KIB     : natural  := 2097152;",
+        "constant PERIPH_COUNT : natural := 1;",
+        "constant STRICT_PERIPH : boolean := true;",
+        "constant UART_INDEX : natural := 0;",
+        "constant UART_BASE : addr_t := "
+        'std_logic_vector(resize(unsigned\'(x"C0000000"), ADDR_BITS));',
+        "UART_INDEX => UART_BASE",
+        'UART_INDEX => std_logic_vector(resize(unsigned\'(x"FFFFFFF0"), '
+        "ADDR_BITS))",
     )
-    check_in(
-        'constant UART_BASE : std_logic_vector(31 downto 0) := x"C0000000"',
-        text,
-    )
-    check_in("constant UART_ID   : natural := 4;", text)
     check_not_in("EXTERNAL", text)
+    check_not_in("ROM_", text)
+    check_not_in("EXT_BASE", text)
+    check_not_in("PERIPH_SLOTS", text)
 
 
 def test_write_then_check_passes_and_a_change_is_caught(
@@ -188,31 +193,25 @@ def test_the_external_flags_appear_when_the_platform_fixes_them(
     text = _map_package(tmp_path, fixed)
     _has(
         text,
-        "constant ROM_EXTERNAL        : boolean  := true;",
-        "constant RAM_EXTERNAL        : boolean  := false;",
+        "constant FLASH_ON_BUS        : boolean  := true;",
+        "constant RAM_ON_BUS          : boolean  := false;",
     )
 
 
-def test_a_region_above_the_peripheral_window_is_rejected(
-    tmp_path: Path,
-) -> None:
-    """A RAM above the lower 2 GiB is an error."""
+def test_a_peripheral_over_a_region_is_rejected(tmp_path: Path) -> None:
+    """A window that takes bytes of the RAM is an error (V-P5)."""
     bad = yaml.safe_load(yaml.safe_dump(PLATFORM))
-    bad["regions"][2] |= {"base": "0x7FFF8000", "size": "64K"}
-    bad["reserved"] = {}
-    with pytest.raises(ValueError, match="peripheral window"):
+    bad["peripherals"] = [{"name": "UART", "base": "0x10000", "size": "16"}]
+    with pytest.raises(ValueError, match="V-P5 peripheral UART and RAM"):
         render_all(_write(tmp_path, bad), tmp_path)
 
 
-def test_the_window_can_be_moved_by_the_platform(tmp_path: Path) -> None:
-    """A platform may name its own window bases in the VHDL section."""
-    moved = yaml.safe_load(yaml.safe_dump(PLATFORM))
-    moved["generate"]["vhdl"] |= {
-        "ext_base": "0x40000000",
-        "periph_base": "0x80000000",
-    }
-    text = _map_package(tmp_path, moved)
-    check_in("constant EXT_BASE_KIB        : natural  := 1048576;", text)
+def test_a_removed_window_key_is_rejected(tmp_path: Path) -> None:
+    """`ext_base` and `periph_base` no longer exist (V-P6)."""
+    bad = yaml.safe_load(yaml.safe_dump(PLATFORM))
+    bad["generate"]["vhdl"] |= {"ext_base": "0x40000000"}
+    with pytest.raises(ValueError, match="V-P6 ext_base"):
+        render_all(_write(tmp_path, bad), tmp_path)
 
 
 def test_runtime_header_has_the_shared_addresses(tmp_path: Path) -> None:
@@ -252,7 +251,7 @@ def test_the_profile_gives_the_registers_and_the_switches(
     text = _map_package(tmp_path, small)
     _has(
         text,
-        "constant HAS_E               : boolean  := true;",
+        "constant IS_E                : boolean  := true;",
         "constant HAS_M               : boolean  := true;",
     )
     set_override("rv32i")
@@ -261,7 +260,7 @@ def test_the_profile_gives_the_registers_and_the_switches(
     text = files[tmp_path / "out/map_pkg.vhd"]
     _has(
         text,
-        "constant HAS_E               : boolean  := false;",
+        "constant IS_E                : boolean  := false;",
         "constant HAS_M               : boolean  := false;",
     )
 
@@ -293,7 +292,7 @@ def test_the_profile_flag_reaches_the_generated_package(
     finally:
         set_override(None)
     text = (tmp_path / "out/map_pkg.vhd").read_text()
-    check_in("constant HAS_E               : boolean  := true;", text)
+    check_in("constant IS_E                : boolean  := true;", text)
 
 
 def test_extras_turn_on_what_the_matrix_omits(
@@ -355,18 +354,35 @@ def test_sscofpmf_extra_needs_zihpm_and_interrupts(tmp_path: Path) -> None:
             render_all(_write(tmp_path, bad), tmp_path)
 
 
-def test_periph_slots_mark_the_occupied_windows(tmp_path: Path) -> None:
-    """`PERIPH_SLOTS` has bit n set for each peripheral of id n."""
+def test_the_tables_hold_a_base_and_a_mask_per_peripheral(
+    tmp_path: Path,
+) -> None:
+    """The tables list the peripherals in the order of the platform."""
     plat = yaml.safe_load(yaml.safe_dump(PLATFORM))
     plat["peripherals"] = [
-        {"name": "A", "base": "0xB0000000", "id": 3},
-        {"name": "B", "base": "0xF0000000", "id": 7},
+        {"name": "A", "base": "0xB0000000", "size": "4M"},
+        {"name": "B", "base": "0xF0000100", "size": "20"},
     ]
     set_override(None)
     text = _map_package(tmp_path, plat)
-    check_in(
-        'PERIPH_SLOTS : std_logic_vector(7 downto 0) := "10001000";', text
+    _has(
+        text,
+        "constant PERIPH_COUNT : natural := 2;",
+        "constant A_INDEX : natural := 0;",
+        "constant B_INDEX : natural := 1;",
+        "A_INDEX => A_BASE,\n\t\tB_INDEX => B_BASE",
+        'A_INDEX => std_logic_vector(resize(unsigned\'(x"FFC00000"), '
+        "ADDR_BITS)),\n\t\tB_INDEX => "
+        'std_logic_vector(resize(unsigned\'(x"FFFFFFE0"), ADDR_BITS))',
     )
+
+
+def test_a_peripheral_must_be_aligned_to_its_window(tmp_path: Path) -> None:
+    """A base off its window is an error (V-P2)."""
+    bad = yaml.safe_load(yaml.safe_dump(PLATFORM))
+    bad["peripherals"] = [{"name": "A", "base": "0xB0000010", "size": "32"}]
+    with pytest.raises(ValueError, match="V-P2 peripheral A"):
+        render_all(_write(tmp_path, bad), tmp_path)
 
 
 BANKS_PLATFORM: dict[str, Any] = {

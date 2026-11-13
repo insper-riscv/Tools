@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from riscv_tools.memory_map import evaluate
 from riscv_tools.memory_map.core import peripheral_list
@@ -27,19 +27,22 @@ Como mudar o projeto
       --platform {platform}
     riscv-tools check-memory-map \\
       --platform {platform}
-  perfil       campo `profile`; os nomes válidos saem de
+  perfil       bloco `core` (`type`, `base`, `extensions`); o Tools
+               infere o perfil da matriz, e os nomes válidos saem de
                riscv-tools profiles \\
                  --spec Core/profiles/matrix.yaml --format names
-               (Zimop, Zicond, Interrupts e outras fora da matriz
-               ficam em `extras`)
+               (Interrupts e as outras extensões fora da matriz ficam
+               na mesma lista `extensions`)
                A BOOT_MEMORY executa fence.i: o perfil precisa de
                zifencei, ou o boot reinicia para sempre
   memórias     `size` das regiões FLASH e RAM; mantenha `reserved`
                dentro da RAM e as bancas de `flash` dentro da FLASH
   caches       `memory.icache` e `memory.dcache` (`enabled`,
                `size_bits`)
-  periféricos  uma linha de `peripherals` por periférico; a janela de
-               256 MiB de cada um é 0x80000000 | id << 28. A ligação
+  periféricos  uma linha de `peripherals` por periférico, com `base`
+               (endereço absoluto) e `size` (bytes de registradores);
+               a janela é a menor potência de dois, de 16 bytes ou
+               mais, e a base fica alinhada a ela. A ligação
                do VHDL de um periférico novo está no capítulo 11 de
                docs/pt-br/guide/nova-arquitetura.md
 
@@ -73,19 +76,23 @@ How to change the project
       --platform {platform}
     riscv-tools check-memory-map \\
       --platform {platform}
-  profile      field `profile`; the valid names come from
+  profile      block `core` (`type`, `base`, `extensions`); the Tools
+               infer the profile of the matrix, and the valid names
+               come from
                riscv-tools profiles \\
                  --spec Core/profiles/matrix.yaml --format names
-               (Zimop, Zicond, Interrupts and others outside the
-               matrix go in `extras`)
+               (Interrupts and the other extensions outside the matrix
+               stay in the same `extensions` list)
                The BOOT_MEMORY executes fence.i: the profile needs
                zifencei, or the boot restarts forever
   memories     `size` of the FLASH and RAM regions; keep `reserved`
                inside the RAM and the `flash` banks inside the FLASH
   caches       `memory.icache` and `memory.dcache` (`enabled`,
                `size_bits`)
-  peripherals  one `peripherals` line each; the 256 MiB window of a
-               peripheral is 0x80000000 | id << 28. The VHDL wiring
+  peripherals  one `peripherals` line each, with `base` (absolute
+               address) and `size` (bytes of registers); the window
+               is the smallest power of two, at least 16 bytes, and
+               the base is aligned to it. The VHDL wiring
                of a new peripheral is in chapter 11 of
                docs/en/guide/nova-arquitetura.md
 
@@ -149,7 +156,7 @@ def _peripherals(platform: dict[str, Any]) -> str:
     lines = [
         f"  {item['name']:<12} 0x{int(item['base']):08X}"
         for item in peripheral_list(platform)
-        if item.get("choice") == "ok"
+        if "base" in item
     ]
     return "\n".join(lines) or "  -"
 
@@ -185,6 +192,28 @@ def _memories(platform: dict[str, Any]) -> str:
     return ", ".join([*sizes, *caches])
 
 
+def _core(platform: dict[str, Any]) -> str:
+    """Describe the `core` block of a platform in one line.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The platform, parsed.
+
+    Returns
+    -------
+    str
+        The base and the extensions, or a dash when there is no block.
+    """
+    raw = platform.get("core")
+    if not isinstance(raw, dict):
+        return "-"
+    core = cast(dict[str, Any], raw)
+    base = core.get("base", "-")
+    names = ", ".join(str(e) for e in core.get("extensions", []))
+    return f"{base} + {names}" if names else str(base)
+
+
 def render_help(language: str, summary: Summary) -> str:
     """Write the help for a project that was just created.
 
@@ -209,7 +238,7 @@ def render_help(language: str, summary: Summary) -> str:
         platform=summary.folder / "platform.yaml",
         template=summary.template,
         board=summary.board,
-        profile=platform.get("profile", "-"),
+        profile=_core(platform),
         memories=_memories(platform),
         peripherals=_peripherals(platform),
     )
