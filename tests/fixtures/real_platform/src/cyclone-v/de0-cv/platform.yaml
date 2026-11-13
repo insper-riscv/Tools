@@ -45,16 +45,16 @@ flash:
     - {name: A, base: 0x00001000, size: 124K}
     - {name: B, base: 0x00020000, size: 128K}
 
-# The slots of the external interconnect (bits 30:28 of the address): the FLASH controller of the program update
+# The windows of the external interconnect (base and size of the registers; the window is the next power of two, at least 16 bytes): the FLASH controller of the program update
 # (commands of the FLASH chip; wired in the board top and, with HAS_FLASH_CONTROLLER, in the simulation top), the
 # JTAG UART and the seven-segment display of the board top, the CLINT (a 64 KiB slot: msip, mtimecmp and mtime) and the
 # PLIC (a 4 MiB window), the controller of the external interrupt lines, whose output is the MEIP of the core.
 peripherals:
-  - {name: FLASH_CTRL, base: 0xB0000000, id: 3}
-  - {name: UART,    base: 0xC0000000, id: 4}
-  - {name: DISPLAY, base: 0xD0000000, id: 5}
-  - {name: CLINT,   base: 0xE0000000, id: 6}
-  - {name: PLIC,    base: 0xF0000000, id: 7, size: 4M}
+  - {name: FLASH_CTRL, base: 0xB0000000, size: 64}
+  - {name: UART,    base: 0xC0000000, size: 16}
+  - {name: DISPLAY, base: 0xD0000000, size: 16}
+  - {name: CLINT,   base: 0xE0000000, size: 64K}
+  - {name: PLIC,    base: 0xF0000000, size: 4M}
 
 # The machine interrupts: MTIP and MSIP come from the CLINT, MEIP from the PLIC, all in the clock domain of the core
 # (76.923077 MHz here), so no synchronizer is needed. The mtime of the CLINT counts at mtime_hz (77 cycles per tick) and is
@@ -129,7 +129,7 @@ config:
 
 checks:
   # --- config.yaml ---------------------------------------------------------
-  - {name: config.yaml UART_SLOT, file: src/cyclone-v/de0-cv/config.yaml, pattern: 'UART_SLOT: "(\d+)"', expect: UART.id}
+  - {name: config.yaml UART_SLOT, file: src/cyclone-v/de0-cv/config.yaml, pattern: 'UART_SLOT: "(\d+)"', expect: UART.index}
 
   # --- boot memory (boot_memory.S; its linker script is generated) --------------
 

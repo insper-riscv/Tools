@@ -5,9 +5,10 @@ it names the files to write from it, so no copy of the map is typed by
 hand: the linker flags of the test programs (a GCC specs file), the
 linker script of the boot memory, a C and assembly header with the
 addresses of the words the host shares with the program, and a VHDL
-package with the generics of the core and the base of every
-peripheral, and the `config_pkg` with the constants of the platform
-(see `riscv_tools.memory_map.config_pkg`).
+package with the generics of the core, the base of every peripheral
+and the tables of windows that the interconnect decodes, and the
+`config_pkg` with the constants of the platform (see
+`riscv_tools.memory_map.config_pkg`).
 
 ```yaml
 generate:
@@ -28,8 +29,6 @@ generate:
     ram: RAM
     rom_external: false
     ram_external: false
-    ext_base: 0x40000000
-    periph_base: 0x80000000
   config_pkg:
     path: rtl/config_pkg.vhd
   bank_specs:
@@ -56,8 +55,6 @@ from riscv_tools.memory_map.core import (
     Mismatch,
     address_bits,
     load_platform,
-    periph_id_shift,
-    periph_window,
     peripheral_list,
     platform_dict,
     platform_list,
@@ -67,7 +64,6 @@ from riscv_tools.memory_map.expressions import evaluate
 from riscv_tools.memory_map.problems import platform_problems
 from riscv_tools.memory_map.profile import SWITCHES, resolve, xlen_of
 from riscv_tools.memory_map.symbol_table import symbol_table
-from riscv_tools.memory_map.validation import slot_extent
 
 KIB = 1024
 PAGE = 4096
@@ -162,6 +158,9 @@ _VHDL = """\
 
 library ieee;
 use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+use work.config_pkg.ADDR_BITS;
+use work.config_pkg.addr_t;
 
 package {package} is
 
@@ -169,14 +168,14 @@ package {package} is
 \tconstant BOOT_MEMORY_BITS       : natural  := {boot_bits};
 \t-- Tamanho da BOOT_MEMORY, em bytes.
 \tconstant BOOT_MEMORY_SIZE_BYTES : positive := {boot_bytes};
-\t-- Base da ROM, em KiB, logo depois da BOOT_MEMORY.
-\tconstant ROM_BASE_KIB        : natural  := {rom_base};
-\t-- Fim exclusivo da ROM, em KiB.
-\tconstant ROM_END_KIB         : natural  := {rom_end};
-\t-- Armazenamento da ROM, em bytes: a menor potência de dois que cobre
-\t-- [0, fim da ROM).
-\tconstant ROM_STORAGE_BYTES   : positive := {rom_storage};
-{rom_external}\t-- Base da RAM, em KiB.
+\t-- Base da FLASH, em KiB, logo depois da BOOT_MEMORY.
+\tconstant FLASH_BASE_KIB      : natural  := {flash_base};
+\t-- Fim exclusivo da FLASH, em KiB.
+\tconstant FLASH_END_KIB       : natural  := {flash_end};
+\t-- Armazenamento da FLASH, em bytes: a menor potência de dois que cobre
+\t-- [0, fim da FLASH).
+\tconstant FLASH_STORAGE_BYTES : positive := {flash_storage};
+{flash_on_bus}\t-- Base da RAM, em KiB.
 \tconstant RAM_BASE_KIB        : natural  := {ram_base};
 \t-- Fim exclusivo da RAM, em KiB.
 \tconstant RAM_END_KIB         : natural  := {ram_end};
@@ -187,11 +186,7 @@ package {package} is
 \t-- palavras que o hospedeiro compartilha com o programa.
 \tconstant RAM_LAST_PAGE       : std_logic_vector(19 downto 0) :=
 \t\tx"{last_page}";
-{ram_external}\t-- Base da janela externa, em KiB; dali em diante é externo.
-\tconstant EXT_BASE_KIB        : natural  := {ext_base};
-\t-- Base da janela de periféricos, em KiB: os 2 GiB superiores do espaço.
-\tconstant PERIPH_BASE_KIB     : natural  := {periph_base};
-{memory}{peripherals}
+{ram_on_bus}{memory}{peripherals}
 end package {package};
 """
 
@@ -399,8 +394,63 @@ def render_runtime(
     return _RUNTIME.format(source=source, defines=defines)
 
 
+def _vector(value: int, bits: int) -> str:
+    """Write an address as a VHDL `addr_t` expression.
+
+    Parameters
+    ----------
+    value : int
+        The address or the mask, at most `2**bits - 1`.
+    bits : int
+        The width of the physical address.
+
+    Returns
+    -------
+    str
+        A hexadecimal literal of the digits that `bits` take, resized
+        to `ADDR_BITS` and converted to `std_logic_vector`.
+    """
+    digits = max((bits + 3) // 4, len(f"{value:X}"))
+    return (
+        f'std_logic_vector(resize(unsigned\'(x"{value:0{digits}X}"), '
+        "ADDR_BITS))"
+    )
+
+
+def _table_lines(
+    name: str, comment: str, values: list[tuple[str, str]]
+) -> str:
+    """Write one table of the peripherals, an array of `addr_t`.
+
+    Parameters
+    ----------
+    name : str
+        The constant, `PERIPH_BASES` or `PERIPH_MASKS`.
+    comment : str
+        What the table holds.
+    values : list of tuple of (str, str)
+        The index constant and the value of each peripheral.
+
+    Returns
+    -------
+    str
+        The commented constant, with one named association per
+        peripheral (`others` when there is none).
+    """
+    rows = (
+        ",\n".join(f"\t\t{index} => {value}" for index, value in values)
+        if values
+        else "\t\tothers => (others => '0')"
+    )
+    return (
+        f"\n\t-- {comment}\n"
+        f"\tconstant {name} : periph_addr_array_t(0 to PERIPH_COUNT - 1) :="
+        f" (\n{rows}\n\t);\n"
+    )
+
+
 def _peripheral_lines(platform: dict[str, Any]) -> str:
-    """Write the VHDL constants for the base of every peripheral.
+    """Write the VHDL constants and tables of the peripherals.
 
     Parameters
     ----------
@@ -410,88 +460,56 @@ def _peripheral_lines(platform: dict[str, Any]) -> str:
     Returns
     -------
     str
-        The mask of the occupied slots and one commented constant per
-        peripheral, each preceded by a blank line.
+        `PERIPH_COUNT`, `STRICT_PERIPH`, the type of the tables, then
+        for each peripheral the `<NAME>_BASE` and the `<NAME>_INDEX`
+        (its position in the tables), then `PERIPH_BASES` and
+        `PERIPH_MASKS`, each preceded by a blank line.
     """
-    slots = 0
-    for periph in peripheral_list(platform):
-        slots |= 1 << int(periph["id"])
+    bits = address_bits(platform)
+    space = (1 << bits) - 1
+    periphs = peripheral_list(platform)
     lines = (
-        "\n\t-- Janelas de 256 MiB do barramento de periféricos que têm"
-        " periférico (bit n para o índice n, bits 30:28 do endereço).\n"
-        "\tconstant PERIPH_SLOTS : std_logic_vector(7 downto 0) :="
-        f' "{slots:08b}";\n'
+        "\n\t-- Número de periféricos do mapa, o tamanho das tabelas"
+        " abaixo.\n"
+        f"\tconstant PERIPH_COUNT : natural := {len(periphs)};\n"
+        "\t-- Periféricos estritos: o interconector termina com erro o"
+        " acesso ao que sobra da janela depois dos registradores.\n"
+        f"\tconstant STRICT_PERIPH : boolean := "
+        f"{str(strict_periph(platform)).lower()};\n"
+        "\t-- Tabela de endereços, um por periférico.\n"
+        "\ttype periph_addr_array_t is array (natural range <>) of addr_t;\n"
     )
-    for periph in peripheral_list(platform):
+    values: list[tuple[str, str, str]] = []
+    for periph in periphs:
         name = str(periph["name"]).upper()
-        base = evaluate(periph["base"])
+        base, window = int(periph["base"]), int(periph["window"])
         lines += (
             f"\n\t-- Endereço base do periférico {periph['name']}.\n"
-            f"\tconstant {name}_BASE : "
-            f'std_logic_vector(31 downto 0) := x"{base:08X}";\n'
-            f"\t-- Índice da janela de 256 MiB do periférico {periph['name']}"
-            f" (bits 30:28 do endereço).\n"
-            f"\tconstant {name}_ID   : natural := {int(periph['id'])};\n"
+            f"\tconstant {name}_BASE : addr_t := {_vector(base, bits)};\n"
+            f"\t-- Índice do periférico {periph['name']} nas tabelas"
+            f" PERIPH_BASES e PERIPH_MASKS.\n"
+            f"\tconstant {name}_INDEX : natural := {int(periph['index'])};\n"
         )
-        if periph["relative"]:
-            lines += _relative_lines(periph, platform)
-    return lines
-
-
-def _relative_lines(periph: dict[str, Any], platform: dict[str, Any]) -> str:
-    """Write the offset, size and padding of a relative peripheral.
-
-    Parameters
-    ----------
-    periph : dict of {str: Any}
-        A peripheral completed by `peripheral_list` that gave `offset`
-        or `padding`.
-    platform : dict of {str: Any}
-        The loaded platform, for the width of the address.
-
-    Returns
-    -------
-    str
-        `<NAME>_OFFSET` (from the base of the peripheral window),
-        `<NAME>_SIZE` (zero when the peripheral gives no `size`) and
-        `<NAME>_PAD` (the bytes reserved after the size), each a 32-bit
-        vector like `<NAME>_BASE`.
-
-    Raises
-    ------
-    ValueError
-        If a value does not fit 32 bits.
-    """
-    slot = 1 << periph_id_shift(address_bits(platform))
-    size, padding, _ = slot_extent(periph, slot)
-    name = str(periph["name"]).upper()
-    pad_what = (
-        "Padding (região de falha de acesso) reservado depois do tamanho"
-        if strict_periph(platform)
-        else "Padding reservado depois do tamanho"
-    )
-    rows = (
-        (
-            "OFFSET",
-            int(periph["offset"]),
-            "Deslocamento na janela de periféricos",
-        ),
-        ("SIZE", size, "Tamanho"),
-        ("PAD", padding, pad_what),
-    )
-    lines = ""
-    for suffix, value, what in rows:
-        if value >> 32:
-            raise ValueError(
-                f"{name}_{suffix} (0x{value:X}) does not fit the 32 bits "
-                "of the map package"
+        values.append(
+            (
+                f"{name}_INDEX",
+                f"{name}_BASE",
+                _vector(space ^ (window - 1), bits),
             )
-        lines += (
-            f"\t-- {what} do periférico {periph['name']}, em bytes.\n"
-            f"\tconstant {name}_{suffix:<6} : "
-            f'std_logic_vector(31 downto 0) := x"{value:08X}";\n'
         )
-    return lines
+    lines += _table_lines(
+        "PERIPH_BASES",
+        "Base de cada periférico, na ordem de `peripherals`.",
+        [(index, base) for index, base, _ in values],
+    )
+    return lines + _table_lines(
+        "PERIPH_MASKS",
+        "Máscara de cada janela: o periférico i responde quando"
+        " (endereço and PERIPH_MASKS(i)) = PERIPH_BASES(i); a janela é a"
+        " menor potência de dois que cobre o tamanho, com no mínimo 16"
+        " bytes.",
+        [(index, mask) for index, _, mask in values],
+    )
 
 
 def _external_line(kind: str, value: bool | None) -> str:
@@ -500,7 +518,7 @@ def _external_line(kind: str, value: bool | None) -> str:
     Parameters
     ----------
     kind : str
-        `ROM` or `RAM`.
+        `FLASH` or `RAM`.
     value : bool or None
         Whether the memory is external; None when the platform leaves
         the choice to each model.
@@ -513,8 +531,9 @@ def _external_line(kind: str, value: bool | None) -> str:
     if value is None:
         return ""
     return (
-        f"\t-- A {kind} fica fora do núcleo.\n"
-        f"\tconstant {kind}_EXTERNAL        : boolean  := "
+        f"\t-- A {kind} é alcançada pelo barramento (verdadeiro) ou pela"
+        " porta direta (falso).\n"
+        f"\tconstant {kind + '_ON_BUS':<19} : boolean  := "
         f"{str(value).lower()};\n"
     )
 
@@ -532,14 +551,14 @@ def _profile_lines(platform: dict[str, Any], platform_file: Path) -> str:
     Returns
     -------
     str
-        `HAS_E` (true for the RV32E) and, when the platform names the
+        `IS_E` (true for the RV32E) and, when the platform names the
         profile specification, one `HAS_*` switch per extension of the
         core.
     """
     base, generics, _ = resolve(platform, platform_file)
     lines = (
         "\t-- O perfil é o RV32E (16 registradores); falso é o RV32I (32).\n"
-        f"\tconstant HAS_E               : boolean  := "
+        f"\tconstant IS_E                : boolean  := "
         f"{str(base == 'e').lower()};\n"
     )
     for key in SWITCHES:
@@ -567,11 +586,9 @@ def render_vhdl(
         The loaded platform.
     spec : dict of {str: Any}
         The `generate.vhdl` section: `package`, the `rom` and `ram`
-        regions, the optional `ext_base` and `periph_base` (both default
-        to the peripheral window of the platform, `0x80000000` with 32
-        address bits) and, when the platform
-        fixes them and has no `memory`, `rom_external` and
-        `ram_external`.
+        regions and, when the platform fixes them and has no `memory`,
+        `rom_external` and `ram_external`, which become `FLASH_ON_BUS`
+        and `RAM_ON_BUS`.
     table : dict of {str: int}
         The symbols of the map.
     source : str
@@ -586,7 +603,6 @@ def render_vhdl(
     """
     boot = platform_list(platform, "regions")[0]["name"]
     rom, ram = spec["rom"], spec["ram"]
-    window = evaluate(spec.get("periph_base", periph_window(platform)))
     choice = memory_choice.resolve(platform)
     rom_external, ram_external = memory_choice.externals(spec, choice)
     return _VHDL.format(
@@ -595,17 +611,15 @@ def render_vhdl(
         profile=_profile_lines(platform, platform_file),
         boot_bits=(table[f"{boot}.size"] - 1).bit_length(),
         boot_bytes=table[f"{boot}.size"],
-        rom_base=_kib(table[f"{rom}.base"], f"{rom} base"),
-        rom_end=_kib(table[f"{rom}.end"], f"{rom} end"),
-        rom_storage=_power_of_two(table[f"{rom}.end"]),
-        rom_external=_external_line("ROM", rom_external),
+        flash_base=_kib(table[f"{rom}.base"], f"{rom} base"),
+        flash_end=_kib(table[f"{rom}.end"], f"{rom} end"),
+        flash_storage=_power_of_two(table[f"{rom}.end"]),
+        flash_on_bus=_external_line("FLASH", rom_external),
         ram_base=_kib(table[f"{ram}.base"], f"{ram} base"),
         ram_end=_kib(table[f"{ram}.end"], f"{ram} end"),
         ram_storage=_power_of_two(table[f"{ram}.size"]),
         last_page=_last_page(table[f"{ram}.end"]),
-        ram_external=_external_line("RAM", ram_external),
-        ext_base=_kib(evaluate(spec.get("ext_base", window)), "ext_base"),
-        periph_base=_kib(window, "periph_base"),
+        ram_on_bus=_external_line("RAM", ram_external),
         memory=""
         if choice is None
         else memory_choice.vhdl_lines(

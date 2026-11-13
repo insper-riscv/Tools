@@ -1,11 +1,11 @@
 	-- Porta B do armazenamento: do carregador da JTAG com o núcleo parado, e do chip de comandos nos demais casos.
-	st_address_b <= ld_address_b when flash_halt = '1' else fcmd_b_addr(log2_exact(ROM_STORAGE_BYTES) - 1 downto 2);
+	st_address_b <= ld_address_b when flash_halt = '1' else fcmd_b_addr(log2_exact(FLASH_STORAGE_BYTES) - 1 downto 2);
 	st_wren_b <= ld_wren_b when flash_halt = '1' else fcmd_b_we;
 	st_data_b <= ld_data_b when flash_halt = '1' else fcmd_b_wdata;
 
 	-- Chip de comandos da FLASH (apagar, gravar, proteger), alcançado pelo controlador da janela FLASH_CTRL.
 	flash_cmd_inst : entity work.flash_cmd_port
-		generic map (size_bytes => ROM_STORAGE_BYTES, sector_bytes => {sector}, base_addr => (others => '0'))
+		generic map (size_bytes => FLASH_STORAGE_BYTES, sector_bytes => {sector}, base_addr => (others => '0'))
 		port map (
 			i_clk => clk_core, i_rst => soc_rst,
 			i_cmd_valid => fcmd_valid, i_cmd_op => fcmd_op, i_cmd_addr => fcmd_addr,

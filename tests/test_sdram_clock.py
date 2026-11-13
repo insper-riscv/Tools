@@ -33,7 +33,6 @@ PLATFORM: dict[str, Any] = {
             "package": "clk_pkg",
             "rom": "FLASH",
             "ram": "RAM",
-            "ext_base": "0x80000000",
         },
     },
 }
@@ -125,9 +124,7 @@ def test_the_tick_is_a_symbol_of_the_checks(tmp_path: Path) -> None:
         tmp_path,
         extras=["Interrupts"],
         interrupts={"mtime_hz": 1000000},
-        peripherals=[
-            {"name": "CLINT", "base": "0xE0000000", "id": 6, "size": "64K"}
-        ],
+        peripherals=[{"name": "CLINT", "base": "0xE0000000", "size": "64K"}],
         checks=[check],
     )
     (tmp_path / "hdr.h").write_text("#define RV32_TICK_CYCLES 77\n")

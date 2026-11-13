@@ -60,7 +60,7 @@ memory:
   icache: {enabled: true, size_bits: 32768}
   dcache: {enabled: true, size_bits: 32768}
 peripherals:
-  - {name: UART, offset: 0x40000000, id: 4, size: 1K, padding: 0x0FFFFC00}
+  - {name: UART, base: 0xC0000000, size: 1K}
 """
 CONFIG = """\
 toolchain:

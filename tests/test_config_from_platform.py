@@ -186,8 +186,8 @@ def test_the_profile_reaches_the_core_through_the_config_pkg(
     ):
         set_override(name)
         text = config_from_platform(path)["sim"]["config_pkg"]
-        check_in(f"constant IS_BASE_E          : boolean := {base_e};", text)
-        check_in("constant HAS_M              : boolean := true;", text)
+        check_in(f"constant IS_E : boolean := {base_e};", text)
+        check_in("constant HAS_M             : boolean := true;", text)
 
 
 def test_the_letter_format_rejects_a_name_with_no_letter(

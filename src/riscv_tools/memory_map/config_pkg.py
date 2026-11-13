@@ -1,10 +1,12 @@
 """Write the `config_pkg`, the VHDL package of constants of a platform.
 
 The package is the single mirror, in VHDL, of what the platform YAML
-chooses: the base ISA (`IS_64`, `IS_BASE_E`), the width of the
+chooses: the base ISA (`IS_64`, `IS_E`), the width of the
 physical address (`ADDR_BITS`), one `HAS_*` constant for each
-extension, cache and peripheral, the memory map in bytes and the checks
-of the combination.
+extension, cache and peripheral that talks to the core, the memory map
+of the core (BOOT_MEMORY, FLASH and RAM, in bytes) and the checks of the
+combination. The peripherals of the SoC are in the package of the map
+(`riscv_tools.memory_map.generate`).
 It is a package of constants, one file for each platform, because the
 Quartus Lite refuses a generic package.
 
@@ -32,12 +34,9 @@ from typing import Any, cast
 from riscv_tools.memory_map import memory as memory_choice
 from riscv_tools.memory_map.core import (
     address_bits,
-    periph_id_shift,
-    periph_window,
     peripheral_list,
     platform_dict,
     platform_list,
-    strict_periph,
 )
 from riscv_tools.memory_map.expressions import evaluate
 from riscv_tools.memory_map.problems import platform_problems
@@ -52,19 +51,13 @@ from riscv_tools.memory_map.symbol_table import symbol_table
 PACKAGE = "config_pkg"
 TEMPLATE = Path(__file__).resolve().parent / "templates" / "config_pkg.vhd.in"
 
-# Constante do pacote de cada periférico e o nome dele em `peripherals`.
+# Constante do pacote de cada periférico que fala com o núcleo e o nome
+# dele em `peripherals`.
 PERIPHERALS = {
-    "HAS_UART": "UART",
-    "HAS_UART_PINS": "UART_PINS",
-    "HAS_UART_JTAG": "UART_JTAG",
     "HAS_TIMER": "TIMER",
     "HAS_GPIO": "GPIO",
-    "HAS_DISPLAY": "DISPLAY",
-    "HAS_SWITCHES": "SWITCHES",
-    "HAS_KEYS": "KEYS",
     "HAS_CLINT": "CLINT",
     "HAS_PLIC": "PLIC",
-    "HAS_FLASH_CTRL": "FLASH_CTRL",
 }
 _HEADER = """\
 -- ============================================================================
@@ -88,36 +81,32 @@ class Config:
     ----------
     is_64 : bool
         The base is RV64.
-    is_base_e : bool
+    is_e : bool
         The base is E (16 registers).
     address_bits : int
         The width of the physical address.
     flags : dict of {str: bool}
         Every `HAS_*` constant, in the order of the package: the
-        extensions, the caches and the peripherals; then the
-        `STRICT_PERIPH` of the platform.
-    rom_external : bool
-        The ROM is reached through the port of the core (outside the
-        chip or behind the instruction cache), `ROM_VIA_PORT` of the
-        package of the map.
-    ram_external : bool
-        The RAM is reached through the port of the core (outside the
-        chip or behind the data cache), `RAM_VIA_PORT`.
+        extensions, the caches and the peripherals of the core.
+    flash_on_bus : bool
+        The FLASH is reached through the bus (`FLASH_ON_BUS`).
+    ram_on_bus : bool
+        The RAM is reached through the bus (`RAM_ON_BUS`).
     boot_bits : int
         The exponent of the size of the BOOT_MEMORY.
     cache_window_bits : int
-        The width of the window of the tag of the caches.
+        The width of the window of the tag of the caches, the same for
+        `I_CACHE_WINDOW_BITS` and `D_CACHE_WINDOW_BITS`.
     addresses : dict of {str: int}
-        `ROM_BASE`, `ROM_END`, `RAM_BASE`, `RAM_END`, `EXT_BASE` and
-        `PERIPH_BASE`, in bytes.
+        `FLASH_BASE`, `FLASH_END`, `RAM_BASE` and `RAM_END`, in bytes.
     """
 
     is_64: bool
-    is_base_e: bool
+    is_e: bool
     address_bits: int
     flags: dict[str, bool]
-    rom_external: bool
-    ram_external: bool
+    flash_on_bus: bool
+    ram_on_bus: bool
     boot_bits: int
     cache_window_bits: int
     addresses: dict[str, int]
@@ -236,23 +225,14 @@ def _flags(
     -------
     dict of {str: bool}
         The extensions of `SWITCHES`, then `HAS_ICACHE` and
-        `HAS_DCACHE`, then one constant for each name of `PERIPHERALS`
-        and `STRICT_PERIPH`.
-        `HAS_UART_JTAG` and `HAS_UART_PINS` also follow `console` when
-        the platform lists a `UART`.
+        `HAS_DCACHE`, then one constant for each name of `PERIPHERALS`.
     """
     choice = memory_choice.resolve(platform)
     names = {str(p["name"]) for p in peripheral_list(platform)}
-    console = platform.get("console")
     flags = {key.upper(): bool(generics.get(key)) for key in SWITCHES}
     flags["HAS_ICACHE"] = choice is not None and choice.has_icache
     flags["HAS_DCACHE"] = choice is not None and choice.has_dcache
-    flags |= {flag: name in names for flag, name in PERIPHERALS.items()}
-    flags["STRICT_PERIPH"] = strict_periph(platform)
-    if "UART" in names:
-        flags["HAS_UART_JTAG"] |= console == "jtag"
-        flags["HAS_UART_PINS"] |= console == "pins"
-    return flags
+    return flags | {flag: name in names for flag, name in PERIPHERALS.items()}
 
 
 def _apply(
@@ -265,8 +245,8 @@ def _apply(
     flags : dict of {str: bool}
         The flags of the platform.
     overrides : dict of {str: bool or int}
-        The variant: `IS_64`, `IS_BASE_E` and `ADDR_BITS` are read by
-        the caller, the other names must be flags.
+        The variant: `IS_64`, `IS_E` and `ADDR_BITS` are read by the
+        caller, the other names must be flags.
 
     Returns
     -------
@@ -278,7 +258,7 @@ def _apply(
     ValueError
         If a name is neither a flag nor one of the three above.
     """
-    own = {"IS_64", "IS_BASE_E", "ADDR_BITS"}
+    own = {"IS_64", "IS_E", "ADDR_BITS"}
     unknown = sorted(set(overrides) - own - set(flags))
     if unknown:
         raise ValueError(
@@ -293,7 +273,7 @@ def _apply(
 def _addresses(
     platform: dict[str, Any], table: dict[str, int]
 ) -> dict[str, int]:
-    """Read the bases and ends of the memory map, in bytes.
+    """Read the bases and ends of the FLASH and of the RAM, in bytes.
 
     Parameters
     ----------
@@ -305,28 +285,24 @@ def _addresses(
     Returns
     -------
     dict of {str: int}
-        `ROM_BASE`, `ROM_END`, `RAM_BASE`, `RAM_END`, `EXT_BASE` and
-        `PERIPH_BASE`; the last two follow `generate.vhdl` when it fixes
-        `ext_base` and `periph_base`, else the peripheral window.
+        `FLASH_BASE`, `FLASH_END`, `RAM_BASE` and `RAM_END`.
     """
     rom, ram = _rom_ram(platform)
-    spec = _vhdl_spec(platform)
-    window = evaluate(spec.get("periph_base", periph_window(platform)))
     return {
-        "ROM_BASE": table[f"{rom}.base"],
-        "ROM_END": table[f"{rom}.end"],
+        "FLASH_BASE": table[f"{rom}.base"],
+        "FLASH_END": table[f"{rom}.end"],
         "RAM_BASE": table[f"{ram}.base"],
         "RAM_END": table[f"{ram}.end"],
-        "EXT_BASE": evaluate(spec.get("ext_base", window)),
-        "PERIPH_BASE": window,
     }
 
 
 def _relocated(platform: dict[str, Any], bits: int) -> dict[str, Any]:
     """Give the platform another address width and move its peripherals.
 
-    The bases of the peripherals follow the window of the width, so the
-    variant of a platform keeps the convention V-A4 checks.
+    A peripheral in the upper half of the old space keeps its place
+    relative to the upper half of the new one, scaled the way the
+    window of sixteen slots scales: the slot (`address_bits - 4` bits
+    up) is kept and the bytes inside the slot too.
 
     Parameters
     ----------
@@ -347,15 +323,44 @@ def _relocated(platform: dict[str, Any], bits: int) -> dict[str, Any]:
         If `bits` is not an integer from 16 to 64.
     """
     moved = {**platform, "address_bits": bits}
-    shift = periph_id_shift(address_bits(moved))
-    slot = 1 << periph_id_shift(address_bits(platform))
-    kept = ("base", "offset", "relative")
-    moved["peripherals"] = [
-        {k: v for k, v in periph.items() if k not in kept}
-        | {"offset": (int(periph["id"]) << shift) | (periph["offset"] % slot)}
-        for periph in peripheral_list(platform)
-    ]
+    address_bits(moved)
+    old = address_bits(platform)
+    half, slot = 1 << (old - 1), 1 << (old - 4)
+    new_half = 1 << (bits - 1)
+    items: list[dict[str, Any]] = []
+    for periph in platform_list(platform, "peripherals"):
+        base = evaluate(periph["base"])
+        if base >= half:
+            offset = base - half
+            base = new_half + ((offset // slot) << (bits - 4)) + offset % slot
+        items.append({**periph, "base": base})
+    moved["peripherals"] = items
     return moved
+
+
+def _bus_problem(flags: dict[str, bool], flash: bool, ram: bool) -> str:
+    """Name the cache that a variant put over a memory off the bus.
+
+    Parameters
+    ----------
+    flags : dict of {str: bool}
+        The flags, with the variant applied.
+    flash : bool
+        The FLASH is on the bus.
+    ram : bool
+        The RAM is on the bus.
+
+    Returns
+    -------
+    str
+        The message of the first cache that lacks its memory on the
+        bus; empty when none does.
+    """
+    if flags["HAS_ICACHE"] and not flash:
+        return "V-C1 HAS_ICACHE needs FLASH_ON_BUS"
+    if flags["HAS_DCACHE"] and not ram:
+        return "V-C2 HAS_DCACHE needs RAM_ON_BUS"
+    return ""
 
 
 def build_config(
@@ -374,7 +379,7 @@ def build_config(
     overrides : dict of {str: bool or int}, optional
         The variant (see `parse_overrides`), checked as a platform of
         its own: V-A1 to V-A6 hold for its `ADDR_BITS` and `IS_64`, and
-        its peripherals move to the window of that width.
+        its peripherals move to the upper half of that width.
 
     Returns
     -------
@@ -405,17 +410,19 @@ def build_config(
     table = symbol_table(platform)
     flags = _apply(_flags(platform, generics), overrides)
     boot = platform_list(platform, "regions")[0]["name"]
-    choice = memory_choice.resolve(platform)
-    rom_external, ram_external = memory_choice.externals(
-        _vhdl_spec(platform), choice
+    flash, ram = memory_choice.externals(
+        _vhdl_spec(platform), memory_choice.resolve(platform)
     )
+    bad = _bus_problem(flags, bool(flash), bool(ram))
+    if bad:
+        raise ValueError(bad)
     return Config(
         is_64=xlen == RV64_XLEN,
-        is_base_e=bool(overrides.get("IS_BASE_E", base == "e")),
+        is_e=bool(overrides.get("IS_E", base == "e")),
         address_bits=address_bits(platform),
         flags=flags,
-        rom_external=bool(rom_external) or flags["HAS_ICACHE"],
-        ram_external=bool(ram_external) or flags["HAS_DCACHE"],
+        flash_on_bus=bool(flash),
+        ram_on_bus=bool(ram),
         boot_bits=(table[f"{boot}.size"] - 1).bit_length(),
         cache_window_bits=memory_choice.cache_window_bits(platform),
         addresses=_addresses(platform, table),
@@ -475,12 +482,13 @@ def render_config_pkg(
     }
     fields |= {
         "is_64": str(config.is_64).lower(),
-        "is_base_e": str(config.is_base_e).lower(),
+        "is_e": str(config.is_e).lower(),
         "addr_bits": str(bits),
         "boot_memory_bits": str(config.boot_bits),
-        "cache_window_bits": str(config.cache_window_bits),
-        "rom_external": str(config.rom_external).lower(),
-        "ram_external": str(config.ram_external).lower(),
+        "i_cache_window_bits": str(config.cache_window_bits),
+        "d_cache_window_bits": str(config.cache_window_bits),
+        "flash_on_bus": str(config.flash_on_bus).lower(),
+        "ram_on_bus": str(config.ram_on_bus).lower(),
     }
     fields |= {
         key.lower(): _address(value, bits)

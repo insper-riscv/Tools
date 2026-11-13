@@ -97,8 +97,32 @@ def external(spec: TopSpec) -> dict[str, tuple[str, str]]:
     return out
 
 
-def flash_ctrl_id(spec: TopSpec) -> int | None:
-    """Dá a janela do controlador de FLASH da atualização de programa.
+def peripheral_index(platform: dict[str, Any], name: str) -> int | None:
+    """Dá a posição de um periférico nas tabelas do SoC.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        O `platform.yaml`.
+    name : str
+        O periférico.
+
+    Returns
+    -------
+    int or None
+        A posição do periférico em `peripherals`, que é o `<NOME>_INDEX`
+        do pacote do mapa; `None` quando a plataforma não o lista.
+    """
+    for index, entry in enumerate(
+        cast(list[dict[str, Any]], platform.get("peripherals") or [])
+    ):
+        if entry.get("name") == name:
+            return index
+    return None
+
+
+def flash_ctrl_index(spec: TopSpec) -> int | None:
+    """Dá o índice do controlador de FLASH da atualização de programa.
 
     Parameters
     ----------
@@ -108,17 +132,13 @@ def flash_ctrl_id(spec: TopSpec) -> int | None:
     Returns
     -------
     int or None
-        O `id` do periférico `FLASH_CTRL` quando a FLASH é emulada e a
+        O `index` do `FLASH_CTRL` quando a FLASH é emulada e a
         plataforma o declara; senão `None`.
     """
     backend, device = external(spec).get("rom", ("", ""))
     if backend != "emulado" and device != "nor":
         return None
-    for item in cast(list[Any], spec.platform.get("peripherals") or []):
-        fields = cast(dict[str, Any], item)
-        if fields.get("name") == "FLASH_CTRL":
-            return int(fields["id"])
-    return None
+    return peripheral_index(spec.platform, "FLASH_CTRL")
 
 
 def console(spec: TopSpec) -> str:

@@ -29,7 +29,7 @@ PLATFORM: dict[str, Any] = {
     "regions": MAP_REGIONS,
     "reserved": MAP_RESERVED,
     "boot": {"entry": "0x800", "wait_restart": "0x100"},
-    "peripherals": [{"name": "UART", "base": "0xC0000000", "id": 4}],
+    "peripherals": [{"name": "UART", "base": "0xC0000000", "size": "16"}],
     "config": {"rom": "FLASH", "ram": "RAM", "addr_widths": ["rom"]},
 }
 GENERICS = {"has_access_faults": True}
@@ -45,7 +45,9 @@ def _small(**changes: Any) -> dict[str, Any]:
     return _with(
         **{
             "address_bits": 24,
-            "peripherals": [{"name": "UART", "base": "0xC00000", "id": 4}],
+            "peripherals": [
+                {"name": "UART", "base": "0xC00000", "size": "16"}
+            ],
             **changes,
         }
     )
@@ -57,7 +59,9 @@ def _wide(**changes: Any) -> dict[str, Any]:
         **{
             "profile": "rv64im",
             "address_bits": 40,
-            "peripherals": [{"name": "UART", "base": "0xC000000000", "id": 4}],
+            "peripherals": [
+                {"name": "UART", "base": "0xC000000000", "size": "16"}
+            ],
             **changes,
         }
     )
@@ -120,8 +124,8 @@ def test_v_a3_a_region_must_fit_the_space() -> None:
     check(any("V-A3 region RAM" in p for p in problems), str(problems))
 
 
-def test_v_a4_the_window_and_the_ids_follow_the_width() -> None:
-    """V-A4: a region above the window or a base off the id fails."""
+def test_v_a4_the_window_must_fit_and_the_base_must_be_aligned() -> None:
+    """V-A4: a window past the space and a base off its window fail."""
     high = _small(
         regions=[
             *MAP_REGIONS[:2],
@@ -129,34 +133,32 @@ def test_v_a4_the_window_and_the_ids_follow_the_width() -> None:
         ]
     )
     check(
-        any(
-            "not below the peripheral window 0x800000" in p
-            for p in _problems(high)
-        ),
+        not any("peripheral window" in p for p in _problems(high)),
         str(_problems(high)),
     )
-    off = _small(peripherals=[{"name": "UART", "base": "0xD00000", "id": 4}])
+    off = _small(
+        peripherals=[{"name": "UART", "base": "0xD00008", "size": "16"}]
+    )
     check(
-        any(
-            "peripheral UART base is not in the slot of id 4" in p
-            for p in _problems(off)
-        ),
+        any("V-P2 peripheral UART base 0xD00008" in p for p in _problems(off)),
         str(_problems(off)),
     )
-    far = _with(peripherals=[{"name": "X", "base": "0x0", "id": 16}])
+    far = _with(
+        peripherals=[{"name": "X", "base": "0xFFFFFF0000000000", "size": "16"}]
+    )
     check(
-        any("V-A4 peripheral X id 16" in p for p in _problems(far)),
+        any("V-A4 peripheral X window" in p for p in _problems(far)),
         str(_problems(far)),
     )
 
 
-def test_v_a4_a_fixed_window_replaces_the_derived_one() -> None:
-    """`periph_window` fixes the base the peripherals are or-ed into."""
-    fixed = _with(
-        periph_window="0xA0000000",
-        peripherals=[{"name": "UART", "base": "0xB0000000", "id": 1}],
+def test_v_p6_the_fixed_window_key_is_refused() -> None:
+    """`periph_window` no longer exists: the core has no such window."""
+    fixed = _with(periph_window="0xA0000000")
+    check(
+        any("V-P6 periph_window" in p for p in _problems(fixed)),
+        str(_problems(fixed)),
     )
-    check_equal(_problems(fixed), [])
 
 
 def test_v_a5_a_narrow_address_needs_the_access_faults() -> None:
@@ -167,7 +169,7 @@ def test_v_a5_a_narrow_address_needs_the_access_faults() -> None:
     wide32 = _problems(
         _wide(
             address_bits=32,
-            peripherals=[{"name": "UART", "base": "0xC0000000", "id": 4}],
+            peripherals=[{"name": "UART", "base": "0xC0000000", "size": "16"}],
         ),
         generics={},
     )

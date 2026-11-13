@@ -38,8 +38,10 @@ Como mudar o projeto
                dentro da RAM e as bancas de `flash` dentro da FLASH
   caches       `memory.icache` e `memory.dcache` (`enabled`,
                `size_bits`)
-  periféricos  uma linha de `peripherals` por periférico; a janela de
-               256 MiB de cada um é 0x80000000 | id << 28. A ligação
+  periféricos  uma linha de `peripherals` por periférico, com `base`
+               (endereço absoluto) e `size` (bytes de registradores);
+               a janela é a menor potência de dois, de 16 bytes ou
+               mais, e a base fica alinhada a ela. A ligação
                do VHDL de um periférico novo está no capítulo 11 de
                docs/pt-br/guide/nova-arquitetura.md
 
@@ -84,8 +86,10 @@ How to change the project
                inside the RAM and the `flash` banks inside the FLASH
   caches       `memory.icache` and `memory.dcache` (`enabled`,
                `size_bits`)
-  peripherals  one `peripherals` line each; the 256 MiB window of a
-               peripheral is 0x80000000 | id << 28. The VHDL wiring
+  peripherals  one `peripherals` line each, with `base` (absolute
+               address) and `size` (bytes of registers); the window
+               is the smallest power of two, at least 16 bytes, and
+               the base is aligned to it. The VHDL wiring
                of a new peripheral is in chapter 11 of
                docs/en/guide/nova-arquitetura.md
 
@@ -146,7 +150,7 @@ def _peripherals(platform: dict[str, Any]) -> str:
     lines = [
         f"  {item['name']:<12} 0x{int(item['base']):08X}"
         for item in peripheral_list(platform)
-        if item.get("choice") == "ok"
+        if "base" in item
     ]
     return "\n".join(lines) or "  -"
 

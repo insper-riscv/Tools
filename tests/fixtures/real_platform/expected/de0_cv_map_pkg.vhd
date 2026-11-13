@@ -9,11 +9,14 @@
 
 library ieee;
 use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+use work.config_pkg.ADDR_BITS;
+use work.config_pkg.addr_t;
 
 package de0_cv_map_pkg is
 
 	-- O perfil é o RV32E (16 registradores); falso é o RV32I (32).
-	constant HAS_E               : boolean  := false;
+	constant IS_E                : boolean  := false;
 	-- A extensão M está no perfil.
 	constant HAS_M               : boolean  := true;
 	-- A extensão Zmmul está no perfil.
@@ -46,15 +49,15 @@ package de0_cv_map_pkg is
 	constant BOOT_MEMORY_BITS       : natural  := 12;
 	-- Tamanho da BOOT_MEMORY, em bytes.
 	constant BOOT_MEMORY_SIZE_BYTES : positive := 4096;
-	-- Base da ROM, em KiB, logo depois da BOOT_MEMORY.
-	constant ROM_BASE_KIB        : natural  := 4;
-	-- Fim exclusivo da ROM, em KiB.
-	constant ROM_END_KIB         : natural  := 256;
-	-- Armazenamento da ROM, em bytes: a menor potência de dois que cobre
-	-- [0, fim da ROM).
-	constant ROM_STORAGE_BYTES   : positive := 262144;
-	-- A ROM fica fora do núcleo.
-	constant ROM_EXTERNAL        : boolean  := true;
+	-- Base da FLASH, em KiB, logo depois da BOOT_MEMORY.
+	constant FLASH_BASE_KIB      : natural  := 4;
+	-- Fim exclusivo da FLASH, em KiB.
+	constant FLASH_END_KIB       : natural  := 256;
+	-- Armazenamento da FLASH, em bytes: a menor potência de dois que cobre
+	-- [0, fim da FLASH).
+	constant FLASH_STORAGE_BYTES : positive := 262144;
+	-- A FLASH é alcançada pelo barramento (verdadeiro) ou pela porta direta (falso).
+	constant FLASH_ON_BUS        : boolean  := true;
 	-- Base da RAM, em KiB.
 	constant RAM_BASE_KIB        : natural  := 1048576;
 	-- Fim exclusivo da RAM, em KiB.
@@ -66,12 +69,8 @@ package de0_cv_map_pkg is
 	-- palavras que o hospedeiro compartilha com o programa.
 	constant RAM_LAST_PAGE       : std_logic_vector(19 downto 0) :=
 		x"43FFF";
-	-- A RAM fica fora do núcleo.
-	constant RAM_EXTERNAL        : boolean  := true;
-	-- Base da janela externa, em KiB; dali em diante é externo.
-	constant EXT_BASE_KIB        : natural  := 2097152;
-	-- Base da janela de periféricos, em KiB: os 2 GiB superiores do espaço.
-	constant PERIPH_BASE_KIB     : natural  := 2097152;
+	-- A RAM é alcançada pelo barramento (verdadeiro) ou pela porta direta (falso).
+	constant RAM_ON_BUS          : boolean  := true;
 	-- Existe cache de instruções.
 	constant HAS_ICACHE          : boolean  := true;
 	-- Existe cache de dados.
@@ -80,40 +79,60 @@ package de0_cv_map_pkg is
 	constant ICACHE_SIZE_BITS    : positive := 32768;
 	-- Tamanho da cache de dados, em bits (256 se não existe).
 	constant DCACHE_SIZE_BITS    : positive := 32768;
-	-- Largura da janela de endereços das caches, em bits: a tag guarda os bits abaixo dela (26 é 64 MiB, 27 é 128 MiB).
-	constant CACHE_WINDOW_BITS   : natural  := 26;
-	-- A ROM é alcançada pela porta do núcleo (externa ou com cache).
-	constant ROM_VIA_PORT        : boolean  := ROM_EXTERNAL or HAS_ICACHE;
-	-- A RAM é alcançada pela porta do núcleo (externa ou com cache).
-	constant RAM_VIA_PORT        : boolean  := RAM_EXTERNAL or HAS_DCACHE;
+	-- Largura da janela de endereços da cache de instruções, em bits: a tag guarda os bits abaixo dela (26 é 64 MiB, 27 é 128 MiB).
+	constant I_CACHE_WINDOW_BITS : natural  := 26;
+	-- Largura da janela de endereços da cache de dados, em bits: a tag guarda os bits abaixo dela (26 é 64 MiB, 27 é 128 MiB).
+	constant D_CACHE_WINDOW_BITS : natural  := 26;
 
-	-- Janelas de 256 MiB do barramento de periféricos que têm periférico (bit n para o índice n, bits 30:28 do endereço).
-	constant PERIPH_SLOTS : std_logic_vector(7 downto 0) := "11111000";
+	-- Número de periféricos do mapa, o tamanho das tabelas abaixo.
+	constant PERIPH_COUNT : natural := 5;
+	-- Periféricos estritos: o interconector termina com erro o acesso ao que sobra da janela depois dos registradores.
+	constant STRICT_PERIPH : boolean := true;
+	-- Tabela de endereços, um por periférico.
+	type periph_addr_array_t is array (natural range <>) of addr_t;
 
 	-- Endereço base do periférico FLASH_CTRL.
-	constant FLASH_CTRL_BASE : std_logic_vector(31 downto 0) := x"B0000000";
-	-- Índice da janela de 256 MiB do periférico FLASH_CTRL (bits 30:28 do endereço).
-	constant FLASH_CTRL_ID   : natural := 3;
+	constant FLASH_CTRL_BASE : addr_t := std_logic_vector(resize(unsigned'(x"B0000000"), ADDR_BITS));
+	-- Índice do periférico FLASH_CTRL nas tabelas PERIPH_BASES e PERIPH_MASKS.
+	constant FLASH_CTRL_INDEX : natural := 0;
 
 	-- Endereço base do periférico UART.
-	constant UART_BASE : std_logic_vector(31 downto 0) := x"C0000000";
-	-- Índice da janela de 256 MiB do periférico UART (bits 30:28 do endereço).
-	constant UART_ID   : natural := 4;
+	constant UART_BASE : addr_t := std_logic_vector(resize(unsigned'(x"C0000000"), ADDR_BITS));
+	-- Índice do periférico UART nas tabelas PERIPH_BASES e PERIPH_MASKS.
+	constant UART_INDEX : natural := 1;
 
 	-- Endereço base do periférico DISPLAY.
-	constant DISPLAY_BASE : std_logic_vector(31 downto 0) := x"D0000000";
-	-- Índice da janela de 256 MiB do periférico DISPLAY (bits 30:28 do endereço).
-	constant DISPLAY_ID   : natural := 5;
+	constant DISPLAY_BASE : addr_t := std_logic_vector(resize(unsigned'(x"D0000000"), ADDR_BITS));
+	-- Índice do periférico DISPLAY nas tabelas PERIPH_BASES e PERIPH_MASKS.
+	constant DISPLAY_INDEX : natural := 2;
 
 	-- Endereço base do periférico CLINT.
-	constant CLINT_BASE : std_logic_vector(31 downto 0) := x"E0000000";
-	-- Índice da janela de 256 MiB do periférico CLINT (bits 30:28 do endereço).
-	constant CLINT_ID   : natural := 6;
+	constant CLINT_BASE : addr_t := std_logic_vector(resize(unsigned'(x"E0000000"), ADDR_BITS));
+	-- Índice do periférico CLINT nas tabelas PERIPH_BASES e PERIPH_MASKS.
+	constant CLINT_INDEX : natural := 3;
 
 	-- Endereço base do periférico PLIC.
-	constant PLIC_BASE : std_logic_vector(31 downto 0) := x"F0000000";
-	-- Índice da janela de 256 MiB do periférico PLIC (bits 30:28 do endereço).
-	constant PLIC_ID   : natural := 7;
+	constant PLIC_BASE : addr_t := std_logic_vector(resize(unsigned'(x"F0000000"), ADDR_BITS));
+	-- Índice do periférico PLIC nas tabelas PERIPH_BASES e PERIPH_MASKS.
+	constant PLIC_INDEX : natural := 4;
+
+	-- Base de cada periférico, na ordem de `peripherals`.
+	constant PERIPH_BASES : periph_addr_array_t(0 to PERIPH_COUNT - 1) := (
+		FLASH_CTRL_INDEX => FLASH_CTRL_BASE,
+		UART_INDEX => UART_BASE,
+		DISPLAY_INDEX => DISPLAY_BASE,
+		CLINT_INDEX => CLINT_BASE,
+		PLIC_INDEX => PLIC_BASE
+	);
+
+	-- Máscara de cada janela: o periférico i responde quando (endereço and PERIPH_MASKS(i)) = PERIPH_BASES(i); a janela é a menor potência de dois que cobre o tamanho, com no mínimo 16 bytes.
+	constant PERIPH_MASKS : periph_addr_array_t(0 to PERIPH_COUNT - 1) := (
+		FLASH_CTRL_INDEX => std_logic_vector(resize(unsigned'(x"FFFFFFC0"), ADDR_BITS)),
+		UART_INDEX => std_logic_vector(resize(unsigned'(x"FFFFFFF0"), ADDR_BITS)),
+		DISPLAY_INDEX => std_logic_vector(resize(unsigned'(x"FFFFFFF0"), ADDR_BITS)),
+		CLINT_INDEX => std_logic_vector(resize(unsigned'(x"FFFF0000"), ADDR_BITS)),
+		PLIC_INDEX => std_logic_vector(resize(unsigned'(x"FFC00000"), ADDR_BITS))
+	);
 
 	-- Frequência do clock do domínio do núcleo e do CLINT, em Hz.
 	constant CLOCK_HZ          : positive := 77000000;

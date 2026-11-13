@@ -15,8 +15,8 @@ reserved:                     # palavras no topo da RAM (dentro de uma região r
   stdout:  {base: 0x2FBE0, size: 1K+8}
   tohost:  {base: 0x2FFF0, size: 16}
 boot: {entry: 0x800, wait_restart: 0x100}
-peripherals:                  # base = janela | id << (address_bits - 4)
-  - {name: GPIO, base: 0xA0000000, id: 2}
+peripherals:                  # base absoluta e size em bytes de registradores
+  - {name: GPIO, base: 0xA0000000, size: 64}
 checks:                       # onde mora cada cópia
   - name: config ram base
     file: tools/riscv_build/config.yaml      # relativo a --root
@@ -28,10 +28,10 @@ checks:                       # onde mora cada cópia
     expect: RAM.size - (RAM.end - stdout.base)
 ```
 
-- **Símbolos** em `expect`: `<REGIÃO>.base|size|end|words`, `<reservado>.base|size|end`, `boot.entry|wait_restart`, `<PERIFÉRICO>.base|id`.
+- **Símbolos** em `expect`: `<REGIÃO>.base|size|end|words`, `<reservado>.base|size|end`, `boot.entry|wait_restart`, `<PERIFÉRICO>.base|size|window|index`.
 - **Números** aceitam hexadecimal, decimal, VHDL (`16#800#`), sufixos (`30K`, `0x800u`) e `+ - * /` (divisão exata), além de `log2()` (exato) e `clog2()` (arredonda para cima, para larguras de endereço).
 - Um check cujo padrão não casa nada **falha** ("a cópia mudou de lugar"); `optional: true` ignora um arquivo ausente. Um padrão com vários casamentos precisa concordar em todos.
-- Antes de ler as cópias, o próprio mapa é validado: regiões e palavras reservadas não se sobrepõem, as reservadas ficam dentro de uma região RAM, `boot.entry` está numa região executável, `boot.wait_restart` está na primeira região, a base de cada periférico bate com o id, e toda região termina na janela de periféricos ou antes (a metade inferior do espaço é da BOOT_MEMORY, da ROM e da RAM, e a superior, dos periféricos; `0x80000000` com 32 bits, ver a seção 9).
+- Antes de ler as cópias, o próprio mapa é validado: regiões e palavras reservadas não se sobrepõem, as reservadas ficam dentro de uma região RAM, `boot.entry` está numa região executável, `boot.wait_restart` está na primeira região, a janela de cada periférico está alinhada, cabe no espaço e não se sobrepõe a outra janela nem a uma região, e a BOOT_MEMORY, a FLASH e a RAM estão em ordem (ver a seção 9).
 
 ## 2. Gerar os arquivos do mapa
 
@@ -43,7 +43,7 @@ O mesmo YAML pode dizer, na seção `generate`, quais arquivos saem dele, de mod
 | `boot_ld` | Linker script da memória de boot | A memória `boot_memory` na primeira região e o `RESET_RESERVED` de `boot.wait_restart` |
 | `runtime` | Cabeçalho do runtime (`.h`, também incluído por `.S`) | `RV32_RAM_END` (fim da RAM `ram`), `RV32_TOHOST_ADDR`, `RV32_FROMHOST_ADDR` e `RV32_STDOUT_BASE`, das faixas `reserved` que o mapa tem, `RV32_BOOT_ENTRY` (para onde a memória de boot salta) e `RV32_<NOME>_BASE` de cada periférico; o runtime em C e em assembly (`_exit.c`, `stdio.c`, `boot_memory.S`, `spike_exit.S`) usa esses nomes no lugar de endereços escritos à mão |
 | `config_pkg` | Pacote VHDL de constantes da plataforma | O `config_pkg` da seção 10, ao lado do pacote do mapa |
-| `vhdl` | Pacote VHDL | As constantes `BOOT_MEMORY_BITS`, `BOOT_MEMORY_SIZE_BYTES`, `ROM_BASE_KIB`, `ROM_END_KIB`, `ROM_STORAGE_BYTES`, `RAM_BASE_KIB`, `RAM_END_KIB`, `RAM_STORAGE_BYTES`, `RAM_LAST_PAGE`, `EXT_BASE_KIB` e `PERIPH_BASE_KIB`, as flags `ROM_EXTERNAL` e `RAM_EXTERNAL` (de `generate.vhdl` ou da seção `memory`), as constantes das caches da seção `memory` e, de cada periférico, `<NOME>_BASE` e `<NOME>_ID` |
+| `vhdl` | Pacote VHDL | As constantes `BOOT_MEMORY_BITS`, `BOOT_MEMORY_SIZE_BYTES`, `FLASH_BASE_KIB`, `FLASH_END_KIB`, `FLASH_STORAGE_BYTES`, `RAM_BASE_KIB`, `RAM_END_KIB`, `RAM_STORAGE_BYTES` e `RAM_LAST_PAGE`, as flags `FLASH_ON_BUS` e `RAM_ON_BUS` (de `generate.vhdl` ou da seção `memory`), as constantes das caches da seção `memory`, `PERIPH_COUNT`, `STRICT_PERIPH`, as tabelas `PERIPH_BASES` e `PERIPH_MASKS` e, de cada periférico, `<NOME>_BASE` e `<NOME>_INDEX` |
 
 ```yaml
 generate:
@@ -57,7 +57,7 @@ generate:
     ram: RAM
 ```
 
-`ext_base` e `periph_base` são opcionais e valem `0x80000000`, a janela dos periféricos. `ROM_STORAGE_BYTES` e `RAM_STORAGE_BYTES` são a menor potência de dois que cobre o fim da ROM e o tamanho da RAM, e `RAM_LAST_PAGE` são os bits 31:12 da última página de 4 KiB da RAM.
+`FLASH_STORAGE_BYTES` e `RAM_STORAGE_BYTES` são a menor potência de dois que cobre o fim da FLASH e o tamanho da RAM, e `RAM_LAST_PAGE` são os bits 31:12 da última página de 4 KiB da RAM.
 
 Os limites do pacote VHDL são os genéricos do `core`, em KiB, então um endereço que não é múltiplo de 1 KiB é um erro. O mapa é validado antes de gerar, e um mapa inconsistente não gera nada.
 
@@ -99,7 +99,7 @@ A plataforma escolhe o seu perfil em `profile:` (`rv32im`, `rv32em_zicsr`, ...) 
 
 | Saída | Conteúdo |
 | :--- | :--- |
-| Pacote VHDL | `HAS_E` (verdadeiro no RV32E) e um `HAS_<EXTENSÃO>` booleano por extensão do núcleo (`HAS_M`, `HAS_ZMMUL`, `HAS_ZICSR`, `HAS_ZICNTR`, `HAS_ZIHPM`, `HAS_ZIMOP`, `HAS_ZICOND`, `HAS_ZIHINTNTL`, `HAS_ZIHINTPAUSE`, `HAS_ZIFENCEI`, `HAS_ZICCLSM`, `HAS_INTERRUPTS`, `HAS_SSCOFPMF`, `HAS_ACCESS_FAULTS`) e `PERIPH_SLOTS`, a máscara de 8 bits das janelas de 256 MiB do barramento de periféricos que têm periférico (o bit `n` vale para o `id` `n` da lista `peripherals`) |
+| Pacote VHDL | `IS_E` (verdadeiro no RV32E) e um `HAS_<EXTENSÃO>` booleano por extensão do núcleo (`HAS_M`, `HAS_ZMMUL`, `HAS_ZICSR`, `HAS_ZICNTR`, `HAS_ZIHPM`, `HAS_ZIMOP`, `HAS_ZICOND`, `HAS_ZIHINTNTL`, `HAS_ZIHINTPAUSE`, `HAS_ZIFENCEI`, `HAS_ZICCLSM`, `HAS_INTERRUPTS`, `HAS_SSCOFPMF`, `HAS_ACCESS_FAULTS`) |
 | `config.yaml` | `isa.base`, que escolhe o `-march` e o `-mabi` dos programas e da memória de boot (`rv32e` com `ilp32e`, os demais com `ilp32`), e o `sim.config_pkg`, o texto do `config_pkg` do perfil que o runner compila no lugar do `config_pkg.vhd` das fontes (a base e as extensões do núcleo são constantes desse pacote, não generics do topo) |
 
 `--profile NOME`, opção global do `riscv-tools`, troca o `profile:` da plataforma sem editá-la, para rodar a mesma plataforma sobre vários perfis numa matriz de testes. Vale para o `generate-memory-map` (escreve o pacote daquele perfil), para o `platform sync` e para todo comando que lê a configuração. Um nome que a especificação não lista é rejeitado antes de qualquer coisa rodar.
@@ -117,8 +117,8 @@ Uma plataforma com as interrupções de máquina liga o extra `Interrupts` (o n�
 ```yaml
 extras: [Interrupts]
 peripherals:
-  - {name: CLINT,   base: 0xE0000000, id: 6}
-  - {name: EXT_IRQ, base: 0xF0000000, id: 7}
+  - {name: CLINT,   base: 0xE0000000, size: 64K}
+  - {name: EXT_IRQ, base: 0xF0000000, size: 16}
 interrupts:
   clock_hz: 50000000   # relógio do domínio do núcleo e do CLINT
   mtime_hz: 1000000    # taxa com que o mtime do CLINT conta
@@ -128,7 +128,7 @@ O `mtime` do CLINT é um contador próprio, ajustado por `mtime_hz`, e é indepe
 
 | Saída | Constantes |
 | :--- | :--- |
-| Pacote VHDL (`vhdl`) | `HAS_INTERRUPTS`, `CLOCK_HZ`, `MTIME_HZ` e `CLINT_TICK_CYCLES` (ciclos de relógio por incremento do `mtime`, o genérico `tick_cycles` do CLINT), além de `CLINT_BASE`, `CLINT_ID`, `EXT_IRQ_BASE` e `EXT_IRQ_ID` |
+| Pacote VHDL (`vhdl`) | `HAS_INTERRUPTS`, `CLOCK_HZ`, `MTIME_HZ` e `CLINT_TICK_CYCLES` (ciclos de relógio por incremento do `mtime`, o genérico `tick_cycles` do CLINT), além de `CLINT_BASE`, `CLINT_INDEX`, `EXT_IRQ_BASE` e `EXT_IRQ_INDEX` |
 | Cabeçalho do runtime (`runtime`) | `RV32_CLINT_BASE`, `RV32_MSIP`, `RV32_MTIMECMP`, `RV32_MTIME` e `RV32_MTIME_HZ`, que o `FreeRTOSConfig.h` usa em `configMTIMECMP_BASE_ADDRESS`, `configMTIME_BASE_ADDRESS` e `configCPU_CLOCK_HZ` |
 
 Os deslocamentos dos registradores dentro da janela de 64 KiB do CLINT seguem o leiaute da SiFive que o porte do FreeRTOS espera.
@@ -139,7 +139,7 @@ Uma plataforma com PLIC o lista em `peripherals` com um `size` (a janela que ele
 
 ```yaml
 peripherals:
-  - {name: PLIC, base: 0xF0000000, id: 7, size: 4M}
+  - {name: PLIC, base: 0xF0000000, size: 4M}
 interrupts:
   plic: {priority_bits: 3}
   sources:                 # identificadores das linhas ligadas ao PLIC
@@ -175,7 +175,7 @@ Todo relógio declarado precisa de `mhz` positivo, e `clocks.mem` precisa ter pe
 
 ## 7. As memórias e as caches da plataforma
 
-A seção `memory` do `platform.yaml` escolhe, por plataforma, quatro coisas independentes, e delas saem as 16 combinações. Nenhum campo tem valor padrão, então esquecer um deles é um erro e a plataforma nunca monta uma combinação diferente da que o autor escreveu. Uma plataforma sem a seção continua gerando o pacote de antes.
+A seção `memory` do `platform.yaml` escolhe, por plataforma, quatro coisas independentes, e das 16 combinações 9 são válidas. Nenhum campo tem valor padrão, então esquecer um deles é um erro e a plataforma nunca monta uma combinação diferente da que o autor escreveu. Uma plataforma sem a seção continua gerando o pacote de antes.
 
 ```yaml
 memory:
@@ -198,21 +198,19 @@ Os campos `rom_external` e `ram_external` de `generate.vhdl` saem da seção `me
 
 ### 7.1. Constantes geradas
 
-O pacote VHDL ganha as constantes abaixo. `ROM_VIA_PORT` e `RAM_VIA_PORT` são os valores dos genéricos `rom_external` e `ram_external` do núcleo, porque uma cache só existe do lado do protocolo da porta do núcleo.
+O pacote VHDL ganha as constantes abaixo. `FLASH_ON_BUS` e `RAM_ON_BUS` dizem que a memória é alcançada pelo barramento, dentro ou fora do chip, e não pela porta direta do núcleo. Uma cache só existe sobre uma memória no barramento.
 
 | Constante | Tipo | Valor |
 | :--- | :--- | :--- |
-| `ROM_EXTERNAL` | boolean | `memory.rom.external` |
-| `RAM_EXTERNAL` | boolean | `memory.ram.external` |
+| `FLASH_ON_BUS` | boolean | `memory.rom.external` |
+| `RAM_ON_BUS` | boolean | `memory.ram.external` |
 | `HAS_ICACHE` | boolean | `memory.icache.enabled` |
 | `HAS_DCACHE` | boolean | `memory.dcache.enabled` |
 | `ICACHE_SIZE_BITS` | positive | `memory.icache.size_bits`, ou 256 sem a cache |
 | `DCACHE_SIZE_BITS` | positive | `memory.dcache.size_bits`, ou 256 sem a cache |
-| `CACHE_WINDOW_BITS` | natural | Menor largura de 26 a 29 tal que a ROM e a RAM cabem cada uma numa janela alinhada de $2^{\text{largura}}$ bytes (26 é 64 MiB, 27 é 128 MiB), derivada das regiões |
-| `ROM_VIA_PORT` | boolean | `ROM_EXTERNAL or HAS_ICACHE` |
-| `RAM_VIA_PORT` | boolean | `RAM_EXTERNAL or HAS_DCACHE` |
+| `I_CACHE_WINDOW_BITS`, `D_CACHE_WINDOW_BITS` | natural | Menor largura de 26 a 29 tal que a FLASH e a RAM cabem cada uma numa janela alinhada de $2^{\text{largura}}$ bytes (26 é 64 MiB, 27 é 128 MiB), derivada das regiões; as duas valem o mesmo |
 
-No `config.yaml` os mesmos valores chegam como `sim.parameters` com os mesmos nomes (`ROM_EXTERNAL`, `RAM_EXTERNAL`, `HAS_ICACHE`, `HAS_DCACHE`, `ICACHE_SIZE_BITS` e `DCACHE_SIZE_BITS`; `CACHE_WINDOW_BITS` só quando passa de 26), e o topo de simulação precisa declarar os genéricos correspondentes. Sem `config.addr_widths` na plataforma, as larguras de endereço vêm da escolha, e saem a `boot_memory` e cada memória interna, já que uma memória externa é um chip dimensionado pelo próprio topo. Com `config.addr_widths` listado, a lista vale.
+No `config.yaml` os valores chegam como `sim.parameters` com os nomes `ROM_EXTERNAL`, `RAM_EXTERNAL`, `HAS_ICACHE`, `HAS_DCACHE`, `ICACHE_SIZE_BITS` e `DCACHE_SIZE_BITS`, e com `CACHE_WINDOW_BITS` só quando passa de 26, e o topo de simulação precisa declarar os genéricos correspondentes. Sem `config.addr_widths` na plataforma, as larguras de endereço vêm da escolha, e saem a `boot_memory` e cada memória interna, já que uma memória externa é um chip dimensionado pelo próprio topo. Com `config.addr_widths` listado, a lista vale.
 
 ### 7.2. Validação
 
@@ -220,19 +218,20 @@ No `config.yaml` os mesmos valores chegam como `sim.parameters` com os mesmos no
 | :--- | :--- | :--- |
 | V1 | Os quatro booleanos existem e não há chave desconhecida | Erro |
 | V2 | `size_bits` é potência de dois e vale pelo menos 256 | Erro |
-| V3 | Com alguma cache, a ROM e a RAM cabem cada uma numa janela alinhada de até 512 MiB (a tag das caches guarda os bits abaixo da janela) | Erro |
-| V4 | Com a ROM pela porta do núcleo, o tamanho dela cabe na janela de 1024 KiB do roteador | Erro |
-| V5 | Região `exec` na RAM exige RAM externa e ROM pela porta (ROM externa ou cache de instruções) | Erro |
+| V3 | Com alguma cache, a FLASH e a RAM cabem cada uma numa janela alinhada de até 512 MiB (a tag das caches guarda os bits abaixo da janela) | Erro |
+| V4 | Com a FLASH no barramento, o tamanho dela cabe na janela de 1024 KiB do roteador | Erro |
+| V5 | Região `exec` na RAM exige RAM e FLASH no barramento | Erro |
 | V7 | Região `exec` na RAM atrás da cache de instruções exige Zifencei no perfil | Erro |
-| V8 | Cache de instruções sobre ROM interna ou cache de dados sobre RAM interna | Aviso |
 | V9 | Plataforma com periféricos | Nota |
 | V10 | Com alguma cache, `reserved.fromhost` existe e está na última página de 4 KiB da RAM, a que a cache ignora | Erro |
+| V-C1 | `icache.enabled` com `rom.external: false`: a cache de instruções exige `FLASH_ON_BUS` | Erro |
+| V-C2 | `dcache.enabled` com `ram.external: false`: a cache de dados exige `RAM_ON_BUS` | Erro |
 
-ROM externa sem cache de instruções é válida. O aviso e a nota saem em `NOTE` no erro padrão do `generate-memory-map`, e os erros impedem a geração.
+Das 16 combinações de `rom.external`, `ram.external`, `icache.enabled` e `dcache.enabled`, 9 são válidas e 7 são recusadas pela V-C1 e pela V-C2. FLASH no barramento sem cache de instruções é válida. A nota sai em `NOTE` no erro padrão do `generate-memory-map`, e os erros impedem a geração.
 
 ### 7.3. A opção `--memory`
 
-`--memory`, opção global do `riscv-tools`, troca campos da seção `memory` sem editar a plataforma, para rodar a mesma plataforma sobre as 16 combinações. O valor é uma lista de pares `chave=valor` separados por vírgula.
+`--memory`, opção global do `riscv-tools`, troca campos da seção `memory` sem editar a plataforma, para rodar a mesma plataforma sobre as combinações. O valor é uma lista de pares `chave=valor` separados por vírgula.
 
 | Chave | Valores |
 | :--- | :--- |
@@ -267,17 +266,17 @@ O campo de topo `address_bits` do `platform.yaml` é um inteiro de 16 a 64 com a
 ```yaml
 address_bits: 24      # opcional, 32 por padrão
 profile: rv32im
-peripherals:          # base = 2**(address_bits - 1) | id << (address_bits - 4)
-  - {name: UART, base: 0xC00000, id: 4}
+peripherals:          # base absoluta e size em bytes de registradores
+  - {name: UART, base: 0xC00000, size: 16}
 ```
 
-### 9.2. A janela de periféricos
+### 9.2. A janela de cada periférico
 
-A janela de periféricos é a metade superior do espaço de endereços, e o identificador do periférico ocupa os três bits abaixo do bit da janela.
+O núcleo só conhece a BOOT_MEMORY, a FLASH e a RAM, e todo endereço fora delas sai pela porta externa. Quem decodifica os periféricos é o interconector, por uma tabela com uma janela por periférico. A janela é derivada do `size`.
 
-$$ \text{janela} = 2^{\text{address\_bits} - 1}, \quad \text{base} = \text{janela} \mid (\text{id} \ll (\text{address\_bits} - 4)) $$
+$$ \text{janela} = \max\left(16,\ 2^{\lceil \log_2 \text{size} \rceil}\right), \quad \text{o periférico } i \text{ responde quando } (\text{endereço} \wedge \text{máscara}_i) = \text{base}_i $$
 
-Com 32 bits os valores são `0x80000000` e `id << 28`, os mesmos de antes. O campo de topo `periph_window` fixa outra base para a janela, e o `ext_base` e o `periph_base` de `generate.vhdl` continuam a valer só para o pacote do mapa, com a janela da plataforma como padrão. O `CACHE_WINDOW_BITS` nunca passa de `address_bits`.
+A máscara de um periférico tem os bits do endereço acima da janela, então um periférico de 64 KiB com 32 bits de endereço tem a máscara `0xFFFF0000`. Não há janela fixa de periféricos, teto de quantidade nem identificador de slot, e a posição de cada periférico na lista `peripherals` é o `<NOME>_INDEX` dele nas tabelas.
 
 ### 9.3. Validações
 
@@ -288,62 +287,76 @@ Cada validação é um problema `platform` antes de gerar e no `check-memory-map
 | V-A1 | `address_bits` não é inteiro ou está fora de 16 a 64 |
 | V-A2 | `address_bits` acima de 32 com um perfil que não é `rv64` |
 | V-A3 | Uma região (`base + size`) passa de $2^{\text{address\_bits}}$ bytes |
-| V-A4 | Uma região passa da janela de periféricos, a base de um periférico não é a janela com `id << (address_bits - 4)`, ou esse deslocamento cai fora do espaço |
+| V-A4 | A janela de um periférico passa de $2^{\text{address\_bits}}$ bytes |
 | V-A5 | `address_bits` abaixo de `xlen` sem `has_access_faults` no perfil (o acesso acima da janela precisa gerar falha de acesso) |
 | V-A6 | `boot.entry` ou `boot.wait_restart` fora de $2^{\text{address\_bits}}$ |
+| V-M1 | A BOOT_MEMORY (a primeira região) não começa no endereço 0 |
+| V-M2 | A BOOT_MEMORY termina depois do começo da FLASH |
+| V-M3 | A FLASH não tem tamanho positivo |
+| V-M4 | A FLASH termina depois do começo da RAM |
+| V-M5 | A RAM não tem tamanho positivo ou passa de $2^{\text{address\_bits}}$ bytes |
 
-A V-A5 só é conferida quando o perfil é resolvido, o que o `generate-memory-map` e o `check-memory-map` fazem sempre que `address_bits` é menor que `xlen`.
+A V-A5 só é conferida quando o perfil é resolvido, o que o `generate-memory-map` e o `check-memory-map` fazem sempre que `address_bits` é menor que `xlen`. As regras V-M valem quando a plataforma nomeia a FLASH e a RAM em `generate.vhdl` ou em `config`.
 
-### 9.4. Periféricos por deslocamento, id e padding
+### 9.4. Periféricos por base e tamanho
 
-Cada entrada de `peripherals` dá o endereço por `base` (absoluto) ou por `offset` (em bytes, a partir da base da janela de periféricos), uma das duas e nunca as duas. O `id` é opcional, e o `padding` reserva bytes logo depois do `size`, dentro do slot. Com `offset` o mesmo YAML vale para qualquer `address_bits`.
+Cada entrada de `peripherals` dá o endereço absoluto `base` e o `size`, os bytes de registradores do periférico. A `base` precisa ser múltipla da janela.
 
 ```yaml
 address_bits: 32
 peripherals:
-  - {name: UART,  offset: 0x40000000}                           # id 4, derivado
-  - {name: PLIC,  offset: 0x70000000, size: 4M, padding: 4M}    # slot 7, 4 MiB de padding
-  - {name: CLINT, base: 0xE0000000, id: 6}                      # forma absoluta, como antes
+  - {name: DISPLAY,  base: 0x80001000, size: 4}
+  - {name: SWITCHES, base: 0x80003000, size: 64}
+  - {name: CLINT,    base: 0xE0000000, size: 64K}
 ```
 
 | Campo | Significado |
 | :--- | :--- |
-| `offset` | Deslocamento da entrada na janela de periféricos. O endereço é a janela mais o `offset` |
-| `base` | Endereço absoluto, que precisa estar na janela ou acima dela. O Tools o converte para `offset` |
-| `id` | Índice do slot, de 0 a 7. Ausente, vale $\lfloor \text{offset} / 2^{\text{address\_bits} - 4} \rfloor$. Presente, precisa ser o slot do `offset` |
-| `size` | Bytes que o periférico decodifica |
-| `padding` | Bytes reservados depois do `size`. Ausente, vale o resto do slot de $2^{\text{address\_bits} - 4}$ bytes |
+| `base` | Endereço absoluto do começo da janela, alinhado ao tamanho dela |
+| `size` | Bytes de registradores. O que sobra da janela depois deles é o antigo padding |
+| `id`, `offset`, `padding` | Recusados com a mensagem de migração: a entrada dá a `base` que o `id` dava (`id: 5` vira `base: 0xD0000000`) e o `size` |
 
 | Regra | Condição de rejeição |
 | :--- | :--- |
-| V-P1 | A entrada não tem exatamente um entre `base` e `offset`, ou o `base` está abaixo da janela |
-| V-P2 | O `id` dado não é o slot do `offset` |
-| V-P3 | O `size` mais o `padding` passam do fim do slot |
-| V-P4 | Dois periféricos ocupam os mesmos bytes (`size` mais `padding`) |
+| V-P1 | A entrada não tem `base` e `size`, o `size` não é positivo, ou traz `id`, `offset` ou `padding` |
+| V-P2 | A `base` não é múltipla da janela |
+| V-P4 | Duas janelas de periféricos se sobrepõem |
+| V-P5 | A janela de um periférico se sobrepõe a uma região |
+| V-P6 | O campo de topo `periph_window`, ou o `ext_base` ou o `periph_base` de `generate.vhdl`, que o núcleo não conhece mais |
 | V-S1 | A chave `strict_periph`, quando dada, não é um booleano |
 
-A granularidade do mapa de periféricos é o slot: o decodificador do núcleo aceita um endereço da janela quando o bit do slot está em `PERIPH_SLOTS`, e o periférico decodifica só os bits baixos. O padding é uma área reservada, sem decodificação própria. A chave `strict_periph` da plataforma, verdadeira quando ausente, escolhe o tratamento: com ela ligada o padding é uma região de falha, e um acesso a ele gera falha de acesso; com `strict_periph: false` o acesso tem o tratamento de qualquer endereço de um slot ocupado, e só um slot sem periférico gera falha de acesso.
+A chave `strict_periph` da plataforma, verdadeira quando ausente, é uma política do interconector: com ela ligada, um acesso ao que sobra da janela depois do `size` termina com erro, e com `strict_periph: false` esse acesso lê zero e ignora a escrita. Ela sai como `STRICT_PERIPH` no pacote do mapa, e não no `config_pkg`.
 
-Os símbolos dos `checks` ganham `<NOME>.offset`. Uma entrada que usa `offset` ou `padding` ganha no pacote do mapa as constantes `<NOME>_OFFSET`, `<NOME>_SIZE` (zero sem `size`) e `<NOME>_PAD`, em 32 bits como a `<NOME>_BASE`, e um valor que não cabe em 32 bits é recusado. O comentário da `<NOME>_PAD` descreve o padding como região de falha de acesso quando `strict_periph` é verdadeira. As entradas só com `base` e `id` não ganham nada, e o `config_pkg` não as traz, para manter o texto do pacote padrão do Common-Components.
+Os símbolos dos `checks` de um periférico são `<NOME>.base`, `<NOME>.size`, `<NOME>.window` e `<NOME>.index`. O pacote do mapa ganha, de cada periférico, `<NOME>_BASE` (do tipo `addr_t`) e `<NOME>_INDEX`, e as tabelas abaixo.
+
+| Constante | Tipo | Valor |
+| :--- | :--- | :--- |
+| `PERIPH_COUNT` | natural | Quantidade de entradas de `peripherals` |
+| `STRICT_PERIPH` | boolean | A chave `strict_periph` |
+| `periph_addr_array_t` | tipo | `array (natural range <>) of addr_t` |
+| `PERIPH_BASES` | `periph_addr_array_t(0 to PERIPH_COUNT - 1)` | A `base` de cada periférico, indexada por `<NOME>_INDEX` |
+| `PERIPH_MASKS` | `periph_addr_array_t(0 to PERIPH_COUNT - 1)` | A máscara da janela de cada periférico |
+
 
 ## 10. O `config_pkg`
 
 ### 10.1. Conteúdo
 
-O `config_pkg` é o pacote VHDL de constantes de uma plataforma, escrito a partir do `platform.yaml`. Tem o contrato do pacote padrão do Common-Components (`src/config_pkg.vhd`), com o mesmo nome de unidade, as mesmas constantes, tipos e funções, e só os valores mudam, então a versão gerada ocupa o lugar dele na lista de fontes. Com os valores padrão (RV32IM, 32 bits de endereço, sem periféricos) o texto é idêntico ao do Common-Components, exceto o cabeçalho de geração. É um pacote de constantes, e não genérico, porque o Quartus Lite recusa o pacote genérico.
+O `config_pkg` é o pacote VHDL de constantes de uma plataforma, escrito a partir do `platform.yaml`. Tem o contrato do pacote padrão do Common-Components (`src/config_pkg.vhd`), com o mesmo nome de unidade, as mesmas constantes, tipos e funções, e só os valores mudam, então a versão gerada ocupa o lugar dele na lista de fontes. Com os valores padrão (RV32I com Zicclsm, 32 bits de endereço, sem periféricos) o texto é idêntico ao do Common-Components, exceto o cabeçalho de geração e a janela das caches. É um pacote de constantes, e não genérico, porque o Quartus Lite recusa o pacote genérico.
 
 | Grupo | Constantes |
 | :--- | :--- |
-| Base e larguras | `IS_64`, `IS_BASE_E`, `ADDR_BITS`, `XLEN`, `REG_BITS`, `NUM_REGS` e os subtipos `word_t`, `reg_t`, `addr_t` e `map_addr_t` |
-| Extensões e caches | Uma `HAS_<EXTENSÃO>` por chave do perfil (`HAS_M` a `HAS_ACCESS_FAULTS`), `HAS_ICACHE` e `HAS_DCACHE` |
-| Memória | `BOOT_MEMORY_BITS`, o mapa em bytes no tipo `map_addr_t` (`ROM_BASE`, `ROM_END`, `RAM_BASE`, `RAM_END`, `EXT_BASE`, `PERIPH_BASE`), `ROM_EXTERNAL`, `RAM_EXTERNAL` e `CACHE_WINDOW_BITS` |
-| Periféricos | Uma `HAS_<PERIFÉRICO>` para `UART`, `UART_PINS`, `UART_JTAG`, `TIMER`, `GPIO`, `DISPLAY`, `SWITCHES`, `KEYS`, `CLINT`, `PLIC` e `FLASH_CTRL`, e `STRICT_PERIPH`, o valor da chave `strict_periph` da plataforma (verdadeiro quando ausente), que uma variante muda com `--set STRICT_PERIPH=false` |
-| Compostas | `HAS_MULDIV` (`HAS_M or HAS_ZMMUL`), `HAS_ANY_COUNTER` (`HAS_ZICNTR or HAS_ZIHPM`) e `HAS_SSCOF` (`HAS_SSCOFPMF and HAS_ZIHPM and HAS_INTERRUPTS`) |
+| Base e larguras | `IS_64`, `IS_E`, `ADDR_BITS`, `XLEN`, `REG_BITS`, `NUM_REGS` e os subtipos `word_t`, `reg_t`, `addr_t` e `map_addr_t` |
+| Sistema de memória | `HAS_ICACHE`, `HAS_DCACHE`, `FLASH_ON_BUS` e `RAM_ON_BUS` |
+| Extensões | Uma `HAS_<EXTENSÃO>` por chave do perfil (`HAS_ZICCLSM` a `HAS_ZIHINTPAUSE`) |
+| Memória | `BOOT_MEMORY_BITS`, `BOOT_MEMORY_BASE` e `BOOT_MEMORY_END` (de 0 a $2^{\text{BOOT\_MEMORY\_BITS}}$), `FLASH_BASE`, `FLASH_END`, `RAM_BASE` e `RAM_END` no tipo `map_addr_t`, e `I_CACHE_WINDOW_BITS` e `D_CACHE_WINDOW_BITS` |
+| Periféricos do núcleo | `HAS_GPIO`, `HAS_CLINT`, `HAS_PLIC` e `HAS_TIMER`, verdadeiras quando o nome está em `peripherals` |
+| Compostas | `HAS_MULTIPLICATION` (`HAS_M or HAS_ZMMUL`), `HAS_ANY_COUNTER` (`HAS_ZICNTR or HAS_ZIHPM`) e `HAS_SSCOF` (`HAS_SSCOFPMF and HAS_ZIHPM and HAS_INTERRUPTS`) |
 | Funções | `isa_string`, o texto da ISA (`rv32im_zicsr_zicntr`), e `check_isa`, que falha na elaboração se uma dependência entre constantes não vale |
 
-O `map_addr_t` é `unsigned(ADDR_BITS downto 0)`, com um bit a mais para representar o fim exclusivo $2^{\text{ADDR\_BITS}}$. Cada endereço sai como literal hexadecimal com os dígitos que `ADDR_BITS` pede (oito com 32 bits), de modo que a largura vale também abaixo e acima de 32 bits. `HAS_<PERIFÉRICO>` é verdadeira quando o nome está em `peripherals`, e a `UART` vale como `HAS_UART_JTAG` quando `console` é `jtag` e como `HAS_UART_PINS` quando `console` é `pins`. `ROM_EXTERNAL` e `RAM_EXTERNAL` dizem que a memória é alcançada pela porta do núcleo (externa ou atrás de cache), e têm os valores de `ROM_VIA_PORT` e `RAM_VIA_PORT` do pacote do mapa. A `HAS_E` do pacote do mapa é a `IS_BASE_E` daqui.
+O `map_addr_t` é `unsigned(ADDR_BITS downto 0)`, com um bit a mais para representar o fim exclusivo $2^{\text{ADDR\_BITS}}$. Cada endereço sai como `resize(unsigned'(x"..."), ADDR_BITS + 1)`, com os dígitos hexadecimais que `ADDR_BITS` pede (oito com 32 bits), de modo que a largura vale também abaixo e acima de 32 bits. `FLASH_ON_BUS` e `RAM_ON_BUS` dizem que a memória é alcançada pelo barramento, e são o `memory.rom.external` e o `memory.ram.external` da plataforma. As duas janelas das caches valem a largura da janela da tag da seção 7.1. O pacote não tem constantes dos periféricos do SoC (UART, display, chaves, botões, controlador da FLASH), nem `EXT_BASE`, `PERIPH_BASE` e `STRICT_PERIPH`, que ficam no pacote do mapa.
 
-A `check_isa` confere que os contadores, as interrupções e as falhas de acesso têm `Zicsr`, que a `Sscofpmf` tem `Zihpm` e interrupções, que `ADDR_BITS` está de 16 a 64 e acima de 32 só com `IS_64`, e a ordem da `BOOT_MEMORY`, da ROM, da RAM, da janela externa e da janela de periféricos dentro de $2^{\text{ADDR\_BITS}}$. As entidades a chamam uma vez, num `if check_isa generate`.
+A `check_isa` confere que os contadores, as interrupções e as falhas de acesso têm `Zicsr`, que a `Sscofpmf` tem `Zihpm` e interrupções, que `ADDR_BITS` está de 16 a 64 e acima de 32 só com `IS_64`, que a cache de instruções exige `FLASH_ON_BUS` e a de dados exige `RAM_ON_BUS`, e a ordem da BOOT_MEMORY, da FLASH e da RAM dentro de $2^{\text{ADDR\_BITS}}$. As entidades a chamam uma vez, num `if check_isa generate`.
 
 ### 10.2. Gerar junto com o mapa
 
@@ -359,16 +372,15 @@ Uma plataforma sem a chave não gera o pacote, e seus arquivos não mudam.
 
 ### 10.3. Divisão com o pacote do mapa
 
-Nesta etapa o `config_pkg` entra ao lado do pacote do mapa, que não perde nenhuma constante. As constantes que os dois trazem têm de concordar.
+O `config_pkg` fica ao lado do pacote do mapa. As constantes que os dois trazem têm de concordar.
 
 | Constante do `*_map_pkg` | Constante do `config_pkg` |
 | :--- | :--- |
-| `HAS_E` | `IS_BASE_E` |
-| `HAS_<EXTENSÃO>`, `HAS_ICACHE`, `HAS_DCACHE`, `BOOT_MEMORY_BITS`, `CACHE_WINDOW_BITS` | A mesma |
-| `ROM_VIA_PORT`, `RAM_VIA_PORT` | `ROM_EXTERNAL`, `RAM_EXTERNAL` |
-| `ROM_BASE_KIB`, `ROM_END_KIB`, `RAM_BASE_KIB`, `RAM_END_KIB`, `EXT_BASE_KIB`, `PERIPH_BASE_KIB` | `ROM_BASE`, `ROM_END`, `RAM_BASE`, `RAM_END`, `EXT_BASE`, `PERIPH_BASE`, em bytes |
+| `IS_E` | `IS_E` |
+| `HAS_<EXTENSÃO>`, `HAS_ICACHE`, `HAS_DCACHE`, `FLASH_ON_BUS`, `RAM_ON_BUS`, `BOOT_MEMORY_BITS`, `I_CACHE_WINDOW_BITS`, `D_CACHE_WINDOW_BITS` | A mesma |
+| `FLASH_BASE_KIB`, `FLASH_END_KIB`, `RAM_BASE_KIB`, `RAM_END_KIB` | `FLASH_BASE`, `FLASH_END`, `RAM_BASE`, `RAM_END`, em bytes |
 
-Só o pacote do mapa tem `BOOT_MEMORY_SIZE_BYTES`, as `*_STORAGE_BYTES`, `RAM_LAST_PAGE`, os tamanhos das caches, `ROM_VIA_PORT`, `RAM_VIA_PORT`, `<NOME>_BASE` e `<NOME>_ID` de cada periférico e as constantes do CLINT, do PLIC e do clock da SDRAM. Só o `config_pkg` tem a base e as larguras, os tipos, as compostas, `HAS_<PERIFÉRICO>` e as funções, e o pacote do mapa tem também `PERIPH_SLOTS`. Um pacote do mapa não escreve um valor em KiB que não cabe num `natural`, nem a última página da RAM acima de 32 bits.
+Só o pacote do mapa tem `BOOT_MEMORY_SIZE_BYTES`, as `*_STORAGE_BYTES`, `RAM_LAST_PAGE`, os tamanhos das caches, `PERIPH_COUNT`, `STRICT_PERIPH`, as tabelas `PERIPH_BASES` e `PERIPH_MASKS`, `<NOME>_BASE` e `<NOME>_INDEX` de cada periférico e as constantes do CLINT, do PLIC e do clock da SDRAM. Só o `config_pkg` tem a base e as larguras, os tipos, as compostas, as `HAS_` dos periféricos do núcleo e as funções. O pacote do mapa usa `addr_t` e `ADDR_BITS` do `config_pkg`, então o `config_pkg` vem antes dele na ordem de compilação. Um pacote do mapa não escreve um valor em KiB que não cabe num `natural`, nem a última página da RAM acima de 32 bits.
 
 Quando a plataforma pede os dois arquivos, o `check-memory-map` lê os dois no disco e falha com `config-pkg` para um arquivo ausente ou para uma constante com valores diferentes nos dois.
 
@@ -385,10 +397,10 @@ uv run riscv-tools --root <projeto> generate-config-pkg --platform src/platform/
 | Opção | Efeito |
 | :--- | :--- |
 | `--platform` | O `platform.yaml` de que o pacote sai |
-| `--set NOME=VALOR` | Troca `IS_64`, `IS_BASE_E` ou uma `HAS_*` (`true` ou `false`) ou `ADDR_BITS` (inteiro). Repetível |
+| `--set NOME=VALOR` | Troca `IS_64`, `IS_E` ou uma `HAS_*` (`true` ou `false`) ou `ADDR_BITS` (inteiro). Repetível |
 | `--output` | Arquivo a escrever. Sem ele, o pacote vai para a saída padrão |
 
-A variante é validada como uma plataforma própria, com V-A1 a V-A6 para o `ADDR_BITS` e o `IS_64` dela, e os periféricos vão para a janela da nova largura. Um nome que não é constante do pacote é um erro. O cabeçalho do arquivo lista a variante.
+A variante é validada como uma plataforma própria, com V-A1 a V-A6 para o `ADDR_BITS` e o `IS_64` dela, e os periféricos da metade superior do espaço vão para a metade superior da nova largura, no mesmo slot de 1/16 do espaço e no mesmo deslocamento dentro dele. Um nome que não é constante do pacote é um erro, e uma variante com `HAS_ICACHE` ou `HAS_DCACHE` sobre uma memória que não está no barramento também. O cabeçalho do arquivo lista a variante.
 
 ### 10.5. Lista de fontes
 
@@ -401,9 +413,7 @@ Algumas plataformas precisam de uma declaração a mais para que o `config_pkg` 
 | Caso | O que declarar |
 | :--- | :--- |
 | Interrupções sem `Zicsr` no perfil padrão (a `check_isa` falha na elaboração) | Gerar a variante com `--set HAS_ZICSR=true`, ou ligar o `Zicsr` no perfil |
-| Uma `UART` cuja ligação (pinos ou JTAG) importa | `console: pins` ou `console: jtag`, ou os nomes de periférico `UART_PINS` e `UART_JTAG`. Sem isso só `HAS_UART` vale |
-| `PERIPH_SLOTS` | Continua só no pacote do mapa, que o escreve a partir de `peripherals` |
-| Largura de endereço abaixo de 26 bits com caches | `CACHE_WINDOW_BITS` nunca passa de `address_bits`, então a janela da tag é o espaço inteiro |
+| Largura de endereço abaixo de 26 bits com caches | As janelas das caches nunca passam de `address_bits`, então a janela da tag é o espaço inteiro |
 
 ## 11. Testes
 
@@ -423,12 +433,12 @@ Algumas plataformas precisam de uma declaração a mais para que o `config_pkg` 
 | `tests/test_memory_map.py::test_check_stops_at_an_inconsistent_map` | Nenhuma cópia é lida se o próprio mapa é inconsistente. |
 | `tests/test_memory_map.py::test_load_platform_rejects_a_non_mapping` | Um arquivo que não é mapeamento é rejeitado. |
 | `tests/test_memory_map.py::test_cmd_check_memory_map_exit_status` | O comando imprime OK, ou sai com 1 listando as divergências. |
-| `tests/test_peripheral_offsets.py` | `offset` e `base` dão o mesmo mapa, o `id` derivado, a mesma `offset` com outro `address_bits`, uma rejeição para cada V-P1 a V-P4, a V-S1 para a `strict_periph`, o comentário da `_PAD` conforme a chave e as constantes `_OFFSET`, `_SIZE` e `_PAD` só nas entradas relativas. |
-| `tests/test_address_bits.py` | O campo `address_bits` e a janela derivada, uma rejeição para cada V-A1 a V-A6, a janela fixa por `periph_window`, `resolve` com os perfis `rv64`, o `--profile` e as chaves novas do `config.yaml`. |
-| `tests/test_config_pkg.py` | O `config_pkg` para 32, 24 e 40 bits, a base E, as variantes e o que elas recusam, a UART por `console`, a escrita com o mapa e o `--check`, a coerência entre os dois pacotes, o comando e a prova de que o pacote do mapa e o `config_pkg` do DE0-CV não mudam. |
-| `tests/test_generate_memory_map.py` | Specs, linker script e pacote VHDL saem do mapa; `--check` pega arquivo ausente ou editado; endereço fora de KiB, região acima da janela dos periféricos e mapa inconsistente são rejeitados; o comando escreve e confere. |
+| `tests/test_peripheral_offsets.py` | A janela derivada do `size`, os símbolos `base`, `size`, `window` e `index`, uma rejeição para cada V-P1 a V-P5, a recusa de `id`, `offset` e `padding` com a mensagem de migração, as tabelas `PERIPH_BASES` e `PERIPH_MASKS`, a V-S1 e a `STRICT_PERIPH` no pacote do mapa. |
+| `tests/test_address_bits.py` | O campo `address_bits`, uma rejeição para cada V-A1 a V-A6, a recusa de `periph_window` (V-P6), `resolve` com os perfis `rv64`, o `--profile` e as chaves novas do `config.yaml`. |
+| `tests/test_config_pkg.py` | O `config_pkg` para 32, 24 e 40 bits, a base E, as variantes e o que elas recusam, as `HAS_` dos periféricos do núcleo, `FLASH_ON_BUS` e `RAM_ON_BUS`, a regra de cache (V-C1 e V-C2), a ordem do mapa do núcleo (V-M), a escrita com o mapa e o `--check`, a coerência entre os dois pacotes, o comando e a prova de que o pacote do mapa e o `config_pkg` do DE0-CV não mudam. |
+| `tests/test_generate_memory_map.py` | Specs, linker script e pacote VHDL saem do mapa; `--check` pega arquivo ausente ou editado; endereço fora de KiB, janela de periférico sobre uma região e chave removida são rejeitados; o comando escreve e confere. |
 | `tests/test_interrupts.py` | O pacote traz `HAS_INTERRUPTS`, `CLOCK_HZ`, `MTIME_HZ` e `CLINT_TICK_CYCLES`, o cabeçalho traz os registradores do CLINT e a taxa do `mtime`, e uma seção inconsistente (taxa, CLINT ausente, perfil sem as interrupções) é rejeitada. |
-| `tests/test_memory_choice.py` | A seção `memory` e a opção `--memory` geram as 16 combinações como 16 pacotes diferentes, as constantes e os parâmetros da simulação saem da escolha, e as regras V1 a V5, V7 e V10 falham com mensagem clara. |
+| `tests/test_memory_choice.py` | A seção `memory` e a opção `--memory` geram as 9 combinações válidas como 9 pacotes diferentes e recusam as 7 inválidas, as constantes e os parâmetros da simulação saem da escolha, e as regras V1 a V5, V7 e V10 falham com mensagem clara. |
 | `tests/test_config_from_platform.py` | As chaves de `memory`, o ambiente do `tohost` e do `stdout` e as larguras de endereço saem do mapa, e o mapa vale mais que o arquivo e os seus `extends`. |
 
 ## 12. Uso

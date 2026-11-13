@@ -126,22 +126,14 @@ def _choice(rom: str, ram: str, icache: str, dcache: str) -> str:
 def test_the_memory_section_writes_the_constants(tmp_path: Path) -> None:
     """The package has the choice, the sizes and the port flags."""
     text = _render(tmp_path, _platform())
-    check_in("constant ROM_EXTERNAL        : boolean  := true;", text)
-    check_in("constant RAM_EXTERNAL        : boolean  := true;", text)
+    check_in("constant FLASH_ON_BUS        : boolean  := true;", text)
+    check_in("constant RAM_ON_BUS          : boolean  := true;", text)
     check_in("constant HAS_ICACHE          : boolean  := true;", text)
     check_in("constant HAS_DCACHE          : boolean  := true;", text)
     check_in("constant ICACHE_SIZE_BITS    : positive := 4096;", text)
     check_in("constant DCACHE_SIZE_BITS    : positive := 1024;", text)
-    check_in(
-        "constant ROM_VIA_PORT        : boolean  := "
-        "ROM_EXTERNAL or HAS_ICACHE;",
-        text,
-    )
-    check_in(
-        "constant RAM_VIA_PORT        : boolean  := "
-        "RAM_EXTERNAL or HAS_DCACHE;",
-        text,
-    )
+    check_not_in("VIA_PORT", text)
+    check_not_in(" CACHE_WINDOW_BITS ", text)
 
 
 def test_a_platform_without_memory_keeps_the_old_package(
@@ -149,25 +141,33 @@ def test_a_platform_without_memory_keeps_the_old_package(
 ) -> None:
     """Without `memory` none of the new constants appears."""
     text = _render(tmp_path, _platform(memory=None))
-    for name in ("HAS_ICACHE", "SIZE_BITS", "VIA_PORT", "EXTERNAL"):
+    for name in ("HAS_ICACHE", "SIZE_BITS", "VIA_PORT", "ON_BUS"):
         check_not_in(name, text)
 
 
-def test_the_sixteen_combinations_make_sixteen_packages(
+def test_nine_of_the_sixteen_combinations_are_valid(
     tmp_path: Path,
 ) -> None:
-    """Every combination of `--memory` writes a different package."""
+    """The caches need their memory on the bus: seven are refused."""
     packages: set[str] = set()
+    refused = 0
     for rom, ram, icache, dcache in itertools.product(
         ("int", "ext"), ("int", "ext"), ("on", "off"), ("on", "off")
     ):
         set_memory_override(_choice(rom, ram, icache, dcache))
+        if (icache == "on" and rom == "int") or (
+            dcache == "on" and ram == "int"
+        ):
+            with pytest.raises(ValueError, match=r"V-C[12]"):
+                _render(tmp_path, _platform())
+            refused += 1
+            continue
         text = _render(tmp_path, _platform())
         packages.add(text)
-        check_in(f":= {str(rom == 'ext').lower()};", text)
+        check_in(f"{str(rom == 'ext').lower()};", text)
         flag = str(dcache == "on").lower()
         check_in(f"HAS_DCACHE          : boolean  := {flag};", text)
-    check_equal(len(packages), 16)
+    check_equal((len(packages), refused), (9, 7))
 
 
 def test_off_caches_have_the_minimum_size(tmp_path: Path) -> None:
@@ -184,7 +184,7 @@ def test_the_override_without_a_section_needs_the_four_keys(
     """A platform with no `memory` takes the choice from `--memory`."""
     set_memory_override(_choice("ext", "int", "on", "off"))
     text = _render(tmp_path, _platform(memory=None))
-    check_in("ROM_EXTERNAL        : boolean  := true;", text)
+    check_in("FLASH_ON_BUS        : boolean  := true;", text)
     check_in("ICACHE_SIZE_BITS    : positive := 4096;", text)
     set_memory_override("rom=ext")
     with pytest.raises(ValueError, match=r"memory\.ram\.external"):
@@ -229,7 +229,7 @@ def test_the_flag_reaches_the_generated_package(
     finally:
         set_memory_override(None)
     text = (tmp_path / PACKAGE).read_text()
-    check_in("ROM_EXTERNAL        : boolean  := false;", text)
+    check_in("FLASH_ON_BUS        : boolean  := false;", text)
 
 
 def test_a_bad_flag_stops_the_command(
@@ -358,10 +358,10 @@ def test_the_window_widens_to_hold_the_ram(tmp_path: Path) -> None:
     """V3: a 128 MiB RAM makes the window of the cache tag 128 MiB."""
     platform = _big_ram("0x40000000", "128M", "0x47FFFFF0")
     check_in(
-        "CACHE_WINDOW_BITS   : natural  := 27;", _render(tmp_path, platform)
+        "I_CACHE_WINDOW_BITS : natural  := 27;", _render(tmp_path, platform)
     )
     check_in(
-        "CACHE_WINDOW_BITS   : natural  := 26;", _render(tmp_path, _platform())
+        "D_CACHE_WINDOW_BITS : natural  := 26;", _render(tmp_path, _platform())
     )
 
 
@@ -371,7 +371,7 @@ def test_a_region_that_crosses_64_mib_fits_a_wider_window(
     """V3: 0x3FF0000 to 0x4010000 sits in one 128 MiB window."""
     platform = _big_ram("0x3FF0000", "128K", "0x400FFF0")
     check_in(
-        "CACHE_WINDOW_BITS   : natural  := 27;", _render(tmp_path, platform)
+        "I_CACHE_WINDOW_BITS : natural  := 27;", _render(tmp_path, platform)
     )
 
 
@@ -462,14 +462,11 @@ def test_a_cache_needs_the_bypassed_host_words(tmp_path: Path) -> None:
 
 
 def test_notes_say_what_is_not_an_error() -> None:
-    """V8 and V9 are remarks, not errors."""
-    set_memory_override(_choice("int", "int", "on", "on"))
-    notes = memory_notes(_platform(peripherals=[{"name": "U"}]))
-    check_equal(len(notes), 3)
-    check_in("icache over an internal ROM", notes[0])
-    check_in("dcache over an internal RAM", notes[1])
-    check_in("peripherals", notes[2])
+    """The path of the peripherals is a remark, not an error."""
     set_memory_override(_choice("ext", "ext", "on", "on"))
+    notes = memory_notes(_platform(peripherals=[{"name": "U"}]))
+    check_equal(len(notes), 1)
+    check_in("peripherals", notes[0])
     check_equal(memory_notes(_platform()), [])
     check_equal(memory_notes(_platform(memory=None)), [])
 

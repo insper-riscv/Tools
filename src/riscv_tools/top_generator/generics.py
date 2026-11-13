@@ -6,7 +6,8 @@ from riscv_tools.top_generator.spec import (
     TopSpec,
     console,
     external,
-    flash_ctrl_id,
+    flash_ctrl_index,
+    peripheral_index,
     role_ports,
 )
 
@@ -66,20 +67,18 @@ def soc_generics(spec: TopSpec) -> list[str]:
     regions = external(spec)
     generics = [
         "boot_memory_size_bytes => BOOT_MEMORY_SIZE_BYTES",
-        "rom_end_kib => ROM_END_KIB",
+        "rom_end_kib => FLASH_END_KIB",
         "ram_base_kib => RAM_BASE_KIB",
         "ram_end_kib => RAM_END_KIB",
-        "ext_base_kib => EXT_BASE_KIB",
-        "periph_base_kib => PERIPH_BASE_KIB",
         f"rom_external => {str('rom' in regions).lower()}",
         f"ram_external => {str('ram' in regions).lower()}",
         "has_icache => HAS_ICACHE",
         "icache_size_bits => ICACHE_SIZE_BITS",
         "dcache_size_bits => DCACHE_SIZE_BITS",
-        "cache_window_bits => CACHE_WINDOW_BITS",
+        "cache_window_bits => I_CACHE_WINDOW_BITS",
         *_interrupt_generics(spec),
-        f"clint_id => {_peripheral_id(spec.platform, 'CLINT', 6)}",
-        f"plic_id => {_peripheral_id(spec.platform, 'PLIC', 7)}",
+        *_table_generics(),
+        *_index_generics(spec, (("clint", "CLINT"), ("plic", "PLIC"))),
     ]
     if "zihpm" in str(spec.platform.get("profile", "")).lower():
         generics += ["hpm_counters => HPM_COUNTERS", "hpm_width => HPM_WIDTH"]
@@ -105,39 +104,60 @@ def _timing_generics(spec: TopSpec) -> list[str]:
     staggered = spec.plan.get("fetch") is not None
     out = [
         "registered_irqs => true",
-        "periph_slots => PERIPH_SLOTS",
+        "strict_periph => STRICT_PERIPH",
     ]
     if staggered:
         out.append("fast_icache_select => true")
     if "ram" in external(spec):
         out += ["has_dcache_bypass => true", "bypass_page => RAM_LAST_PAGE"]
-    ctrl = flash_ctrl_id(spec)
+    ctrl = flash_ctrl_index(spec)
     if ctrl is not None:
-        out += ["has_flash_ctrl => true", f"flash_ctrl_id => {ctrl}"]
+        out += [
+            "has_flash_ctrl => true",
+            "flash_ctrl_index => FLASH_CTRL_INDEX",
+        ]
     return out
 
 
-def _peripheral_id(platform: dict[str, Any], name: str, default: int) -> int:
-    """Lê o índice da janela de um periférico.
-
-    Parameters
-    ----------
-    platform : dict of {str: Any}
-        O `platform.yaml`.
-    name : str
-        O periférico.
-    default : int
-        O índice quando a plataforma não o lista.
+def _table_generics() -> list[str]:
+    """Monta os generics com as tabelas de janelas do pacote do mapa.
 
     Returns
     -------
-    int
-        O `id` do periférico.
+    list of str
+        A quantidade de periféricos e as tabelas de bases e de máscaras,
+        que o interconector usa para decodificar cada periférico.
     """
-    for entry in cast(list[dict[str, Any]], platform.get("peripherals") or []):
-        if entry.get("name") == name:
-            return int(entry["id"])
-    return default
+    return [
+        "periph_count => PERIPH_COUNT",
+        "periph_bases => PERIPH_BASES",
+        "periph_masks => PERIPH_MASKS",
+    ]
+
+
+def _index_generics(
+    spec: TopSpec, names: tuple[tuple[str, str], ...]
+) -> list[str]:
+    """Monta os generics de índice dos periféricos da plataforma.
+
+    Parameters
+    ----------
+    spec : TopSpec
+        O topo.
+    names : tuple of tuple of (str, str)
+        O prefixo do generic e o nome do periférico em `peripherals`.
+
+    Returns
+    -------
+    list of str
+        `<prefixo>_index => <NOME>_INDEX` de cada periférico listado; o
+        índice vem do pacote do mapa, nunca de um número fixo no topo.
+    """
+    return [
+        f"{prefix}_index => {name}_INDEX"
+        for prefix, name in names
+        if peripheral_index(spec.platform, name) is not None
+    ]
 
 
 def _role_generics(spec: TopSpec) -> list[str]:
@@ -154,15 +174,9 @@ def _role_generics(spec: TopSpec) -> list[str]:
         As associações de generic, com largura e polaridade por papel.
     """
     out: list[str] = []
-    for role, name, default_id in (
-        ("switches", "SWITCHES", 1),
-        ("keys", "KEYS", 2),
-    ):
+    for role in ("switches", "keys"):
         ports = role_ports(spec, role)
-        out += [
-            f"has_{role} => {str(bool(ports)).lower()}",
-            f"{role}_id => {_peripheral_id(spec.platform, name, default_id)}",
-        ]
+        out.append(f"has_{role} => {str(bool(ports)).lower()}")
         if ports:
             out += [
                 f"{role}_width => {ports[0].width}",
@@ -172,22 +186,27 @@ def _role_generics(spec: TopSpec) -> list[str]:
     digits = role_ports(spec, "display")
     out += [
         f"has_display => {str(bool(digits)).lower()}",
-        f"display_id => {_peripheral_id(spec.platform, 'DISPLAY', 5)}",
     ]
     if digits:
         out += [
             f"display_digits => {len(digits)}",
             f"display_active_low => {str(digits[0].active == 'low').lower()}",
         ]
-    uart_id = _peripheral_id(spec.platform, "UART", 4)
     jtag = console(spec) == "jtag"
     out += [
         f"has_uart_jtag => {str(jtag).lower()}",
-        f"uart_jtag_id => {uart_id}",
         f"has_uart_pins => {str(not jtag).lower()}",
-        f"uart_pins_id => {uart_id}",
     ]
-    return out
+    return out + _index_generics(
+        spec,
+        (
+            ("switches", "SWITCHES"),
+            ("keys", "KEYS"),
+            ("display", "DISPLAY"),
+            ("uart_jtag", "UART"),
+            ("uart_pins", "UART"),
+        ),
+    )
 
 
 def video_generics(spec: TopSpec) -> list[str]:
