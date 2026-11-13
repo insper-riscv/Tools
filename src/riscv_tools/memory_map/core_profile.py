@@ -57,6 +57,17 @@ KNOWN = (
     "Zimop",
     "Zicond",
 )
+# Ordem das extensões da matriz do Core no nome de um perfil.
+NAME_ORDER = (
+    "Zicclsm",
+    "Zicsr",
+    "Zicntr",
+    "Zihpm",
+    "Zifencei",
+    "Zimop",
+    "Zicond",
+    "Zmmul",
+)
 IMPLYING_ZICSR = ("Zicntr", "Zihpm")
 KEYS = ("type", "base", "extensions")
 RV32 = 32
@@ -320,17 +331,7 @@ def _plain_name(kind: int, base: str, wanted: list[str], named: bool) -> str:
     if not named:
         return head
     head += "m" if "M" in wanted else ""
-    order = (
-        "Zicclsm",
-        "Zicsr",
-        "Zicntr",
-        "Zihpm",
-        "Zifencei",
-        "Zimop",
-        "Zicond",
-        "Zmmul",
-    )
-    return "_".join([head, *(n.lower() for n in order if n in wanted)])
+    return "_".join([head, *(n.lower() for n in NAME_ORDER if n in wanted)])
 
 
 def _split(
