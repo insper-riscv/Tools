@@ -444,6 +444,25 @@ def _memory_block(
     }
 
 
+def _peripheral_map(items: Any) -> dict[str, dict[str, Any]]:
+    """Write the list of peripherals as a mapping by name.
+
+    Parameters
+    ----------
+    items : Any
+        The list, in the internal form.
+
+    Returns
+    -------
+    dict of {str: dict of {str: Any}}
+        The entries without `name`, in the order of the list.
+    """
+    return {
+        str(p["name"]): {k: v for k, v in p.items() if k != "name"}
+        for p in cast("list[dict[str, Any]]", items)
+    }
+
+
 def to_layout(platform: dict[str, Any]) -> dict[str, Any]:
     """Write a platform of the internal form in the block form.
 
@@ -464,8 +483,5 @@ def to_layout(platform: dict[str, Any]) -> dict[str, Any]:
     if regions:
         out["memory"] = _memory_block(regions, platform.get("memory"))
     if "peripherals" in out:
-        out["peripherals"] = {
-            str(p["name"]): {k: v for k, v in p.items() if k != "name"}
-            for p in cast("list[dict[str, Any]]", out["peripherals"])
-        }
+        out["peripherals"] = _peripheral_map(out["peripherals"])
     return out
