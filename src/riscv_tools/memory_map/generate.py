@@ -48,7 +48,7 @@ change of the map without a new generation fails.
 from pathlib import Path
 from typing import Any, cast
 
-from riscv_tools.memory_map import banks, interrupts, sdram_clock
+from riscv_tools.memory_map import banks, interrupts, sdram_clock, timers
 from riscv_tools.memory_map import memory as memory_choice
 from riscv_tools.memory_map.config_pkg import render_variant, source_name
 from riscv_tools.memory_map.core import (
@@ -627,6 +627,7 @@ def render_vhdl(
         ),
         peripherals=_peripheral_lines(platform)
         + interrupts.vhdl_lines(platform)
+        + timers.vhdl_lines(platform)
         + sdram_clock.vhdl_lines(platform),
     )
 

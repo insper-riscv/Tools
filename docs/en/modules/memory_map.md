@@ -205,6 +205,40 @@ Repeated ids, ids outside 1 to 1023, `priority_bits` outside 1 to 32 and a windo
 
 $$ \text{msip} = base, \quad \text{mtimecmp} = base + \texttt{0x4000}, \quad \text{mtime} = base + \texttt{0xBFF8} $$
 
+### 5.2. General-purpose timers
+
+The platform can have any number of timers. Each one is an entry of `peripherals` with `kind: timer`, a free name, its own `base` and a `size` of at least 32 bytes (the eight registers).
+
+```yaml
+peripherals:
+  TIMER0:
+    kind: timer
+    base: 0x80006000
+    size: 64
+  TIMER1:
+    kind: timer
+    base: 0x80006100
+    size: 64
+```
+
+The entry named `TIMER` with no `kind` is a timer too, so the platforms with a single one stay as they are. Each timer has an interrupt source of its own in the PLIC, and the `interrupts.sources` list does not need to name it.
+
+| Case | Source number |
+| :--- | :--- |
+| The timer is in `interrupts.sources` | The number written (it cannot be 1, 2, 3, 4 or 6, the fixed lines of the SoC) |
+| The timer is not in `sources` | The smallest number from 5 up that no source uses and that is not a fixed line, in the order of `peripherals` |
+
+The rule depends only on the file, so the sources of the other peripherals keep their numbers whatever the number of timers.
+
+| Output | Constants |
+| :--- | :--- |
+| `config_pkg` | `HAS_TIMER`, true with at least one timer |
+| VHDL package (`vhdl`) | `<NAME>_BASE` and `<NAME>_INDEX` of each one, `IRQ_<NAME>`, `TIMER_COUNT` and the tables `TIMER_INDICES` (the index of each one in the window tables) and `TIMER_IRQ_IDS` (the source of each one, 0 without a PLIC), empty without timers |
+| Runtime header (`runtime`) | `RV32_<NAME>_BASE` and `RV32_IRQ_<NAME>` of each one |
+| Board top (`board generate`) | `timer_indices => TIMER_INDICES` and `timer_irq_ids => TIMER_IRQ_IDS` on the SoC, only when there is a timer |
+
+An unknown `kind` (V-P6), a window under 32 bytes (V-P7), a name that is not a VHDL identifier or that repeats in upper case (V-P8) and a source pinned to a fixed line (V-P9) are errors before generating. The alignment and the overlap of the windows follow the rules of the other peripherals (V-P2, V-P4 and V-P5).
+
 ## 6. The clocks of the platform
 
 The `clocks` section of the `platform.yaml` is the single source of the frequencies: the PLL, the `.sdc` and the VHDL package come from it (see [pll_generator](pll_generator.md)). The memory map reads the SDRAM controller clock and the core clock from it.
@@ -416,7 +450,7 @@ The `config_pkg` is the VHDL package of constants of a platform, written from th
 | Memory system | `HAS_ICACHE`, `HAS_DCACHE`, `FLASH_ON_BUS` and `RAM_ON_BUS` |
 | Extensions | One `HAS_<EXTENSION>` per profile key (`HAS_ZICCLSM` to `HAS_ZIHINTPAUSE`) |
 | Memory | `BOOT_MEMORY_BITS`, `BOOT_MEMORY_BASE` and `BOOT_MEMORY_END` (from 0 to $2^{\text{BOOT\_MEMORY\_BITS}}$), `FLASH_BASE`, `FLASH_END`, `RAM_BASE` and `RAM_END` of type `map_addr_t`, and `I_CACHE_WINDOW_BITS` and `D_CACHE_WINDOW_BITS` |
-| Peripherals of the core | `HAS_GPIO`, `HAS_CLINT`, `HAS_PLIC` and `HAS_TIMER`, true when the name is in `peripherals` |
+| Peripherals of the core | `HAS_GPIO`, `HAS_CLINT` and `HAS_PLIC`, true when the name is in `peripherals`, and `HAS_TIMER`, true when there is at least one timer (`kind: timer`) |
 | Composite | `HAS_MULTIPLICATION` (`HAS_M or HAS_ZMMUL`), `HAS_ANY_COUNTER` (`HAS_ZICNTR or HAS_ZIHPM`) and `HAS_SSCOF` (`HAS_SSCOFPMF and HAS_ZIHPM and HAS_INTERRUPTS`) |
 | Functions | `isa_string`, the ISA text (`rv32im_zicsr_zicntr`), and `check_isa`, which fails at elaboration when a dependency between constants does not hold |
 
@@ -500,6 +534,7 @@ Some platforms need one more declaration so that the generated `config_pkg` refl
 | `tests/test_memory_map.py::test_load_platform_rejects_a_non_mapping` | A non-mapping file is rejected. |
 | `tests/test_memory_map.py::test_cmd_check_memory_map_exit_status` | The command prints OK, or exits 1 listing the mismatches. |
 | `tests/test_interrupts.py` | The package has `HAS_INTERRUPTS`, `CLOCK_HZ`, `MTIME_HZ` and `CLINT_TICK_CYCLES`, the header has the registers of the CLINT and the rate of `mtime`, and an inconsistent section (rate, missing CLINT, profile without the interrupts) is rejected. |
+| `tests/test_timers.py` | Zero, one, three and eight timers give the tables, the lines, the header and `HAS_TIMER`, the sources of the other peripherals never move, the name `TIMER` stays valid, and a wrong kind, size, name, alignment, overlap or fixed line is rejected. |
 | `tests/test_memory_choice.py` | The `memory` section and the `--memory` option generate the 9 valid combinations as 9 different packages and refuse the 7 invalid ones, the constants and the simulation parameters come from the choice, and rules V1 to V5, V7 and V10 fail with a clear message. |
 | `tests/test_config_from_platform.py` | The `memory` keys, the `tohost` and `stdout` environment and the address widths come from the map, and the map wins over the file and its `extends`. |
 | `tests/test_layout.py` | The `memory` block becomes the regions and the four choices, two segments are refused ("vários segmentos ainda não são suportados"), the old keys (`regions`, `memory.rom`, `kind`, `exec`) are refused with the migration, and `on_bus` comes in both segments or in none. `tests/test_peripheral_offsets.py` proves that the order of the peripherals in the file is the order of the indexes. |
