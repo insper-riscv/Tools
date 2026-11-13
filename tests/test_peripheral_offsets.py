@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-import yaml
 from support import (
     MAP_REGIONS,
     MAP_RESERVED,
@@ -12,9 +11,11 @@ from support import (
     check_equal,
     check_in,
     check_not_in,
+    dump_platform,
 )
 
 from riscv_tools.memory_map import (
+    load_platform,
     render_all,
     symbols,
     validate_platform,
@@ -162,7 +163,7 @@ def test_the_tables_follow_the_order_of_the_platform(tmp_path: Path) -> None:
         {"name": "PLIC", "base": "0xF0000000", "size": "4M"},
     )
     path = tmp_path / "platform.yaml"
-    path.write_text(yaml.safe_dump(platform, sort_keys=False))
+    path.write_text(dump_platform(platform))
     text = render_all(path, tmp_path)[tmp_path / "out/offsets_pkg.vhd"]
     for line in (
         "constant PERIPH_COUNT : natural := 2;",
@@ -183,7 +184,7 @@ def test_a_platform_without_peripherals_has_empty_tables(
 ) -> None:
     """Zero peripherals write null tables, which elaborate."""
     path = tmp_path / "platform.yaml"
-    path.write_text(yaml.safe_dump(_with(), sort_keys=False))
+    path.write_text(dump_platform(_with()))
     text = render_all(path, tmp_path)[tmp_path / "out/offsets_pkg.vhd"]
     check_in("constant PERIPH_COUNT : natural := 0;", text)
     check_in("others => (others => '0')", text)
@@ -206,8 +207,40 @@ def test_strict_periph_is_a_constant_of_the_map_package(
         strict_periph=strict,
     )
     path = tmp_path / "platform.yaml"
-    path.write_text(yaml.safe_dump(platform, sort_keys=False))
+    path.write_text(dump_platform(platform))
     out = render_all(path, tmp_path)[tmp_path / "out/offsets_pkg.vhd"]
     check_in(
         f"constant STRICT_PERIPH : boolean := {str(strict).lower()};", out
     )
+
+
+def test_the_order_of_the_file_is_the_order_of_the_indexes(
+    tmp_path: Path,
+) -> None:
+    """Names that sort differently keep the order they were written."""
+    text = (
+        "memory:\n  boot:\n    base: 0\n    size: 4K\n"
+        "  instructions:\n    - {type: onchip, base: 0x1000, size: 4K}\n"
+        "  data:\n    - {type: onchip, base: 0x8000, size: 4K}\n"
+        "peripherals:\n"
+        "  ZED:\n    base: 0xB0000000\n    size: 16\n"
+        "  ALPHA:\n    base: 0xC0000000\n    size: 16\n"
+        "  MID:\n    base: 0xA0000000\n    size: 16\n"
+    )
+    path = tmp_path / "platform.yaml"
+    path.write_text(text)
+    table = symbols(load_platform(path))
+    check_equal(
+        [table["ZED.index"], table["ALPHA.index"], table["MID.index"]],
+        [0, 1, 2],
+    )
+
+
+def test_a_peripheral_list_is_refused_with_the_migration(
+    tmp_path: Path,
+) -> None:
+    """The old list of peripherals says how to write the mapping."""
+    path = tmp_path / "platform.yaml"
+    path.write_text("peripherals:\n  - {name: UART, base: 0xC0, size: 16}\n")
+    with pytest.raises(ValueError, match="no longer a list"):
+        load_platform(path)

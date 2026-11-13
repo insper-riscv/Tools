@@ -274,15 +274,6 @@ def test_the_peripherals_that_talk_to_the_core_follow_the_list(
     check_not_in("HAS_UART", text)
 
 
-def test_the_rom_and_the_ram_must_be_named(tmp_path: Path) -> None:
-    """Without `generate.vhdl` or `config` the map has no ROM or RAM."""
-    bare = {k: v for k, v in PLATFORM.items() if k != "generate"}
-    with pytest.raises(ValueError, match="ROM and the RAM"):
-        _config(tmp_path, bare)
-    named = {**bare, "config": {"rom": "FLASH", "ram": "RAM"}}
-    check_in("constant ADDR_BITS", _config(tmp_path, named))
-
-
 def test_generate_writes_the_config_pkg_and_check_catches_a_change(
     tmp_path: Path,
 ) -> None:

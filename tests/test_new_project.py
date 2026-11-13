@@ -46,26 +46,44 @@ core:
   type: 32
   base: I
   extensions: []
-regions:
-  - {name: BOOT_MEMORY, base: 0x00000000, size: 4K,   kind: rom, exec: true}
-  - {name: FLASH,    base: 0x00001000, size: 252K, kind: rom, exec: true}
-  - {name: RAM,      base: 0x40000000, size: 64M,  kind: ram}   # the SDRAM
+memory:
+  boot:
+    base: 0x00000000
+    size: 4K
+  instructions:
+    - type: emulated
+      base: 0x00001000
+      size: 252K
+      on_bus: true
+      sector_bytes: 4096
+      cache:
+        size_bits: 32768
+  data:
+    - type: sdram   # the SDRAM
+      base: 0x40000000
+      size: 64M
+      on_bus: true
+      cache:
+        size_bits: 32768
 reserved:
-  stdout:   {base: 0x43FFFBE0, size: 1K+8}
-  tohost:   {base: 0x43FFFFE8, size: 8}
-  fromhost: {base: 0x43FFFFF0, size: 8}
+  stdout:
+    base: 0x43FFFBE0
+    size: 1K+8
+  tohost:
+    base: 0x43FFFFE8
+    size: 8
+  fromhost:
+    base: 0x43FFFFF0
+    size: 8
 flash:
   region: FLASH
   banks:
     - {name: A, base: 0x00001000, size: 124K}
     - {name: B, base: 0x00020000, size: 128K}
-memory:
-  rom:    {external: true, backend: emulado, sector_bytes: 4096}
-  ram:    {external: true, backend: dispositivo, device: sdram}
-  icache: {enabled: true, size_bits: 32768}
-  dcache: {enabled: true, size_bits: 32768}
 peripherals:
-  - {name: UART, base: 0xC0000000, size: 1K}
+  UART:
+    base: 0xC0000000
+    size: 1K
 """
 CONFIG = """\
 toolchain:
@@ -216,13 +234,15 @@ def test_the_platform_file_follows_the_choices() -> None:
     check_equal(data["platform"], "demo-64k")
     check_equal(data["top"], top)
     check_equal(data["core"], {"type": 32, "base": "I", "extensions": ["M"]})
-    sizes = {r["name"]: r["size"] for r in data["regions"]}
-    check_equal((sizes["FLASH"], sizes["RAM"]), ("64K", "64K"))
+    memory = data["memory"]
+    sizes = (memory["instructions"][0]["size"], memory["data"][0]["size"])
+    check_equal(sizes, ("64K", "64K"))
     check_equal(data["reserved"]["tohost"]["base"], 0x4000FFE8)
     banks = {b["name"]: (b["base"], b["size"]) for b in data["flash"]["banks"]}
     check_equal(banks, {"A": (0x1000, "32K"), "B": (0x9000, "32K")})
-    check_equal(data["memory"]["icache"], {"enabled": False})
-    check_equal(data["memory"]["dcache"]["size_bits"], 16384)
+    check_not_in("cache", memory["instructions"][0])
+    check_equal(memory["data"][0]["cache"], {"size_bits": 16384})
+    check_equal(memory["data"][0]["on_bus"], True)
     check_in("# The fpga-demo platform.", text)
     check_in("# the SDRAM", text)
 
@@ -232,14 +252,15 @@ def test_a_choice_left_out_keeps_the_template_value() -> None:
     spec = ProjectSpec(name="demo-keep", board="demo-board")
     data = yaml.safe_load(rewrite_platform(PLATFORM, spec, "fpga-demo", "t"))
     check_equal(data["core"], {"type": 32, "base": "I", "extensions": []})
-    check_equal(data["regions"][2]["size"], "64M")
-    check_equal(data["memory"]["icache"]["size_bits"], 32768)
+    check_equal(data["memory"]["data"][0]["size"], "64M")
+    inst = data["memory"]["instructions"][0]
+    check_equal(inst["cache"]["size_bits"], 32768)
 
 
 def test_a_template_without_the_expected_line_is_refused() -> None:
-    """A missing cache line is an error, not a silent skip."""
-    text = PLATFORM.replace("  icache:", "  other:")
-    with pytest.raises(ValueError, match="icache"):
+    """A missing size line is an error, not a silent skip."""
+    text = PLATFORM.replace("      size: 252K\n", "")
+    with pytest.raises(ValueError, match="no `size:` line"):
         rewrite_platform(text, SPEC, "fpga-demo", "t")
 
 

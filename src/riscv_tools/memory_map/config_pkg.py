@@ -39,6 +39,7 @@ from riscv_tools.memory_map.core import (
     platform_list,
 )
 from riscv_tools.memory_map.expressions import evaluate
+from riscv_tools.memory_map.layout import FLASH, RAM
 from riscv_tools.memory_map.problems import platform_problems
 from riscv_tools.memory_map.profile import (
     RV32_XLEN,
@@ -185,27 +186,18 @@ def _rom_ram(platform: dict[str, Any]) -> tuple[str, str]:
     Parameters
     ----------
     platform : dict of {str: Any}
-        The loaded platform: `generate.vhdl` or `config` names them.
+        The loaded platform: `generate.vhdl` or `config` may name them.
 
     Returns
     -------
     tuple of (str, str)
-        The name of the ROM region and of the RAM region.
-
-    Raises
-    ------
-    ValueError
-        If the platform names neither.
+        The name of the ROM region and of the RAM region (`FLASH` and
+        `RAM` by default).
     """
     spec = _vhdl_spec(platform)
     config = platform_dict(platform, "config")
-    rom = spec.get("rom") or config.get("rom")
-    ram = spec.get("ram") or config.get("ram")
-    if not rom or not ram:
-        raise ValueError(
-            "the config_pkg needs the ROM and the RAM: name them in "
-            "`generate.vhdl` or `config` as `rom` and `ram`"
-        )
+    rom = spec.get("rom") or config.get("rom") or FLASH
+    ram = spec.get("ram") or config.get("ram") or RAM
     return str(rom), str(ram)
 
 

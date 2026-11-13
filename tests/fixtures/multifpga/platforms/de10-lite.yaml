@@ -8,21 +8,38 @@ core:
     - M
     - Zicntr
     - Zifencei
-regions:
-  - {name: BOOT_MEMORY, base: 0x00000000, size: 4K,  kind: rom, exec: true}
-  - {name: FLASH,       base: 0x00001000, size: 28K, kind: rom, exec: true}
-  - {name: RAM,         base: 0x40000000, size: 16M, kind: ram}
 memory:
-  rom:    {external: true, backend: emulado, latency: {first: 24, next: 4}, sector_bytes: 4096}
-  ram:    {external: true, backend: dispositivo, device: sdram}
-  icache: {enabled: true, size_bits: 8192}
-  dcache: {enabled: true, size_bits: 8192}
+  boot:
+    base: 0x00000000
+    size: 4K
+  instructions:
+    - type: emulated
+      base: 0x00001000
+      size: 28K
+      on_bus: true
+      latency:
+        first: 24
+        next: 4
+      sector_bytes: 4096
+      cache:
+        size_bits: 8192
+  data:
+    - type: sdram
+      base: 0x40000000
+      size: 16M
+      on_bus: true
+      cache:
+        size_bits: 8192
 clocks:
   core: {mhz: 50, phase_ps: 8250}
   mem:  {mhz: 100}
 console: jtag
 io:
-  leds: {count: 10, need: required}
-  display: {count: 6, need: optional}
+  leds:
+    count: 10
+    need: required
+  display:
+    count: 6
+    need: optional
 generate:
   vhdl: {path: de10_lite_map_pkg.vhd, package: de10_lite_map_pkg, rom: FLASH, ram: RAM}

@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 import yaml
-from support import check, check_equal, check_in
+from support import check, check_equal, check_in, dump_platform
 
 from riscv_tools import cli
 from riscv_tools.memory_map import (
@@ -93,7 +93,7 @@ def _project(root: Path, platform: dict[str, Any] | None = None) -> Path:
     for name, text in COPIES.items():
         (root / name).write_text(text)
     path = root / "platform.yaml"
-    path.write_text(yaml.safe_dump(platform or PLATFORM, sort_keys=False))
+    path.write_text(dump_platform(platform or PLATFORM))
     return path
 
 

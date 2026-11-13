@@ -292,7 +292,7 @@ def validate_platform(
     ]
     problems += _boot_problems(platform_dict(platform, "boot"), spans, execs)
     problems += _address_problems(platform, bits, spans, generics, xlen)
-    problems += memory.problems(platform, generics)
+    problems += memory.problems(platform)
     problems += _strict_problems(platform) + _removed_problems(platform)
     problems += _core_map_problems(platform, bits)
     return problems + _peripheral_problems(

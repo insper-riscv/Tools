@@ -35,11 +35,12 @@ Como mudar o projeto
                na mesma lista `extensions`)
                A BOOT_MEMORY executa fence.i: o perfil precisa de
                zifencei, ou o boot reinicia para sempre
-  memórias     `size` das regiões FLASH e RAM; mantenha `reserved`
-               dentro da RAM e as bancas de `flash` dentro da FLASH
-  caches       `memory.icache` e `memory.dcache` (`enabled`,
-               `size_bits`)
-  periféricos  uma linha de `peripherals` por periférico, com `base`
+  memórias     `size` em `memory.instructions` e `memory.data`;
+               mantenha `reserved` dentro dos dados e as bancas
+               de `flash` dentro das instruções
+  caches       `cache` (`size_bits`) do segmento de `memory`
+  periféricos  um bloco de `peripherals` por periférico (a ordem é a dos
+               índices), com `base`
                (endereço absoluto) e `size` (bytes de registradores);
                a janela é a menor potência de dois, de 16 bytes ou
                mais, e a base fica alinhada a ela. A ligação
@@ -85,11 +86,12 @@ How to change the project
                stay in the same `extensions` list)
                The BOOT_MEMORY executes fence.i: the profile needs
                zifencei, or the boot restarts forever
-  memories     `size` of the FLASH and RAM regions; keep `reserved`
-               inside the RAM and the `flash` banks inside the FLASH
-  caches       `memory.icache` and `memory.dcache` (`enabled`,
-               `size_bits`)
-  peripherals  one `peripherals` line each, with `base` (absolute
+  memories     `size` in `memory.instructions` and `memory.data`;
+               keep `reserved` inside the data and the `flash`
+               banks inside the instructions
+  caches       `cache` (`size_bits`) of the `memory` segment
+  peripherals  one `peripherals` block each (the order is the one of the
+               indexes), with `base` (absolute
                address) and `size` (bytes of registers); the window
                is the smallest power of two, at least 16 bytes, and
                the base is aligned to it. The VHDL wiring

@@ -36,17 +36,44 @@ core:
     - AccessFaults
 profiles: ../../../Core/profiles/matrix.yaml
 
-regions:
-  - {name: BOOT_MEMORY, base: 0x00000000, size: 4K,   kind: rom, exec: true}
-  - {name: FLASH,    base: 0x00001000, size: 252K, kind: rom, exec: true}
-  - {name: RAM,      base: 0x40000000, size: 64M,  kind: ram}   # the SDRAM
+# The memory map and model: the BOOT_MEMORY inside the core, the FLASH emulated in the M10K blocks with the latency of a serial
+# chip (24 cycles for the first word of a burst, 4 for each following) and the SDRAM of the board, both on the bus behind
+# the instruction and the data caches (32768 bits, 4 KiB, the size of the cache entities).
+memory:
+  boot:
+    base: 0x00000000
+    size: 4K
+  instructions:
+    - type: emulated
+      base: 0x00001000
+      size: 252K
+      on_bus: true
+      latency:
+        first: 24
+        next: 4
+      sector_bytes: 4096
+      cache:
+        size_bits: 32768
+  data:
+    - type: sdram
+      base: 0x40000000
+      size: 64M
+      on_bus: true
+      cache:
+        size_bits: 32768
 
 # Words at the top of RAM: the contract between the boot memory, the program and
 # the host (platform/boot_memory.S clears them at every reset).
 reserved:
-  stdout:   {base: 0x43FFFBE0, size: 1K+8}
-  tohost:   {base: 0x43FFFFE8, size: 8}
-  fromhost: {base: 0x43FFFFF0, size: 8}
+  stdout:
+    base: 0x43FFFBE0
+    size: 1K+8
+  tohost:
+    base: 0x43FFFFE8
+    size: 8
+  fromhost:
+    base: 0x43FFFFF0
+    size: 8
 
 boot:
   entry: 0x00001000
@@ -66,11 +93,21 @@ flash:
 # JTAG UART and the seven-segment display of the board top, the CLINT (a 64 KiB slot: msip, mtimecmp and mtime) and the
 # PLIC (a 4 MiB window), the controller of the external interrupt lines, whose output is the MEIP of the core.
 peripherals:
-  - {name: FLASH_CTRL, base: 0xB0000000, size: 64}
-  - {name: UART,    base: 0xC0000000, size: 16}
-  - {name: DISPLAY, base: 0xD0000000, size: 16}
-  - {name: CLINT,   base: 0xE0000000, size: 64K}
-  - {name: PLIC,    base: 0xF0000000, size: 4M}
+  FLASH_CTRL:
+    base: 0xB0000000
+    size: 64
+  UART:
+    base: 0xC0000000
+    size: 16
+  DISPLAY:
+    base: 0xD0000000
+    size: 16
+  CLINT:
+    base: 0xE0000000
+    size: 64K
+  PLIC:
+    base: 0xF0000000
+    size: 4M
 
 # The machine interrupts: MTIP and MSIP come from the CLINT, MEIP from the PLIC, all in the clock domain of the core
 # (76.923077 MHz here), so no synchronizer is needed. The mtime of the CLINT counts at mtime_hz (77 cycles per tick) and is
@@ -85,16 +122,6 @@ interrupts:
   sources:
     - {name: UART_JTAG, id: 2}
     - {name: FLASH,     id: 6}
-
-# The memory model: the FLASH is emulated in the M10K blocks with the latency of a serial chip (24 cycles for the first
-# word of a burst, 4 for each following) and the SDRAM is the device of the board, both outside the core behind the
-# instruction and the data caches (32768 bits, 4 KiB, the size of the cache entities). The package takes ROM_EXTERNAL,
-# RAM_EXTERNAL and the caches from here.
-memory:
-  rom:    {external: true, backend: emulado, latency: {first: 24, next: 4}, sector_bytes: 4096}
-  ram:    {external: true, backend: dispositivo, device: sdram}
-  icache: {enabled: true, size_bits: 32768}
-  dcache: {enabled: true, size_bits: 32768}
 
 # The clocks of the PLL, the single source of the generated PLL (`riscv-tools board generate`) and of the periods the
 # generated files convert with. `mem` is the clock of the SDRAM controller (the DRAM_CLK pin has the same frequency, its
@@ -112,10 +139,18 @@ clocks:
 # The console is the JTAG UART (Virtual JTAG); the roles of inputs and outputs the platform wires.
 console: jtag
 io:
-  leds:     {count: 10, need: required}
-  switches: {count: 10, need: optional}
-  keys:     {count: 4,  need: optional}
-  display:  {count: 6,  need: optional}
+  leds:
+    count: 10
+    need: required
+  switches:
+    count: 10
+    need: optional
+  keys:
+    count: 4
+    need: optional
+  display:
+    count: 6
+    need: optional
 # The files written from this map by `riscv-tools generate-memory-map` (`make generate`): the linker
 # flags of the test programs and the linker script of the boot memory. `make memory-map` checks they are up to date.
 generate:

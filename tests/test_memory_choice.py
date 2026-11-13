@@ -1,6 +1,7 @@
 """Tests for the `memory` section and the `--memory` option."""
 
 import itertools
+import re
 import sys
 from collections.abc import Iterator
 from copy import deepcopy
@@ -8,10 +9,10 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-import yaml
 from support import (
     MAP_REGIONS,
     MAP_RESERVED,
+    check,
     check_equal,
     check_in,
     check_is,
@@ -299,17 +300,17 @@ def _bad(section: dict[str, Any], **changes: Any) -> dict[str, Any]:
     ],
 )
 def test_a_malformed_section_is_rejected(
-    tmp_path: Path, platform: dict[str, Any], message: str
+    platform: dict[str, Any], message: str
 ) -> None:
     """V1 and V2 fail with the field that is wrong."""
-    with pytest.raises(ValueError, match=message):
-        _render(tmp_path, platform)
+    problems = [str(p) for p in validate_platform(platform)]
+    check(any(re.search(message, p) for p in problems), str(problems))
 
 
-def test_memory_must_be_a_mapping(tmp_path: Path) -> None:
+def test_memory_must_be_a_mapping() -> None:
     """A list under `memory` is rejected."""
-    with pytest.raises(ValueError, match="must be a mapping"):
-        _render(tmp_path, _platform(memory=[1]))
+    problems = [str(p) for p in validate_platform(_platform(memory=[1]))]
+    check(any("must be a mapping" in p for p in problems), str(problems))
 
 
 def test_the_old_external_flags_cannot_sit_beside_memory(
@@ -400,54 +401,6 @@ def test_the_rom_must_fit_the_router_window(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="window of the region router"):
         _render(tmp_path, platform)
     set_memory_override(_choice("int", "int", "off", "off"))
-    _render(tmp_path, platform)
-
-
-def _code_in_ram() -> list[dict[str, Any]]:
-    """Make the RAM executable.
-
-    Returns
-    -------
-    list of dict of {str: Any}
-        The regions of the platform.
-    """
-    regions = deepcopy(MAP_REGIONS)
-    regions[2] |= {"exec": True}
-    return regions
-
-
-def test_code_in_the_ram_needs_the_ram_and_the_fetch_port(
-    tmp_path: Path,
-) -> None:
-    """V5: the core fetches from the RAM only through its port."""
-    platform = _platform(regions=_code_in_ram())
-    _render(tmp_path, platform)
-    set_memory_override(_choice("ext", "int", "off", "off"))
-    with pytest.raises(ValueError, match="executable in the RAM"):
-        _render(tmp_path, platform)
-    set_memory_override(_choice("int", "ext", "off", "on"))
-    with pytest.raises(ValueError, match="executable in the RAM"):
-        _render(tmp_path, platform)
-
-
-def test_code_in_the_ram_behind_an_icache_needs_zifencei(
-    tmp_path: Path,
-) -> None:
-    """V7: the $I sees new code only after `FENCE.I`."""
-    spec = {
-        "bases": [{"name": "rv32i", "generics": {"num_regs": 32}}],
-        "extensions": [
-            {"name": "Zicsr", "generic": "has_zicsr"},
-            {"name": "Zifencei", "generic": "has_zifencei"},
-        ],
-    }
-    (tmp_path / "matrix.yaml").write_text(yaml.safe_dump(spec))
-    platform = _platform(
-        regions=_code_in_ram(), profiles="matrix.yaml", profile="rv32i_zicsr"
-    )
-    with pytest.raises(ValueError, match="needs Zifencei"):
-        _render(tmp_path, platform)
-    platform["profile"] = "rv32i_zicsr_zifencei"
     _render(tmp_path, platform)
 
 
