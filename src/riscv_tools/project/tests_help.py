@@ -217,10 +217,10 @@ def render_tests_help(
     str
         The text.
     """
-    path = Path("Tests/tools/riscv_build") / f"include-{manifest.name}"
+    path = Path("Tests/tools/riscv_build") / f"include-{manifest.slug}"
     return (_PT if language == "pt" else _EN).format(
         url=TESTS_URL,
-        name=manifest.name,
+        name=manifest.slug,
         repo=manifest.repo,
         platform=manifest.platform,
         header=HEADER_FILE,

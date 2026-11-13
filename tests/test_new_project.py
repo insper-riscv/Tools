@@ -17,9 +17,11 @@ from support import (
 from riscv_tools import cli
 from riscv_tools.new_project import (
     ProjectSpec,
+    check_title,
     create_platform,
     parse_cache,
     parse_size,
+    slugify,
     validate,
 )
 from riscv_tools.new_project.layout import flash_banks, reserved_bases
@@ -99,8 +101,11 @@ SCRIPT = (
     '    Saida("src/fam/fpga-demo/config.yaml", ("fpga_demo_sim_top",)),\n'
     ")\n"
 )
+NAME = "Demo 64K"
+
 SPEC = ProjectSpec(
     name="demo-64k",
+    title=NAME,
     board="demo-board",
     profile="rv32im",
     rom_bytes=64 * 1024,
@@ -169,6 +174,7 @@ def test_the_choices_are_checked_against_the_catalog() -> None:
     validate(SPEC, boards, profiles)
     bad: list[tuple[dict[str, Any], str]] = [
         ({"name": "Demo"}, "lower case"),
+        ({"title": "a/b"}, "character"),
         ({"board": "other"}, "demo-board"),
         ({"profile": "rv32x"}, "unknown profile"),
         ({"rom_bytes": 12288}, "multiple of 8192"),
@@ -332,7 +338,7 @@ def test_an_existing_platform_is_not_overwritten(tmp_path: Path) -> None:
 
 def _run(monkeypatch: pytest.MonkeyPatch, repo: Path, *extra: str) -> None:
     """Run `riscv-tools new-project` on a checkout, not generating."""
-    argv = ["riscv-tools", "new-project", "demo-64k"]
+    argv = ["riscv-tools", "new-project", "--new", NAME]
     argv += ["--board", "demo-board", "--profile", "rv32im"]
     argv += ["--rom", "64K", "--ram", "64K", "--icache", "off"]
     argv += ["--repo", str(repo), "--no-generate", *extra]
@@ -349,7 +355,7 @@ def test_the_command_prints_the_help_and_runs_without_config(
     repo = _repo(tmp_path / "Insper-RISC-V")
     _run(monkeypatch, repo)
     out = capsys.readouterr().out
-    check_in("Projeto 'demo-64k' pronto", out)
+    check_in("Projeto 'Demo 64K' pronto", out)
     check_in("src/fam/demo-64k/platform.yaml", out)
     check_in("FLASH 64K, RAM 64K, icache off", out)
     check_in("UART", out)
@@ -376,7 +382,8 @@ def test_the_command_refuses_an_unknown_board(
 ) -> None:
     """An unknown board exits with status 1 and lists the known ones."""
     repo = _repo(tmp_path / "Insper-RISC-V")
-    argv = ["riscv-tools", "new-project", "demo-64k", "--board", "nope"]
+    argv = ["riscv-tools", "new-project", "--new", NAME]
+    argv += ["--board", "nope"]
     argv += ["--repo", str(repo), "--no-generate"]
     monkeypatch.setattr("sys.argv", argv)
     with pytest.raises(SystemExit) as stop:
@@ -418,3 +425,171 @@ def test_a_boot_without_fence_i_accepts_any_profile(tmp_path: Path) -> None:
     boot.write_text("_reset:\n    j _reset\n")
     created = create_platform(repo, SPEC)
     check_equal(created.folder, Path("src/fam/demo-64k"))
+
+
+@pytest.mark.parametrize(
+    ("title", "slug"),
+    [
+        ("demo-64k", "demo-64k"),
+        ("Meu Projeto de Teste", "meu-projeto-de-teste"),
+        ("MEU  projeto", "meu-projeto"),
+        ("Projeto Ação_Final", "projeto-acao-final"),
+        ("  Café -- da  manhã ", "cafe-da-manha"),
+        ("a_b__c---d", "a-b-c-d"),
+        ("Árvore 2", "arvore-2"),
+    ],
+)
+def test_a_name_gives_a_slug(title: str, slug: str) -> None:
+    """Case, accents, spaces, underscores and hyphens are normalised."""
+    check_equal(slugify(title), slug)
+    check_equal(check_title(title), title.strip(" "))
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "",
+        "   ",
+        "a/b",
+        "a\\b",
+        "a.b",
+        "..",
+        "../x",
+        'a"b',
+        "a'b",
+        "a\nb",
+        "a\tb",
+        "a\x00b",
+        "$(rm -rf x)",
+        "a; rm -rf /",
+        "`id`",
+        "a: b",
+        "x\n- {name: y}",
+        "a#b",
+        "a{b}",
+        "a&b",
+    ],
+)
+def test_a_name_with_forbidden_characters_is_refused(title: str) -> None:
+    """Empty, only spaces and anything else than the accepted set."""
+    with pytest.raises(ValueError, match="project name"):
+        check_title(title)
+    with pytest.raises(ValueError, match="project name"):
+        slugify(title)
+
+
+@pytest.mark.parametrize("title", ["1 teste", "123", "-9 x", "_9x", "日本"])
+def test_a_name_whose_slug_does_not_start_with_a_letter(title: str) -> None:
+    """The slug passes the same check the name had before."""
+    with pytest.raises(ValueError, match="identifier"):
+        slugify(title)
+
+
+def _run_named(
+    monkeypatch: pytest.MonkeyPatch, repo: Path, name: str, *extra: str
+) -> None:
+    """Run `new-project --new NAME` on a checkout, not generating."""
+    argv = ["riscv-tools", "new-project", "--new", name]
+    argv += ["--board", "demo-board", "--repo", str(repo), "--no-generate"]
+    monkeypatch.setattr("sys.argv", [*argv, *extra])
+    cli.main()
+
+
+def test_the_name_goes_to_the_header_manifest_help_and_readme(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The name as typed is shown; the slug names every file."""
+    repo = _repo(tmp_path / "Insper-RISC-V")
+    _run_named(monkeypatch, repo, "Meu Projeto Ação")
+    out = capsys.readouterr().out
+    check_in("Projeto 'Meu Projeto Ação' pronto", out)
+    folder = repo / "src/fam/meu-projeto-acao"
+    text = (folder / "platform.yaml").read_text(encoding="utf-8")
+    check_in("# Platform Meu Projeto Ação (meu-projeto-acao)", text)
+    check_equal(yaml.safe_load(text)["platform"], "meu-projeto-acao")
+    data = yaml.safe_load((tmp_path / "project.yaml").read_text("utf-8"))
+    check_equal(data["name"], "Meu Projeto Ação")
+    check_equal(data["slug"], "meu-projeto-acao")
+    check_equal(data["platform"], "src/fam/meu-projeto-acao")
+    readme = (tmp_path / "README.md").read_text(encoding="utf-8")
+    check_in("# Meu Projeto Ação", readme)
+    check_in("`meu-projeto-acao`", readme)
+    check((folder / "meu_projeto_acao_map_pkg.vhd").is_file())
+    config = yaml.safe_load((folder / "config.yaml").read_text())
+    check_equal(
+        config["quartus"]["project_name"], "meu_projeto_acao_demo_board"
+    )
+
+
+@pytest.mark.parametrize(
+    "name", ["a/b", "x: y", "$(touch pwned)", "a\nb", "..", ""]
+)
+def test_a_dangerous_name_is_refused_before_anything_is_written(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    name: str,
+) -> None:
+    """The command exits with status 1 and creates nothing."""
+    repo = _repo(tmp_path / "Insper-RISC-V")
+    with pytest.raises(SystemExit) as stop:
+        _run_named(monkeypatch, repo, name)
+    check_equal(stop.value.code, 1)
+    check_in("project name", capsys.readouterr().err)
+    check_false((tmp_path / "project.yaml").exists())
+    check_equal(
+        sorted(p.name for p in (repo / "src/fam").iterdir()), ["fpga-demo"]
+    )
+
+
+def test_two_names_with_one_slug_collide_and_say_the_slug(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The second name is refused with the identifier in the message."""
+    repo = _repo(tmp_path / "Insper-RISC-V")
+    _run_named(monkeypatch, repo, "Meu Projeto")
+    with pytest.raises(FileExistsError, match="meu-projeto"):
+        create_platform(
+            repo, ProjectSpec(name=slugify("meu_projeto"), board="demo-board")
+        )
+
+
+def test_an_existing_project_folder_is_refused_with_the_slug(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """`--dir` plus a name whose slug folder exists fails, naming it."""
+    (tmp_path / "meu-projeto").mkdir()
+    argv = ["riscv-tools", "new-project", "--new", "Meu  Projeto"]
+    argv += ["--board", "demo-board", "--dir", str(tmp_path)]
+    monkeypatch.setattr("sys.argv", argv)
+    with pytest.raises(SystemExit) as stop:
+        cli.main()
+    check_equal(stop.value.code, 1)
+    check_in("'meu-projeto'", capsys.readouterr().err)
+
+
+def test_the_positional_name_is_gone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The name comes only from `--new`."""
+    argv = ["riscv-tools", "new-project", "demo", "--board", "demo-board"]
+    monkeypatch.setattr("sys.argv", argv)
+    with pytest.raises(SystemExit):
+        cli.main()
+
+
+def test_a_yaml_looking_name_stays_a_comment(tmp_path: Path) -> None:
+    """The header holds the name; the data of the file is untouched."""
+    repo = _repo(tmp_path)
+    spec = ProjectSpec(
+        name="x-y", title="x y", board="demo-board", profile="rv32im"
+    )
+    created = create_platform(repo, spec)
+    text = (repo / created.platform).read_text(encoding="utf-8")
+    data = yaml.safe_load(text)
+    check_equal(data["platform"], "x-y")
+    check_equal(text.splitlines()[0].count("\n"), 0)

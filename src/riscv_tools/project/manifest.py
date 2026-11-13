@@ -6,6 +6,8 @@ from typing import Any, cast
 
 import yaml
 
+from riscv_tools.new_project.naming import check_slug
+
 PROJECT_FILE = "project.yaml"
 
 
@@ -16,7 +18,10 @@ class Manifest:
     Parameters
     ----------
     name : str
-        Name of the platform and of the project.
+        Name of the project as the person typed it.
+    slug : str
+        Identifier derived from the name; it names the platform, the
+        folder and the files.
     board : str
         Board of the catalog the platform is built on.
     repo : str
@@ -26,6 +31,7 @@ class Manifest:
     """
 
     name: str
+    slug: str
     board: str
     repo: str
     platform: str
@@ -74,11 +80,15 @@ def write_manifest(project: Path, manifest: Manifest) -> Path:
     path = project / PROJECT_FILE
     fields = {
         "name": manifest.name,
+        "slug": manifest.slug,
         "board": manifest.board,
         "repo": manifest.repo,
         "platform": manifest.platform,
     }
-    path.write_text(yaml.safe_dump(fields, sort_keys=False))
+    path.write_text(
+        yaml.safe_dump(fields, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
     return path
 
 
@@ -100,7 +110,7 @@ def read_manifest(path: Path) -> Manifest:
     ValueError
         If the file is not a mapping or lacks a field.
     """
-    data = yaml.safe_load(path.read_text())
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError(f"{path}: not a YAML mapping")
     fields = cast(dict[str, Any], data)
@@ -109,8 +119,10 @@ def read_manifest(path: Path) -> Manifest:
     ]
     if missing:
         raise ValueError(f"{path}: missing {', '.join(missing)}")
+    slug = check_slug(str(fields.get("slug", fields["name"])))
     return Manifest(
         str(fields["name"]),
+        slug,
         str(fields["board"]),
         str(fields["repo"]),
         str(fields["platform"]),

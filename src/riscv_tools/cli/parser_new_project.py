@@ -22,7 +22,15 @@ def add_new_project_command(sub: Any) -> None:
         description="Create a project: download the repository, build the "
         "platform of a known board from the choices and print a short help",
     )
-    p.add_argument("name", help="Name of the new platform and project")
+    p.add_argument(
+        "--new",
+        dest="project_title",
+        required=True,
+        metavar="NAME",
+        help="Name of the new project: letters, digits, spaces, hyphens "
+        "and underscores; the identifier for the folder and the platform "
+        "is derived from it",
+    )
     p.add_argument(
         "--board",
         dest="project_board",

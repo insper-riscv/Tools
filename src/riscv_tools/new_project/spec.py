@@ -4,9 +4,10 @@ import re
 from collections.abc import Collection
 from dataclasses import dataclass
 
+from riscv_tools.new_project.naming import check_slug, check_title
+
 SECTOR_BYTES = 4096
 BANK_COUNT = 2
-_NAME = re.compile(r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*")
 _SIZE = re.compile(r"(\d+)([KM]?)")
 _UNITS = {"": 1, "K": 1024, "M": 1024 * 1024}
 _OFF_WORDS = ("off", "0", "no")
@@ -21,7 +22,9 @@ class ProjectSpec:
     Parameters
     ----------
     name : str
-        Name of the platform: lower case letters, digits and hyphens.
+        Identifier of the project (the slug of its name): lower case
+        letters, digits and hyphens. It names the platform, the folder
+        and the files.
     board : str
         A board of the catalog.
     profile : str or None
@@ -34,6 +37,9 @@ class ProjectSpec:
         Size of the instruction cache in bits; 0 turns it off.
     dcache_bits : int or None
         Size of the data cache in bits; 0 turns it off.
+    title : str or None
+        The name of the project as the person typed it; None means the
+        identifier.
     """
 
     name: str
@@ -43,6 +49,12 @@ class ProjectSpec:
     ram_bytes: int | None = None
     icache_bits: int | None = None
     dcache_bits: int | None = None
+    title: str | None = None
+
+    @property
+    def display(self) -> str:
+        """The name to show: as typed, or the identifier."""
+        return self.name if self.title is None else self.title
 
 
 def parse_size(text: str) -> int:
@@ -116,11 +128,9 @@ def validate(
     ValueError
         With the first problem found, naming what is accepted.
     """
-    if _NAME.fullmatch(spec.name) is None:
-        raise ValueError(
-            f"name {spec.name!r} must use lower case letters, digits "
-            "and hyphens"
-        )
+    check_slug(spec.name)
+    if spec.title is not None:
+        check_title(spec.title)
     if spec.board not in boards:
         raise ValueError(
             f"unknown board {spec.board!r}; known: {', '.join(sorted(boards))}"

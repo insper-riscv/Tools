@@ -78,7 +78,11 @@ def copy_platform(repo: Path, template: Template, new: str) -> Path:
     """
     target = template.folder.parent / new
     if (repo / target).exists():
-        raise FileExistsError(f"{target} already exists")
+        raise FileExistsError(
+            f"{target} already exists (the identifier {new!r} is taken; "
+            "names that differ only in case, accents, spaces or "
+            "underscores give the same identifier)"
+        )
     shutil.copytree(repo / template.folder, repo / target)
     for path in sorted((repo / target).rglob("*"), reverse=True):
         renamed = path.with_name(_file_name(path.name, template.name, new))

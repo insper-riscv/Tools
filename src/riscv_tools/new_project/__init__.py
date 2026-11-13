@@ -12,6 +12,8 @@ from riscv_tools.new_project.guide_text import (
     Summary,
     render_help,
 )
+from riscv_tools.new_project.naming import check_slug, check_title, slugify
+from riscv_tools.new_project.readme import write_readme
 from riscv_tools.new_project.spec import (
     ProjectSpec,
     parse_cache,
@@ -26,6 +28,8 @@ __all__ = [
     "Created",
     "ProjectSpec",
     "Summary",
+    "check_slug",
+    "check_title",
     "clone",
     "create_platform",
     "generation_steps",
@@ -33,5 +37,7 @@ __all__ = [
     "parse_size",
     "render_help",
     "run_steps",
+    "slugify",
     "validate",
+    "write_readme",
 ]

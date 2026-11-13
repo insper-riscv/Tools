@@ -87,13 +87,13 @@ def config_of_tests(project: Path, manifest: Manifest) -> Path:
     Returns
     -------
     Path
-        The `config.<name>.yaml` under `Tests/tools/riscv_build`.
+        The `config.<slug>.yaml` under `Tests/tools/riscv_build`.
     """
     return (
         project
         / TESTS_FOLDER
         / "tools/riscv_build"
-        / f"config.{manifest.name}.yaml"
+        / f"config.{manifest.slug}.yaml"
     )
 
 

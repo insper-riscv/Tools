@@ -16,7 +16,8 @@ def _spec(args: argparse.Namespace) -> ProjectSpec:
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments: uses args.name, args.project_board,
+        Parsed CLI arguments: uses args.project_title,
+        args.project_board,
         args.project_profile, args.rom, args.ram, args.icache and
         args.dcache.
 
@@ -30,8 +31,10 @@ def _spec(args: argparse.Namespace) -> ProjectSpec:
     ValueError
         If a size or a cache is malformed.
     """
+    title = new_project.check_title(args.project_title)
     return ProjectSpec(
-        name=args.name,
+        name=new_project.slugify(title),
+        title=title,
         board=args.project_board,
         profile=args.project_profile,
         rom_bytes=None
@@ -53,14 +56,15 @@ def _spec(args: argparse.Namespace) -> ProjectSpec:
     )
 
 
-def _checkout(args: argparse.Namespace) -> tuple[Path, Path]:
+def _checkout(args: argparse.Namespace, slug: str) -> tuple[Path, Path]:
     """Get the folder of the project and the checkout in it.
 
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments: uses args.repo, args.dir, args.name and
-        args.source.
+        Parsed CLI arguments: uses args.repo, args.dir and args.source.
+    slug : str
+        Identifier of the project, the name of its folder.
 
     Returns
     -------
@@ -71,7 +75,13 @@ def _checkout(args: argparse.Namespace) -> tuple[Path, Path]:
     if args.repo:
         repo = Path(args.repo).resolve()
         return repo.parent, repo
-    project = Path(args.dir).resolve() / args.name
+    project = Path(args.dir).resolve() / slug
+    if project.exists():
+        raise FileExistsError(
+            f"{project} already exists (the identifier {slug!r} is "
+            "taken; names that differ only in case, accents, spaces or "
+            "underscores give the same identifier)"
+        )
     repo = project / new_project.REPO_FOLDER
     new_project.clone(args.source, repo)
     return project, repo
@@ -89,7 +99,8 @@ def cmd_new_project(args: argparse.Namespace) -> None:
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed CLI arguments: uses args.name, args.project_board,
+        Parsed CLI arguments: uses args.project_title,
+        args.project_board,
         args.project_profile, args.rom, args.ram, args.icache,
         args.dcache, args.dir, args.source, args.repo,
         args.no_generate and args.lang.
@@ -108,7 +119,7 @@ def cmd_new_project(args: argparse.Namespace) -> None:
             [spec.board],
             [spec.profile] if spec.profile else [],
         )
-        project, repo = _checkout(args)
+        project, repo = _checkout(args, spec.name)
         created = new_project.create_platform(repo, spec)
         if not args.no_generate:
             new_project.run_steps(
@@ -118,10 +129,25 @@ def cmd_new_project(args: argparse.Namespace) -> None:
         write_manifest(
             project,
             Manifest(
-                spec.name, spec.board, repo.name, created.folder.as_posix()
+                spec.display,
+                spec.name,
+                spec.board,
+                repo.name,
+                created.folder.as_posix(),
             ),
         )
         write_launcher(project)
+        new_project.write_readme(
+            project,
+            args.lang,
+            {
+                "title": spec.display,
+                "slug": spec.name,
+                "board": spec.board,
+                "repo": repo.name,
+                "platform": created.folder.as_posix(),
+            },
+        )
     except (
         ValueError,
         OSError,
@@ -147,6 +173,7 @@ def cmd_new_project(args: argparse.Namespace) -> None:
                 created.template.name,
                 spec.board,
                 platform,
+                spec.display,
             ),
         )
     )

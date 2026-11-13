@@ -36,7 +36,8 @@ O comando procura o `project.yaml` na pasta de `--dir` (padrão `.`) e nas pasta
 
 | Campo | Conteúdo |
 | :--- | :--- |
-| `name` | Nome da plataforma e do projeto |
+| `name` | Nome do projeto, como foi digitado |
+| `slug` | Identificador derivado do nome; nomeia a pasta, a plataforma e os arquivos |
 | `board` | Placa do catálogo |
 | `repo` | Pasta do clone do `Insper-RISC-V`, a partir do projeto |
 | `platform` | Pasta da plataforma, a partir do clone |
