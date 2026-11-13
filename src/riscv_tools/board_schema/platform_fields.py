@@ -11,8 +11,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from riscv_tools.board_schema.board import IO_ROLES
+from riscv_tools.board_schema.board import role_section
 from riscv_tools.board_schema.fields import Section, raise_if
+from riscv_tools.board_schema.platform_video import (
+    PlatformVideo,
+    parse_platform_video,
+)
 from riscv_tools.config_files import read_config
 
 BACKENDS = ("emulado", "dispositivo")
@@ -104,6 +108,9 @@ class PlatformBoardFields:
         The roles of inputs and outputs.
     top : tuple of str
         The components whose closure holds the `needs`.
+    video : PlatformVideo or None
+        What the platform asks of the video output; None when it asks
+        for none.
     """
 
     name: str
@@ -114,6 +121,7 @@ class PlatformBoardFields:
     console: str
     io: dict[str, IoNeed]
     top: tuple[str, ...]
+    video: PlatformVideo | None = None
 
     def candidates(self) -> tuple[str, ...]:
         """List the boards the platform has to be checked against.
@@ -303,10 +311,7 @@ def _io(top: Section) -> dict[str, IoNeed]:
     if section is None:
         return found
     for role in section.names():
-        if role not in IO_ROLES:
-            section.fail(role, f"is not a role ({', '.join(IO_ROLES)})")
-            continue
-        entry = section.section(role)
+        entry = role_section(section, role)
         if entry is None:
             continue
         count = entry.integer("count", minimum=1)
@@ -372,13 +377,24 @@ def parse_platform_fields(platform: dict[str, Any]) -> PlatformBoardFields:
     console = top.text("console", required=False, choices=CONSOLES) or "jtag"
     roles = _io(top)
     needed = top.one_or_more("top") if "top" in platform else ()
+    video = parse_platform_video(
+        platform, top.section("io", required=False), problems
+    )
     if any(m.backend == "dispositivo" for m in memories.values()) and (
         "mem" not in clocks
     ):
         problems.append("platform.clocks.mem is required with a device")
     raise_if(problems)
     return PlatformBoardFields(
-        name, board, tuple(boards), memories, clocks, console, roles, needed
+        name,
+        board,
+        tuple(boards),
+        memories,
+        clocks,
+        console,
+        roles,
+        needed,
+        video,
     )
 
 

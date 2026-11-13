@@ -9,6 +9,7 @@ from riscv_tools.board_schema import (
     Family,
     Pin,
     PlatformBoardFields,
+    VideoMode,
 )
 from riscv_tools.board_schema.platform_fields import MemoryUse
 from riscv_tools.fit_estimate.table import CalibrationTable
@@ -83,6 +84,9 @@ class Context:
         The regions behind the external memories.
     table : CalibrationTable or None
         The calibration table of the family; None without the file.
+    video_modes : dict of str to VideoMode
+        The catalog of video modes, read when the platform asks for
+        video.
     """
 
     platform: dict[str, Any]
@@ -96,6 +100,9 @@ class Context:
     accept_inferred_pins: bool = False
     regions: list[Region] = field(default_factory=list[Region])
     table: CalibrationTable | None = None
+    video_modes: dict[str, VideoMode] = field(
+        default_factory=dict[str, VideoMode]
+    )
 
     def used_devices(self) -> dict[str, MemoryUse]:
         """List the memories the platform realizes with a device.

@@ -6,5 +6,12 @@ from riscv_tools.top_generator.core import (
     render_top,
     top_name,
 )
+from riscv_tools.top_generator.generics import video_generics
 
-__all__ = ["RenderedTop", "TopSpec", "render_top", "top_name"]
+__all__ = [
+    "RenderedTop",
+    "TopSpec",
+    "render_top",
+    "top_name",
+    "video_generics",
+]

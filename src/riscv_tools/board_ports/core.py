@@ -12,9 +12,12 @@ from typing import Any, cast
 
 from riscv_tools.board_inputs import BoardInputs, InputError, PinSignal
 
-# Papéis de E/S de entrada e de saída, na ordem em que viram portas.
 _SEGMENTS = 7
-IO_ROLES = ("leds", "switches", "keys", "display")
+# Papéis de E/S, na ordem em que viram portas.
+IO_ROLES = ("leds", "switches", "keys", "display", "video")
+# O vídeo não vira porta aqui, porque os pinos dele entram junto com o
+# periférico.
+PORT_ROLES = tuple(role for role in IO_ROLES if role != "video")
 _MEMORY_KEYS = ("sdram", "sram", "nor")
 _VECTOR = re.compile(r"^(\w+)\[(\d+):(\d+)\]$")
 _DISPLAY = re.compile(r"^(\w+)\[(\d+):(\d+)\]\[(\d+):(\d+)\]$")
@@ -294,7 +297,7 @@ def _io_ports(inputs: BoardInputs) -> PortPlan:
     name = inputs.board.get("board")
     ports: list[Port] = []
     warnings: list[str] = []
-    for role in IO_ROLES:
+    for role in PORT_ROLES:
         request = cast(dict[str, Any], wanted.get(role) or {})
         if not request:
             continue

@@ -13,6 +13,7 @@ Transforma o relógio de referência, o reset, os papéis de E/S, o console por 
 | Formatos de barramento | `LEDR[3]` e `LEDR3` formam o vetor `LEDR`; um radical com um só membro sem colchetes fica escalar |
 | Display | Uma porta `HEX<d>` de 7 bits por dígito, a partir de `HEX[5:0][6:0]` |
 | Memória | Os sinais com o prefixo do grupo e `_` (`DRAM_`) formam uma porta por radical; `signals` pode ser uma lista de prefixos |
+| Vídeo | Não vira porta: os pinos de vídeo entram junto com o periférico, e o papel só é lido pelo `board_video` |
 | Papel obrigatório ausente | Erro V5 |
 | Papel opcional ausente | Aviso V6 e nenhuma porta |
 | Console `pinos` sem UART | Erro V4 |

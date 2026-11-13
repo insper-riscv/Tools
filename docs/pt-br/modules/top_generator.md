@@ -25,11 +25,16 @@ O topo gerado não tem lógica além do reset. Ele liga, nesta ordem, as portas 
 
 Um backend sem entidade (`sram`, `flash-interna` e `serial`) não gera instância: o topo avisa e deixa a região parada. O SoC não exporta o papel de LEDs: os pinos de LED ficam no nível apagado, menos o primeiro, que acende com a bandeira de falha que o hospedeiro grava no display (nó Virtual JTAG de índice 2). O texto de cada backend fica em `templates/`, com os nomes e as portas reais das entidades do Memory.
 
+### 3.1. Vídeo
+
+Quando a plataforma pede vídeo, o `TopSpec` carrega o `VideoPlan` e `video_generics` escreve os generics de temporização, de largura de canal e de framebuffer ([board_video](board_video.md)). O topo não instancia o periférico de vídeo, e o mapa de generics do SoC não os recebe.
+
 ## 4. Testes
 
 | Teste | O que verifica |
 | :--- | :--- |
 | `tests/test_board_generate.py` | Conteúdo do topo da DE0-CV, latências, anel de pinos, polaridade e sintaxe aceita pelo GHDL |
+| `tests/test_board_video_generate.py` | Os generics de vídeo chegam ao `TopSpec` sem alterar o topo |
 
 ---
 

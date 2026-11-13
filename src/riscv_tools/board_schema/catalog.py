@@ -18,11 +18,19 @@ from riscv_tools.board_schema.board import parse_board
 from riscv_tools.board_schema.chip import parse_chip
 from riscv_tools.board_schema.family import parse_family
 from riscv_tools.board_schema.fields import SchemaError
-from riscv_tools.board_schema.model import Board, Chip, Family, Pin
+from riscv_tools.board_schema.model import (
+    Board,
+    Chip,
+    Family,
+    Pin,
+    VideoMode,
+)
 from riscv_tools.board_schema.pins import conflict_pins, parse_pins
+from riscv_tools.board_schema.video import parse_video_modes
 from riscv_tools.config_files import read_with_bases
 
 NON_BOARD_FOLDERS = frozenset({"families", "calibration"})
+VIDEO_MODES_FILE = "video-modes.yaml"
 
 
 class NotFoundError(LookupError):
@@ -351,3 +359,22 @@ class Catalog:
         if chip.chip != name:
             raise SchemaError([f"chip {name}: field chip is '{chip.chip}'"])
         return chip
+
+    def load_video_modes(self) -> dict[str, VideoMode]:
+        """Read the catalog of video modes.
+
+        Returns
+        -------
+        dict of str to VideoMode
+            The modes by name; empty when the catalog has no
+            `video-modes.yaml`.
+
+        Raises
+        ------
+        SchemaError
+            If the file does not follow the schema.
+        """
+        path = self.boards / VIDEO_MODES_FILE
+        if not path.is_file():
+            return {}
+        return parse_video_modes(_yaml(path), "video-modes")

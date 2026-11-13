@@ -11,6 +11,9 @@ from riscv_tools.board_schema.model import (
     Family,
     IoRole,
     Pin,
+    VideoAxis,
+    VideoMode,
+    VideoRole,
 )
 from riscv_tools.board_schema.pins import (
     expand_group,
@@ -23,6 +26,11 @@ from riscv_tools.board_schema.platform_fields import (
     declares_board,
     parse_platform_fields,
 )
+from riscv_tools.board_schema.platform_video import (
+    PlatformVideo,
+    read_platform_video,
+)
+from riscv_tools.board_schema.video import parse_video_modes
 
 __all__ = [
     "Board",
@@ -34,7 +42,11 @@ __all__ = [
     "NotFoundError",
     "Pin",
     "PlatformBoardFields",
+    "PlatformVideo",
     "SchemaError",
+    "VideoAxis",
+    "VideoMode",
+    "VideoRole",
     "declares_board",
     "expand_group",
     "group_count",
@@ -43,4 +55,6 @@ __all__ = [
     "parse_family",
     "parse_pins",
     "parse_platform_fields",
+    "parse_video_modes",
+    "read_platform_video",
 ]

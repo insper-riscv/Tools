@@ -13,6 +13,7 @@ Turns the reference clock, the reset, the I/O roles, the console on pins and the
 | Bus formats | `LEDR[3]` and `LEDR3` form the vector `LEDR`; a stem with a single member without brackets stays scalar |
 | Display | One 7-bit `HEX<d>` port per digit, from `HEX[5:0][6:0]` |
 | Memory | Signals with the group prefix and `_` (`DRAM_`) form one port per stem; `signals` may be a list of prefixes |
+| Video | Does not become a port: the video pins arrive with the peripheral, and the role is read only by `board_video` |
 | Missing required role | Error V5 |
 | Missing optional role | Warning V6 and no port |
 | Console `pinos` without a UART | Error V4 |

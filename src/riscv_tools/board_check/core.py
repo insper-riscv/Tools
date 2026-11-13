@@ -27,6 +27,7 @@ from riscv_tools.board_check.rules_devices import (
 )
 from riscv_tools.board_check.rules_fit import capacity_report, rule_fit
 from riscv_tools.board_check.rules_roles import rule_io, rule_v4
+from riscv_tools.board_check.rules_video import rule_video
 from riscv_tools.board_schema import (
     Board,
     Catalog,
@@ -36,6 +37,7 @@ from riscv_tools.board_schema import (
     Pin,
     PlatformBoardFields,
     SchemaError,
+    VideoMode,
     declares_board,
     parse_platform_fields,
 )
@@ -57,6 +59,7 @@ RULES = (
     rule_v18,
     rule_v19,
     rule_fit,
+    rule_video,
 )
 KNOWN_SHOWN = 12
 
@@ -221,16 +224,21 @@ def _not_found(missing: NotFoundError, board_name: str) -> Finding:
 
 
 def _catalog_parts(
-    catalog: Catalog, board_name: str, board: Board, family: Family
+    catalog: Catalog,
+    board_name: str,
+    board: Board,
+    family: Family,
+    fields: PlatformBoardFields,
 ) -> tuple[
     dict[str, Chip],
     list[Pin] | None,
     CalibrationTable | None,
+    dict[str, VideoMode],
     list[Finding],
 ]:
-    """Read the chips, the pins and the table a board names.
+    """Read the chips, pins, table and video modes of a board.
 
-    Returns them with the findings of the three readings.
+    Returns them with the findings of the readings.
     """
     chips, found = _chips(
         catalog,
@@ -239,7 +247,43 @@ def _catalog_parts(
     )
     pins, problems = _pins(catalog, board_name, board)
     table, bad_table = _table(catalog, family)
-    return chips, pins, table, found + problems + bad_table
+    modes, bad_modes = _video_modes(catalog, fields)
+    return (
+        chips,
+        pins,
+        table,
+        modes,
+        found + problems + bad_table + bad_modes,
+    )
+
+
+def _video_modes(
+    catalog: Catalog, fields: PlatformBoardFields
+) -> tuple[dict[str, VideoMode], list[Finding]]:
+    """Read the catalog of video modes when the platform asks for video.
+
+    Parameters
+    ----------
+    catalog : Catalog
+        The catalog.
+    fields : PlatformBoardFields
+        The board fields of the platform.
+
+    Returns
+    -------
+    tuple of (dict of str to VideoMode, list of Finding)
+        The modes, empty without a request or when the file is invalid,
+        and the V1 errors of an invalid file.
+    """
+    if fields.video is None:
+        return {}, []
+    try:
+        return catalog.load_video_modes(), []
+    except SchemaError as bad:
+        return {}, [
+            error("V1", f"video-modes.yaml is invalid: {problem}")
+            for problem in bad.problems
+        ]
 
 
 def _context(
@@ -280,8 +324,8 @@ def _context(
             error("V1", f"board '{board_name}' is invalid: {problem}")
             for problem in bad.problems
         ]
-    chips, pins, table, problems = _catalog_parts(
-        catalog, board_name, board, family
+    chips, pins, table, modes, problems = _catalog_parts(
+        catalog, board_name, board, family, fields
     )
     ctx = Context(
         platform,
@@ -295,6 +339,7 @@ def _context(
         accept_inferred_pins,
         external_regions(platform),
         table,
+        modes,
     )
     return ctx, problems
 
@@ -406,6 +451,10 @@ def fit_report(
 ) -> tuple[dict[str, Any] | None, list[Finding]]:
     """Estimate the fit of a platform on one board.
 
+    The video rules (V20 to V22) come with the fit because the
+    framebuffer takes memory blocks and the pixel clock takes a PLL
+    output, so `board generate` refuses the same platforms.
+
     Parameters
     ----------
     platform : dict of str to Any
@@ -419,7 +468,8 @@ def fit_report(
     -------
     tuple of (dict or None, list of Finding)
         The report of `capacity.json`, None when the family has no
-        calibration, and the findings of the fit (V11 to V13, V18).
+        calibration, and the findings of the fit (V11 to V13, V18) and
+        of the video (V20 to V22).
     """
     try:
         fields = parse_platform_fields(platform)
@@ -428,4 +478,4 @@ def fit_report(
     ctx, found = _context(platform, fields, board_name, catalog, True)
     if ctx is None:
         return None, found
-    return capacity_report(ctx), rule_fit(ctx)
+    return capacity_report(ctx), rule_fit(ctx) + rule_video(ctx)

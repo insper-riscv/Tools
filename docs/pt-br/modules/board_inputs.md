@@ -14,6 +14,7 @@ Reúne num só objeto (`BoardInputs`) os arquivos de dados de uma plataforma num
 | `board.yaml` e `pins.yaml` | `<boards>/<placa>/` |
 | Família | `<boards>/families/<família>.yaml` |
 | Chip | `<chips>/<chip>.yaml`, só os chips de tempo (`sdram`, `sram`, `nor`), com `extends` resolvido pelo catálogo |
+| `video-modes.yaml` | `<boards>/video-modes.yaml`, só quando a placa tem `io.video` |
 
 ## 3. Escolha da placa
 

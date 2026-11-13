@@ -6,7 +6,7 @@ escolhe a placa, carrega o que a plataforma usa e entrega os registros
 tipados na forma de mapas que os geradores consomem.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
@@ -20,6 +20,8 @@ from riscv_tools.board_schema import (
     NotFoundError,
     Pin,
     SchemaError,
+    VideoMode,
+    VideoRole,
 )
 
 # Chaves de `board.memories` que citam um chip do catálogo de tempos.
@@ -48,6 +50,10 @@ class BoardInputs:
         A família da placa na forma de mapa.
     chips : dict of {str: dict of {str: Any}}
         Os chips que a placa cita, por nome.
+    video : VideoRole or None
+        A saída de vídeo da placa; `None` sem ela.
+    video_modes : dict of {str: VideoMode}
+        O catálogo de modos de vídeo, lido só quando a placa tem vídeo.
     """
 
     platform: dict[str, Any]
@@ -55,6 +61,10 @@ class BoardInputs:
     signals: dict[str, Pin]
     family: dict[str, Any]
     chips: dict[str, dict[str, Any]]
+    video: VideoRole | None = None
+    video_modes: dict[str, VideoMode] = field(
+        default_factory=dict[str, VideoMode]
+    )
 
 
 def board_view(board: Board) -> dict[str, Any]:
@@ -263,6 +273,7 @@ def load_inputs(
             for kind, mem in spec.memories.items()
             if kind in CHIP_KEYS and mem.chip
         }
+        modes = catalog.load_video_modes() if spec.video else {}
     except NotFoundError as error:
         raise InputError(
             f"{error.kind} {error.name!r} not found in {boards_dir} "
@@ -276,4 +287,6 @@ def load_inputs(
         {pin.name: pin for pin in pins},
         family_view(family),
         chips,
+        spec.video,
+        modes,
     )

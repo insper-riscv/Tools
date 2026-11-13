@@ -14,6 +14,7 @@ Gathers the data files of a platform on a board into one object (`BoardInputs`).
 | `board.yaml` and `pins.yaml` | `<boards>/<board>/` |
 | Family | `<boards>/families/<family>.yaml` |
 | Chip | `<chips>/<chip>.yaml`, only the timing chips (`sdram`, `sram`, `nor`), with `extends` resolved by the catalog |
+| `video-modes.yaml` | `<boards>/video-modes.yaml`, only when the board has `io.video` |
 
 ## 3. Choosing the board
 

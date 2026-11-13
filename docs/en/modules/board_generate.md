@@ -18,6 +18,8 @@ Calls each generator and joins the text, writing no content of its own. The outp
 
 The memory map (VHDL package, linker script, `.specs` and headers) is not generated here: the command calls the same code as `generate-memory-map` for the platform and writes the files at the paths of `generate`. The project lives in `<out>/<platform>-<board>/`. The compile command is `program` (see [quartus_program](quartus_program.md)).
 
+When the platform asks for video (`io.video`), the generation resolves the mode through [board_video](board_video.md) and refuses an impossible request with the message of rule V20. The resolved plan is kept in `Generated.video`, and the V21 and V22 checks run together with the fit check.
+
 The `project` module (`build`) is the single generation path: `board generate`, `program` (with the `quartus.generate` key of the configuration) and the board test orchestrator, before reconfiguring the board, write the project and the memory map through it, never through a second piece of code.
 
 ## 3. Usage

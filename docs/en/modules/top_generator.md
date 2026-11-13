@@ -25,11 +25,16 @@ The generated top has no logic besides the reset. It wires, in this order, the b
 
 A backend without an entity (`sram`, `flash-interna` and `serial`) generates no instance: the top warns and leaves the region idle. The SoC does not export the LED role: the LED pins stay at the off level, except the first one, which lights with the failure flag the host writes to the display (Virtual JTAG node of index 2). The text of each backend lives in `templates/`, with the real names and ports of the Memory entities.
 
+### 3.1. Video
+
+When the platform asks for video, the `TopSpec` carries the `VideoPlan` and `video_generics` writes the generics of timing, channel width and framebuffer ([board_video](board_video.md)). The top does not instantiate the video peripheral, and the generic map of the SoC does not receive them.
+
 ## 4. Tests
 
 | Test | What it checks |
 | :--- | :--- |
 | `tests/test_board_generate.py` | DE0-CV top content, latencies, pin ring, polarity and syntax accepted by GHDL |
+| `tests/test_board_video_generate.py` | The video generics reach the `TopSpec` without changing the top |
 
 ---
 

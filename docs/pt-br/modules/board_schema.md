@@ -12,6 +12,7 @@ O catálogo é achado a partir da raiz do projeto.
 | Pinos | `boards/<placa>/pins.yaml` | Pino, padrão de E/S, direção e selo de certeza de cada sinal |
 | Família | `boards/families/<família>.yaml` | Unidade de lógica, PLL, bloco de RAM, Fmax medido por grau e calibração |
 | Chip | `Memory/chips/<chip>.yaml`, ou `chips/<chip>.yaml` quando a raiz é o próprio Memory | Organização, tempos e teto de relógio |
+| Modos de vídeo | `boards/video-modes.yaml` | Temporização e relógio de pixel de cada modo, compartilhados por todas as placas |
 
 O nome dentro do arquivo é o nome do arquivo (ou da pasta, na placa), e um arquivo que diz outro nome é recusado.
 
@@ -38,6 +39,31 @@ Além dos campos do esquema do documento de arquitetura, o `board.yaml` aceita o
 
 Os sinais de `io.<papel>` seguem a gramática do `pins.yaml`: `LEDR[9:0]` são os bits 0 a 9, e `HEX[5:0][6:0]` são os dígitos 0 a 5 (primeiro intervalo, índice no nome) com os segmentos 0 a 6 (segundo intervalo).
 
+### 3.1. Papel `video` e catálogo de modos
+
+O papel `video` entra nos papéis de E/S e é o único que não tem `active`.
+
+| Campo de `io.video` | Regra |
+| :--- | :--- |
+| `kind` | `vga` ou `hdmi` |
+| `channel_bits` | `4` ou `8`, os bits de cada canal de cor que a placa liga |
+| `signals` | Prefixo dos sinais de vídeo no `pins.yaml` (`VGA` cita todo sinal que começa por `VGA_`) |
+| `default_mode` | Modo usado quando a plataforma não pede nenhum; tem de constar em `modes` |
+| `modes` | Modos que o manual da placa especifica, no formato `<largura>x<altura>@<hertz>` |
+
+O catálogo `boards/video-modes.yaml` tem a chave `modes`, com um mapa do nome do modo para a temporização. O nome repete a área visível, e o leitor recusa um nome que discorda dela.
+
+```yaml
+modes:
+  640x480:
+    pixel_clock_mhz: 25
+    source: manual do monitor VESA   # opcional
+    horizontal: {visible: 640, front_porch: 16, sync: 96, back_porch: 48, total: 800, polarity: negative}
+    vertical:   {visible: 480, front_porch: 10, sync: 2,  back_porch: 33, total: 525, polarity: negative}
+```
+
+Em cada eixo, `visible + front_porch + sync + back_porch` tem de ser igual a `total`, e `polarity` é `negative` ou `positive`, a polaridade do pulso de sincronismo. A resolução do modo de uma plataforma está em [board_video](board_video.md).
+
 ## 4. Campos novos do `platform.yaml`
 
 | Campo | Regra |
@@ -50,6 +76,7 @@ Os sinais de `io.<papel>` seguem a gramática do `pins.yaml`: `LEDR[9:0]` são o
 | `clocks.core`, `clocks.fetch`, `clocks.mem` | `{mhz, phase_ps}`; o `core` é obrigatório e o `mem` é obrigatório com um backend `dispositivo` |
 | `console` | `jtag` (padrão) ou `pinos` |
 | `io.<papel>` | `{count, need}` com `need` igual a `required` ou `optional` |
+| `io.video` | Todos os campos são opcionais. `width` e `height` (juntos), `aspect` (`4:3` ou `16:9`, entre aspas ou não), `refresh_hz`, `channel_bits` (`4` ou `8`), `fb_width` e `fb_height` (juntos) e `outside_manual`. Escrever `io.video` vazio, ou listar o periférico `VIDEO`, pede o modo padrão da placa |
 | `top` | Componente, ou lista de componentes, cujo fecho de `requires` reúne os `needs` do validador |
 
 Os campos do mapa (regiões, periféricos, perfil) continuam sendo lidos e conferidos pelo módulo `memory_map`.
@@ -78,6 +105,7 @@ O comando `check-boards` lê todo o catálogo e confere cada arquivo contra o es
 | `tests/test_board_schema.py::test_platform_fields_are_read_and_typed` | Os campos novos da plataforma carregam |
 | `tests/test_board_schema.py::test_platform_field_problems` | Cada uso inválido dos campos novos é um problema tipado |
 | `tests/test_board_schema.py::test_platform_extends_is_resolved_by_the_config_reader` | Uma variante de plataforma só diz o que muda |
+| `tests/test_board_video.py` | O papel `video`, o catálogo de modos e o pedido de vídeo da plataforma |
 
 ## 7. Uso
 

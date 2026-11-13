@@ -5,6 +5,7 @@ from typing import Any, cast
 
 from riscv_tools.board_clocks import ClockPlan
 from riscv_tools.board_ports import Port
+from riscv_tools.board_video import VideoPlan
 
 
 @dataclass(frozen=True)
@@ -25,6 +26,8 @@ class TopSpec:
         Nome da entidade do topo.
     chip_packages : dict of {str: str}
         Nome do pacote de tempos por tipo de memória.
+    video : VideoPlan or None
+        O vídeo resolvido; `None` quando a plataforma não pede vídeo.
     """
 
     platform: dict[str, Any]
@@ -33,6 +36,7 @@ class TopSpec:
     pll_module: str
     entity: str
     chip_packages: dict[str, str]
+    video: VideoPlan | None = None
 
 
 @dataclass(frozen=True)

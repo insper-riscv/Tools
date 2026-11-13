@@ -14,6 +14,7 @@ from riscv_tools.board_schema import (
     NotFoundError,
     Pin,
     SchemaError,
+    VideoMode,
     expand_group,
 )
 
@@ -38,6 +39,8 @@ def _cited(board: Board) -> list[tuple[str, str]]:
     cited.append((board.clocks.reset_signal, "clocks.reset"))
     for role, entry in board.io.items():
         cited += [(s, f"io.{role}") for s in expand_group(entry.signals)]
+    if board.video is not None:
+        cited.append((f"{board.video.signals}_", "io.video"))
     cited += [(signal, "console.uart") for signal in board.console.uart]
     for kind, memory in board.memories.items():
         cited += [(f"{p}_", f"memories.{kind}") for p in memory.signals]
@@ -86,7 +89,34 @@ def _pin_problems(
     return problems
 
 
-def _check_board(catalog: Catalog, name: str) -> list[str]:
+def _mode_problems(board: Board, modes: dict[str, VideoMode]) -> list[str]:
+    """Check that the modes a board lists are in the catalog of modes.
+
+    Parameters
+    ----------
+    board : Board
+        The board.
+    modes : dict of str to VideoMode
+        The catalog of video modes.
+
+    Returns
+    -------
+    list of str
+        One problem for each listed mode the catalog lacks.
+    """
+    if board.video is None:
+        return []
+    return [
+        f"board {board.board}: io.video.modes cites {mode}, which is not "
+        f"in video-modes.yaml"
+        for mode in board.video.modes
+        if mode not in modes
+    ]
+
+
+def _check_board(
+    catalog: Catalog, name: str, modes: dict[str, VideoMode]
+) -> list[str]:
     """Check one board and everything it names.
 
     Parameters
@@ -95,6 +125,8 @@ def _check_board(catalog: Catalog, name: str) -> list[str]:
         The catalog.
     name : str
         The board.
+    modes : dict of str to VideoMode
+        The catalog of video modes.
 
     Returns
     -------
@@ -117,7 +149,11 @@ def _check_board(catalog: Catalog, name: str) -> list[str]:
         if isinstance(bad, SchemaError):
             return list(bad.problems)
         return [str(bad)]
-    return problems + _pin_problems(board, pins, conflicts)
+    return (
+        problems
+        + _mode_problems(board, modes)
+        + _pin_problems(board, pins, conflicts)
+    )
 
 
 def check_catalog(catalog: Catalog) -> list[str]:
@@ -144,6 +180,11 @@ def check_catalog(catalog: Catalog) -> list[str]:
             catalog.load_chip(chip)
         except SchemaError as bad:
             problems += bad.problems
+    modes: dict[str, VideoMode] = {}
+    try:
+        modes = catalog.load_video_modes()
+    except SchemaError as bad:
+        problems += bad.problems
     for board in catalog.board_names():
-        problems += _check_board(catalog, board)
+        problems += _check_board(catalog, board, modes)
     return problems

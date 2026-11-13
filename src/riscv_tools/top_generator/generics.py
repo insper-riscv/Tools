@@ -188,3 +188,24 @@ def _role_generics(spec: TopSpec) -> list[str]:
         f"uart_pins_id => {uart_id}",
     ]
     return out
+
+
+def video_generics(spec: TopSpec) -> list[str]:
+    """Escreve os generics do vídeo resolvido.
+
+    Os generics ficam disponíveis para a instância do periférico de
+    vídeo; o topo ainda não a instancia, de modo que o mapa de generics
+    do SoC não os recebe.
+
+    Parameters
+    ----------
+    spec : TopSpec
+        O topo.
+
+    Returns
+    -------
+    list of str
+        As associações de generic; vazia quando a plataforma não pede
+        vídeo.
+    """
+    return [] if spec.video is None else spec.video.generics()
