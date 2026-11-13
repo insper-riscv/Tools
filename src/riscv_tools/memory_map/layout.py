@@ -123,6 +123,36 @@ def _boot(raw: Any) -> dict[str, Any]:
     return {"name": BOOT, **block, "kind": "rom", "exec": True}
 
 
+def _check_keys(seg: dict[str, Any], where: str) -> None:
+    """Check the keys of a segment.
+
+    Parameters
+    ----------
+    seg : dict of {str: Any}
+        The segment.
+    where : str
+        `memory.instructions` or `memory.data`, for the message.
+
+    Raises
+    ------
+    ValueError
+        If the segment has an old key (`kind`, `exec`, `external`,
+        `backend`, `device`), an unknown key or lacks `type`, `base` or
+        `size`.
+    """
+    for old in ("kind", "exec", "external", "backend", "device"):
+        if old in seg:
+            raise ValueError(
+                f"{where}.{old} no longer exists: use `type` and `on_bus`"
+            )
+    extra = sorted(str(key) for key in seg if key not in _SEGMENT_KEYS)
+    if extra:
+        raise ValueError(f"{where} has unknown keys {extra}")
+    missing = [key for key in ("type", "base", "size") if key not in seg]
+    if missing:
+        raise ValueError(f"{where}.{missing[0]} is required")
+
+
 def _segment(raw: Any, side: str) -> dict[str, Any]:
     """Read the one segment of `instructions` or `data`.
 
@@ -154,17 +184,7 @@ def _segment(raw: Any, side: str) -> dict[str, Any]:
     if not items:
         raise ValueError(f"{where} needs one segment")
     seg = _mapping(items[0], f"{where}[0]")
-    for old in ("kind", "exec", "external", "backend", "device"):
-        if old in seg:
-            raise ValueError(
-                f"{where}.{old} no longer exists: use `type` and `on_bus`"
-            )
-    extra = sorted(str(key) for key in seg if key not in _SEGMENT_KEYS)
-    if extra:
-        raise ValueError(f"{where} has unknown keys {extra}")
-    missing = [key for key in ("type", "base", "size") if key not in seg]
-    if missing:
-        raise ValueError(f"{where}.{missing[0]} is required")
+    _check_keys(seg, where)
     if seg["type"] not in TYPES:
         raise ValueError(
             f"{where}.type {seg['type']!r} must be one of {list(TYPES)}"
@@ -207,6 +227,35 @@ def _side(seg: dict[str, Any], where: str) -> dict[str, Any]:
     return entry
 
 
+def _declared(segments: list[dict[str, Any]]) -> bool:
+    """Say whether the platform declares the memory choice.
+
+    Parameters
+    ----------
+    segments : list of dict of {str: Any}
+        The segment of `instructions` and the one of `data`.
+
+    Returns
+    -------
+    bool
+        False when neither segment gives `on_bus` or a `cache`.
+
+    Raises
+    ------
+    ValueError
+        If only one segment gives `on_bus`, or a type outside the core
+        comes without it.
+    """
+    given = ["on_bus" in seg for seg in segments]
+    if not any(given) and not any("cache" in seg for seg in segments):
+        if any(seg["type"] != "onchip" for seg in segments):
+            raise ValueError("a type outside the core needs on_bus: true")
+        return False
+    if not all(given):
+        raise ValueError("on_bus is given in both segments or in none")
+    return True
+
+
 def _memory(segments: list[dict[str, Any]]) -> dict[str, Any] | None:
     """Write the section `memory` of the four choices.
 
@@ -227,13 +276,8 @@ def _memory(segments: list[dict[str, Any]]) -> dict[str, Any] | None:
         If only one segment gives `on_bus`, or a segment is outside the
         core without it.
     """
-    given = ["on_bus" in seg for seg in segments]
-    if not any(given) and not any("cache" in seg for seg in segments):
-        if any(seg["type"] != "onchip" for seg in segments):
-            raise ValueError("a type outside the core needs on_bus: true")
+    if not _declared(segments):
         return None
-    if not all(given):
-        raise ValueError("on_bus is given in both segments or in none")
     out: dict[str, Any] = {}
     for seg, (side, old, cache) in zip(segments, _SIDES, strict=True):
         out[old] = _side(seg, f"memory.{side}")
@@ -372,6 +416,34 @@ def _segment_of(
     return seg
 
 
+def _memory_block(
+    regions: list[dict[str, Any]], choice: Any
+) -> dict[str, Any]:
+    """Write the `memory` block of a platform of the internal form.
+
+    Parameters
+    ----------
+    regions : list of dict of {str: Any}
+        The boot, FLASH and RAM regions, in that order.
+    choice : Any
+        The section of the four choices, or None.
+
+    Returns
+    -------
+    dict of {str: Any}
+        `boot`, `instructions` and `data`.
+    """
+    old = cast("dict[str, Any]", choice or {})
+    boot = {"base": regions[0]["base"], "size": regions[0]["size"]}
+    return {
+        "boot": boot,
+        "instructions": [
+            _segment_of(regions[1], old.get("rom"), old.get("icache"))
+        ],
+        "data": [_segment_of(regions[2], old.get("ram"), old.get("dcache"))],
+    }
+
+
 def to_layout(platform: dict[str, Any]) -> dict[str, Any]:
     """Write a platform of the internal form in the block form.
 
@@ -390,17 +462,7 @@ def to_layout(platform: dict[str, Any]) -> dict[str, Any]:
     out = {k: v for k, v in platform.items() if k != "regions"}
     regions = cast("list[dict[str, Any]]", platform.get("regions") or [])
     if regions:
-        old = cast("dict[str, Any]", platform.get("memory") or {})
-        boot = {"base": regions[0]["base"], "size": regions[0]["size"]}
-        out["memory"] = {
-            "boot": boot,
-            "instructions": [
-                _segment_of(regions[1], old.get("rom"), old.get("icache"))
-            ],
-            "data": [
-                _segment_of(regions[2], old.get("ram"), old.get("dcache"))
-            ],
-        }
+        out["memory"] = _memory_block(regions, platform.get("memory"))
     if "peripherals" in out:
         out["peripherals"] = {
             str(p["name"]): {k: v for k, v in p.items() if k != "name"}
