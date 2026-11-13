@@ -120,6 +120,8 @@ class Summary:
         The board of the project.
     platform : dict of {str: Any}
         The new `platform.yaml`, parsed.
+    title : str or None
+        The name of the project as typed; None means the platform name.
     """
 
     project: Path
@@ -128,6 +130,7 @@ class Summary:
     template: str
     board: str
     platform: dict[str, Any]
+    title: str | None = None
 
 
 def _peripherals(platform: dict[str, Any]) -> str:
@@ -199,7 +202,7 @@ def render_help(language: str, summary: Summary) -> str:
     """
     platform = summary.platform
     return (_PT if language == "pt" else _EN).format(
-        name=platform["platform"],
+        name=summary.title or platform["platform"],
         project=summary.project,
         repo=summary.repo,
         folder=summary.folder,

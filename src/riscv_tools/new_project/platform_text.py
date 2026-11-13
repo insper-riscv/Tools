@@ -255,7 +255,8 @@ def rewrite_platform(
     if spec.dcache_bits is not None:
         text = _set_cache(text, "dcache", spec.dcache_bits)
     header = (
-        f"# Platform {spec.name}, {CREATED_MARK} from {template}.\n"
+        f"# Platform {spec.display} ({spec.name}), {CREATED_MARK} "
+        f"from {template}.\n"
         "# Edit this file and run `riscv-tools generate-memory-map` again.\n"
     )
     return header + text

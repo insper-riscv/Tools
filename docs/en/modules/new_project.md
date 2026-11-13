@@ -7,18 +7,18 @@ Creates a project for a known board. Inside the `dev_tools` image, one command d
 ```bash
 docker run --rm --user "$(id -u):$(id -g)" -e HOME=/w/.home \
   -v "$PWD":/w -w /w ghcr.io/insper-riscv/dev_tools:latest \
-  riscv-tools new-project de0-cv-64k --board de0-cv \
+  riscv-tools new-project --new "de0-cv-64k" --board de0-cv \
   --profile rv32im_zicclsm_zicntr_zihpm \
   --rom 64K --ram 64K --icache 32768 --dcache 32768
 ```
 
-The project is left in `./de0-cv-64k/Insper-RISC-V`, inside the mounted folder, and stays after the container ends. It does not need `--config`.
+The project is left in `./de0-cv-64k/Insper-RISC-V`, inside the mounted folder, and stays after the container ends. A name such as `--new "Meu Projeto de Teste"` is left in `./meu-projeto-de-teste/Insper-RISC-V`. It does not need `--config`.
 
 ## Options
 
 | Option | Effect |
 | :--- | :--- |
-| `NAME` | Name of the platform and of the project folder, in lower case letters, digits and hyphens |
+| `--new` | Name of the project, required: letters (upper and lower case, with accents), digits, spaces, hyphens and underscores; empty, only spaces or any other character is refused |
 | `--board` | Board of the catalog (`boards/`); an unknown board is refused with the list of known ones |
 | `--profile` | Profile of the core; without it, the starting platform's profile stands |
 | `--rom`, `--ram` | Size of the FLASH region and of the RAM, such as `64K` or `1M` |
@@ -34,13 +34,13 @@ A memory option that is not given keeps the value of the starting platform.
 ## What the command does
 
 1. Downloads the repository with its submodules, or uses the clone of `--repo`.
-2. Checks the name, the board, the profile and the sizes. The profile must be among those that `Core/profiles/matrix.yaml` expands and have Zifencei when the BOOT_MEMORY of the start executes `fence.i` (without the extension the instruction is illegal and the boot restarts forever), the ROM must be a multiple of two 4 KiB sectors (two banks) and the RAM a multiple of 4 KiB.
+2. Checks the name (and derives the identifier), the board, the profile and the sizes. The profile must be among those that `Core/profiles/matrix.yaml` expands and have Zifencei when the BOOT_MEMORY of the start executes `fence.i` (without the extension the instruction is illegal and the boot restarts forever), the ROM must be a multiple of two 4 KiB sectors (two banks) and the RAM a multiple of 4 KiB.
 3. Picks the starting platform: the only one outside `calibration/` that lists the board and has a `top`.
 4. Works out the new `platform.yaml` and the edits of `paths.yaml` before writing anything, so a repository that does not have the expected shape does not get a half-made folder.
 5. Copies the platform folder, renames files and VHDL names and gives the simulation top an entity of its own.
 6. Writes the `platform.yaml` and registers the platform in `paths.yaml` (the list of platforms and the components of the map, the board top and the simulation top) and in the script of source lists.
 7. Generates the memory map and the source lists, checks the map and writes the Quartus project.
-8. Writes the `project.yaml` and the `rt` script into the project folder, which the `project` module uses ([docs/modules/project.md](project.md)).
+8. Writes the `project.yaml`, the `README.md` and the `rt` script into the project folder, which the `project` module uses ([docs/modules/project.md](project.md)).
 9. Prints the help.
 
 ## Edits to `platform.yaml`
@@ -82,6 +82,14 @@ The peripherals, clocks, inputs and outputs and interrupts come from the startin
 | `tests/test_new_project.py::test_the_command_prints_the_help_and_runs_without_config` | The command runs without `--config` and prints the help |
 | `tests/test_new_project.py::test_the_help_can_be_printed_in_english` | `--lang en` prints the help in English |
 | `tests/test_new_project.py::test_the_command_refuses_an_unknown_board` | An unknown board exits with status 1 |
+| `tests/test_new_project.py::test_a_name_gives_a_slug` | Case, accents, spaces, underscores and hyphens become an identifier |
+| `tests/test_new_project.py::test_a_name_with_forbidden_characters_is_refused` | Empty, only spaces, slash, dot, quotes, control, shell and YAML are refused |
+| `tests/test_new_project.py::test_a_name_whose_slug_does_not_start_with_a_letter` | The identifier passes the same check as before |
+| `tests/test_new_project.py::test_the_name_goes_to_the_header_manifest_help_and_readme` | The typed name shows in the header, manifest, help and README |
+| `tests/test_new_project.py::test_a_dangerous_name_is_refused_before_anything_is_written` | A dangerous name exits with status 1 and creates nothing |
+| `tests/test_new_project.py::test_two_names_with_one_slug_collide_and_say_the_slug` | Two names with one identifier collide and the message names it |
+| `tests/test_new_project.py::test_an_existing_project_folder_is_refused_with_the_slug` | An existing identifier folder is refused |
+| `tests/test_new_project.py::test_the_positional_name_is_gone` | The positional argument no longer exists |
 
 ---
 

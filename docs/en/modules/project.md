@@ -27,7 +27,7 @@ Any subcommand goes through the script, for example `./rt project build` or `./r
 | :--- | :--- |
 | `doctor` | Checks the platform files, the Quartus tools on the `PATH` and the JTAG cable; exits with status 1 when a file or a tool is missing, and only warns when there is no cable |
 | `build` | Builds the Quartus project up to the `--stop-after` step (`map`, `fit` or `sta`, default `sta`), without programming the board |
-| `flash FILE.mif` | Locks the board, compiles, programs the bitstream and embeds the program, on the configuration of `Tests` (`Tests/tools/riscv_build/config.<name>.yaml`, written by step 3 of `help`); waits in line if someone else has the board |
+| `flash FILE.mif` | Locks the board, compiles, programs the bitstream and embeds the program, on the configuration of `Tests` (`Tests/tools/riscv_build/config.<slug>.yaml`, written by step 3 of `help`); waits in line if someone else has the board |
 | `help` | Prints how to run the tests and compile a program of your own, with this platform's addresses |
 
 The command looks for the `project.yaml` in the folder of `--dir` (default `.`) and in the folders above it. It does not need `--config`.
@@ -36,7 +36,8 @@ The command looks for the `project.yaml` in the folder of `--dir` (default `.`) 
 
 | Field | Content |
 | :--- | :--- |
-| `name` | Name of the platform and of the project |
+| `name` | Name of the project, as typed |
+| `slug` | Identifier derived from the name; names the folder, the platform and the files |
 | `board` | Board of the catalog |
 | `repo` | Folder of the `Insper-RISC-V` clone, from the project |
 | `platform` | Folder of the platform, from the clone |

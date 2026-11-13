@@ -73,7 +73,7 @@ def _candidate(repo: Path, path: Path, board: str) -> Template | None:
     """
     if path.parts[-3] == CALIBRATION:
         return None
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     data = yaml.safe_load(text)
     if CREATED_MARK in text or not isinstance(data, dict):
         return None
