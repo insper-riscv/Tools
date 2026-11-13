@@ -74,8 +74,8 @@ def _memory(platform: dict[str, Any], table: dict[str, int]) -> dict[str, int]:
     Returns
     -------
     dict of {str: int}
-        The bases and the words of the memories, and `tohost_addr` and
-        `fromhost_addr` when the map reserves them.
+        The bases and the words of the memories, and `tohost_addr`,
+        `fromhost_addr` and `launch_addr` when the map reserves them.
     """
     spec = platform_dict(platform, "config")
     boot = platform_list(platform, "regions")[0]["name"]
@@ -88,7 +88,7 @@ def _memory(platform: dict[str, Any], table: dict[str, int]) -> dict[str, int]:
         "ram_base": table[f"{ram}.base"],
         "ram_words": table[f"{ram}.words"],
     }
-    for key in ("tohost", "fromhost"):
+    for key in ("tohost", "fromhost", "launch"):
         if f"{key}.base" in table:
             memory[f"{key}_addr"] = table[f"{key}.base"]
     return memory
