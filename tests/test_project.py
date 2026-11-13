@@ -36,7 +36,9 @@ from riscv_tools.project import (
 )
 from riscv_tools.project.tests_help import header_sed, header_values
 
-MANIFEST = Manifest("demo-64k", "demo-board", "Insper-RISC-V", "src/f/demo")
+MANIFEST = Manifest(
+    "Demo Ação 64K", "demo-64k", "demo-board", "Insper-RISC-V", "src/f/demo"
+)
 PLATFORM: dict[str, Any] = {
     "regions": [
         {"name": "RAM", "base": 0x40000000, "size": "64K", "kind": "ram"},
@@ -82,7 +84,8 @@ def test_the_manifest_is_found_from_a_folder_inside(tmp_path: Path) -> None:
     inner.mkdir(parents=True)
     folder, manifest = find_manifest(inner)
     check_equal(folder, tmp_path)
-    check_equal(manifest.name, "demo-64k")
+    check_equal(manifest.name, "Demo Ação 64K")
+    check_equal(manifest.slug, "demo-64k")
 
 
 def test_a_missing_or_incomplete_manifest_is_an_error(tmp_path: Path) -> None:
@@ -293,3 +296,24 @@ def test_the_launcher_takes_the_same_lock_as_the_host(tmp_path: Path) -> None:
     check_in("-v /tmp:/tmp", text)
     check_in("export QUARTUS_ROOT RISCV_TOOLS_HOST", text)
     check_in("hostname -s", text)
+
+
+def test_an_old_manifest_without_slug_uses_the_name(tmp_path: Path) -> None:
+    """A `project.yaml` from before the slug keeps working."""
+    path = tmp_path / "project.yaml"
+    path.write_text(
+        "name: demo-64k\nboard: b\nrepo: R\nplatform: src/f/demo\n"
+    )
+    check_equal(read_manifest(path).slug, "demo-64k")
+
+
+def test_a_manifest_slug_that_is_not_an_identifier_is_refused(
+    tmp_path: Path,
+) -> None:
+    """The slug names files, so a path in it is an error."""
+    path = tmp_path / "project.yaml"
+    path.write_text(
+        "name: x\nslug: ../../etc\nboard: b\nrepo: R\nplatform: p\n"
+    )
+    with pytest.raises(ValueError, match="identifier"):
+        read_manifest(path)

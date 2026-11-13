@@ -84,7 +84,7 @@ def load_platform(path: Path) -> dict[str, Any]:
     ValueError
         If the file is not a mapping.
     """
-    data = yaml.safe_load(path.read_text())
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError(f"{path}: not a YAML mapping")
     platform = cast(dict[str, Any], data)

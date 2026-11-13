@@ -123,7 +123,10 @@ def create_platform(repo: Path, spec: ProjectSpec) -> Created:
     source = repo / template.folder / "platform.yaml"
     text = rewrite_platform(
         rename_text(
-            source.read_text(), template.name, spec.name, template.board
+            source.read_text(encoding="utf-8"),
+            template.name,
+            spec.name,
+            template.board,
         ),
         spec,
         template.name,
@@ -131,7 +134,7 @@ def create_platform(repo: Path, spec: ProjectSpec) -> Created:
     )
     edits, edited = registration_edits(repo, template, spec.name)
     folder = copy_platform(repo, template, spec.name)
-    (repo / folder / "platform.yaml").write_text(text)
+    (repo / folder / "platform.yaml").write_text(text, encoding="utf-8")
     for path, content in edits.items():
         path.write_text(content)
     return Created(template, folder, edited)
