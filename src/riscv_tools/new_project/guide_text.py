@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from riscv_tools.memory_map import evaluate
 from riscv_tools.memory_map.core import peripheral_list
@@ -127,8 +127,6 @@ class Summary:
         The board of the project.
     platform : dict of {str: Any}
         The new `platform.yaml`, parsed.
-    title : str or None
-        The name of the project as typed; None means the platform name.
     """
 
     project: Path
@@ -137,7 +135,6 @@ class Summary:
     template: str
     board: str
     platform: dict[str, Any]
-    title: str | None = None
 
 
 def _peripherals(platform: dict[str, Any]) -> str:
@@ -192,28 +189,6 @@ def _memories(platform: dict[str, Any]) -> str:
     return ", ".join([*sizes, *caches])
 
 
-def _core(platform: dict[str, Any]) -> str:
-    """Describe the `core` block of a platform in one line.
-
-    Parameters
-    ----------
-    platform : dict of {str: Any}
-        The platform, parsed.
-
-    Returns
-    -------
-    str
-        The base and the extensions, or a dash when there is no block.
-    """
-    raw = platform.get("core")
-    if not isinstance(raw, dict):
-        return "-"
-    core = cast(dict[str, Any], raw)
-    base = core.get("base", "-")
-    names = ", ".join(str(e) for e in core.get("extensions", []))
-    return f"{base} + {names}" if names else str(base)
-
-
 def render_help(language: str, summary: Summary) -> str:
     """Write the help for a project that was just created.
 
@@ -231,14 +206,14 @@ def render_help(language: str, summary: Summary) -> str:
     """
     platform = summary.platform
     return (_PT if language == "pt" else _EN).format(
-        name=summary.title or platform["platform"],
+        name=platform["platform"],
         project=summary.project,
         repo=summary.repo,
         folder=summary.folder,
         platform=summary.folder / "platform.yaml",
         template=summary.template,
         board=summary.board,
-        profile=_core(platform),
+        profile=platform.get("profile", "-"),
         memories=_memories(platform),
         peripherals=_peripherals(platform),
     )

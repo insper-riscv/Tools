@@ -7,18 +7,18 @@ Cria um projeto para uma placa conhecida. Dentro da imagem `dev_tools`, um únic
 ```bash
 docker run --rm --user "$(id -u):$(id -g)" -e HOME=/w/.home \
   -v "$PWD":/w -w /w ghcr.io/insper-riscv/dev_tools:latest \
-  riscv-tools new-project --new "de0-cv-64k" --board de0-cv \
+  riscv-tools new-project de0-cv-64k --board de0-cv \
   --profile rv32im_zicclsm_zicntr_zihpm \
   --rom 64K --ram 64K --icache 32768 --dcache 32768
 ```
 
-O projeto fica em `./de0-cv-64k/Insper-RISC-V`, dentro da pasta montada, e continua depois que o contêiner termina. Um nome como `--new "Meu Projeto de Teste"` fica em `./meu-projeto-de-teste/Insper-RISC-V`. Não precisa de `--config`.
+O projeto fica em `./de0-cv-64k/Insper-RISC-V`, dentro da pasta montada, e continua depois que o contêiner termina. Não precisa de `--config`.
 
 ## Opções
 
 | Opção | Efeito |
 | :--- | :--- |
-| `--new` | Nome do projeto, obrigatório: letras (maiúsculas e minúsculas, com acentos), dígitos, espaços, hifens e sublinhados; vazio, só espaços ou qualquer outro caractere é recusado |
+| `NOME` | Nome da plataforma e da pasta do projeto, com letras minúsculas, dígitos e hifens |
 | `--board` | Placa do catálogo (`boards/`); uma placa desconhecida é recusada com a lista das conhecidas |
 | `--profile` | Perfil do núcleo; sem a opção, vale o da plataforma de partida |
 | `--rom`, `--ram` | Tamanho da região de FLASH e da RAM, como `64K` ou `1M` |
@@ -34,13 +34,13 @@ Uma opção de memória que não é dada mantém o valor da plataforma de partid
 ## O que o comando faz
 
 1. Baixa o repositório com os submódulos, ou usa o clone de `--repo`.
-2. Confere o nome (e deriva o identificador), a placa, o perfil e os tamanhos. O perfil precisa estar entre os que `Core/profiles/matrix.yaml` expande e ter Zifencei quando a BOOT_MEMORY da partida executa `fence.i` (sem a extensão a instrução é ilegal e o boot reinicia para sempre), a ROM precisa ser múltiplo de dois setores de 4 KiB (duas bancas) e a RAM múltiplo de 4 KiB.
+2. Confere o nome, a placa, o perfil e os tamanhos. O perfil precisa estar entre os que `Core/profiles/matrix.yaml` expande e ter Zifencei quando a BOOT_MEMORY da partida executa `fence.i` (sem a extensão a instrução é ilegal e o boot reinicia para sempre), a ROM precisa ser múltiplo de dois setores de 4 KiB (duas bancas) e a RAM múltiplo de 4 KiB.
 3. Escolhe a plataforma de partida, a única fora de `calibration/` que lista a placa e tem `top`.
 4. Calcula o novo `platform.yaml` e as edições do `paths.yaml` antes de escrever qualquer coisa, de modo que um repositório fora do formato esperado não recebe uma pasta pela metade.
 5. Copia a pasta da plataforma, renomeia arquivos e nomes VHDL e dá ao topo de simulação uma entidade própria.
 6. Escreve o `platform.yaml` e registra a plataforma no `paths.yaml` (lista de plataformas e os componentes do mapa, do topo da placa e do topo de simulação) e no script de listas de fontes.
 7. Gera o mapa de memória, as listas de fontes, confere o mapa e escreve o projeto do Quartus.
-8. Escreve na pasta do projeto o `project.yaml`, o `README.md` e o script `rt`, que o módulo `project` usa ([docs/modules/project.md](project.md)).
+8. Escreve na pasta do projeto o `project.yaml` e o script `rt`, que o módulo `project` usa ([docs/modules/project.md](project.md)).
 9. Imprime o help.
 
 ## Edições no `platform.yaml`
@@ -82,14 +82,6 @@ Os periféricos, os relógios, as entradas e saídas e as interrupções vêm da
 | `tests/test_new_project.py::test_the_command_prints_the_help_and_runs_without_config` | O comando roda sem `--config` e imprime o help |
 | `tests/test_new_project.py::test_the_help_can_be_printed_in_english` | `--lang en` imprime o help em inglês |
 | `tests/test_new_project.py::test_the_command_refuses_an_unknown_board` | Uma placa desconhecida termina com status 1 |
-| `tests/test_new_project.py::test_a_name_gives_a_slug` | Maiúsculas, acentos, espaços, sublinhados e hifens viram um identificador |
-| `tests/test_new_project.py::test_a_name_with_forbidden_characters_is_refused` | Nome vazio, só espaços, barra, ponto, aspas, controle, shell e YAML são recusados |
-| `tests/test_new_project.py::test_a_name_whose_slug_does_not_start_with_a_letter` | O identificador passa na mesma validação de antes |
-| `tests/test_new_project.py::test_the_name_goes_to_the_header_manifest_help_and_readme` | O nome digitado aparece no cabeçalho, no manifesto, no help e no README |
-| `tests/test_new_project.py::test_a_dangerous_name_is_refused_before_anything_is_written` | Um nome perigoso termina com status 1 sem criar nada |
-| `tests/test_new_project.py::test_two_names_with_one_slug_collide_and_say_the_slug` | Dois nomes com o mesmo identificador colidem e a mensagem cita o identificador |
-| `tests/test_new_project.py::test_an_existing_project_folder_is_refused_with_the_slug` | A pasta do identificador já existente é recusada |
-| `tests/test_new_project.py::test_the_positional_name_is_gone` | O argumento posicional não existe mais |
 
 ---
 
