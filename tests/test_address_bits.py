@@ -11,11 +11,13 @@ from support import (
     check,
     check_equal,
     check_in,
+    dump_platform,
     profile_matrix,
 )
 
 from riscv_tools.memory_map import (
     config_from_platform,
+    load_platform,
     resolve,
     set_override,
     validate_platform,
@@ -76,7 +78,7 @@ def _write(root: Path, platform: dict[str, Any]) -> Path:
     """Write the platform and its matrix."""
     (root / "matrix.yaml").write_text(yaml.safe_dump(MATRIX))
     path = root / "platform.yaml"
-    path.write_text(yaml.safe_dump(platform, sort_keys=False))
+    path.write_text(dump_platform(platform))
     return path
 
 
@@ -191,15 +193,13 @@ def test_resolve_accepts_the_rv64_profiles(tmp_path: Path) -> None:
         ("rv64em", "e", 64),
     ):
         path = _write(tmp_path, _with(profile=name))
-        platform = yaml.safe_load(path.read_text())
+        platform = load_platform(path)
         got = resolve(platform, path)
         check_equal((got[0], got[2]), (base, xlen), name)
     check_in(
         "has_m",
         resolve(
-            yaml.safe_load(
-                _write(tmp_path, _with(profile="rv64im")).read_text()
-            ),
+            load_platform(_write(tmp_path, _with(profile="rv64im"))),
             tmp_path / "platform.yaml",
         )[1],
     )
@@ -209,16 +209,15 @@ def test_resolve_rejects_a_name_without_a_valid_base(tmp_path: Path) -> None:
     """Only `rv32i`, `rv32e`, `rv64i` and `rv64e` start a profile."""
     for name in ("rv128i", "rv64x", "rv6", "arm"):
         platform = {k: v for k, v in PLATFORM.items() if k != "profiles"}
-        path = _write(tmp_path, {**platform, "profile": name})
         with pytest.raises(ValueError, match="rv64e"):
-            resolve(yaml.safe_load(path.read_text()), path)
+            _write(tmp_path, {**platform, "profile": name})
 
 
 def test_the_override_can_pick_an_rv64_profile(tmp_path: Path) -> None:
     """`--profile rv64im` replaces the profile of the platform."""
     path = _write(tmp_path, PLATFORM)
     set_override("rv64im")
-    check_equal(resolve(yaml.safe_load(path.read_text()), path)[2], 64)
+    check_equal(resolve(load_platform(path), path)[2], 64)
 
 
 def test_the_config_gets_the_new_keys_only_off_the_default(

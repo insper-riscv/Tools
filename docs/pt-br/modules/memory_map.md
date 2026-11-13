@@ -93,18 +93,51 @@ Cada banca começa por uma página de cabeçalho de 256 bytes, então o programa
 
 O mapa recusa bancas que não estejam alinhadas ao setor de 4 KiB, que não deixem espaço para um programa depois do cabeçalho, que saiam da região em `flash.region`, que se sobreponham ou que repitam o nome.
 
-## 4. O perfil da plataforma
+## 4. O núcleo da plataforma
 
-A plataforma escolhe o seu perfil em `profile:` (`rv32im`, `rv32em_zicsr`, ...) e diz onde está a especificação dos perfis em `profiles:`, um caminho relativo ao `platform.yaml` (o `profiles/matrix.yaml` do Core). O nome começa por `rv32i` (32 registradores), `rv32e` (16), `rv64i` ou `rv64e` e precisa ser um dos perfis da especificação. Dele saem:
+O `platform.yaml` não tem nome de perfil. Ele descreve o núcleo no bloco `core`, e o Tools infere dele o perfil da especificação do Core, que a plataforma localiza em `profiles:`, um caminho relativo ao `platform.yaml` (o `profiles/matrix.yaml` do Core).
+
+```yaml
+core:
+  type: 32          # 32 ou 64 (RV32 ou RV64)
+  base: I           # I ou E (32 ou 16 registradores)
+  extensions:       # ou `extensions: []`
+    - M
+    - Zicsr
+    - Zicclsm
+    - Zicntr
+    - Zihpm
+    - Zifencei
+    - Zimop
+    - Zicond
+    - Zihintntl
+    - Zihintpause
+    - Interrupts
+    - Sscofpmf
+    - AccessFaults
+profiles: ../../../Core/profiles/matrix.yaml
+```
+
+As chaves são `type`, `base` e `extensions`, em minúsculas, e os nomes das extensões não diferenciam maiúsculas. O módulo `riscv_tools.memory_map.core_profile` faz a inferência.
+
+| Regra | Efeito |
+| :--- | :--- |
+| Extensões da matriz (`M`, `Zmmul`, `Zicsr`, `Zicntr`, `Zihpm`, `Zifencei`, `Zicclsm`, `Zimop`, `Zicond`) | Escolhem o perfil `rv<type><base>` com as extensões na ordem canônica do nome, como `rv32im_zicclsm_zicntr_zihpm_zifencei` |
+| Extensões que a matriz não lista (`Zihintntl`, `Zihintpause`, `Interrupts`, `Sscofpmf`, `AccessFaults`; também `Zimop` e `Zicond` se a matriz não as lista) | São os extras, ligados por cima do perfil |
+| Normalização | `M` implica `Zmmul`, e `Zicntr` e `Zihpm` implicam `Zicsr`. Listar `Zicsr` junto de `Zicntr` ou `Zihpm` é aceito, e o nome inferido não o cita |
+| Erro | Extensão desconhecida ou repetida; combinação que a matriz recusa (`M` com `Zmmul`); `type: 64` sem base `rv64` na matriz; `isa` no lugar de `base` ("a chave se chama base"); chave desconhecida ou ausente |
+| Migração | `profile:` e `extras:` são recusados, com a mensagem do bloco que os substitui: `profile: rv32em_zicntr` vira `type` 32, `base` E e `extensions` M, Zicntr |
+
+Do perfil saem:
 
 | Saída | Conteúdo |
 | :--- | :--- |
 | Pacote VHDL | `IS_E` (verdadeiro no RV32E) e um `HAS_<EXTENSÃO>` booleano por extensão do núcleo (`HAS_M`, `HAS_ZMMUL`, `HAS_ZICSR`, `HAS_ZICNTR`, `HAS_ZIHPM`, `HAS_ZIMOP`, `HAS_ZICOND`, `HAS_ZIHINTNTL`, `HAS_ZIHINTPAUSE`, `HAS_ZIFENCEI`, `HAS_ZICCLSM`, `HAS_INTERRUPTS`, `HAS_SSCOFPMF`, `HAS_ACCESS_FAULTS`) |
 | `config.yaml` | `isa.base`, que escolhe o `-march` e o `-mabi` dos programas e da memória de boot (`rv32e` com `ilp32e`, os demais com `ilp32`), e o `sim.config_pkg`, o texto do `config_pkg` do perfil que o runner compila no lugar do `config_pkg.vhd` das fontes (a base e as extensões do núcleo são constantes desse pacote, não generics do topo) |
 
-`--profile NOME`, opção global do `riscv-tools`, troca o `profile:` da plataforma sem editá-la, para rodar a mesma plataforma sobre vários perfis numa matriz de testes. Vale para o `generate-memory-map` (escreve o pacote daquele perfil), para o `platform sync` e para todo comando que lê a configuração. Um nome que a especificação não lista é rejeitado antes de qualquer coisa rodar.
+`--profile NOME`, opção global do `riscv-tools`, troca só a parte do perfil da matriz, sem editar a plataforma, para rodar a mesma plataforma sobre vários perfis numa matriz de testes. As extensões que a matriz não lista continuam ligadas. Vale para o `generate-memory-map` (escreve o pacote daquele perfil), para o `platform sync` e para todo comando que lê a configuração. Um nome que a especificação não lista é rejeitado antes de qualquer coisa rodar.
 
-`extras:` liga o que o perfil não liga, por nome de extensão (`extras: [Zihintntl, Zihintpause, Interrupts, Sscofpmf, AccessFaults]`; a `Sscofpmf` exige o Zihpm no perfil e `Interrupts` nos extras, e a geração falha sem eles), e vale também com `--profile`. A matriz do Core lista Zimop e Zicond como extensões de perfil, então só os nomes que a matriz não lista dependem de `extras:`; os dois primeiros continuam aceitos ali. Toda chave que nem o perfil nem os extras ligam sai `false` no pacote.
+A `Sscofpmf` exige `Zihpm` e `Interrupts`, e a geração falha sem eles. Toda chave que nem o perfil nem os extras ligam sai `false` no pacote. Uma plataforma sem `profiles:` guarda só o nome do perfil, na ordem da matriz do Core.
 
 ```bash
 uv run riscv-tools --root <projeto> --profile rv32em_zicsr generate-memory-map --platform src/platform/platform.yaml
@@ -112,10 +145,10 @@ uv run riscv-tools --root <projeto> --profile rv32em_zicsr generate-memory-map -
 
 ## 5. As interrupções da plataforma
 
-Uma plataforma com as interrupções de máquina liga o extra `Interrupts` (o núcleo só as habilita se tiver `Zicsr`), lista o `CLINT` e, para as linhas externas, o `EXT_IRQ` entre os `peripherals`, e descreve o relógio na seção `interrupts`.
+Uma plataforma com as interrupções de máquina liga a extensão `Interrupts` em `core` (o núcleo só as habilita se tiver `Zicsr`), lista o `CLINT` e, para as linhas externas, o `EXT_IRQ` entre os `peripherals`, e descreve o relógio na seção `interrupts`.
 
 ```yaml
-extras: [Interrupts]
+core: {type: 32, base: I, extensions: [Zicsr, Interrupts]}
 peripherals:
   - {name: CLINT,   base: 0xE0000000, size: 64K}
   - {name: EXT_IRQ, base: 0xF0000000, size: 16}
@@ -265,7 +298,7 @@ O campo de topo `address_bits` do `platform.yaml` é um inteiro de 16 a 64 com a
 
 ```yaml
 address_bits: 24      # opcional, 32 por padrão
-profile: rv32im
+core: {type: 32, base: I, extensions: [M]}
 peripherals:          # base absoluta e size em bytes de registradores
   - {name: UART, base: 0xC00000, size: 16}
 ```
@@ -433,6 +466,7 @@ Algumas plataformas precisam de uma declaração a mais para que o `config_pkg` 
 | `tests/test_memory_map.py::test_check_stops_at_an_inconsistent_map` | Nenhuma cópia é lida se o próprio mapa é inconsistente. |
 | `tests/test_memory_map.py::test_load_platform_rejects_a_non_mapping` | Um arquivo que não é mapeamento é rejeitado. |
 | `tests/test_memory_map.py::test_cmd_check_memory_map_exit_status` | O comando imprime OK, ou sai com 1 listando as divergências. |
+| `tests/test_core_profile.py` | O bloco `core` e o perfil inferido (ordem da matriz, `Zicsr` junto de `Zicntr`, extras), `--profile` que mantém os extras, cada erro (extensão desconhecida ou repetida, combinação recusada, `type: 64` sem base `rv64`, `isa` no lugar de `base`), a recusa de `profile:` e `extras:` com a migração e o nome sem matriz. |
 | `tests/test_peripheral_offsets.py` | A janela derivada do `size`, os símbolos `base`, `size`, `window` e `index`, uma rejeição para cada V-P1 a V-P5, a recusa de `id`, `offset` e `padding` com a mensagem de migração, as tabelas `PERIPH_BASES` e `PERIPH_MASKS`, a V-S1 e a `STRICT_PERIPH` no pacote do mapa. |
 | `tests/test_address_bits.py` | O campo `address_bits`, uma rejeição para cada V-A1 a V-A6, a recusa de `periph_window` (V-P6), `resolve` com os perfis `rv64`, o `--profile` e as chaves novas do `config.yaml`. |
 | `tests/test_config_pkg.py` | O `config_pkg` para 32, 24 e 40 bits, a base E, as variantes e o que elas recusam, as `HAS_` dos periféricos do núcleo, `FLASH_ON_BUS` e `RAM_ON_BUS`, a regra de cache (V-C1 e V-C2), a ordem do mapa do núcleo (V-M), a escrita com o mapa e o `--check`, a coerência entre os dois pacotes, o comando e a prova de que o pacote do mapa e o `config_pkg` do DE0-CV não mudam. |

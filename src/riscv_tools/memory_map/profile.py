@@ -199,3 +199,14 @@ def resolve(
     _apply_extras(generics, platform)
     base, xlen = _base_of(name)
     return base, generics, xlen
+
+
+def profile_replaced() -> bool:
+    """Say whether `--profile` replaces the profile of the platforms.
+
+    Returns
+    -------
+    bool
+        True when an override is set.
+    """
+    return bool(_override[0])

@@ -10,6 +10,7 @@ from support import (
     check_equal,
     check_in,
     check_not_in,
+    dump_platform,
 )
 from test_config_pkg import MATRIX as CONFIG_PKG_MATRIX
 from test_config_pkg import PLATFORM as CONFIG_PKG_PLATFORM
@@ -55,7 +56,7 @@ def _no_override():
 def _platform(root: Path) -> Path:
     (root / "matrix.yaml").write_text(yaml.safe_dump(MATRIX))
     path = root / "platform.yaml"
-    path.write_text(yaml.safe_dump(PLATFORM, sort_keys=False))
+    path.write_text(dump_platform(PLATFORM))
     return path
 
 
@@ -154,7 +155,7 @@ LETTER_MATRIX = {
 def _letter_platform(root: Path) -> Path:
     (root / "matrix.yaml").write_text(yaml.safe_dump(LETTER_MATRIX))
     path = root / "platform.yaml"
-    path.write_text(yaml.safe_dump(PLATFORM, sort_keys=False))
+    path.write_text(dump_platform(PLATFORM))
     return path
 
 
@@ -179,7 +180,7 @@ def test_the_profile_reaches_the_core_through_the_config_pkg(
     (tmp_path / "matrix.yaml").write_text(yaml.safe_dump(CONFIG_PKG_MATRIX))
     path = tmp_path / "platform.yaml"
     platform = {**CONFIG_PKG_PLATFORM, "config": PLATFORM["config"]}
-    path.write_text(yaml.safe_dump(platform, sort_keys=False))
+    path.write_text(dump_platform(platform))
     for name, base_e in (
         ("rv32im_zicntr", "false"),
         ("rv32em_zicntr", "true"),
@@ -212,7 +213,7 @@ def test_the_flash_banks_of_the_map_reach_the_config(tmp_path: Path) -> None:
     platform = {**PLATFORM, "flash": {"region": "FLASH", "banks": banks}}
     (tmp_path / "matrix.yaml").write_text(yaml.safe_dump(MATRIX))
     path = tmp_path / "platform.yaml"
-    path.write_text(yaml.safe_dump(platform, sort_keys=False))
+    path.write_text(dump_platform(platform))
     config = config_from_platform(path)
     check_equal(
         config["flash"]["banks"],

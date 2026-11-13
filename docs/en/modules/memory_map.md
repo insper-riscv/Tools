@@ -93,18 +93,51 @@ Each bank starts with a 256-byte header page, so its program is linked from `bas
 
 The map refuses banks that are not aligned to the 4 KiB sector, that leave no room for a program after the header, that leave the region named in `flash.region`, that overlap or that repeat a name.
 
-## 4. The profile of the platform
+## 4. The core of the platform
 
-The platform picks its profile in `profile:` (`rv32im`, `rv32em_zicsr`, ...) and says where the specification of the profiles is in `profiles:`, a path relative to the `platform.yaml` (the `profiles/matrix.yaml` of the Core). The name starts with `rv32i` (32 registers), `rv32e` (16), `rv64i` or `rv64e` and must be one of the profiles of the specification. It gives:
+The `platform.yaml` has no profile name. It describes the core in the `core` block, and the Tools infer from it the profile of the specification of the Core, which the platform locates in `profiles:`, a path relative to the `platform.yaml` (the `profiles/matrix.yaml` of the Core).
+
+```yaml
+core:
+  type: 32          # 32 or 64 (RV32 or RV64)
+  base: I           # I or E (32 or 16 registers)
+  extensions:       # or `extensions: []`
+    - M
+    - Zicsr
+    - Zicclsm
+    - Zicntr
+    - Zihpm
+    - Zifencei
+    - Zimop
+    - Zicond
+    - Zihintntl
+    - Zihintpause
+    - Interrupts
+    - Sscofpmf
+    - AccessFaults
+profiles: ../../../Core/profiles/matrix.yaml
+```
+
+The keys are `type`, `base` and `extensions`, in lower case, and the names of the extensions are not case sensitive. The module `riscv_tools.memory_map.core_profile` does the inference.
+
+| Rule | Effect |
+| :--- | :--- |
+| Extensions of the matrix (`M`, `Zmmul`, `Zicsr`, `Zicntr`, `Zihpm`, `Zifencei`, `Zicclsm`, `Zimop`, `Zicond`) | Pick the profile `rv<type><base>` with the extensions in the canonical order of the name, such as `rv32im_zicclsm_zicntr_zihpm_zifencei` |
+| Extensions the matrix does not list (`Zihintntl`, `Zihintpause`, `Interrupts`, `Sscofpmf`, `AccessFaults`; also `Zimop` and `Zicond` if the matrix lacks them) | They are the extras, turned on over the profile |
+| Normalization | `M` implies `Zmmul`, and `Zicntr` and `Zihpm` imply `Zicsr`. Listing `Zicsr` beside `Zicntr` or `Zihpm` is accepted, and the inferred name does not cite it |
+| Error | An unknown or repeated extension; a combination the matrix refuses (`M` with `Zmmul`); `type: 64` without an `rv64` base in the matrix; `isa` in place of `base` ("the key is called base"); an unknown or missing key |
+| Migration | `profile:` and `extras:` are refused, with the message of the block that replaces them: `profile: rv32em_zicntr` becomes `type` 32, `base` E and `extensions` M, Zicntr |
+
+The profile gives:
 
 | Output | Content |
 | :--- | :--- |
 | VHDL package | `IS_E` (true on the RV32E) and one boolean `HAS_<EXTENSION>` per extension of the core (`HAS_M`, `HAS_ZMMUL`, `HAS_ZICSR`, `HAS_ZICNTR`, `HAS_ZIHPM`, `HAS_ZIMOP`, `HAS_ZICOND`, `HAS_ZIHINTNTL`, `HAS_ZIHINTPAUSE`, `HAS_ZIFENCEI`, `HAS_ZICCLSM`, `HAS_INTERRUPTS`, `HAS_SSCOFPMF`, `HAS_ACCESS_FAULTS`) |
 | `config.yaml` | `isa.base`, which picks `-march` and `-mabi` of the programs and of the boot memory (`rv32e` with `ilp32e`, the others with `ilp32`), and the `sim.config_pkg`, the text of the `config_pkg` of the profile that the runner compiles in place of the `config_pkg.vhd` of the sources (the base and the extensions of the core are constants of that package, not generics of the top) |
 
-`--profile NAME`, a global option of `riscv-tools`, replaces the `profile:` of the platform without editing it, to run the same platform over many profiles in a test matrix. It applies to `generate-memory-map` (writes the package of that profile), to `platform sync` and to every command that reads the configuration. A name that the specification does not list is rejected before anything runs.
+`--profile NAME`, a global option of `riscv-tools`, replaces only the profile part of the matrix, without editing the platform, to run the same platform over many profiles in a test matrix. The extensions the matrix does not list stay on. It applies to `generate-memory-map` (writes the package of that profile), to `platform sync` and to every command that reads the configuration. A name that the specification does not list is rejected before anything runs.
 
-`extras:` turns on what the profile does not turn on, by extension name (`extras: [Zihintntl, Zihintpause, Interrupts, Sscofpmf, AccessFaults]`; `Sscofpmf` needs Zihpm in the profile and `Interrupts` in the extras, and generation fails without them), and it also holds with `--profile`. The matrix of the Core lists Zimop and Zicond as profile extensions, so only the names the matrix does not list depend on `extras:`; the first two are still accepted there. Every switch that neither the profile nor the extras turn on comes out `false` in the package.
+`Sscofpmf` needs `Zihpm` and `Interrupts`, and generation fails without them. Every switch that neither the profile nor the extras turn on comes out `false` in the package. A platform without `profiles:` keeps only the profile name, in the order of the matrix of the Core.
 
 ```bash
 uv run riscv-tools --root <project> --profile rv32em_zicsr generate-memory-map --platform src/platform/platform.yaml
@@ -112,10 +145,10 @@ uv run riscv-tools --root <project> --profile rv32em_zicsr generate-memory-map -
 
 ## 5. The interrupts of the platform
 
-A platform with the machine interrupts turns on the `Interrupts` extra (the core enables them only with `Zicsr`), lists the `CLINT` and, for the external lines, the `EXT_IRQ` among the `peripherals`, and describes the clock in the `interrupts` section.
+A platform with the machine interrupts turns on the `Interrupts` extension of `core` (the core enables them only with `Zicsr`), lists the `CLINT` and, for the external lines, the `EXT_IRQ` among the `peripherals`, and describes the clock in the `interrupts` section.
 
 ```yaml
-extras: [Interrupts]
+core: {type: 32, base: I, extensions: [Zicsr, Interrupts]}
 peripherals:
   - {name: CLINT,   base: 0xE0000000, size: 64K}
   - {name: EXT_IRQ, base: 0xF0000000, size: 16}
@@ -265,7 +298,7 @@ The top-level `address_bits` field of the `platform.yaml` is an integer from 16 
 
 ```yaml
 address_bits: 24      # optional, 32 by default
-profile: rv32im
+core: {type: 32, base: I, extensions: [M]}
 peripherals:          # absolute base and size in bytes of registers
   - {name: UART, base: 0xC00000, size: 16}
 ```
@@ -436,6 +469,7 @@ Some platforms need one more declaration so that the generated `config_pkg` refl
 | `tests/test_interrupts.py` | The package has `HAS_INTERRUPTS`, `CLOCK_HZ`, `MTIME_HZ` and `CLINT_TICK_CYCLES`, the header has the registers of the CLINT and the rate of `mtime`, and an inconsistent section (rate, missing CLINT, profile without the interrupts) is rejected. |
 | `tests/test_memory_choice.py` | The `memory` section and the `--memory` option generate the 9 valid combinations as 9 different packages and refuse the 7 invalid ones, the constants and the simulation parameters come from the choice, and rules V1 to V5, V7 and V10 fail with a clear message. |
 | `tests/test_config_from_platform.py` | The `memory` keys, the `tohost` and `stdout` environment and the address widths come from the map, and the map wins over the file and its `extends`. |
+| `tests/test_core_profile.py` | The `core` block and the inferred profile (matrix order, `Zicsr` beside `Zicntr`, extras), `--profile` keeping the extras, each error (unknown or repeated extension, refused combination, `type: 64` without an `rv64` base, `isa` in place of `base`), the refusal of `profile:` and `extras:` with the migration, and the name without a matrix. |
 | `tests/test_peripheral_offsets.py` | The window derived from `size`, the `base`, `size`, `window` and `index` symbols, one rejection for each V-P1 to V-P5, the refusal of `id`, `offset` and `padding` with the migration message, the `PERIPH_BASES` and `PERIPH_MASKS` tables, V-S1 and `STRICT_PERIPH` in the map package. |
 | `tests/test_address_bits.py` | The `address_bits` field, one rejection for each V-A1 to V-A6, the refusal of `periph_window` (V-P6), `resolve` with the `rv64` profiles, `--profile` and the new keys of `config.yaml`. |
 | `tests/test_config_pkg.py` | The `config_pkg` for 32, 24 and 40 bits, the E base, the variants and what they refuse, the `HAS_` constants of the peripherals of the core, `FLASH_ON_BUS` and `RAM_ON_BUS`, the cache rule (V-C1 and V-C2), the order of the map of the core (V-M), writing with the map and `--check`, the coherence between the two packages, the command and the proof that the map package and the `config_pkg` of the DE0-CV do not change. |

@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 import yaml
-from support import check, check_equal, check_in
+from support import check, check_equal, check_in, check_not_in
 
 from riscv_tools import calibration as cal
 from riscv_tools import fit_estimate as fe
@@ -147,8 +147,9 @@ def test_apply_profile_drops_the_interrupts_without_the_extra(
     definition = cal.ProfileDef("x", 1, "rv32i", icache_kbit=8, dcache_kbit=16)
     harness.apply_profile(path, definition)
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    check_equal(data["profile"], "rv32i")
-    check_equal(data["extras"], [])
+    check_equal(data["core"], {"type": 32, "base": "I", "extensions": []})
+    check_not_in("profile", data)
+    check_not_in("extras", data)
     check("interrupts" not in data)
     check_equal([p["name"] for p in data["peripherals"]], ["UART"])
     check_equal(data["memory"]["icache"]["size_bits"], 8192)

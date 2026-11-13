@@ -15,9 +15,25 @@ board: auto
 boards: [de0-cv]
 # The component of paths.yaml whose closure of `requires` is the source list of the generated project.
 top: Insper-RISC-V/de0_cv_board
-# The profile of the platform: its base ISA (rv32i: 32 registers, rv32e: 16) and the extensions of the core.
-# `--profile NAME` of riscv-tools replaces it for one run (a matrix of tests); `profiles` is the specification.
-profile: rv32im_zicclsm_zicntr_zihpm_zifencei
+# The core of the platform: the width (type), the base ISA (I: 32 registers, E: 16) and the extensions, from which the
+# Tools infer the profile of the matrix; the ones the matrix lacks (Zihintntl, Zihintpause, Interrupts, Sscofpmf, AccessFaults)
+# stay on. `--profile NAME` of riscv-tools replaces the profile of the matrix for one run; `profiles` is the specification.
+core:
+  type: 32
+  base: I
+  extensions:
+    - M
+    - Zicclsm
+    - Zicntr
+    - Zihpm
+    - Zifencei
+    - Zimop
+    - Zicond
+    - Zihintntl
+    - Zihintpause
+    - Interrupts
+    - Sscofpmf
+    - AccessFaults
 profiles: ../../../Core/profiles/matrix.yaml
 
 regions:
@@ -100,10 +116,6 @@ io:
   switches: {count: 10, need: optional}
   keys:     {count: 4,  need: optional}
   display:  {count: 6,  need: optional}
-
-# Extensions outside the matrix of the Core that the platform turns on (HAS_ZIMOP, HAS_ZICOND, HAS_ZIHINTNTL, HAS_ZIHINTPAUSE and HAS_INTERRUPTS of the package).
-extras: [Zimop, Zicond, Zihintntl, Zihintpause, Interrupts, Sscofpmf, AccessFaults]
-
 # The files written from this map by `riscv-tools generate-memory-map` (`make generate`): the linker
 # flags of the test programs and the linker script of the boot memory. `make memory-map` checks they are up to date.
 generate:

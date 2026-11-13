@@ -16,6 +16,7 @@ from support import (
     check_in,
     check_is,
     check_not_in,
+    dump_platform,
 )
 
 from riscv_tools import cli
@@ -97,7 +98,7 @@ def _render(root: Path, platform: dict[str, Any]) -> str:
         The package.
     """
     path = root / "platform.yaml"
-    path.write_text(yaml.safe_dump(platform, sort_keys=False))
+    path.write_text(dump_platform(platform))
     return render_all(path, root)[root / PACKAGE]
 
 
@@ -219,7 +220,7 @@ def test_the_flag_reaches_the_generated_package(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """`--memory` of the command line picks the combination."""
-    (tmp_path / "platform.yaml").write_text(yaml.safe_dump(PLATFORM))
+    (tmp_path / "platform.yaml").write_text(dump_platform(PLATFORM))
     argv = ["riscv-tools", "--root", str(tmp_path)]
     argv += ["--memory", _choice("int", "int", "off", "off")]
     argv += ["generate-memory-map", "--platform", "platform.yaml"]
@@ -380,11 +381,11 @@ def test_the_simulation_gets_the_window_only_when_it_is_wide(
 ) -> None:
     """The parameters carry CACHE_WINDOW_BITS above the default only."""
     path = tmp_path / "platform.yaml"
-    path.write_text(yaml.safe_dump(_platform(), sort_keys=False))
+    path.write_text(dump_platform(_platform()))
     parameters = config_from_platform(path)["sim"]["parameters"]
     check_not_in("CACHE_WINDOW_BITS", parameters)
     wide = _big_ram("0x40000000", "128M", "0x47FFFFF0")
-    path.write_text(yaml.safe_dump(wide, sort_keys=False))
+    path.write_text(dump_platform(wide))
     parameters = config_from_platform(path)["sim"]["parameters"]
     check_equal(parameters["CACHE_WINDOW_BITS"], "27")
 
@@ -476,7 +477,7 @@ def test_the_config_carries_the_choice_and_the_widths(
 ) -> None:
     """The simulation gets the choice; internal memories get widths."""
     path = tmp_path / "platform.yaml"
-    path.write_text(yaml.safe_dump(_platform(), sort_keys=False))
+    path.write_text(dump_platform(_platform()))
     parameters = config_from_platform(path)["sim"]["parameters"]
     check_is(parameters["ROM_EXTERNAL"], True)
     check_is(parameters["HAS_ICACHE"], True)
@@ -497,11 +498,11 @@ def test_listed_widths_win_and_no_memory_adds_nothing(
     path = tmp_path / "platform.yaml"
     listed = _platform()
     listed["config"]["addr_widths"] = ["ram"]
-    path.write_text(yaml.safe_dump(listed, sort_keys=False))
+    path.write_text(dump_platform(listed))
     parameters = config_from_platform(path)["sim"]["parameters"]
     check_in("ram_addr_width", parameters)
     check_not_in("boot_memory_addr_width", parameters)
-    path.write_text(yaml.safe_dump(_platform(memory=None), sort_keys=False))
+    path.write_text(dump_platform(_platform(memory=None)))
     parameters = config_from_platform(path)["sim"]["parameters"]
     check_not_in("ROM_EXTERNAL", parameters)
     check_equal(

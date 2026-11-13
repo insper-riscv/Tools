@@ -27,11 +27,12 @@ Como mudar o projeto
       --platform {platform}
     riscv-tools check-memory-map \\
       --platform {platform}
-  perfil       campo `profile`; os nomes válidos saem de
+  perfil       bloco `core` (`type`, `base`, `extensions`); o Tools
+               infere o perfil da matriz, e os nomes válidos saem de
                riscv-tools profiles \\
                  --spec Core/profiles/matrix.yaml --format names
-               (Zimop, Zicond, Interrupts e outras fora da matriz
-               ficam em `extras`)
+               (Interrupts e as outras extensões fora da matriz ficam
+               na mesma lista `extensions`)
                A BOOT_MEMORY executa fence.i: o perfil precisa de
                zifencei, ou o boot reinicia para sempre
   memórias     `size` das regiões FLASH e RAM; mantenha `reserved`
@@ -75,11 +76,13 @@ How to change the project
       --platform {platform}
     riscv-tools check-memory-map \\
       --platform {platform}
-  profile      field `profile`; the valid names come from
+  profile      block `core` (`type`, `base`, `extensions`); the Tools
+               infer the profile of the matrix, and the valid names
+               come from
                riscv-tools profiles \\
                  --spec Core/profiles/matrix.yaml --format names
-               (Zimop, Zicond, Interrupts and others outside the
-               matrix go in `extras`)
+               (Interrupts and the other extensions outside the matrix
+               stay in the same `extensions` list)
                The BOOT_MEMORY executes fence.i: the profile needs
                zifencei, or the boot restarts forever
   memories     `size` of the FLASH and RAM regions; keep `reserved`

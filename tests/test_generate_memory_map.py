@@ -14,6 +14,7 @@ from support import (
     check_equal,
     check_in,
     check_not_in,
+    dump_platform,
 )
 
 from riscv_tools import cli
@@ -51,7 +52,7 @@ PLATFORM: dict[str, Any] = {
 
 def _write(root: Path, platform: dict[str, Any] | None = None) -> Path:
     path = root / "platform.yaml"
-    path.write_text(yaml.safe_dump(platform or PLATFORM, sort_keys=False))
+    path.write_text(dump_platform(platform or PLATFORM))
     return path
 
 

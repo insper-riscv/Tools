@@ -13,6 +13,7 @@ from support import (
     check_equal,
     check_in,
     check_not_in,
+    dump_platform,
     profile_matrix,
 )
 
@@ -110,7 +111,7 @@ def _write(root: Path, platform: dict[str, Any]) -> Path:
     """Write the platform and the matrix of its profiles."""
     (root / "matrix.yaml").write_text(yaml.safe_dump(MATRIX))
     path = root / "platform.yaml"
-    path.write_text(yaml.safe_dump(platform, sort_keys=False))
+    path.write_text(dump_platform(platform))
     return path
 
 
@@ -385,7 +386,7 @@ def test_the_real_platform_config_pkg_is_stable(tmp_path: Path) -> None:
     platform = tmp_path / REAL_PLATFORM
     text = render_variant(load_platform(platform), platform, tmp_path)
     check_equal(text, (REAL / "expected/config_pkg.vhd").read_text())
-    data = load_platform(platform)
+    data = yaml.safe_load(platform.read_text())
     data["generate"]["config_pkg"] = {"path": "rtl/config_pkg.vhd"}
     data.pop("checks", None)
     platform.write_text(yaml.safe_dump(data, sort_keys=False))

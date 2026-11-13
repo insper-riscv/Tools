@@ -24,7 +24,9 @@ from typing import Any, cast
 
 import yaml
 
+from riscv_tools.memory_map.core_profile import normalize
 from riscv_tools.memory_map.expressions import evaluate
+from riscv_tools.memory_map.profile import profile_replaced
 
 NUM_REGS = {"i": 32, "e": 16}
 DEFAULT_ADDRESS_BITS = 32
@@ -85,7 +87,9 @@ def load_platform(path: Path) -> dict[str, Any]:
     data = yaml.safe_load(path.read_text())
     if not isinstance(data, dict):
         raise ValueError(f"{path}: not a YAML mapping")
-    return cast(dict[str, Any], data)
+    platform = cast(dict[str, Any], data)
+    normalize(platform, path, replaced=profile_replaced())
+    return platform
 
 
 def address_bits(platform: dict[str, Any]) -> int:

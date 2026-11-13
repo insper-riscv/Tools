@@ -50,7 +50,7 @@ The file of the starting platform is edited line by line, and its comments stay.
 | Choice | Lines changed |
 | :--- | :--- |
 | Name | `platform` and `top` |
-| `--profile` | `profile` |
+| `--profile` | block `core` (`type`, `base`, `extensions`) |
 | `--rom` | Size of the FLASH region and the two `flash` banks, split in whole sectors |
 | `--ram` | Size of the RAM region and the `stdout`, `tohost` and `fromhost` words at its top |
 | `--icache`, `--dcache` | The cache line in `memory`, with `enabled: false` for `off` |

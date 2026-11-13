@@ -26,6 +26,7 @@ from typing import Any, cast
 import yaml
 
 from riscv_tools.calibration.profiles import ProfileDef, ProfileList
+from riscv_tools.memory_map.core_profile import legacy_to_core
 from riscv_tools.quartus_program.core import CompileOptions, compile_command
 from riscv_tools.quartus_reports import (
     ResourceUsage,
@@ -153,8 +154,9 @@ def apply_profile(platform: Path, definition: ProfileDef) -> None:
     data = cast(
         "dict[str, Any]", yaml.safe_load(platform.read_text(encoding="utf-8"))
     )
-    data["profile"] = definition.profile
-    data["extras"] = list(definition.extras)
+    data.pop("profile", None)
+    data.pop("extras", None)
+    data["core"] = legacy_to_core(definition.profile, list(definition.extras))
     memory = cast("dict[str, Any]", data["memory"])
     for name, kbit in (
         ("icache", definition.icache_kbit),

@@ -1,7 +1,13 @@
 platform: de10-lite
 board: auto
 boards: [de10-lite]
-profile: rv32im_zicntr_zifencei
+core:
+  type: 32
+  base: I
+  extensions:
+    - M
+    - Zicntr
+    - Zifencei
 regions:
   - {name: BOOT_MEMORY, base: 0x00000000, size: 4K,  kind: rom, exec: true}
   - {name: FLASH,       base: 0x00001000, size: 28K, kind: rom, exec: true}

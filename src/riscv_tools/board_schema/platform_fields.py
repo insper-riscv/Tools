@@ -18,6 +18,7 @@ from riscv_tools.board_schema.platform_video import (
     parse_platform_video,
 )
 from riscv_tools.config_files import read_config
+from riscv_tools.memory_map.core_profile import normalize
 
 BACKENDS = ("emulado", "dispositivo")
 DEVICES = {
@@ -411,4 +412,6 @@ def read_platform_file(path: Path) -> dict[str, Any]:
     dict of str to Any
         The platform merged over its bases.
     """
-    return read_config(path)
+    data = read_config(path)
+    normalize(data, path)
+    return data
