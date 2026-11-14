@@ -27,7 +27,34 @@ A backend without an entity (`sram`, `flash-interna` and `serial`) generates no 
 
 ### 3.1. Video
 
-When the platform asks for video, the `TopSpec` carries the `VideoPlan` and `video_generics` writes the generics of timing, channel width and framebuffer ([board_video](board_video.md)). The top does not instantiate the video peripheral, and the generic map of the SoC does not receive them.
+When the platform asks for video, the `TopSpec` carries the `VideoPlan` and `video_generics` writes the generics of timing, channel width and framebuffer ([board_video](board_video.md)). The top wires only `channel_bits` to the `video` peripheral (section 3.2), and the generic map of the SoC does not receive the generics of the plan.
+
+### 3.2. External peripherals
+
+Each entry of `peripherals` with an external `kind` (section 9.6 of [memory_map](memory_map.md)) becomes an instance of the `Peripherals` entity, labelled `u_<name>`, wired to the pins of the board role and to an external bus of the SoC. Without an external peripheral the top gets nothing, and a peripheral the board omits (`need: optional`) has its read data and its interrupt tied to zero.
+
+The contract with the SoC is the following.
+
+| Item | Content |
+| :--- | :--- |
+| Generics | `ext_indices => EXT_INDICES`, `ext_irq_ids => EXT_IRQ_IDS` (the tables of the map package) and `ext_addr_width`, the largest word address width among the entities |
+| Output ports | `o_ext_addr`, `o_ext_wdata`, `o_ext_byteena`, `o_ext_we` and `o_ext_re`, the latter and the one before it with one bit per peripheral |
+| Input ports | `i_ext_rdata` (32 bits per peripheral) and `i_ext_irq` (one bit per peripheral) |
+| Position | `<NAME>_EXT_POS`, from the map package, picks the slice of each peripheral |
+
+The instance wires `i_clk` to the core clock and `i_rst` to the SoC reset, and the frequency generics receive the core clock in hertz. The fields of the kind (`phy_addr`, `cs_count`, `three_wire`, `int_active_high`, `active_low`) become generics with the same name as the field.
+
+| Entity | Pins |
+| :--- | :--- |
+| `ps2_keyboard`, `ps2_mouse_top` | `clk` and `dat` straight to the `inout` ports |
+| `sd_spi` | MOSI on `cmd`, MISO on `dat(0)`, CS on `dat(3)`, and the other bits of `dat` at `'Z'` |
+| `sd_native` | `cmd` and each bit of `dat` go out through `'Z'` with the enable of the entity |
+| `lcd`, `usb_bridge`, `eth` (MDIO), `hdmi_tx` (I2C), `adxl345` (`mosi`) | Output with enable, `'Z'` when disabled, and a signal back with the read of the pin |
+| `i2c_master` | Open drain, `'0'` when the entity asks for low and `'Z'` otherwise |
+| `audio` | The FPGA is the master of the codec clocks, and the inputs `i_bclk`, `i_adclrck` and `i_daclrck` stay at `'0'` |
+| `adc128s022`, `ltc2308`, `ir_receiver`, `tv`, `spi` | Straight; the `cs_n` of the `spi` is sliced to the width of the board port |
+
+The `video` and the `hdmi_tx` need a pixel clock from the clock plan, and without it the instance is left out with a warning. The `max10_adc` needs the vendor IP and is also left out with a warning.
 
 ## 4. Tests
 
@@ -35,6 +62,7 @@ When the platform asks for video, the `TopSpec` carries the `VideoPlan` and `vid
 | :--- | :--- |
 | `tests/test_board_generate.py` | DE0-CV top content, latencies, pin ring, polarity and syntax accepted by GHDL |
 | `tests/test_board_video_generate.py` | The video generics reach the `TopSpec` without changing the top |
+| `tests/test_external_top.py` | The instance and the pins of each external kind, the open drain, the `'Z'` and what is left out of the top |
 
 ---
 

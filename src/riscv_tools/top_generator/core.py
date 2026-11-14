@@ -27,6 +27,7 @@ from typing import Any, cast
 from riscv_tools.board_clocks import PLL_INSTANCE
 from riscv_tools.board_ports import Port
 from riscv_tools.top_generator import backends
+from riscv_tools.top_generator.external import ExternalTop, external_top
 from riscv_tools.top_generator.generics import soc_generics
 from riscv_tools.top_generator.spec import (
     RenderedTop,
@@ -382,7 +383,7 @@ def _role_ports(spec: TopSpec) -> list[str]:
     return maps
 
 
-def _soc_instance(spec: TopSpec) -> list[str]:
+def _soc_instance(spec: TopSpec, ext: ExternalTop) -> list[str]:
     """Escreve a instância do SoC.
 
     Parameters
@@ -395,8 +396,10 @@ def _soc_instance(spec: TopSpec) -> list[str]:
     list of str
         As linhas.
     """
-    generics = ",\n".join(f"\t\t\t{g}" for g in soc_generics(spec))
-    ports = ",\n".join(f"\t\t\t{m}" for m in _soc_ports(spec))
+    generics = ",\n".join(
+        f"\t\t\t{g}" for g in [*soc_generics(spec), *ext.generics]
+    )
+    ports = ",\n".join(f"\t\t\t{m}" for m in [*_soc_ports(spec), *ext.ports])
     return [
         f"\tsoc_inst : entity work.{SOC_ENTITY}",
         f"\t\tgeneric map (\n{generics}\n\t\t)",
@@ -745,6 +748,7 @@ def render_top(spec: TopSpec) -> RenderedTop:
     notes: list[str] = []
     signals: list[str] = []
     bodies: list[str] = []
+    ext = external_top(spec)
     for region in external(spec):
         sigs, body = _region_backend(spec, region, notes)
         signals += sigs
@@ -769,10 +773,11 @@ def render_top(spec: TopSpec) -> RenderedTop:
         f"architecture structural of {spec.entity} is",
         *_declarations(spec),
         *signals,
+        *ext.signals,
         "begin",
         "",
         *_pll_and_reset(spec, has_halt),
-        *_soc_instance(spec),
+        *_soc_instance(spec, ext),
         "\t-- Boot memory: bloco do FPGA lido pela busca de instrução.",
         "\tboot_inst : entity work.boot_memory",
         "\t\tgeneric map (size_bytes => BOOT_MEMORY_SIZE_BYTES)",
@@ -785,8 +790,9 @@ def render_top(spec: TopSpec) -> RenderedTop:
         "",
         *_io_wiring(spec),
         *bodies,
+        *ext.body,
         "end architecture;",
         "",
     ]
     text = "\n".join([*header, *_entity(spec), *arch])
-    return RenderedTop(text, notes)
+    return RenderedTop(text, [*notes, *ext.notes])
