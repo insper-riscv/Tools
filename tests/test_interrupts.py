@@ -6,8 +6,7 @@ from typing import Any
 import pytest
 import yaml
 from support import (
-    MAP_REGIONS,
-    MAP_RESERVED,
+    ZICSR_INTERRUPTS_PLATFORM,
     check_in,
     check_not_in,
     write_zicsr_platform,
@@ -16,12 +15,7 @@ from support import (
 from riscv_tools.memory_map import render_all
 
 PLATFORM: dict[str, Any] = {
-    "profile": "rv32i_zicsr",
-    "profiles": "matrix.yaml",
-    "extras": ["Interrupts"],
-    "regions": MAP_REGIONS,
-    "reserved": MAP_RESERVED,
-    "boot": {"entry": "0x800", "wait_restart": "0x100"},
+    **ZICSR_INTERRUPTS_PLATFORM,
     "peripherals": [
         {"name": "CLINT", "base": "0xE0000000", "size": "64K"},
         {"name": "EXT_IRQ", "base": "0xF0000000", "size": "16"},

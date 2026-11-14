@@ -205,6 +205,40 @@ Identificadores repetidos, fora de 1 a 1023, `priority_bits` fora de 1 a 32 e ja
 
 $$ \text{msip} = base, \quad \text{mtimecmp} = base + \texttt{0x4000}, \quad \text{mtime} = base + \texttt{0xBFF8} $$
 
+### 5.2. Temporizadores de uso geral
+
+A plataforma pode ter qualquer quantidade de temporizadores. Cada um é uma entrada de `peripherals` com `kind: timer`, nome livre, `base` própria e `size` de pelo menos 32 bytes (os oito registradores).
+
+```yaml
+peripherals:
+  TIMER0:
+    kind: timer
+    base: 0x80006000
+    size: 64
+  TIMER1:
+    kind: timer
+    base: 0x80006100
+    size: 64
+```
+
+A entrada chamada `TIMER` sem `kind` também é um temporizador, então as plataformas com um só continuam como estão. Cada temporizador tem uma fonte própria no PLIC, e a lista `interrupts.sources` não precisa nomeá-lo.
+
+| Situação | Número da fonte |
+| :--- | :--- |
+| O temporizador está em `interrupts.sources` | O que está escrito (não pode ser 1, 2, 3, 4 nem 6, as linhas fixas do SoC) |
+| O temporizador não está em `sources` | O menor número a partir de 5 que nenhuma fonte usa e que não é linha fixa, na ordem de `peripherals` |
+
+A regra só depende do arquivo, então as fontes dos outros periféricos não mudam de número com a quantidade de temporizadores.
+
+| Saída | Constantes |
+| :--- | :--- |
+| `config_pkg` | `HAS_TIMER`, verdadeira com pelo menos um temporizador |
+| Pacote VHDL (`vhdl`) | `<NOME>_BASE` e `<NOME>_INDEX` de cada um, `IRQ_<NOME>`, `TIMER_COUNT` e as tabelas `TIMER_INDICES` (o índice de cada um nas tabelas de janelas) e `TIMER_IRQ_IDS` (a fonte de cada um, 0 sem PLIC), vazias sem temporizador |
+| Cabeçalho do runtime (`runtime`) | `RV32_<NOME>_BASE` e `RV32_IRQ_<NOME>` de cada um |
+| Topo da placa (`board generate`) | `timer_indices => TIMER_INDICES` e `timer_irq_ids => TIMER_IRQ_IDS` no SoC, só quando há temporizador |
+
+O `kind` é um entre `timer`, `gpio` e `seg_display` (a lista fica num só lugar, `memory_map/kinds.py`). O temporizador precisa de `size`, que um bloco `gpio` ou `seg_display` não pode ter (a janela vem dos grupos). Um `kind` desconhecido (V-P7), uma janela menor que 32 bytes (V-P8), um nome que não é identificador VHDL ou que repete em maiúsculas (V-P9) e uma fonte presa numa linha fixa (V-P10) são erros antes de gerar. O alinhamento e a sobreposição das janelas seguem as regras dos outros periféricos (V-P2, V-P4 e V-P5).
+
 ## 6. Os relógios da plataforma
 
 A seção `clocks` do `platform.yaml` é a fonte única das frequências: o PLL, o `.sdc` e o pacote VHDL saem dela (ver [pll_generator](pll_generator.md)). O mapa de memória lê dela o relógio do controlador da SDRAM e o do núcleo.
@@ -389,6 +423,10 @@ peripherals:
 | V-P4 | Duas janelas de periféricos se sobrepõem |
 | V-P5 | A janela de um periférico se sobrepõe a uma região |
 | V-P6 | O campo de topo `periph_window`, ou o `ext_base` ou o `periph_base` de `generate.vhdl`, que o núcleo não conhece mais |
+| V-P7 | O `kind` de um periférico não é `timer`, `gpio` nem `seg_display` |
+| V-P8 | Um temporizador tem `size` menor que 32 bytes |
+| V-P9 | O nome de um periférico não é identificador VHDL ou repete em maiúsculas |
+| V-P10 | Um temporizador está preso numa linha fixa do SoC (1, 2, 3, 4 ou 6) |
 | V-S1 | A chave `strict_periph`, quando dada, não é um booleano |
 
 A chave `strict_periph` da plataforma, verdadeira quando ausente, é uma política do interconector: com ela ligada, um acesso ao que sobra da janela depois do `size` termina com erro, e com `strict_periph: false` esse acesso lê zero e ignora a escrita. Ela sai como `STRICT_PERIPH` no pacote do mapa, e não no `config_pkg`.
@@ -491,7 +529,7 @@ O `config_pkg` é o pacote VHDL de constantes de uma plataforma, escrito a parti
 | Sistema de memória | `HAS_ICACHE`, `HAS_DCACHE`, `FLASH_ON_BUS` e `RAM_ON_BUS` |
 | Extensões | Uma `HAS_<EXTENSÃO>` por chave do perfil (`HAS_ZICCLSM` a `HAS_ZIHINTPAUSE`) |
 | Memória | `BOOT_MEMORY_BITS`, `BOOT_MEMORY_BASE` e `BOOT_MEMORY_END` (de 0 a $2^{\text{BOOT\_MEMORY\_BITS}}$), `FLASH_BASE`, `FLASH_END`, `RAM_BASE` e `RAM_END` no tipo `map_addr_t`, e `I_CACHE_WINDOW_BITS` e `D_CACHE_WINDOW_BITS` |
-| Periféricos do núcleo | `HAS_GPIO`, `HAS_CLINT`, `HAS_PLIC` e `HAS_TIMER`, verdadeiras quando o nome está em `peripherals` |
+| Periféricos do núcleo | `HAS_GPIO`, `HAS_CLINT` e `HAS_PLIC`, verdadeiras quando o nome está em `peripherals`, e `HAS_TIMER`, verdadeira quando há pelo menos um temporizador (`kind: timer`) |
 | Compostas | `HAS_MULTIPLICATION` (`HAS_M or HAS_ZMMUL`), `HAS_ANY_COUNTER` (`HAS_ZICNTR or HAS_ZIHPM`) e `HAS_SSCOF` (`HAS_SSCOFPMF and HAS_ZIHPM and HAS_INTERRUPTS`) |
 | Funções | `isa_string`, o texto da ISA (`rv32im_zicsr_zicntr`), e `check_isa`, que falha na elaboração se uma dependência entre constantes não vale |
 
@@ -582,6 +620,7 @@ Algumas plataformas precisam de uma declaração a mais para que o `config_pkg` 
 | `tests/test_config_pkg.py` | O `config_pkg` para 32, 24 e 40 bits, a base E, as variantes e o que elas recusam, as `HAS_` dos periféricos do núcleo, `FLASH_ON_BUS` e `RAM_ON_BUS`, a regra de cache (V-C1 e V-C2), a ordem do mapa do núcleo (V-M), a escrita com o mapa e o `--check`, a coerência entre os dois pacotes, o comando e a prova de que o pacote do mapa e o `config_pkg` do DE0-CV não mudam. |
 | `tests/test_generate_memory_map.py` | Specs, linker script e pacote VHDL saem do mapa; `--check` pega arquivo ausente ou editado; endereço fora de KiB, janela de periférico sobre uma região e chave removida são rejeitados; o comando escreve e confere. |
 | `tests/test_interrupts.py` | O pacote traz `HAS_INTERRUPTS`, `CLOCK_HZ`, `MTIME_HZ` e `CLINT_TICK_CYCLES`, o cabeçalho traz os registradores do CLINT e a taxa do `mtime`, e uma seção inconsistente (taxa, CLINT ausente, perfil sem as interrupções) é rejeitada. |
+| `tests/test_timers.py` | Zero, um, três e oito temporizadores dão as tabelas, as linhas, o cabeçalho e o `HAS_TIMER`, as fontes dos outros periféricos nunca mudam, o nome `TIMER` continua válido, e um tipo, tamanho, nome, alinhamento, sobreposição ou linha fixa errados é rejeitado. |
 | `tests/test_memory_choice.py` | A seção `memory` e a opção `--memory` geram as 9 combinações válidas como 9 pacotes diferentes e recusam as 7 inválidas, as constantes e os parâmetros da simulação saem da escolha, e as regras V1 a V5, V7 e V10 falham com mensagem clara. |
 | `tests/test_config_from_platform.py` | As chaves de `memory`, o ambiente do `tohost` e do `stdout` e as larguras de endereço saem do mapa, e o mapa vale mais que o arquivo e os seus `extends`. |
 

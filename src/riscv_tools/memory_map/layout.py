@@ -46,7 +46,7 @@ derives them. The old keys are refused with the way to migrate.
 
 from typing import Any, cast
 
-from riscv_tools.memory_map import groups
+from riscv_tools.memory_map import groups, kinds
 
 BOOT = "BOOT_MEMORY"
 FLASH = "FLASH"
@@ -354,6 +354,36 @@ def _block_roles(where: str, kind: str, value: dict[str, Any]) -> list[str]:
     return _gpio_roles(where, value)
 
 
+def _timer(name: str, value: dict[str, Any]) -> dict[str, Any]:
+    """Read one entry of `kind: timer`.
+
+    Parameters
+    ----------
+    name : str
+        The key of the entry.
+    value : dict of {str: Any}
+        The entry.
+
+    Returns
+    -------
+    dict of {str: Any}
+        The entry with its `name`, `kind`, `base` and `size`.
+
+    Raises
+    ------
+    ValueError
+        If `base` or `size` is missing or the entry has another key.
+    """
+    where = f"peripherals.{name}"
+    extra = sorted(set(value) - {"kind", "base", "size"})
+    if extra:
+        raise ValueError(f"{where} has unknown keys {extra}")
+    for key in ("base", "size"):
+        if key not in value:
+            raise ValueError(f"{where}.{key} is required")
+    return {"name": name, **value}
+
+
 def _peripheral(name: str, value: dict[str, Any]) -> dict[str, Any]:
     """Read one entry of `peripherals`.
 
@@ -379,8 +409,10 @@ def _peripheral(name: str, value: dict[str, Any]) -> dict[str, Any]:
         return {"name": name, **value}
     where = f"peripherals.{name}"
     kind = value["kind"]
-    if kind not in groups.KINDS:
-        raise ValueError(f"{where}.kind must be one of {list(groups.KINDS)}")
+    if kind not in kinds.KINDS:
+        raise ValueError(f"{where}.kind must be one of {list(kinds.KINDS)}")
+    if kind == kinds.KIND_TIMER:
+        return _timer(name, value)
     extra = sorted(set(value) - {"kind", "role", "roles", "base", "groups"})
     if "size" in value:
         raise ValueError(
@@ -570,7 +602,7 @@ def _written(entry: dict[str, Any]) -> dict[str, Any]:
         `size` and `plan`, and with `role` or `roles`.
     """
     out = {k: v for k, v in entry.items() if k != "name"}
-    if "kind" not in entry:
+    if not kinds.is_group_block(entry):
         return out
     for key in ("size", "plan", "roles"):
         out.pop(key, None)

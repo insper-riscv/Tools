@@ -205,6 +205,40 @@ Repeated ids, ids outside 1 to 1023, `priority_bits` outside 1 to 32 and a windo
 
 $$ \text{msip} = base, \quad \text{mtimecmp} = base + \texttt{0x4000}, \quad \text{mtime} = base + \texttt{0xBFF8} $$
 
+### 5.2. General-purpose timers
+
+The platform can have any number of timers. Each one is an entry of `peripherals` with `kind: timer`, a free name, its own `base` and a `size` of at least 32 bytes (the eight registers).
+
+```yaml
+peripherals:
+  TIMER0:
+    kind: timer
+    base: 0x80006000
+    size: 64
+  TIMER1:
+    kind: timer
+    base: 0x80006100
+    size: 64
+```
+
+The entry named `TIMER` with no `kind` is a timer too, so the platforms with a single one stay as they are. Each timer has an interrupt source of its own in the PLIC, and the `interrupts.sources` list does not need to name it.
+
+| Case | Source number |
+| :--- | :--- |
+| The timer is in `interrupts.sources` | The number written (it cannot be 1, 2, 3, 4 or 6, the fixed lines of the SoC) |
+| The timer is not in `sources` | The smallest number from 5 up that no source uses and that is not a fixed line, in the order of `peripherals` |
+
+The rule depends only on the file, so the sources of the other peripherals keep their numbers whatever the number of timers.
+
+| Output | Constants |
+| :--- | :--- |
+| `config_pkg` | `HAS_TIMER`, true with at least one timer |
+| VHDL package (`vhdl`) | `<NAME>_BASE` and `<NAME>_INDEX` of each one, `IRQ_<NAME>`, `TIMER_COUNT` and the tables `TIMER_INDICES` (the index of each one in the window tables) and `TIMER_IRQ_IDS` (the source of each one, 0 without a PLIC), empty without timers |
+| Runtime header (`runtime`) | `RV32_<NAME>_BASE` and `RV32_IRQ_<NAME>` of each one |
+| Board top (`board generate`) | `timer_indices => TIMER_INDICES` and `timer_irq_ids => TIMER_IRQ_IDS` on the SoC, only when there is a timer |
+
+The `kind` is one of `timer`, `gpio` and `seg_display` (the list is in one place, `memory_map/kinds.py`). A timer must give `size`, which a `gpio` or `seg_display` block must not (its window comes from the groups). An unknown `kind` (V-P7), a window under 32 bytes (V-P8), a name that is not a VHDL identifier or that repeats in upper case (V-P9) and a source pinned to a fixed line (V-P10) are errors before generating. The alignment and the overlap of the windows follow the rules of the other peripherals (V-P2, V-P4 and V-P5).
+
 ## 6. The clocks of the platform
 
 The `clocks` section of the `platform.yaml` is the single source of the frequencies: the PLL, the `.sdc` and the VHDL package come from it (see [pll_generator](pll_generator.md)). The memory map reads the SDRAM controller clock and the core clock from it.
@@ -389,6 +423,10 @@ peripherals:
 | V-P4 | Two peripheral windows overlap |
 | V-P5 | The window of a peripheral overlaps a region |
 | V-P6 | The top-level `periph_window` field, or `ext_base` or `periph_base` of `generate.vhdl`, which the core no longer knows |
+| V-P7 | The `kind` of a peripheral is not `timer`, `gpio` or `seg_display` |
+| V-P8 | A timer has a `size` under 32 bytes |
+| V-P9 | A peripheral name is not a VHDL identifier, or repeats in upper case |
+| V-P10 | A timer is pinned to a fixed line of the SoC (1, 2, 3, 4 or 6) |
 | V-S1 | The `strict_periph` key, when given, is not a boolean |
 
 The `strict_periph` key of the platform, true when absent, is a policy of the interconnect: when on, an access to what is left of the window after the `size` ends with an error, and with `strict_periph: false` that access reads zero and ignores the write. It comes out as `STRICT_PERIPH` in the map package, not in the `config_pkg`.
@@ -491,7 +529,7 @@ The `config_pkg` is the VHDL package of constants of a platform, written from th
 | Memory system | `HAS_ICACHE`, `HAS_DCACHE`, `FLASH_ON_BUS` and `RAM_ON_BUS` |
 | Extensions | One `HAS_<EXTENSION>` per profile key (`HAS_ZICCLSM` to `HAS_ZIHINTPAUSE`) |
 | Memory | `BOOT_MEMORY_BITS`, `BOOT_MEMORY_BASE` and `BOOT_MEMORY_END` (from 0 to $2^{\text{BOOT\_MEMORY\_BITS}}$), `FLASH_BASE`, `FLASH_END`, `RAM_BASE` and `RAM_END` of type `map_addr_t`, and `I_CACHE_WINDOW_BITS` and `D_CACHE_WINDOW_BITS` |
-| Peripherals of the core | `HAS_GPIO`, `HAS_CLINT`, `HAS_PLIC` and `HAS_TIMER`, true when the name is in `peripherals` |
+| Peripherals of the core | `HAS_GPIO`, `HAS_CLINT` and `HAS_PLIC`, true when the name is in `peripherals`, and `HAS_TIMER`, true when there is at least one timer (`kind: timer`) |
 | Composite | `HAS_MULTIPLICATION` (`HAS_M or HAS_ZMMUL`), `HAS_ANY_COUNTER` (`HAS_ZICNTR or HAS_ZIHPM`) and `HAS_SSCOF` (`HAS_SSCOFPMF and HAS_ZIHPM and HAS_INTERRUPTS`) |
 | Functions | `isa_string`, the ISA text (`rv32im_zicsr_zicntr`), and `check_isa`, which fails at elaboration when a dependency between constants does not hold |
 
@@ -575,6 +613,7 @@ Some platforms need one more declaration so that the generated `config_pkg` refl
 | `tests/test_memory_map.py::test_load_platform_rejects_a_non_mapping` | A non-mapping file is rejected. |
 | `tests/test_memory_map.py::test_cmd_check_memory_map_exit_status` | The command prints OK, or exits 1 listing the mismatches. |
 | `tests/test_interrupts.py` | The package has `HAS_INTERRUPTS`, `CLOCK_HZ`, `MTIME_HZ` and `CLINT_TICK_CYCLES`, the header has the registers of the CLINT and the rate of `mtime`, and an inconsistent section (rate, missing CLINT, profile without the interrupts) is rejected. |
+| `tests/test_timers.py` | Zero, one, three and eight timers give the tables, the lines, the header and `HAS_TIMER`, the sources of the other peripherals never move, the name `TIMER` stays valid, and a wrong kind, size, name, alignment, overlap or fixed line is rejected. |
 | `tests/test_memory_choice.py` | The `memory` section and the `--memory` option generate the 9 valid combinations as 9 different packages and refuse the 7 invalid ones, the constants and the simulation parameters come from the choice, and rules V1 to V5, V7 and V10 fail with a clear message. |
 | `tests/test_config_from_platform.py` | The `memory` keys, the `tohost` and `stdout` environment and the address widths come from the map, and the map wins over the file and its `extends`. |
 | `tests/test_groups.py` | The `gpio` and `seg_display` blocks: the size of 64 bytes per group for `solo`, `all`, `pairs`, `trios` and the explicit list, the off pins, `roles`, rules G-0 to G-6 against each board, the size that is not written, `RV32_<NAME>_G<k>_BASE` and the generated `rv32_platform.h`. |

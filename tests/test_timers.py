@@ -6,8 +6,7 @@ from typing import Any, cast
 
 import pytest
 from support import (
-    MAP_REGIONS,
-    MAP_RESERVED,
+    ZICSR_INTERRUPTS_PLATFORM,
     check_equal,
     check_in,
     check_not_in,
@@ -44,12 +43,7 @@ def _platform(
     if sources is not None:
         interrupts |= {"plic": {"priority_bits": 3}, "sources": sources}
     return {
-        "profile": "rv32i_zicsr",
-        "profiles": "matrix.yaml",
-        "extras": ["Interrupts"],
-        "regions": MAP_REGIONS,
-        "reserved": MAP_RESERVED,
-        "boot": {"entry": "0x800", "wait_restart": "0x100"},
+        **ZICSR_INTERRUPTS_PLATFORM,
         "peripherals": peripherals,
         "interrupts": interrupts,
         "generate": {
@@ -182,9 +176,9 @@ def test_timers_without_a_plic_have_no_line(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("change", "message"),
     [
-        ({"kind": "counter"}, "V-P6 peripheral T0: kind 'counter'"),
-        ({"size": 16}, "V-P7 peripheral T0: a timer needs"),
-        ({"name": "T-0"}, "V-P8 peripheral T-0"),
+        ({"kind": "counter"}, r"T0\.kind must be one of \['gpio'"),
+        ({"size": 16}, "V-P8 peripheral T0: a timer needs"),
+        ({"name": "T-0"}, "V-P9 peripheral T-0"),
         ({"base": "0x80006020"}, "V-P2 peripheral T0"),
     ],
 )
@@ -218,7 +212,7 @@ def test_a_timer_cannot_take_a_fixed_line(tmp_path: Path) -> None:
         tmp_path,
         _platform([_timer("T0", 0x80006000), CLINT, PLIC], sources),
     )
-    with pytest.raises(ValueError, match="V-P9 peripheral T0"):
+    with pytest.raises(ValueError, match="V-P10 peripheral T0"):
         render_all(path, tmp_path)
 
 
@@ -239,3 +233,22 @@ def test_the_board_top_passes_the_timer_tables(tmp_path: Path) -> None:
 def test_the_board_top_without_timers_is_unchanged() -> None:
     """A platform with no timer adds no generic to the top."""
     check_equal(timer_generics(_spec({"peripherals": []})), [])
+
+
+def test_the_file_uses_the_block_format(tmp_path: Path) -> None:
+    """The platform file has `memory` blocks and peripherals by name."""
+    text = _three(tmp_path).read_text()
+    check_in("memory:\n  boot:", text)
+    check_in("peripherals:\n  UART:", text)
+    check_in("  TIMER1:\n    base: '0x80006100'\n    kind: timer\n", text)
+    check_not_in("- name:", text)
+
+
+def test_a_timer_must_give_its_size(tmp_path: Path) -> None:
+    """The entry of a timer needs `size`, unlike a block of groups."""
+    timer = {"name": "T0", "kind": "timer", "base": "0x80006000"}
+    path = write_zicsr_platform(
+        tmp_path, _platform([timer, CLINT, PLIC], [{"name": "UART", "id": 1}])
+    )
+    with pytest.raises(ValueError, match=r"T0\.size is required"):
+        render_all(path, tmp_path)

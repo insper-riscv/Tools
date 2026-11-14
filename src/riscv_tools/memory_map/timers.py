@@ -35,9 +35,8 @@ from riscv_tools.memory_map.core import (
     peripheral_list,
     platform_dict,
 )
+from riscv_tools.memory_map.kinds import KIND_TIMER, KINDS
 
-KIND_TIMER = "timer"
-KINDS = (KIND_TIMER,)
 # A entrada sem `kind` com este nome é um temporizador.
 DEFAULT_TIMER_NAME = "TIMER"
 # As linhas do PLIC que o SoC liga por nome, fora a do temporizador:
@@ -143,9 +142,9 @@ def problems(platform: dict[str, Any]) -> list[Mismatch]:
     Returns
     -------
     list of Mismatch
-        V-P6 for a kind that does not exist, V-P7 for a timer window
-        under 32 bytes, V-P8 for a name that is not a VHDL identifier
-        or that repeats once in upper case, and V-P9 for a timer
+        V-P7 for a kind that does not exist, V-P8 for a timer window
+        under 32 bytes, V-P9 for a name that is not a VHDL identifier
+        or that repeats once in upper case, and V-P10 for a timer
         pinned to a line that the SoC wires to another peripheral.
     """
     found: list[Mismatch] = []
@@ -159,7 +158,7 @@ def problems(platform: dict[str, Any]) -> list[Mismatch]:
         if "kind" in item and kind not in KINDS:
             found.append(
                 _problem(
-                    "V-P6", name, f"kind {kind!r} is not one of {list(KINDS)}"
+                    "V-P7", name, f"kind {kind!r} is not one of {list(KINDS)}"
                 )
             )
         if kind == KIND_TIMER:
@@ -178,7 +177,7 @@ def _name_problems(name: str, seen: set[str]) -> list[Mismatch]:
     if not _NAME.fullmatch(name):
         found.append(
             _problem(
-                "V-P8",
+                "V-P9",
                 name,
                 "the name must be letters, digits and single underscores, "
                 "starting with a letter (it becomes `<NAME>_BASE` and "
@@ -186,7 +185,7 @@ def _name_problems(name: str, seen: set[str]) -> list[Mismatch]:
             )
         )
     if name.upper() in seen:
-        found.append(_problem("V-P8", name, "the name repeats in upper case"))
+        found.append(_problem("V-P9", name, "the name repeats in upper case"))
     return found
 
 
@@ -199,7 +198,7 @@ def _timer_problems(
     if int(item.get("size", TIMER_MIN_SIZE)) < TIMER_MIN_SIZE:
         found.append(
             _problem(
-                "V-P7",
+                "V-P8",
                 name,
                 f"a timer needs `size` of at least {TIMER_MIN_SIZE} "
                 "bytes, the eight registers",
@@ -208,7 +207,7 @@ def _timer_problems(
     if pinned in FIXED_LINES:
         found.append(
             _problem(
-                "V-P9",
+                "V-P10",
                 name,
                 f"the source id {pinned} is a fixed line of the SoC "
                 "(UART, UART_JTAG, SWITCHES, KEYS or FLASH)",
