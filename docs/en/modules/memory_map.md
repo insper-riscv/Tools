@@ -404,6 +404,81 @@ The symbols of a peripheral in the `checks` are `<NAME>.base`, `<NAME>.size`, `<
 | `PERIPH_MASKS` | `periph_addr_array_t(0 to PERIPH_COUNT - 1)` | The window mask of each peripheral |
 
 
+The VHDL package gains the constants below. `FLASH_ON_BUS` and `RAM_ON_BUS` say that the memory is reached through the bus, inside or outside the chip, and not through the direct port of the core. A cache only exists over a memory on the bus.
+
+| Constant | Type | Value |
+| :--- | :--- | :--- |
+| `FLASH_ON_BUS` | boolean | `memory.rom.external` |
+| `RAM_ON_BUS` | boolean | `memory.ram.external` |
+| `HAS_ICACHE` | boolean | `memory.icache.enabled` |
+| `HAS_DCACHE` | boolean | `memory.dcache.enabled` |
+| `ICACHE_SIZE_BITS` | positive | `memory.icache.size_bits`, or 256 without the cache |
+| `DCACHE_SIZE_BITS` | positive | `memory.dcache.size_bits`, or 256 without the cache |
+| `I_CACHE_WINDOW_BITS`, `D_CACHE_WINDOW_BITS` | natural | Smallest width from 26 to 29 such that the FLASH and the RAM each fit one aligned window of $2^{\text{width}}$ bytes (26 is 64 MiB, 27 is 128 MiB), derived from the regions; both have the same value |
+
+In the `config.yaml` the values arrive as `sim.parameters` named `ROM_EXTERNAL`, `RAM_EXTERNAL`, `HAS_ICACHE`, `HAS_DCACHE`, `ICACHE_SIZE_BITS` and `DCACHE_SIZE_BITS`, and `CACHE_WINDOW_BITS` only when it is above 26, and the simulation top must declare the matching generics. Without `config.addr_widths` in the platform, the address widths come from the choice, and the `boot_memory` and each internal memory come out, since an external memory is a chip that the top sizes by itself. With `config.addr_widths` listed, the list wins.
+
+### 7.2. Validation
+
+| Rule | Condition | Result |
+| :--- | :--- | :--- |
+| V1 | The four booleans exist and there is no unknown key | Error |
+| V2 | `size_bits` is a power of two and at least 256 | Error |
+| V3 | With any cache, the FLASH and the RAM each fit one aligned window of up to 512 MiB (the tag of the caches keeps the bits below the window) | Error |
+| V4 | With the FLASH on the bus, its size fits the 1024 KiB window of the router | Error |
+| V5 | An `exec` region in the RAM needs the RAM and the FLASH on the bus | Error |
+| V7 | An `exec` region in the RAM behind the instruction cache needs Zifencei in the profile | Error |
+| V9 | A platform with peripherals | Note |
+| V10 | With any cache, `reserved.fromhost` exists and sits in the last 4 KiB page of the RAM, the one the cache skips | Error |
+| V-C1 | `icache.enabled` with `rom.external: false`: the instruction cache needs `FLASH_ON_BUS` | Error |
+| V-C2 | `dcache.enabled` with `ram.external: false`: the data cache needs `RAM_ON_BUS` | Error |
+
+Of the 16 combinations of `rom.external`, `ram.external`, `icache.enabled` and `dcache.enabled`, 9 are valid and 7 are refused by V-C1 and V-C2. The FLASH on the bus without an instruction cache is valid. The note comes out as `NOTE` on the standard error of `generate-memory-map`, and the errors stop the generation.
+### 9.5. Blocks of the GPIO and of the display, with groups
+
+A peripheral with `kind: gpio` or `kind: seg_display` is a block that gathers the pins of one or more roles of the board into groups, each group with its own register file. `size` is not written, because the window is derived from the groups.
+
+```yaml
+peripherals:
+  LEDR:
+    kind: gpio
+    role: leds
+    base: 0x80002000
+    groups: solo
+  KEY:
+    kind: gpio
+    role: keys
+    base: 0x80004000
+    groups: [[0, 1], [2, 3]]
+  HEX:
+    kind: seg_display
+    base: 0x80005000
+    groups: [[0, 1, 2, 3], [4, 5]]
+```
+
+| Field | Meaning |
+| :--- | :--- |
+| `kind` | `gpio` or `seg_display` |
+| `role` or `roles` | Role of the pins (`leds`, `switches`, `keys`, `display`, `leds_green`, `gpio`, `ex_io`, `hsmc`); `roles: [a, b]` gathers the pins of `a` and then those of `b`. A `seg_display` shows only the role `display`, and a `gpio` with `role: display` has one pin per segment (7 per digit). The roles `gpio`, `ex_io` and `hsmc` have a free direction, and a role of several groups of signals numbers its pins in the order of the list (see [board_schema](board_schema.md)) |
+| `base` | Base of the block, aligned to the window |
+| `groups` | `solo` (a group per pin), `all` (one group with all), `pairs` or `trios` (groups of 2 or 3 consecutive pins, the last one may be smaller) or a list of lists of pin indexes |
+
+The pins of a role are numbered from 0, and a pin that is in no group is off. Each group takes 64 bytes, so the block has $64 G$ bytes and the window is the smallest power of two that covers them, with at least 16 bytes. The number of pins and the polarity of each role come from the `io` of the `board.yaml` of each board in `boards`, and the `gpio` has the fixed direction of the role (output for `leds`, `leds_green` and `display`, input for `switches` and `keys`).
+
+| Rule | Rejection condition |
+| :--- | :--- |
+| G-0 | A shortcut that needs the pins (`solo`, `pairs`, `trios`) without `boards` or without the catalog of boards |
+| G-1 | A pin index at or above the number of pins of the roles on the board |
+| G-2 | A repeated pin, in two groups or twice in the same one |
+| G-3 | An empty group or one with more than 32 pins |
+| G-4 | The board lacks one of the roles of the block |
+| G-5 | `groups` that is neither a shortcut nor a list of lists of integers |
+| G-6 | The boards of `boards` give the same block a different number of groups, and the window would differ |
+
+The off pins come out as notes (`NOTE`) of `generate-memory-map`, and a `required` role of `io` whose blocks have no group at all comes out as a warning. The map package gains `<NAME>_BASE`, `<NAME>_INDEX` and the entries of the `PERIPH_BASES` and `PERIPH_MASKS` tables as for the other peripherals, and `memory_map.h` gains `RV32_<NAME>_G<k>_BASE`, the base plus $64k$ bytes.
+
+The key `generate.platform_h` writes the `rv32_platform.h` of the test programs from the platform: `RV32_RAM_BASE`, `RV32_RAM_END`, `RV32_STDOUT_BASE`, `RV32_TOHOST`, the `RV32_<NAME>_BASE` of each peripheral, the `RV32_<NAME>_G<k>_BASE`, the FLASH banks, `RV32_TICK_CYCLES` and the macros `RVMODEL_HALT_PASS` and `RVMODEL_HALT_FAIL`.
+
 ## 10. The `config_pkg`
 
 ### 10.1. Contents
@@ -502,6 +577,7 @@ Some platforms need one more declaration so that the generated `config_pkg` refl
 | `tests/test_interrupts.py` | The package has `HAS_INTERRUPTS`, `CLOCK_HZ`, `MTIME_HZ` and `CLINT_TICK_CYCLES`, the header has the registers of the CLINT and the rate of `mtime`, and an inconsistent section (rate, missing CLINT, profile without the interrupts) is rejected. |
 | `tests/test_memory_choice.py` | The `memory` section and the `--memory` option generate the 9 valid combinations as 9 different packages and refuse the 7 invalid ones, the constants and the simulation parameters come from the choice, and rules V1 to V5, V7 and V10 fail with a clear message. |
 | `tests/test_config_from_platform.py` | The `memory` keys, the `tohost` and `stdout` environment and the address widths come from the map, and the map wins over the file and its `extends`. |
+| `tests/test_groups.py` | The `gpio` and `seg_display` blocks: the size of 64 bytes per group for `solo`, `all`, `pairs`, `trios` and the explicit list, the off pins, `roles`, rules G-0 to G-6 against each board, the size that is not written, `RV32_<NAME>_G<k>_BASE` and the generated `rv32_platform.h`. |
 | `tests/test_layout.py` | The `memory` block becomes the regions and the four choices, two segments are refused ("vários segmentos ainda não são suportados"), the old keys (`regions`, `memory.rom`, `kind`, `exec`) are refused with the migration, and `on_bus` comes in both segments or in none. `tests/test_peripheral_offsets.py` proves that the order of the peripherals in the file is the order of the indexes. |
 | `tests/test_core_profile.py` | The `core` block and the inferred profile (matrix order, `Zicsr` beside `Zicntr`, extras), `--profile` keeping the extras, each error (unknown or repeated extension, refused combination, `type: 64` without an `rv64` base, `isa` in place of `base`), the refusal of `profile:` and `extras:` with the migration, and the name without a matrix. |
 | `tests/test_peripheral_offsets.py` | The window derived from `size`, the `base`, `size`, `window` and `index` symbols, one rejection for each V-P1 to V-P5, the refusal of `id`, `offset` and `padding` with the migration message, the `PERIPH_BASES` and `PERIPH_MASKS` tables, V-S1 and `STRICT_PERIPH` in the map package. |

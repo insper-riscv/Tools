@@ -21,6 +21,7 @@ O projeto fica em `./de0-cv-64k/Insper-RISC-V`, dentro da pasta montada, e conti
 | `--new` | Nome do projeto, obrigatório: letras (maiúsculas e minúsculas, com acentos), dígitos, espaços, hifens e sublinhados; vazio, só espaços ou qualquer outro caractere é recusado |
 | `--board` | Placa do catálogo (`boards/`); uma placa desconhecida é recusada com a lista das conhecidas |
 | `--profile` | Perfil do núcleo; sem a opção, vale o da plataforma de partida |
+| `--peripherals` | Periféricos a escrever, separados por vírgulas: `ledr`, `sw`, `key`, `hex`, `uart`, `clint`, `plic`; sem a opção a plataforma começa com `peripherals: {}` (sem o `clint` a seção `interrupts` sai junto) |
 | `--rom`, `--ram` | Tamanho da região de FLASH e da RAM, como `64K` ou `1M` |
 | `--icache`, `--dcache` | Tamanho da cache em bits, ou `off` |
 | `--dir` | Pasta onde o projeto é criado (padrão `.`) |
@@ -55,7 +56,7 @@ O arquivo da plataforma de partida é editado linha a linha, e os comentários d
 | `--ram` | Tamanho da região de RAM e as palavras `stdout`, `tohost` e `fromhost` no topo dela |
 | `--icache`, `--dcache` | Linha da cache em `memory`, com `enabled: false` quando `off` |
 
-Os periféricos, os relógios, as entradas e saídas e as interrupções vêm da plataforma de partida. Uma plataforma de partida sem alguma das linhas esperadas é recusada com a linha que falta.
+Os relógios, as entradas e saídas e as interrupções vêm da plataforma de partida; os periféricos vêm de `--peripherals` (sem a opção, `peripherals: {}`). Uma plataforma de partida sem alguma das linhas esperadas é recusada com a linha que falta.
 
 ## Testes
 

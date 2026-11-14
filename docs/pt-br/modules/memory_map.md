@@ -404,6 +404,81 @@ Os símbolos dos `checks` de um periférico são `<NOME>.base`, `<NOME>.size`, `
 | `PERIPH_MASKS` | `periph_addr_array_t(0 to PERIPH_COUNT - 1)` | A máscara da janela de cada periférico |
 
 
+O pacote VHDL ganha as constantes abaixo. `FLASH_ON_BUS` e `RAM_ON_BUS` dizem que a memória é alcançada pelo barramento, dentro ou fora do chip, e não pela porta direta do núcleo. Uma cache só existe sobre uma memória no barramento.
+
+| Constante | Tipo | Valor |
+| :--- | :--- | :--- |
+| `FLASH_ON_BUS` | boolean | `memory.rom.external` |
+| `RAM_ON_BUS` | boolean | `memory.ram.external` |
+| `HAS_ICACHE` | boolean | `memory.icache.enabled` |
+| `HAS_DCACHE` | boolean | `memory.dcache.enabled` |
+| `ICACHE_SIZE_BITS` | positive | `memory.icache.size_bits`, ou 256 sem a cache |
+| `DCACHE_SIZE_BITS` | positive | `memory.dcache.size_bits`, ou 256 sem a cache |
+| `I_CACHE_WINDOW_BITS`, `D_CACHE_WINDOW_BITS` | natural | Menor largura de 26 a 29 tal que a FLASH e a RAM cabem cada uma numa janela alinhada de $2^{\text{largura}}$ bytes (26 é 64 MiB, 27 é 128 MiB), derivada das regiões; as duas valem o mesmo |
+
+No `config.yaml` os valores chegam como `sim.parameters` com os nomes `ROM_EXTERNAL`, `RAM_EXTERNAL`, `HAS_ICACHE`, `HAS_DCACHE`, `ICACHE_SIZE_BITS` e `DCACHE_SIZE_BITS`, e com `CACHE_WINDOW_BITS` só quando passa de 26, e o topo de simulação precisa declarar os genéricos correspondentes. Sem `config.addr_widths` na plataforma, as larguras de endereço vêm da escolha, e saem a `boot_memory` e cada memória interna, já que uma memória externa é um chip dimensionado pelo próprio topo. Com `config.addr_widths` listado, a lista vale.
+
+### 7.2. Validação
+
+| Regra | Condição | Resultado |
+| :--- | :--- | :--- |
+| V1 | Os quatro booleanos existem e não há chave desconhecida | Erro |
+| V2 | `size_bits` é potência de dois e vale pelo menos 256 | Erro |
+| V3 | Com alguma cache, a FLASH e a RAM cabem cada uma numa janela alinhada de até 512 MiB (a tag das caches guarda os bits abaixo da janela) | Erro |
+| V4 | Com a FLASH no barramento, o tamanho dela cabe na janela de 1024 KiB do roteador | Erro |
+| V5 | Região `exec` na RAM exige RAM e FLASH no barramento | Erro |
+| V7 | Região `exec` na RAM atrás da cache de instruções exige Zifencei no perfil | Erro |
+| V9 | Plataforma com periféricos | Nota |
+| V10 | Com alguma cache, `reserved.fromhost` existe e está na última página de 4 KiB da RAM, a que a cache ignora | Erro |
+| V-C1 | `icache.enabled` com `rom.external: false`: a cache de instruções exige `FLASH_ON_BUS` | Erro |
+| V-C2 | `dcache.enabled` com `ram.external: false`: a cache de dados exige `RAM_ON_BUS` | Erro |
+
+Das 16 combinações de `rom.external`, `ram.external`, `icache.enabled` e `dcache.enabled`, 9 são válidas e 7 são recusadas pela V-C1 e pela V-C2. FLASH no barramento sem cache de instruções é válida. A nota sai em `NOTE` no erro padrão do `generate-memory-map`, e os erros impedem a geração.
+### 9.5. Blocos de GPIO e de display, com grupos
+
+Um periférico com `kind: gpio` ou `kind: seg_display` é um bloco que reúne os pinos de um ou mais papéis da placa em grupos, cada grupo com o seu arquivo de registradores. O `size` não se escreve, porque a janela é derivada dos grupos.
+
+```yaml
+peripherals:
+  LEDR:
+    kind: gpio
+    role: leds
+    base: 0x80002000
+    groups: solo
+  KEY:
+    kind: gpio
+    role: keys
+    base: 0x80004000
+    groups: [[0, 1], [2, 3]]
+  HEX:
+    kind: seg_display
+    base: 0x80005000
+    groups: [[0, 1, 2, 3], [4, 5]]
+```
+
+| Campo | Significado |
+| :--- | :--- |
+| `kind` | `gpio` ou `seg_display` |
+| `role` ou `roles` | Papel dos pinos (`leds`, `switches`, `keys`, `display`, `leds_green`, `gpio`, `ex_io`, `hsmc`); `roles: [a, b]` reúne os pinos de `a` e depois os de `b`. Um `seg_display` mostra só o papel `display`, e um `gpio` com `role: display` tem um pino por segmento (7 por dígito). Os papéis `gpio`, `ex_io` e `hsmc` têm direção livre, e um papel de vários grupos de sinais numera os pinos na ordem da lista (ver [board_schema](board_schema.md)) |
+| `base` | Base do bloco, alinhada à janela |
+| `groups` | `solo` (um grupo por pino), `all` (um grupo com todos), `pairs` ou `trios` (grupos de 2 ou 3 pinos seguidos, o último pode ser menor) ou uma lista de listas de índices de pino |
+
+Os pinos de um papel são numerados de 0, e um pino que não está em nenhum grupo fica desligado. Cada grupo ocupa 64 bytes, então o bloco tem $64 G$ bytes e a janela é a menor potência de dois que os cobre, com no mínimo 16 bytes. A contagem de pinos e a polaridade de cada papel vêm do `io` do `board.yaml` de cada placa de `boards`, e o `gpio` tem a direção fixa do papel (saída em `leds`, `leds_green` e `display`, entrada em `switches` e `keys`).
+
+| Regra | Condição de rejeição |
+| :--- | :--- |
+| G-0 | Um atalho que precisa dos pinos (`solo`, `pairs`, `trios`) sem `boards` ou sem o catálogo de placas |
+| G-1 | Um índice de pino maior ou igual ao número de pinos dos papéis na placa |
+| G-2 | Um pino repetido, em dois grupos ou duas vezes no mesmo |
+| G-3 | Um grupo vazio ou com mais de 32 pinos |
+| G-4 | A placa não tem um dos papéis do bloco |
+| G-5 | `groups` que não é um atalho nem uma lista de listas de inteiros |
+| G-6 | As placas de `boards` dão números de grupos diferentes ao mesmo bloco, e a janela diferiria |
+
+Os pinos desligados saem em notas (`NOTE`) do `generate-memory-map`, e um papel `required` em `io` cujos blocos não têm grupo algum sai como aviso. O pacote do mapa ganha `<NOME>_BASE`, `<NOME>_INDEX` e as entradas das tabelas `PERIPH_BASES` e `PERIPH_MASKS` como nos outros periféricos, e o `memory_map.h` ganha `RV32_<NOME>_G<k>_BASE`, a base mais $64k$ bytes.
+
+A chave `generate.platform_h` escreve o `rv32_platform.h` dos programas de teste a partir da plataforma: `RV32_RAM_BASE`, `RV32_RAM_END`, `RV32_STDOUT_BASE`, `RV32_TOHOST`, o `RV32_<NOME>_BASE` de cada periférico, os `RV32_<NOME>_G<k>_BASE`, as bancas da FLASH, `RV32_TICK_CYCLES` e as macros `RVMODEL_HALT_PASS` e `RVMODEL_HALT_FAIL`.
+
 ## 10. O `config_pkg`
 
 ### 10.1. Conteúdo
@@ -499,6 +574,7 @@ Algumas plataformas precisam de uma declaração a mais para que o `config_pkg` 
 | `tests/test_memory_map.py::test_check_stops_at_an_inconsistent_map` | Nenhuma cópia é lida se o próprio mapa é inconsistente. |
 | `tests/test_memory_map.py::test_load_platform_rejects_a_non_mapping` | Um arquivo que não é mapeamento é rejeitado. |
 | `tests/test_memory_map.py::test_cmd_check_memory_map_exit_status` | O comando imprime OK, ou sai com 1 listando as divergências. |
+| `tests/test_groups.py` | Os blocos `gpio` e `seg_display`: o tamanho de 64 bytes por grupo para `solo`, `all`, `pairs`, `trios` e a lista explícita, os pinos desligados, `roles`, as regras G-0 a G-6 contra cada placa, o tamanho que não se escreve, o `RV32_<NOME>_G<k>_BASE` e o `rv32_platform.h` gerado. |
 | `tests/test_layout.py` | O bloco `memory` vira as regiões e as quatro escolhas, dois segmentos são recusados ("vários segmentos ainda não são suportados"), as chaves antigas (`regions`, `memory.rom`, `kind`, `exec`) são recusadas com a migração, e `on_bus` vem nos dois segmentos ou em nenhum. O `tests/test_peripheral_offsets.py` prova que a ordem dos periféricos no arquivo é a ordem dos índices. |
 | `tests/test_core_profile.py` | O bloco `core` e o perfil inferido (ordem da matriz, `Zicsr` junto de `Zicntr`, extras), `--profile` que mantém os extras, cada erro (extensão desconhecida ou repetida, combinação recusada, `type: 64` sem base `rv64`, `isa` no lugar de `base`), a recusa de `profile:` e `extras:` com a migração e o nome sem matriz. |
 | `tests/test_peripheral_offsets.py` | A janela derivada do `size`, os símbolos `base`, `size`, `window` e `index`, uma rejeição para cada V-P1 a V-P5, a recusa de `id`, `offset` e `padding` com a mensagem de migração, as tabelas `PERIPH_BASES` e `PERIPH_MASKS`, a V-S1 e a `STRICT_PERIPH` no pacote do mapa. |

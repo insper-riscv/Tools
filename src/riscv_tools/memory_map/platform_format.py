@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from riscv_tools.memory_map.core_profile import normalize as normalize_core
+from riscv_tools.memory_map.groups import resolve as resolve_groups
 from riscv_tools.memory_map.layout import normalize_layout
 
 
@@ -35,3 +36,4 @@ def normalize(
     """
     normalize_core(data, platform_file, replaced=replaced)
     normalize_layout(data)
+    resolve_groups(data, platform_file)

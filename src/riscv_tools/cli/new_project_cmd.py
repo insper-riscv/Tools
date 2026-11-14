@@ -43,6 +43,11 @@ def _spec(args: argparse.Namespace) -> ProjectSpec:
         ram_bytes=None
         if args.ram is None
         else new_project.parse_size(args.ram),
+        peripherals=(
+            ()
+            if args.project_peripherals is None
+            else new_project.parse_peripherals(args.project_peripherals)
+        ),
         icache_bits=(
             None
             if args.icache is None

@@ -23,7 +23,16 @@ from riscv_tools.board_schema.video import parse_video_role
 CONFIRMATIONS = ("manual", "repo", "inferred", "measured")
 LEVELS = ("N0", "N1", "N2", "N3", "N4")
 CABLES = ("usb-blaster", "usb-blaster-ii", "samd21-usbblaster", "external")
-IO_ROLES = ("leds", "switches", "keys", "display", "video")
+GENERAL_ROLES = ("gpio", "ex_io", "hsmc", "clock_extra")
+IO_ROLES = (
+    "leds",
+    "switches",
+    "keys",
+    "display",
+    "video",
+    "leds_green",
+    *GENERAL_ROLES,
+)
 MEMORY_KEYS = ("sdram", "sram", "nor", "onchip_flash", "serial_flash")
 ACTIVE_LEVELS = ("high", "low")
 _IDCODE = re.compile(r"^[0-9A-Fa-f]{8}$")
@@ -245,6 +254,42 @@ def role_section(io: Section, role: str) -> Section | None:
     return None if role == "video" else io.section(role)
 
 
+def _io_role(entry: Section, role: str) -> IoRole | None:
+    """Read one role of the `io` section.
+
+    Parameters
+    ----------
+    entry : Section
+        The section of the role.
+    role : str
+        The role.
+
+    Returns
+    -------
+    IoRole or None
+        The role; None, after reporting, when it is not valid. `signals`
+        is one group or a list of groups (the pins of the role are
+        numbered in the order of the list). `active` is required except
+        in the roles of general use, which have no polarity.
+        `bidirectional: true` (or `direction: inout`) asks the top for
+        `inout` ports.
+    """
+    groups = entry.one_or_more("signals")
+    general = role in GENERAL_ROLES
+    active = entry.text("active", required=not general, choices=ACTIVE_LEVELS)
+    both = entry.flag("bidirectional", required=False)
+    direction = entry.text("direction", required=False, choices=("inout",))
+    entry.done()
+    if not groups or not (active or general):
+        return None
+    return IoRole(
+        groups[0],
+        active or "high",
+        groups if len(groups) > 1 else (),
+        both or direction == "inout",
+    )
+
+
 def _io(top: Section) -> dict[str, IoRole]:
     """Read the `io` section.
 
@@ -266,11 +311,9 @@ def _io(top: Section) -> dict[str, IoRole]:
         entry = role_section(io, role)
         if entry is None:
             continue
-        signals = entry.text("signals")
-        active = entry.text("active", choices=ACTIVE_LEVELS)
-        entry.done()
-        if signals and active:
-            roles[role] = IoRole(signals, active)
+        found = _io_role(entry, role)
+        if found is not None:
+            roles[role] = found
     return roles
 
 

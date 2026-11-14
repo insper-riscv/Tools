@@ -20,6 +20,7 @@ from riscv_tools.new_project import (
     check_title,
     create_platform,
     parse_cache,
+    parse_peripherals,
     parse_size,
     slugify,
     validate,
@@ -614,3 +615,46 @@ def test_a_yaml_looking_name_stays_a_comment(tmp_path: Path) -> None:
     data = yaml.safe_load(text)
     check_equal(data["platform"], "x-y")
     check_equal(text.splitlines()[0].count("\n"), 0)
+
+
+def test_the_peripherals_start_clean_without_the_option() -> None:
+    """No `--peripherals` writes `peripherals: {}`."""
+    text = rewrite_platform(PLATFORM, SPEC, "fpga-demo", "t")
+    data = yaml.safe_load(text)
+    check_equal(data["peripherals"], {})
+
+
+def test_the_peripherals_asked_for_are_written_in_order() -> None:
+    """The names become blocks, in the order of the option."""
+    spec = ProjectSpec(
+        name="demo-p",
+        board="demo-board",
+        peripherals=parse_peripherals("hex,ledr,uart"),
+    )
+    data = yaml.safe_load(rewrite_platform(PLATFORM, spec, "fpga-demo", "t"))
+    check_equal(list(data["peripherals"]), ["HEX", "LEDR", "UART"])
+    check_equal(data["peripherals"]["LEDR"]["groups"], "solo")
+    check_equal(data["peripherals"]["HEX"]["kind"], "seg_display")
+
+
+def test_without_the_clint_the_interrupts_go_away() -> None:
+    """The `interrupts` section needs the CLINT, so it goes with it."""
+    text = PLATFORM.replace(
+        "peripherals:",
+        "interrupts:\n  mtime_hz: 1000000\nperipherals:",
+    ).replace("  extensions: []", "  extensions:\n    - Interrupts")
+    clean = yaml.safe_load(rewrite_platform(text, SPEC, "fpga-demo", "t"))
+    check_not_in("interrupts", clean)
+    check_not_in("Interrupts", clean["core"]["extensions"])
+    spec = ProjectSpec(
+        name="demo-c", board="demo-board", peripherals=("clint",)
+    )
+    kept = yaml.safe_load(rewrite_platform(text, spec, "fpga-demo", "t"))
+    check_in("interrupts", kept)
+
+
+@pytest.mark.parametrize("text", ["nope", "ledr,ledr"])
+def test_a_bad_peripherals_list_is_refused(text: str) -> None:
+    """An unknown or repeated name is an error."""
+    with pytest.raises(ValueError, match="peripheral"):
+        parse_peripherals(text)

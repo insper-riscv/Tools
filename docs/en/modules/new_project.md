@@ -21,6 +21,7 @@ The project is left in `./de0-cv-64k/Insper-RISC-V`, inside the mounted folder, 
 | `--new` | Name of the project, required: letters (upper and lower case, with accents), digits, spaces, hyphens and underscores; empty, only spaces or any other character is refused |
 | `--board` | Board of the catalog (`boards/`); an unknown board is refused with the list of known ones |
 | `--profile` | Profile of the core; without it, the starting platform's profile stands |
+| `--peripherals` | Peripherals to write, separated by commas: `ledr`, `sw`, `key`, `hex`, `uart`, `clint`, `plic`; without it the platform starts with `peripherals: {}` (without `clint` the `interrupts` section goes too) |
 | `--rom`, `--ram` | Size of the FLASH region and of the RAM, such as `64K` or `1M` |
 | `--icache`, `--dcache` | Size of the cache in bits, or `off` |
 | `--dir` | Folder the project is created in (default `.`) |
@@ -55,7 +56,7 @@ The file of the starting platform is edited line by line, and its comments stay.
 | `--ram` | Size of the RAM region and the `stdout`, `tohost` and `fromhost` words at its top |
 | `--icache`, `--dcache` | The cache line in `memory`, with `enabled: false` for `off` |
 
-The peripherals, clocks, inputs and outputs and interrupts come from the starting platform. A starting platform that lacks one of the expected lines is refused, naming the line.
+The clocks, inputs and outputs and interrupts come from the starting platform; the peripherals come from `--peripherals` (without it, `peripherals: {}`). A starting platform that lacks one of the expected lines is refused, naming the line.
 
 ## Tests
 

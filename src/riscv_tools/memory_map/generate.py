@@ -31,6 +31,8 @@ generate:
     ram_external: false
   config_pkg:
     path: rtl/config_pkg.vhd
+  platform_h:
+    path: tools/riscv_build/include-demo/rv32_platform.h
   bank_specs:
     - {path: runtime/bank-b.specs, rom: BANK_B_PAYLOAD, ram: RAM}
   banks_h:
@@ -61,6 +63,9 @@ from riscv_tools.memory_map.core import (
     strict_periph,
 )
 from riscv_tools.memory_map.expressions import evaluate
+from riscv_tools.memory_map.groups import GROUP_BYTES
+from riscv_tools.memory_map.layout import FLASH, RAM
+from riscv_tools.memory_map.platform_h import render_platform_h
 from riscv_tools.memory_map.problems import platform_problems
 from riscv_tools.memory_map.profile import SWITCHES, resolve, xlen_of
 from riscv_tools.memory_map.symbol_table import symbol_table
@@ -345,6 +350,25 @@ def render_boot_ld(
     )
 
 
+def _group_total(periph: dict[str, Any]) -> int:
+    """Count the groups of a block of the GPIO or of the display.
+
+    Parameters
+    ----------
+    periph : dict of {str: Any}
+        A peripheral completed by `peripheral_list`.
+
+    Returns
+    -------
+    int
+        The number of groups (`size` over 64 bytes); 0 for a peripheral
+        that is not a block of groups.
+    """
+    if "kind" not in periph:
+        return 0
+    return int(periph["size"]) // GROUP_BYTES
+
+
 def render_runtime(
     platform: dict[str, Any],
     spec: dict[str, Any],
@@ -371,7 +395,9 @@ def render_runtime(
         The file: `RV32_RAM_END`, and `RV32_TOHOST_ADDR`,
         `RV32_FROMHOST_ADDR` and `RV32_STDOUT_BASE` for each reserved
         range the map has, `RV32_BOOT_ENTRY` (where the boot memory
-        jumps) and `RV32_<NAME>_BASE` for each peripheral.
+        jumps), `RV32_<NAME>_BASE` for each peripheral and
+        `RV32_<NAME>_G<k>_BASE` (the base plus 64 bytes for each group)
+        for each block of the GPIO or of the display.
     """
     values = {"RV32_RAM_END": table[f"{spec['ram']}.end"]}
     for name, macro in (
@@ -386,6 +412,9 @@ def render_runtime(
     for periph in peripheral_list(platform):
         name = str(periph["name"]).upper()
         values[f"RV32_{name}_BASE"] = evaluate(periph["base"])
+        for k in range(_group_total(periph)):
+            base = evaluate(periph["base"])
+            values[f"RV32_{name}_G{k}_BASE"] = base + GROUP_BYTES * k
     values |= interrupts.runtime_values(platform, table)
     defines = "\n".join(
         f"#define {macro} RV32_ADDRESS(0x{value:08X})"
@@ -602,7 +631,7 @@ def render_vhdl(
         The file.
     """
     boot = platform_list(platform, "regions")[0]["name"]
-    rom, ram = spec["rom"], spec["ram"]
+    rom, ram = spec.get("rom", FLASH), spec.get("ram", RAM)
     choice = memory_choice.resolve(platform)
     rom_external, ram_external = memory_choice.externals(spec, choice)
     return _VHDL.format(
@@ -745,6 +774,9 @@ def render_all(platform_file: Path, root: Path) -> dict[Path, str]:
         out[root / spec["path"]] = render_vhdl(
             platform, spec, table, source, platform_file
         )
+    if "platform_h" in wanted:
+        spec = cast(dict[str, Any], wanted["platform_h"])
+        out[root / spec["path"]] = render_platform_h(platform, table, source)
     if "config_pkg" in wanted:
         spec = cast(dict[str, Any], wanted["config_pkg"])
         out[root / spec["path"]] = render_variant(

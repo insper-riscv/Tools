@@ -18,6 +18,7 @@ from riscv_tools.new_project.layout import (
     reserved_bases,
     size_text,
 )
+from riscv_tools.new_project.peripherals import block_text
 from riscv_tools.new_project.spec import SECTOR_BYTES, ProjectSpec
 from riscv_tools.new_project.template import CREATED_MARK
 
@@ -321,6 +322,50 @@ def _set_cache(text: str, side: str, bits: int) -> str:
     return _edit_side(text, side, edit)
 
 
+def _set_peripherals(text: str, names: tuple[str, ...]) -> str:
+    """Replace the `peripherals` block by the ones asked for.
+
+    Parameters
+    ----------
+    text : str
+        The file.
+    names : tuple of str
+        The peripherals asked for; none writes `peripherals: {}`.
+
+    Returns
+    -------
+    str
+        The file with the block replaced; without the CLINT the
+        `interrupts` section and the `Interrupts` and `Sscofpmf`
+        extensions go away, since the section needs the CLINT.
+
+    Raises
+    ------
+    ValueError
+        If the template has no `peripherals` block.
+    """
+    new, count = re.subn(
+        r"^peripherals:[^\n]*\n(?:[ \t][^\n]*\n|\n(?=[ \t]))*",
+        lambda _: block_text(names),
+        text,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    if count == 0:
+        raise ValueError("the template platform has no `peripherals` block")
+    if "clint" in names:
+        return new
+    new = re.sub(
+        r"^interrupts:\n(?:[ \t][^\n]*\n|\n(?=[ \t]))*",
+        "",
+        new,
+        flags=re.MULTILINE,
+    )
+    return re.sub(
+        r"^    - (?:Interrupts|Sscofpmf)\n", "", new, flags=re.MULTILINE
+    )
+
+
 def rewrite_platform(
     text: str, spec: ProjectSpec, template: str, top: str
 ) -> str:
@@ -355,6 +400,7 @@ def rewrite_platform(
         text = _set_reserved(
             text, reserved_bases(_base_of(platform, "data"), spec.ram_bytes)
         )
+    text = _set_peripherals(text, spec.peripherals)
     if spec.icache_bits is not None:
         text = _set_cache(text, "instructions", spec.icache_bits)
     if spec.dcache_bits is not None:
