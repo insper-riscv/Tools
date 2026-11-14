@@ -5,6 +5,16 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from riscv_tools.compiler.cxx import (
+    CXX_STANDARD_FLAGS,
+    cxx_enabled,
+    cxx_flags,
+    cxx_options,
+    gxx_for,
+    is_cxx_source,
+    require_libstdcxx,
+    without_cxx_only_flags,
+)
 from riscv_tools.compiler.headers import parse_header
 
 _LIBC_FLAGS = {
@@ -160,25 +170,28 @@ C_STANDARD_FLAGS = [
 ]
 
 
-def optimize_flags(march: str) -> list[str]:
+def optimize_flags(march: str, cxx: bool = False) -> list[str]:
     """Return the gcc flags that pick the ISA, the ABI, -Os and C23.
 
     Parameters
     ----------
     march : str
         The `-march` value (see headers.canonical_march).
+    cxx : bool
+        True for a C++ source, which is held to `CXX_STANDARD_FLAGS`
+        instead.
 
     Returns
     -------
     list of str
         The flags shared by every compile of a test source, ending
-        with `C_STANDARD_FLAGS`.
+        with `C_STANDARD_FLAGS` (or `CXX_STANDARD_FLAGS`).
     """
     return [
         f"-march={march}",
         f"-mabi={abi_for(march)}",
         "-Os",
-        *C_STANDARD_FLAGS,
+        *(CXX_STANDARD_FLAGS if cxx else C_STANDARD_FLAGS),
     ]
 
 
@@ -265,41 +278,43 @@ def compile_test(
     elf = build_dir / f"{name}.elf"
     bin_ = build_dir / f"{name}.bin"
 
-    # A C memory test is checked through its `results` array, which it
-    # may only declare (a test that just checks .bss is zeroed never
-    # reads it). The toolchain's linker script collects unreferenced
-    # sections (--gc-sections), so the symbol is named as needed to keep
-    # it.
-    keep_results = (
-        ["-Wl,--undefined=results"]
-        if kind == "memory" and c_file.suffix == ".c"
-        else []
-    )
-
-    specs = toolchain_cfg.get("specs")
-    # A specs file describes a hosted platform: main() returns to the
-    # crt0, which calls exit(), so the compiler must not be told the
-    # program is freestanding (that also drops main's implicit return
-    # 0).
-    runtime_flags = (
-        [f"--specs={specs}"]
-        if specs
-        else ["-ffreestanding", *libc_flags(toolchain_cfg)]
+    cxx = is_cxx_source(c_file)
+    runtime_flags = _runtime_flags(toolchain_cfg, march, setup.link, cxx)
+    # The g++ driver would take a .c file for C++, so the C and assembly
+    # sources of a C++ test are compiled apart, as C.
+    sources = (
+        _compile_extras(
+            setup, march, runtime_flags, build_dir / f"{name}.extras"
+        )
+        if cxx
+        else [str(p) for p in setup.link.extra_sources]
     )
 
     run_gcc(
-        toolchain_cfg,
+        {**toolchain_cfg, "gcc": gxx_for(toolchain_cfg)}
+        if cxx
+        else toolchain_cfg,
         [
-            *optimize_flags(march),
+            *optimize_flags(march, cxx),
+            *(cxx_options(toolchain_cfg) if cxx else []),
             *runtime_flags,
             # Own startup file: the toolchain's are turned off.
             *(["-nostartfiles"] if crt0 is not None else []),
             f"-I{setup.include_dir}",
             *_linker_script_flags(setup.link.linker),
-            *keep_results,
+            # A memory test is checked through its `results` array,
+            # which it may only declare (a test that just checks .bss
+            # is zeroed never reads it). The toolchain's linker script
+            # collects unreferenced sections (--gc-sections), so the
+            # symbol is named as needed to keep it.
+            *(
+                ["-Wl,--undefined=results"]
+                if kind == "memory" and c_file.suffix != ".S"
+                else []
+            ),
             *setup.link.link_flags,
             *([str(crt0)] if crt0 is not None else []),
-            *[str(p) for p in setup.link.extra_sources],
+            *sources,
             str(c_file),
             "-o",
             str(elf),
@@ -307,6 +322,104 @@ def compile_test(
     )
     elf_to_bin(toolchain_cfg, elf, bin_)
     return bin_, march, kind, timeout_s
+
+
+def _runtime_flags(
+    toolchain_cfg: dict[str, Any], march: str, link: LinkSetup, cxx: bool
+) -> list[str]:
+    """Return the flags that choose the runtime a test links against.
+
+    Parameters
+    ----------
+    toolchain_cfg : dict of {str: Any}
+        The project's `toolchain:` config section.
+    march : str
+        The `-march` value of the test.
+    link : LinkSetup
+        The startup file and linker script of the project, if any.
+    cxx : bool
+        True when the test is a C++ source.
+
+    Returns
+    -------
+    list of str
+        `--specs=<file>` with `toolchain.specs`; for C++ without it,
+        the picolibc flags of `cxx_flags`; otherwise
+        `-ffreestanding` and the flags of `libc_flags`.
+
+    Raises
+    ------
+    ValueError
+        A C++ source without `toolchain.cxx: true`, or with the
+        project's own `crt0` (it would leave out the objects that
+        register the unwind frames).
+    CxxLibraryMissingError
+        The toolchain has no `libstdc++` for the variant of the test.
+    """
+    specs = toolchain_cfg.get("specs")
+    if cxx:
+        if not cxx_enabled(toolchain_cfg):
+            raise ValueError("a C++ source needs toolchain.cxx: true")
+        if link.crt0 is not None:
+            raise ValueError(
+                "C++ cannot use paths.crt0: the startup of the toolchain "
+                "registers the unwind frames"
+            )
+        require_libstdcxx(toolchain_cfg, march, abi_for(march))
+    # A specs file describes a hosted platform: main() returns to the
+    # crt0, which calls exit(), so the compiler must not be told the
+    # program is freestanding (that also drops main's implicit return
+    # 0).
+    if specs:
+        return [f"--specs={specs}"]
+    if cxx:
+        return cxx_flags(toolchain_cfg, own_linker=link.linker is not None)
+    return ["-ffreestanding", *libc_flags(toolchain_cfg)]
+
+
+def _compile_extras(
+    setup: BuildSetup,
+    march: str,
+    runtime_flags: list[str],
+    out_dir: Path,
+) -> list[str]:
+    """Compile the extra sources of a C++ test into objects, as C.
+
+    Parameters
+    ----------
+    setup : BuildSetup
+        The build settings; `link.extra_sources` is what is compiled.
+    march : str
+        The `-march` value of the test.
+    runtime_flags : list of str
+        The runtime flags of the test.
+    out_dir : Path
+        Directory for the objects (created if missing).
+
+    Returns
+    -------
+    list of str
+        The object files, in the order of the sources.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    objects: list[str] = []
+    for index, source in enumerate(setup.link.extra_sources):
+        obj = out_dir / f"{index}-{source.stem}.o"
+        run_gcc(
+            setup.toolchain_cfg,
+            [
+                *optimize_flags(march),
+                *runtime_flags,
+                f"-I{setup.include_dir}",
+                *without_cxx_only_flags(setup.link.link_flags),
+                "-c",
+                str(source),
+                "-o",
+                str(obj),
+            ],
+        )
+        objects.append(str(obj))
+    return objects
 
 
 def elf_to_verilog_hex(

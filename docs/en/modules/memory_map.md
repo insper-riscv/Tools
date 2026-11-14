@@ -55,9 +55,10 @@ The same YAML can say, in the `generate` section, which files come out of it, so
 
 | Key | Generated file | Content |
 | :--- | :--- | :--- |
-| `specs` | GCC specs file | The linker flags: `__flash`, `__flash_size`, `__ram`, `__ram_size` and `rv32_wait_restart`. The RAM of the linker ends where the reserved word `ram_limit` begins |
+| `specs` | GCC specs file | The linker flags: `__flash`, `__flash_size`, `__ram`, `__ram_size` and `rv32_wait_restart`. The RAM of the linker ends where the reserved word `ram_limit` begins; with `cxx: true` the file also links the C++ objects (see "C++ on the platform" below) |
 | `boot_ld` | Boot memory linker script | The `boot_memory` memory in the first region and the `RESET_RESERVED` from `boot.wait_restart` |
 | `runtime` | Runtime header (`.h`, also included by `.S`) | `RV32_RAM_END` (end of the `ram` region), `RV32_TOHOST_ADDR`, `RV32_FROMHOST_ADDR` and `RV32_STDOUT_BASE`, from the `reserved` ranges the map has, `RV32_BOOT_ENTRY` (where the boot memory jumps) and `RV32_<NAME>_BASE` for each peripheral; the runtime in C and assembly (`_exit.c`, `stdio.c`, `boot_memory.S`, `spike_exit.S`) uses these names instead of hand-written addresses |
+| `syscalls` | C file with the system calls of `libstdc++` | `getentropy`, `read`, `open` and `close`, each returning -1 with `errno = ENOSYS`. Valid only with `cxx: true` in some specs file, and it does not clash with `_exit.c` or `stdio.c` |
 | `config_pkg` | VHDL package of the constants of the platform | The `config_pkg` of section 10, next to the map package |
 | `vhdl` | VHDL package | The constants `BOOT_MEMORY_BITS`, `BOOT_MEMORY_SIZE_BYTES`, `FLASH_BASE_KIB`, `FLASH_END_KIB`, `FLASH_STORAGE_BYTES`, `RAM_BASE_KIB`, `RAM_END_KIB`, `RAM_STORAGE_BYTES` and `RAM_LAST_PAGE`, the `FLASH_ON_BUS` and `RAM_ON_BUS` flags (from `generate.vhdl` or from the `memory` section), the cache constants of the `memory` section, `PERIPH_COUNT`, `STRICT_PERIPH`, the `PERIPH_BASES` and `PERIPH_MASKS` tables and, for each peripheral, `<NAME>_BASE` and `<NAME>_INDEX` |
 
@@ -83,6 +84,22 @@ uv run riscv-tools --root <project> generate-memory-map --platform src/platform/
 ```
 
 With `--check` nothing is written, and the command exits with status 1 when a file is missing or differs from what the map would generate. It needs no `--config`.
+
+### 2.1. C++ on the platform
+
+A C++ program needs two things more than a C one in `rv32im-fpga.specs`.
+
+1. `cxx: true` in the `specs` section (or in a `bank_specs` entry) generates the file with `*startfile: crt0-hosted%O%s crtbegin%O%s` and `*endfile: crtend%O%s`. `picolibc.specs` leaves both objects out, so nothing would register the unwind frames and a `throw` would fail. Since `*startfile` is redefined, the `--crt0=` option of `picolibc.specs` no longer applies, which is why the file already picks `crt0-hosted`. The file also makes `picolibcpp.ld` the default linker script, through a `*self_spec` that only acts when the command has no `-T`. Without `cxx` the file is the C one, byte for byte.
+2. `syscalls: {path: ...}` writes the C file with `getentropy`, `read`, `open` and `close`, which `libstdc++` asks for and picolibc does not give. The file goes into the project's `paths.sources`, next to `_exit.c` and `stdio.c`.
+
+```yaml
+generate:
+  specs: {path: runtime/rv32im-fpga.specs, rom: FLASH, ram: RAM, ram_limit: stdout, cxx: true}
+  syscalls: {path: runtime/syscalls.c}
+```
+
+The project's `toolchain.cxx` turns on the compiler side (see [`compiler`](compiler.md)). `libatomic` is out of scope: an 8-byte `std::atomic`, and any on a variant without the A extension, ends up undefined.
+
 
 ## 3. The FLASH banks
 
@@ -621,6 +638,7 @@ Some platforms need one more declaration so that the generated `config_pkg` refl
 | `tests/test_address_bits.py` | The `address_bits` field, one rejection for each V-A1 to V-A6, the refusal of `periph_window` (V-P6), `resolve` with the `rv64` profiles, `--profile` and the new keys of `config.yaml`. |
 | `tests/test_config_pkg.py` | The `config_pkg` for 32, 24 and 40 bits, the E base, the variants and what they refuse, the `HAS_` constants of the peripherals of the core, `FLASH_ON_BUS` and `RAM_ON_BUS`, the cache rule (V-C1 and V-C2), the order of the map of the core (V-M), writing with the map and `--check`, the coherence between the two packages, the command and the proof that the map package and the `config_pkg` of the DE0-CV do not change. |
 | `tests/test_generate_memory_map.py` | The specs, the linker script and the VHDL package come out of the map; `--check` catches a missing or edited file; an address off a KiB, a peripheral window over a region and a removed key are rejected; the command writes and checks. |
+| `tests/test_cxx_generate.py` | `cxx: true` replaces `*startfile`, adds `*endfile` and `*self_spec`; without it the file does not change; `syscalls` writes the four functions and is valid only with `cxx`. |
 
 ## 12. Usage
 

@@ -13,6 +13,16 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         # supplies what it needs through paths.syscalls) or "picolibc"
         # (the toolchain's own, for a GCC built with it).
         "libc": "none",
+        # C++ on top of picolibc (`src.cc`, `src.cpp`): links libstdc++,
+        # the C++ linker script and the objects that register the
+        # unwind frames. Needs libc "picolibc" or a specs file made
+        # with `cxx: true`, and a toolchain built with libstdc++.
+        "cxx": False,
+        # The g++ driver; by default the gcc one with g++ in its place.
+        "gxx": None,
+        # Extra flags for C++ sources only, such as ["-fno-exceptions",
+        # "-fno-rtti"] for a smaller program.
+        "cxx_options": [],
         # A GCC specs file (path relative to the project root) that
         # describes the platform: it includes picolibc.specs and adds
         # the memory map and the crt0 to use (see insper-riscv/Testes'
