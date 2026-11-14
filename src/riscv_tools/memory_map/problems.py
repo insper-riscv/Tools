@@ -2,7 +2,12 @@
 
 from typing import Any
 
-from riscv_tools.memory_map import banks, interrupts, sdram_clock
+from riscv_tools.memory_map import (
+    banks,
+    core_checks,
+    interrupts,
+    sdram_clock,
+)
 from riscv_tools.memory_map.core import Mismatch
 from riscv_tools.memory_map.validation import validate_platform
 
@@ -33,6 +38,7 @@ def platform_problems(
     """
     return (
         validate_platform(platform, generics, xlen)
+        + core_checks.problems(platform, xlen)
         + banks.problems(platform)
         + interrupts.problems(platform, generics)
         + sdram_clock.problems(platform)

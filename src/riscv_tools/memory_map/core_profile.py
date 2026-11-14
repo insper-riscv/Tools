@@ -27,8 +27,9 @@ which `--profile NAME` does not replace.
 `Zicntr` and `Zihpm` imply `Zicsr` and `M` implies `Zmmul`, so listing
 `Zicsr` beside `Zicntr` or `Zihpm` is accepted and the inferred name
 does not cite it. An unknown or repeated extension, a combination that
-the specification refuses (`M` with `Zmmul`) and a `type: 64` without
-an `rv64` base in the specification are errors.
+the specification refuses (`M` with `Zmmul`), the extension `Q` (no
+compiler of the image supports it) and a `type: 64` without an `rv64`
+base in the specification are errors.
 
 `profile:` and `extras:` are refused with the block that replaces them.
 """
@@ -69,6 +70,8 @@ NAME_ORDER = (
     "Zmmul",
 )
 IMPLYING_ZICSR = ("Zicntr", "Zihpm")
+# Extensão que o GCC da imagem recusa no `-march` (lower case).
+UNSUPPORTED = "q"
 KEYS = ("type", "base", "extensions")
 RV32 = 32
 TYPES = (RV32, 64)
@@ -217,9 +220,15 @@ def _one(item: Any, known: dict[str, str], found: list[str]) -> str:
     Raises
     ------
     ValueError
-        If the extension is unknown or already listed.
+        If the extension is `Q`, unknown or already listed.
     """
     name = known.get(str(item).lower())
+    if str(item).lower() == UNSUPPORTED:
+        raise ValueError(
+            "core.extensions: Q is refused, because GCC 16.1.0 does not "
+            "support the extension (-march with q is an error, even for "
+            "assembly); remove Q from the list"
+        )
     if name is None:
         raise ValueError(
             f"core.extensions: unknown extension {item!r}; "
