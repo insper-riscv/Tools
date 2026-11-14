@@ -22,6 +22,8 @@ generate:
   runtime:
     path: runtime/memory_map.h
     ram: RAM
+  syscalls:
+    path: runtime/syscalls.c
   vhdl:
     path: rtl/map_pkg.vhd
     package: map_pkg
@@ -51,6 +53,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from riscv_tools.memory_map import banks, interrupts, sdram_clock, timers
+from riscv_tools.memory_map import cxx as cxx_runtime
 from riscv_tools.memory_map import memory as memory_choice
 from riscv_tools.memory_map.config_pkg import render_variant, source_name
 from riscv_tools.memory_map.core import (
@@ -299,7 +302,8 @@ def render_specs(
     spec : dict of {str: Any}
         The `generate.specs` section: the `rom` and `ram` regions and
         the optional `ram_limit`, a reserved range that ends the RAM the
-        linker may use.
+        linker may use, and `cxx`, which links the objects that register
+        the unwind frames of C++ (see `riscv_tools.memory_map.cxx`).
     table : dict of {str: int}
         The symbols of the map.
     source : str
@@ -313,7 +317,7 @@ def render_specs(
     ram_base = table[f"{spec['ram']}.base"]
     limit = spec.get("ram_limit")
     ram_top = table[f"{limit}.base"] if limit else table[f"{spec['ram']}.end"]
-    return _SPECS.format(
+    text = _SPECS.format(
         source=source,
         rom_base=_hex(table[f"{spec['rom']}.base"]),
         rom_size=_hex(table[f"{spec['rom']}.size"]),
@@ -321,6 +325,7 @@ def render_specs(
         ram_size=_hex(ram_top - ram_base),
         wait_restart=_hex(table["boot.wait_restart"]),
     )
+    return cxx_runtime.cxx_specs(text) if cxx_runtime.wants_cxx(spec) else text
 
 
 def render_boot_ld(
@@ -771,6 +776,7 @@ def render_all(platform_file: Path, root: Path) -> dict[Path, str]:
         out[root / spec["path"]] = render_runtime(
             platform, spec, table, source
         )
+    out |= cxx_runtime.syscalls_file(wanted, source, root)
     if "vhdl" in wanted:
         spec = cast(dict[str, Any], wanted["vhdl"])
         out[root / spec["path"]] = render_vhdl(
