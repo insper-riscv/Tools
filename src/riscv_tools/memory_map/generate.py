@@ -776,9 +776,7 @@ def render_all(platform_file: Path, root: Path) -> dict[Path, str]:
         out[root / spec["path"]] = render_runtime(
             platform, spec, table, source
         )
-    if "syscalls" in wanted:
-        spec = cast(dict[str, Any], wanted["syscalls"])
-        out[root / spec["path"]] = cxx_runtime.render_syscalls(wanted, source)
+    out |= cxx_runtime.syscalls_file(wanted, source, root)
     if "vhdl" in wanted:
         spec = cast(dict[str, Any], wanted["vhdl"])
         out[root / spec["path"]] = render_vhdl(

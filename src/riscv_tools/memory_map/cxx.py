@@ -17,6 +17,7 @@ generate:
 ```
 """
 
+from pathlib import Path
 from typing import Any, cast
 
 _START = "*startfile:\ncrt0-hosted%O%s\n"
@@ -174,3 +175,28 @@ def render_syscalls(wanted: dict[str, Any], source: str) -> str:
             "generate.syscalls is for C++: set cxx: true in generate.specs"
         )
     return _SYSCALLS.format(source=source)
+
+
+def syscalls_file(
+    wanted: dict[str, Any], source: str, root: Path
+) -> dict[Path, str]:
+    """Render the syscalls file when the platform asks for it.
+
+    Parameters
+    ----------
+    wanted : dict of {str: Any}
+        The `generate` section.
+    source : str
+        The platform file, for the header.
+    root : Path
+        The project root the path is relative to.
+
+    Returns
+    -------
+    dict of {Path: str}
+        The file of `generate.syscalls`, or nothing without it.
+    """
+    if "syscalls" not in wanted:
+        return {}
+    spec = cast(dict[str, Any], wanted["syscalls"])
+    return {root / spec["path"]: render_syscalls(wanted, source)}
