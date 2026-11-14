@@ -59,6 +59,7 @@ O mesmo YAML pode dizer, na seção `generate`, quais arquivos saem dele, de mod
 | `boot_ld` | Linker script da memória de boot | A memória `boot_memory` na primeira região e o `RESET_RESERVED` de `boot.wait_restart` |
 | `runtime` | Cabeçalho do runtime (`.h`, também incluído por `.S`) | `RV32_RAM_END` (fim da RAM `ram`), `RV32_TOHOST_ADDR`, `RV32_FROMHOST_ADDR` e `RV32_STDOUT_BASE`, das faixas `reserved` que o mapa tem, `RV32_BOOT_ENTRY` (para onde a memória de boot salta) e `RV32_<NOME>_BASE` de cada periférico; o runtime em C e em assembly (`_exit.c`, `stdio.c`, `boot_memory.S`, `spike_exit.S`) usa esses nomes no lugar de endereços escritos à mão |
 | `config_pkg` | Pacote VHDL de constantes da plataforma | O `config_pkg` da seção 10, ao lado do pacote do mapa |
+| `boot_config_h` | Cabeçalho (`.h`, também incluído por `.S`) | Um `RV32_HAS_<EXTENSÃO>` por extensão e extra do bloco `core` (0 ou 1), `RV32_IS_E` e `RV32_TEST_WAIT` (seção 4.2) |
 | `vhdl` | Pacote VHDL | As constantes `BOOT_MEMORY_BITS`, `BOOT_MEMORY_SIZE_BYTES`, `FLASH_BASE_KIB`, `FLASH_END_KIB`, `FLASH_STORAGE_BYTES`, `RAM_BASE_KIB`, `RAM_END_KIB`, `RAM_STORAGE_BYTES` e `RAM_LAST_PAGE`, as flags `FLASH_ON_BUS` e `RAM_ON_BUS` (de `generate.vhdl` ou da seção `memory`), as constantes das caches da seção `memory`, `PERIPH_COUNT`, `STRICT_PERIPH`, as tabelas `PERIPH_BASES` e `PERIPH_MASKS` e, de cada periférico, `<NOME>_BASE` e `<NOME>_INDEX` |
 
 ```yaml
@@ -74,6 +75,15 @@ generate:
 ```
 
 `FLASH_STORAGE_BYTES` e `RAM_STORAGE_BYTES` são a menor potência de dois que cobre o fim da FLASH e o tamanho da RAM, e `RAM_LAST_PAGE` são os bits 31:12 da última página de 4 KiB da RAM.
+
+A seção `specs` e cada entrada de `bank_specs` aceitam duas chaves opcionais.
+
+| Chave | Efeito |
+| :--- | :--- |
+| `march` | Verdadeira, acrescenta ao arquivo o `-march` e o `-mabi` do núcleo (seção 4.1). Ausente, o arquivo é o mesmo de sempre |
+| `default_march` | O `-march` que o GCC da imagem assume sem a opção, `rv32im_zmmul` quando omitida |
+
+Sem `boot.wait_restart` a memória de boot é a de uma aplicação (seção 4.2). O arquivo de specs deixa de levar o `--defsym=rv32_wait_restart`, e o linker script da memória de boot não fixa nenhum símbolo, com `.text.reset` primeiro e o resto logo depois.
 
 Os limites do pacote VHDL são os genéricos do `core`, em KiB, então um endereço que não é múltiplo de 1 KiB é um erro. O mapa é validado antes de gerar, e um mapa inconsistente não gera nada.
 
@@ -141,7 +151,7 @@ As chaves são `type`, `base` e `extensions`, em minúsculas, e os nomes das ext
 | Extensões da matriz (`M`, `Zmmul`, `Zicsr`, `Zicntr`, `Zihpm`, `Zifencei`, `Zicclsm`, `Zimop`, `Zicond`) | Escolhem o perfil `rv<type><base>` com as extensões na ordem canônica do nome, como `rv32im_zicclsm_zicntr_zihpm_zifencei` |
 | Extensões que a matriz não lista (`Zihintntl`, `Zihintpause`, `Interrupts`, `Sscofpmf`, `AccessFaults`; também `Zimop` e `Zicond` se a matriz não as lista) | São os extras, ligados por cima do perfil |
 | Normalização | `M` implica `Zmmul`, e `Zicntr` e `Zihpm` implicam `Zicsr`. Listar `Zicsr` junto de `Zicntr` ou `Zihpm` é aceito, e o nome inferido não o cita |
-| Erro | Extensão desconhecida ou repetida; combinação que a matriz recusa (`M` com `Zmmul`); `type: 64` sem base `rv64` na matriz; `isa` no lugar de `base` ("a chave se chama base"); chave desconhecida ou ausente |
+| Erro | Extensão desconhecida ou repetida; a extensão `Q`, que o GCC 16.1.0 não suporta; combinação que a matriz recusa (`M` com `Zmmul`); `type: 64` sem base `rv64` na matriz; `isa` no lugar de `base` ("a chave se chama base"); chave desconhecida ou ausente |
 | Migração | `profile:` e `extras:` são recusados, com a mensagem do bloco que os substitui: `profile: rv32em_zicntr` vira `type` 32, `base` E e `extensions` M, Zicntr |
 
 Do perfil saem:
@@ -158,6 +168,65 @@ A `Sscofpmf` exige `Zihpm` e `Interrupts`, e a geração falha sem eles. Toda ch
 ```bash
 uv run riscv-tools --root <projeto> --profile rv32em_zicsr generate-memory-map --platform src/platform/platform.yaml
 ```
+
+### 4.1. O `-march`, o `-mabi` e o multilib
+
+O bloco `core` também diz como um programa é compilado para o núcleo. O módulo `riscv_tools.memory_map.march` escreve o `-march` nesta ordem.
+
+1. `rv32i` ou `rv32e`, com um `m` quando o núcleo tem `M`.
+2. As extensões da matriz, cada uma como `_<nome>`, na ordem da matriz do Core (`Zicclsm`, `Zicsr`, `Zicntr`, `Zihpm`, `Zifencei`, `Zimop`, `Zicond`, `Zmmul`). `Zicntr` e `Zihpm` escrevem também `_zicsr`, que o GCC pede explícito.
+3. `Zihintntl` e `Zihintpause`, que o GCC aceita no `-march`.
+
+`Interrupts`, `Sscofpmf` e `AccessFaults` não são ISA e ficam fora do `-march`. O `-mabi` é `ilp32` na base I e `ilp32e` na base E. Só a base e a multiplicação escolhem a biblioteca do picolibc, então seis multilibs cobrem os 480 perfis da matriz do Core, 80 perfis para cada um.
+
+| Base | Sem multiplicação | `Zmmul` | `M` |
+| :--- | :--- | :--- | :--- |
+| I | `rv32i/ilp32` | `rv32i_zmmul/ilp32` | `rv32im/ilp32` |
+| E | `rv32e/ilp32e` | `rv32e_zmmul/ilp32e` | `rv32em_zmmul/ilp32e` |
+
+No GCC da imagem o padrão é `rv32im_zmmul`, a variante `rv32im/ilp32` é a raiz de `lib/` e o `-print-multi-directory` a escreve como `.`. Com `march: true` na seção `specs` (seção 2), o arquivo de specs ganha a regra abaixo, para o programa compilado sem `-march` pegar o par do núcleo.
+
+```text
+*self_spec:
+%{march=rv32im_zmmul:%<march=* %<mabi=* -march=rv32im_zicsr_zicntr -mabi=ilp32}
+```
+
+O GCC põe o `-march` padrão na linha de comando antes de ler qualquer spec, e por isso um spec não distingue a opção ausente do padrão. A regra troca o par somente quando o `-march` é o `default_march`, e mantém qualquer outro. Um `-march=rv32im` dado à mão também vira `rv32im_zmmul` no GCC, então recebe o par do núcleo.
+
+### 4.2. O `boot_config.h`
+
+A memória de boot é montada com um fragmento por extensão, e um `.S` escolhe os fragmentos pelo pré-processador. O cabeçalho sai do bloco `core`, então nenhuma chave é escrita duas vezes.
+
+```yaml
+generate:
+  boot_config_h:
+    path: runtime/boot_config.h
+```
+
+| Macro | Vale 1 quando |
+| :--- | :--- |
+| `RV32_HAS_M` | `M` está na lista |
+| `RV32_HAS_ZMMUL` | `Zmmul` está na lista (`M` não a liga, como no `HAS_ZMMUL` do `config_pkg`) |
+| `RV32_HAS_ZICSR` | `Zicsr`, `Zicntr` ou `Zihpm` está na lista |
+| `RV32_HAS_ZICNTR`, `RV32_HAS_ZIHPM`, `RV32_HAS_ZIFENCEI`, `RV32_HAS_ZICCLSM`, `RV32_HAS_ZIMOP`, `RV32_HAS_ZICOND` | A extensão está na lista |
+| `RV32_HAS_ZIHINTNTL`, `RV32_HAS_ZIHINTPAUSE`, `RV32_HAS_INTERRUPTS`, `RV32_HAS_SSCOFPMF`, `RV32_HAS_ACCESS_FAULTS` | O extra está na lista |
+| `RV32_IS_E` | A base é E |
+| `RV32_TEST_WAIT` | A seção `boot` tem `wait_restart` |
+
+O `RV32_TEST_WAIT` separa os dois builds da memória de boot. Com `boot.wait_restart` ele vale 1, e a memória de boot é a dos testes, que guarda o ponto de espera para onde um teste terminado salta, fixo nesse endereço. Sem a chave ele vale 0, a memória de boot é a de uma aplicação e o ponto de espera não é montado.
+
+### 4.3. Núcleos e memórias de boot que são recusados
+
+Cada regra é um problema da plataforma, achado antes de gerar qualquer arquivo e pelo `check-memory-map`, com o que fazer na mensagem.
+
+| Regra | Condição de rejeição |
+| :--- | :--- |
+| V-B1 | O tamanho da BOOT_MEMORY (`memory.boot.size`) não é potência de dois |
+| V-B2 | `boot.wait_restart` fica a menos de 20 bytes do fim da BOOT_MEMORY, o que o laço de espera ocupa |
+| V-I1 | `core.type` é 64, porque a imagem do toolchain não tem multilib RV64 e o compilador aceita `rv64` e liga em silêncio com as bibliotecas de 32 bits |
+| V-I2 | Há cache de instruções ou de dados e o núcleo não tem `Zifencei`, cujo `fence.i` faz as caches descartarem as linhas |
+
+A extensão `Q` é recusada já na leitura do bloco `core`, porque o GCC 16.1.0 não a suporta. A V-I1 e a V-I2 valem para a plataforma e não para as variantes do `config_pkg` (seção 10.4), que uma prova formal pode deixar com 64 bits ou sem `Zifencei`. O tamanho da BOOT montada contra o da BOOT_MEMORY é conferido pelo linker script gerado, cujo `ASSERT(. <= ORIGIN + LENGTH)` reprova uma BOOT que estoura.
 
 ## 5. As interrupções da plataforma
 
@@ -613,6 +682,8 @@ Algumas plataformas precisam de uma declaração a mais para que o `config_pkg` 
 | `tests/test_groups.py` | Os blocos `gpio` e `seg_display`: o tamanho de 64 bytes por grupo para `solo`, `all`, `pairs`, `trios` e a lista explícita, os pinos desligados, `roles`, as regras G-0 a G-6 contra cada placa, o tamanho que não se escreve, o `RV32_<NOME>_G<k>_BASE` e o `rv32_platform.h` gerado. |
 | `tests/test_layout.py` | O bloco `memory` vira as regiões e as quatro escolhas, dois segmentos são recusados ("vários segmentos ainda não são suportados"), as chaves antigas (`regions`, `memory.rom`, `kind`, `exec`) são recusadas com a migração, e `on_bus` vem nos dois segmentos ou em nenhum. O `tests/test_peripheral_offsets.py` prova que a ordem dos periféricos no arquivo é a ordem dos índices. |
 | `tests/test_core_profile.py` | O bloco `core` e o perfil inferido (ordem da matriz, `Zicsr` junto de `Zicntr`, extras), `--profile` que mantém os extras, cada erro (extensão desconhecida ou repetida, combinação recusada, `type: 64` sem base `rv64`, `isa` no lugar de `base`), a recusa de `profile:` e `extras:` com a migração e o nome sem matriz. |
+| `tests/test_march.py` | O `-march`, o `-mabi` e o multilib dos 480 perfis da matriz do Core, com e sem `Zihintntl` e `Zihintpause` (960 casos), contra a tabela medida das seis variantes, e, quando o `riscv32-unknown-elf-gcc` está no `PATH`, o compilador aceitando cada par e escolhendo a biblioteca da tabela, com `libc.a` e `crt0-hosted.o`. |
+| `tests/test_boot_config.py` | O `boot_config.h` (uma macro por extensão, `RV32_IS_E`, `RV32_TEST_WAIT`, a leitura por um `.S`), o `march` do arquivo de specs com o GCC da imagem e o specs sem `march` que não muda, a plataforma sem `boot.wait_restart`, a recusa da extensão `Q`, a V-B1, a V-B2, a V-I1 e a V-I2 na geração e no `check-memory-map`. |
 | `tests/test_peripheral_offsets.py` | A janela derivada do `size`, os símbolos `base`, `size`, `window` e `index`, uma rejeição para cada V-P1 a V-P5, a recusa de `id`, `offset` e `padding` com a mensagem de migração, as tabelas `PERIPH_BASES` e `PERIPH_MASKS`, a V-S1 e a `STRICT_PERIPH` no pacote do mapa. |
 | `tests/test_address_bits.py` | O campo `address_bits`, uma rejeição para cada V-A1 a V-A6, a recusa de `periph_window` (V-P6), `resolve` com os perfis `rv64`, o `--profile` e as chaves novas do `config.yaml`. |
 | `tests/test_config_pkg.py` | O `config_pkg` para 32, 24 e 40 bits, a base E, as variantes e o que elas recusam, as `HAS_` dos periféricos do núcleo, `FLASH_ON_BUS` e `RAM_ON_BUS`, a regra de cache (V-C1 e V-C2), a ordem do mapa do núcleo (V-M), a escrita com o mapa e o `--check`, a coerência entre os dois pacotes, o comando e a prova de que o pacote do mapa e o `config_pkg` do DE0-CV não mudam. |

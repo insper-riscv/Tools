@@ -55,7 +55,7 @@ REMOVED = (
 )
 
 PLATFORM: dict[str, Any] = {
-    "profile": "rv32im_zicntr",
+    "profile": "rv32im_zicntr_zifencei",
     "profiles": "matrix.yaml",
     "extras": ["Interrupts", "AccessFaults"],
     "regions": MAP_REGIONS,

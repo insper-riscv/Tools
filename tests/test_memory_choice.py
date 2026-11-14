@@ -36,6 +36,7 @@ MEMORY: dict[str, Any] = {
     "dcache": {"enabled": True, "size_bits": 1024},
 }
 PLATFORM: dict[str, Any] = {
+    "profile": "rv32i_zifencei",
     "regions": MAP_REGIONS,
     "reserved": MAP_RESERVED,
     "boot": {"entry": "0x800", "wait_restart": "0x100"},
