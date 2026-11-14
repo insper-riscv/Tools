@@ -31,8 +31,8 @@ from riscv_tools.memory_map.platform_format import normalize
 
 GENERATE = {
     "vhdl": {
-        "path": "gen/map_pkg.vhd",
-        "package": "map_pkg",
+        "path": "gen/ext_map_pkg.vhd",
+        "package": "ext_map_pkg",
         "rom": "FLASH",
         "ram": "RAM",
     }
@@ -110,7 +110,7 @@ def test_a_window_under_the_registers_is_refused(tmp_path: Path) -> None:
 def test_the_window_defaults_to_the_registers(tmp_path: Path) -> None:
     """`size` is optional and takes the registers of the entity."""
     path = _platform(tmp_path, [_entry("ETH0", "eth", 0x80008100)])
-    text = render_all(path, tmp_path)[tmp_path / "gen/map_pkg.vhd"]
+    text = render_all(path, tmp_path)[tmp_path / "gen/ext_map_pkg.vhd"]
     check_in("constant ETH0_BASE : addr_t", text)
 
 
@@ -173,7 +173,7 @@ def test_each_peripheral_with_a_line_gets_a_source(tmp_path: Path) -> None:
             _entry("T0", "timer", 0x80006000, size=64),
         ],
     )
-    text = render_all(path, tmp_path)[tmp_path / "gen/map_pkg.vhd"]
+    text = render_all(path, tmp_path)[tmp_path / "gen/ext_map_pkg.vhd"]
     check_in("constant IRQ_KBD : positive := 5;", text)
     check_in("constant IRQ_SD : positive := 7;", text)
     check_in("constant IRQ_T0 : positive := 8;", text)
@@ -187,7 +187,7 @@ def test_a_platform_without_external_peripherals_has_no_table(
 ) -> None:
     """The generated package is the same as before without the kinds."""
     text = render_all(_platform(tmp_path, []), tmp_path)[
-        tmp_path / "gen/map_pkg.vhd"
+        tmp_path / "gen/ext_map_pkg.vhd"
     ]
     check_not_in("EXT_COUNT", text)
 
