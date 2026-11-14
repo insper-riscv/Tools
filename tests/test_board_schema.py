@@ -252,6 +252,13 @@ PLATFORM_CASES: list[tuple[tuple[str, ...], str, object, str]] = [
         "platform.memory.ram.device must be one of sdram, sram",
     ),
     (
+        ("memory", "rom"),
+        "device",
+        "mram",
+        "platform.memory.rom.device must be one of "
+        "nor, flash-interna, serial, sdram",
+    ),
+    (
         ("memory", "ram"),
         "latency",
         {"first": 1},
