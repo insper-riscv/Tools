@@ -88,11 +88,15 @@ class FieldSpec:
         `int` or `bool`.
     generic : str
         The generic of the entity that receives the value.
+    group : str
+        The part of the entity the field belongs to (`mac`, `mdio`),
+        empty for a field with no part.
     """
 
     name: str
     type: str
     generic: str
+    group: str = ""
 
 
 @dataclass(frozen=True)
@@ -285,7 +289,28 @@ EXTERNAL: dict[str, ExternalKind] = {
                 ">mdc =mdio <int_n? >rst_n",
                 "clk_freq_hz",
             ),
-            fields=(FieldSpec("phy_addr", "int", "phy_addr"),),
+            fields=(
+                FieldSpec("phy_addr", "int", "phy_addr", "mdio"),
+                FieldSpec("mdc_freq_hz", "int", "mdc_freq_hz", "mdio"),
+                FieldSpec("poll_cycles", "int", "poll_cycles", "mdio"),
+                FieldSpec(
+                    "tx_buffer_addr_bits",
+                    "int",
+                    "tx_buffer_addr_bits",
+                    "mac",
+                ),
+                FieldSpec(
+                    "rx_buffer_addr_bits",
+                    "int",
+                    "rx_buffer_addr_bits",
+                    "mac",
+                ),
+                FieldSpec(
+                    "rx_fifo_addr_bits", "int", "rx_fifo_addr_bits", "mac"
+                ),
+                FieldSpec("sync_stages", "int", "sync_stages", "mac"),
+                FieldSpec("reset_cycles", "int", "reset_cycles", "mac"),
+            ),
         ),
         ExternalKind(
             "hdmi",
@@ -296,6 +321,35 @@ EXTERNAL: dict[str, ExternalKind] = {
                 16,
                 ">d >clk >de >hs >vs <int =scl =sda",
                 "clk_freq",
+            ),
+        ),
+        ExternalKind(
+            "hdmi_audio",
+            "hdmi_audio",
+            True,
+            _one("hdmi_audio", 4, ">mclk >sclk >lrclk >i2s0", "clk_freq"),
+            fields=(
+                FieldSpec("sample_rate", "int", "sample_rate"),
+                FieldSpec("mclk_ratio", "int", "mclk_ratio"),
+                FieldSpec("word_bits", "int", "word_bits"),
+                FieldSpec("tx_fifo_depth", "int", "tx_fifo_depth"),
+                FieldSpec("has_tone", "bool", "has_tone"),
+                FieldSpec("tone_freq", "int", "tone_freq"),
+                FieldSpec("tone_amp", "int", "tone_amp"),
+                FieldSpec("autostart", "bool", "autostart"),
+            ),
+        ),
+        ExternalKind(
+            "uart",
+            "serial",
+            True,
+            _one("uart", 2, "<rx >tx <cts? >rts?"),
+            fields=(
+                FieldSpec("has_flow_control", "bool", "has_flow_control"),
+                FieldSpec("baud_freq", "int", "baud_freq"),
+                FieldSpec("baud_limit", "int", "baud_limit"),
+                FieldSpec("rx_fifo_depth", "int", "rx_fifo_depth"),
+                FieldSpec("tx_fifo_depth", "int", "tx_fifo_depth"),
             ),
         ),
         ExternalKind(

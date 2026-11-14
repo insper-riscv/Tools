@@ -345,6 +345,34 @@ def _hdmi(inst: str, p: dict[str, Port]) -> Wiring:
     return _merge(parts)
 
 
+def _hdmi_audio(_inst: str, p: dict[str, Port]) -> Wiring:
+    """Liga o áudio I2S do transmissor HDMI: só saídas, modo mestre."""
+    return _merge(
+        [
+            _direct("o_mclk", p["mclk"]),
+            _direct("o_sclk", p["sclk"]),
+            _direct("o_lrclk", p["lrclk"]),
+            _direct("o_i2s0", p["i2s0"]),
+        ]
+    )
+
+
+def _uart(_inst: str, p: dict[str, Port]) -> Wiring:
+    """Liga a UART serial; RTS e CTS são opcionais.
+
+    Sem o pino `cts` a entrada fica em `'0'` (o outro lado sempre
+    aceita bytes) e sem `rts` a saída fica aberta.
+    """
+    return _merge(
+        [
+            _direct("i_uart_rx", p["rx"]),
+            _direct("o_uart_tx", p["tx"]),
+            _direct("i_uart_cts", p.get("cts"), "'0'"),
+            _direct("o_uart_rts", p.get("rts")),
+        ]
+    )
+
+
 def _tv(_inst: str, p: dict[str, Port]) -> Wiring:
     """Liga a captura de TV."""
     return _merge(
@@ -442,6 +470,8 @@ WIRING = {
     "audio": _audio,
     "eth": _eth,
     "hdmi_tx": _hdmi,
+    "hdmi_audio": _hdmi_audio,
+    "uart": _uart,
     "tv": _tv,
     "adc128s022": _adc128,
     "ltc2308": _ltc,

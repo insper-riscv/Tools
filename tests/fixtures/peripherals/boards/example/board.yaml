@@ -85,6 +85,8 @@ buses:
     mdio: ENET0_MDIO
     int_n: ENET0_INT_N
     rst_n: ENET0_RST_N
+  hdmi_audio: {mclk: HDMI_MCLK, sclk: HDMI_SCLK, lrclk: HDMI_LRCLK, i2s0: HDMI_I2S0}
+  serial: {rx: SER_RXD, tx: SER_TXD, cts: SER_CTS, rts: SER_RTS}
   hdmi: {d: "HDMI_TX_D[23:0]", clk: HDMI_TX_CLK, de: HDMI_TX_DE, hs: HDMI_TX_HS, vs: HDMI_TX_VS, int: HDMI_TX_INT, scl: HDMI_I2C_SCL, sda: HDMI_I2C_SDA}
   tv: {data: "TD_DATA[7:0]", clk27: TD_CLK27, reset_n: TD_RESET_N}
   adc:

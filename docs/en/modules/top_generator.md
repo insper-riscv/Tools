@@ -42,7 +42,7 @@ The contract with the SoC is the following.
 | Input ports | `i_ext_rdata` (32 bits per peripheral) and `i_ext_irq` (one bit per peripheral) |
 | Position | `<NAME>_EXT_POS`, from the map package, picks the slice of each peripheral |
 
-The instance wires `i_clk` to the core clock and `i_rst` to the SoC reset, and the frequency generics receive the core clock in hertz. The fields of the kind (`phy_addr`, `cs_count`, `three_wire`, `int_active_high`, `active_low`) become generics with the same name as the field.
+The instance wires `i_clk` to the core clock and `i_rst` to the SoC reset, and the frequency generics receive the core clock in hertz. The fields of the kind (for example `phy_addr`, `cs_count`, `three_wire`, `has_flow_control`, `sample_rate`) become generics with the same name as the field, and only the fields written in the platform enter the `generic map`.
 
 | Entity | Pins |
 | :--- | :--- |
@@ -52,6 +52,8 @@ The instance wires `i_clk` to the core clock and `i_rst` to the SoC reset, and t
 | `lcd`, `usb_bridge`, `eth` (MDIO), `hdmi_tx` (I2C), `adxl345` (`mosi`) | Output with enable, `'Z'` when disabled, and a signal back with the read of the pin |
 | `i2c_master` | Open drain, `'0'` when the entity asks for low and `'Z'` otherwise |
 | `audio` | The FPGA is the master of the codec clocks, and the inputs `i_bclk`, `i_adclrck` and `i_daclrck` stay at `'0'` |
+| `hdmi_audio` | Four output lines (`o_mclk`, `o_sclk`, `o_lrclk`, `o_i2s0`), the entity being the I2S master |
+| `uart` | `rx` and `tx` direct; without the `cts` pin the input is tied to `'0'`, and without `rts` the output is left open |
 | `adc128s022`, `ltc2308`, `ir_receiver`, `tv`, `spi` | Straight; the `cs_n` of the `spi` is sliced to the width of the board port |
 
 The `video` and the `hdmi_tx` need a pixel clock from the clock plan, and without it the instance is left out with a warning. The `max10_adc` needs the vendor IP and is also left out with a warning.
