@@ -232,7 +232,6 @@ A regra só depende do arquivo, então as fontes dos outros periféricos não mu
 
 | Saída | Constantes |
 | :--- | :--- |
-| `config_pkg` | `HAS_TIMER`, verdadeira com pelo menos um temporizador |
 | Pacote VHDL (`vhdl`) | `<NOME>_BASE` e `<NOME>_INDEX` de cada um, `IRQ_<NOME>`, `TIMER_COUNT` e as tabelas `TIMER_INDICES` (o índice de cada um nas tabelas de janelas) e `TIMER_IRQ_IDS` (a fonte de cada um, 0 sem PLIC), vazias sem temporizador |
 | Cabeçalho do runtime (`runtime`) | `RV32_<NOME>_BASE` e `RV32_IRQ_<NOME>` de cada um |
 | Topo da placa (`board generate`) | `timer_indices => TIMER_INDICES` e `timer_irq_ids => TIMER_IRQ_IDS` no SoC, só quando há temporizador |
@@ -529,7 +528,6 @@ O `config_pkg` é o pacote VHDL de constantes de uma plataforma, escrito a parti
 | Sistema de memória | `HAS_ICACHE`, `HAS_DCACHE`, `FLASH_ON_BUS` e `RAM_ON_BUS` |
 | Extensões | Uma `HAS_<EXTENSÃO>` por chave do perfil (`HAS_ZICCLSM` a `HAS_ZIHINTPAUSE`) |
 | Memória | `BOOT_MEMORY_BITS`, `BOOT_MEMORY_BASE` e `BOOT_MEMORY_END` (de 0 a $2^{\text{BOOT\_MEMORY\_BITS}}$), `FLASH_BASE`, `FLASH_END`, `RAM_BASE` e `RAM_END` no tipo `map_addr_t`, e `I_CACHE_WINDOW_BITS` e `D_CACHE_WINDOW_BITS` |
-| Periféricos do núcleo | `HAS_GPIO`, `HAS_CLINT` e `HAS_PLIC`, verdadeiras quando o nome está em `peripherals`, e `HAS_TIMER`, verdadeira quando há pelo menos um temporizador (`kind: timer`) |
 | Compostas | `HAS_MULTIPLICATION` (`HAS_M or HAS_ZMMUL`), `HAS_ANY_COUNTER` (`HAS_ZICNTR or HAS_ZIHPM`) e `HAS_SSCOF` (`HAS_SSCOFPMF and HAS_ZIHPM and HAS_INTERRUPTS`) |
 | Funções | `isa_string`, o texto da ISA (`rv32im_zicsr_zicntr`), e `check_isa`, que falha na elaboração se uma dependência entre constantes não vale |
 
@@ -620,7 +618,7 @@ Algumas plataformas precisam de uma declaração a mais para que o `config_pkg` 
 | `tests/test_config_pkg.py` | O `config_pkg` para 32, 24 e 40 bits, a base E, as variantes e o que elas recusam, as `HAS_` dos periféricos do núcleo, `FLASH_ON_BUS` e `RAM_ON_BUS`, a regra de cache (V-C1 e V-C2), a ordem do mapa do núcleo (V-M), a escrita com o mapa e o `--check`, a coerência entre os dois pacotes, o comando e a prova de que o pacote do mapa e o `config_pkg` do DE0-CV não mudam. |
 | `tests/test_generate_memory_map.py` | Specs, linker script e pacote VHDL saem do mapa; `--check` pega arquivo ausente ou editado; endereço fora de KiB, janela de periférico sobre uma região e chave removida são rejeitados; o comando escreve e confere. |
 | `tests/test_interrupts.py` | O pacote traz `HAS_INTERRUPTS`, `CLOCK_HZ`, `MTIME_HZ` e `CLINT_TICK_CYCLES`, o cabeçalho traz os registradores do CLINT e a taxa do `mtime`, e uma seção inconsistente (taxa, CLINT ausente, perfil sem as interrupções) é rejeitada. |
-| `tests/test_timers.py` | Zero, um, três e oito temporizadores dão as tabelas, as linhas, o cabeçalho e o `HAS_TIMER`, as fontes dos outros periféricos nunca mudam, o nome `TIMER` continua válido, e um tipo, tamanho, nome, alinhamento, sobreposição ou linha fixa errados é rejeitado. |
+| `tests/test_timers.py` | Zero, um, três e oito temporizadores dão as tabelas, as linhas e o cabeçalho, as fontes dos outros periféricos nunca mudam, o nome `TIMER` continua válido, e um tipo, tamanho, nome, alinhamento, sobreposição ou linha fixa errados é rejeitado. |
 | `tests/test_memory_choice.py` | A seção `memory` e a opção `--memory` geram as 9 combinações válidas como 9 pacotes diferentes e recusam as 7 inválidas, as constantes e os parâmetros da simulação saem da escolha, e as regras V1 a V5, V7 e V10 falham com mensagem clara. |
 | `tests/test_config_from_platform.py` | As chaves de `memory`, o ambiente do `tohost` e do `stdout` e as larguras de endereço saem do mapa, e o mapa vale mais que o arquivo e os seus `extends`. |
 

@@ -157,8 +157,6 @@ def test_a_32_bit_platform_gets_the_defaults_of_today(tmp_path: Path) -> None:
         "constant FLASH_BASE          : map_addr_t :=",
         'unsigned\'(x"00000800"), ADDR_BITS + 1);',
         'unsigned\'(x"00008000"), ADDR_BITS + 1);',
-        "constant HAS_CLINT      : boolean := true;",
-        "constant HAS_PLIC       : boolean := false;",
         ":= HAS_M or HAS_ZMMUL;",
         ":= HAS_ZICNTR or HAS_ZIHPM;",
         ":= HAS_SSCOFPMF and HAS_ZIHPM and HAS_INTERRUPTS;",
@@ -249,10 +247,10 @@ def test_parse_overrides_reads_booleans_and_the_width() -> None:
             parse_overrides([bad])
 
 
-def test_the_peripherals_that_talk_to_the_core_follow_the_list(
+def test_the_peripherals_are_not_constants_of_the_package(
     tmp_path: Path,
 ) -> None:
-    """Only the GPIO, CLINT, PLIC and timer are constants."""
+    """No peripheral of the list becomes a constant of the package."""
     text = _config(
         tmp_path,
         {
@@ -264,14 +262,8 @@ def test_the_peripherals_that_talk_to_the_core_follow_the_list(
             ],
         },
     )
-    _has(
-        text,
-        "constant HAS_GPIO       : boolean := true;",
-        "constant HAS_CLINT      : boolean := false;",
-        "constant HAS_PLIC       : boolean := true;",
-        "constant HAS_TIMER      : boolean := false;",
-    )
-    check_not_in("HAS_UART", text)
+    for name in ("HAS_GPIO", "HAS_CLINT", "HAS_PLIC", "HAS_TIMER", "HAS_UART"):
+        check_not_in(name, text)
 
 
 def test_generate_writes_the_config_pkg_and_check_catches_a_change(

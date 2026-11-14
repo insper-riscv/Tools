@@ -153,20 +153,6 @@ package config_pkg is
     -- Fim exclusivo da RAM em bytes.
     constant RAM_END             : map_addr_t := resize(unsigned'(x"40000000"), ADDR_BITS + 1);
 
-    -- Periféricos que interagem com o núcleo
-
-    -- Periférico de entrada e saída de uso geral (GPIO) presente.
-    constant HAS_GPIO       : boolean := false;
-
-    -- Interrupções de hardware e temporizadores
-
-    -- CLINT (mtime e mtimecmp) presente.
-    constant HAS_CLINT      : boolean := false;
-    -- PLIC (Controlador de interrupções externas) presente.
-    constant HAS_PLIC       : boolean := false;
-    -- Temporizador presente.
-    constant HAS_TIMER      : boolean := false;
-
     -- Devolve o nome da ISA configurada, como rv32im_zicclsm, na ordem canônica das extensões.
     function isa_string return string;
 

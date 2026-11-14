@@ -34,7 +34,6 @@ from typing import Any, cast
 from riscv_tools.memory_map import memory as memory_choice
 from riscv_tools.memory_map.core import (
     address_bits,
-    peripheral_list,
     platform_dict,
     platform_list,
 )
@@ -48,18 +47,10 @@ from riscv_tools.memory_map.profile import (
     resolve,
 )
 from riscv_tools.memory_map.symbol_table import symbol_table
-from riscv_tools.memory_map.timers import has_timer
 
 PACKAGE = "config_pkg"
 TEMPLATE = Path(__file__).resolve().parent / "templates" / "config_pkg.vhd.in"
 
-# Constante do pacote de cada periférico que fala com o núcleo e o nome
-# dele em `peripherals`.
-PERIPHERALS = {
-    "HAS_GPIO": "GPIO",
-    "HAS_CLINT": "CLINT",
-    "HAS_PLIC": "PLIC",
-}
 _HEADER = """\
 -- ============================================================================
 -- Pacote de configuração da plataforma (constantes de elaboração)
@@ -217,15 +208,14 @@ def _flags(
     -------
     dict of {str: bool}
         The extensions of `SWITCHES`, then `HAS_ICACHE` and
-        `HAS_DCACHE`, then one constant for each name of `PERIPHERALS`.
+        `HAS_DCACHE`. The package has no constant for a peripheral: its
+        presence comes from `peripherals` and the map of the platform.
     """
     choice = memory_choice.resolve(platform)
-    names = {str(p["name"]) for p in peripheral_list(platform)}
     flags = {key.upper(): bool(generics.get(key)) for key in SWITCHES}
     flags["HAS_ICACHE"] = choice is not None and choice.has_icache
     flags["HAS_DCACHE"] = choice is not None and choice.has_dcache
-    flags["HAS_TIMER"] = has_timer(platform)
-    return flags | {flag: name in names for flag, name in PERIPHERALS.items()}
+    return flags
 
 
 def _apply(
