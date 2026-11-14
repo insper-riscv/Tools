@@ -460,6 +460,40 @@ class Console:
 
 
 @dataclass(frozen=True)
+class BusInstance:
+    """One copy of a role of the pins of an external peripheral.
+
+    Parameters
+    ----------
+    pins : tuple of tuple of (str, str)
+        The pins of the role as `(name, signal)`, in the order of the
+        role in `board.yaml`; the signal is a pin name of the pins file
+        or a bus (`SD_DAT[3:0]`).
+    chip : str
+        The chip the copy wires, for a role that has several (`adc`);
+        empty otherwise.
+    """
+
+    pins: tuple[tuple[str, str], ...]
+    chip: str = ""
+
+    def signal(self, name: str) -> str | None:
+        """Find the signal of one pin of the role.
+
+        Parameters
+        ----------
+        name : str
+            The pin of the role (`clk`).
+
+        Returns
+        -------
+        str or None
+            The signal, None when the copy does not wire the pin.
+        """
+        return dict(self.pins).get(name)
+
+
+@dataclass(frozen=True)
 class Board:
     """What a board offers, from its `board.yaml`.
 
@@ -496,6 +530,9 @@ class Board:
         The traps of the board.
     video : VideoRole or None
         The video output; None when the board has none.
+    buses : dict of str to tuple of BusInstance
+        The pins of each role of the external peripherals (`ps2`, `sd`,
+        `i2c` and so on), one instance for each copy the board has.
     """
 
     board: str
@@ -513,6 +550,9 @@ class Board:
     pins: str = "pins.yaml"
     notes: tuple[str, ...] = field(default_factory=tuple)
     video: VideoRole | None = None
+    buses: dict[str, tuple[BusInstance, ...]] = field(
+        default_factory=dict[str, tuple[BusInstance, ...]]
+    )
 
 
 @dataclass(frozen=True)

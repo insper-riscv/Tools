@@ -13,7 +13,8 @@ Transforma o relógio de referência, o reset, os papéis de E/S, o console por 
 | Formatos de barramento | `LEDR[3]` e `LEDR3` formam o vetor `LEDR`; um radical com um só membro sem colchetes fica escalar |
 | Display | Uma porta `HEX<d>` de 7 bits por dígito, a partir de `HEX[5:0][6:0]` |
 | Memória | Os sinais com o prefixo do grupo e `_` (`DRAM_`) formam uma porta por radical; `signals` pode ser uma lista de prefixos |
-| Vídeo | Não vira porta: os pinos de vídeo entram junto com o periférico, e o papel só é lido pelo `board_video` |
+| Vídeo | Não vira porta de papel: os pinos de vídeo entram junto com o periférico `video` (uma porta por sinal do prefixo, `VGA_R`, `VGA_HS` e assim por diante) |
+| Periférico externo | Uma porta por pino do papel `buses` da cópia que o periférico usa, com a direção do registro de kinds, o dono (`owner`) e o pino do papel (`pin`); um barramento (`SD_DAT[3:0]`) vira um vetor. Placa sem o papel é erro com `required` e aviso com `optional`, e o periférico fica fora |
 | Papel obrigatório ausente | Erro V5 |
 | Papel opcional ausente | Aviso V6 e nenhuma porta |
 | Console `pinos` sem UART | Erro V4 |

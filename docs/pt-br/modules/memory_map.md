@@ -321,7 +321,7 @@ A regra só depende do arquivo, então as fontes dos outros periféricos não mu
 | Cabeçalho do runtime (`runtime`) | `RV32_<NOME>_BASE` e `RV32_IRQ_<NOME>` de cada um |
 | Topo da placa (`board generate`) | `timer_indices => TIMER_INDICES` e `timer_irq_ids => TIMER_IRQ_IDS` no SoC, só quando há temporizador |
 
-O `kind` é um entre `timer`, `gpio` e `seg_display` (a lista fica num só lugar, `memory_map/kinds.py`). O temporizador precisa de `size`, que um bloco `gpio` ou `seg_display` não pode ter (a janela vem dos grupos). Um `kind` desconhecido (V-P7), uma janela menor que 32 bytes (V-P8), um nome que não é identificador VHDL ou que repete em maiúsculas (V-P9) e uma fonte presa numa linha fixa (V-P10) são erros antes de gerar. O alinhamento e a sobreposição das janelas seguem as regras dos outros periféricos (V-P2, V-P4 e V-P5).
+O `kind` é um entre `timer`, `gpio`, `seg_display` e os externos da seção 9.6 (a lista fica num só lugar, `memory_map/kinds.py`). O temporizador precisa de `size`, que um bloco `gpio` ou `seg_display` não pode ter (a janela vem dos grupos). Um `kind` desconhecido (V-P7), uma janela menor que 32 bytes (V-P8), um nome que não é identificador VHDL ou que repete em maiúsculas (V-P9) e uma fonte presa numa linha fixa (V-P10) são erros antes de gerar. O alinhamento e a sobreposição das janelas seguem as regras dos outros periféricos (V-P2, V-P4 e V-P5).
 
 ## 6. Os relógios da plataforma
 
@@ -507,7 +507,7 @@ peripherals:
 | V-P4 | Duas janelas de periféricos se sobrepõem |
 | V-P5 | A janela de um periférico se sobrepõe a uma região |
 | V-P6 | O campo de topo `periph_window`, ou o `ext_base` ou o `periph_base` de `generate.vhdl`, que o núcleo não conhece mais |
-| V-P7 | O `kind` de um periférico não é `timer`, `gpio` nem `seg_display` |
+| V-P7 | O `kind` de um periférico não é um dos do registro (`timer`, `gpio`, `seg_display` e os externos da seção 9.6) |
 | V-P8 | Um temporizador tem `size` menor que 32 bytes |
 | V-P9 | O nome de um periférico não é identificador VHDL ou repete em maiúsculas |
 | V-P10 | Um temporizador está preso numa linha fixa do SoC (1, 2, 3, 4 ou 6) |
@@ -599,6 +599,75 @@ Os pinos de um papel são numerados de 0, e um pino que não está em nenhum gru
 Os pinos desligados saem em notas (`NOTE`) do `generate-memory-map`, e um papel `required` em `io` cujos blocos não têm grupo algum sai como aviso. O pacote do mapa ganha `<NOME>_BASE`, `<NOME>_INDEX` e as entradas das tabelas `PERIPH_BASES` e `PERIPH_MASKS` como nos outros periféricos, e o `memory_map.h` ganha `RV32_<NOME>_G<k>_BASE`, a base mais $64k$ bytes.
 
 A chave `generate.platform_h` escreve o `rv32_platform.h` dos programas de teste a partir da plataforma: `RV32_RAM_BASE`, `RV32_RAM_END`, `RV32_STDOUT_BASE`, `RV32_TOHOST`, o `RV32_<NOME>_BASE` de cada periférico, os `RV32_<NOME>_G<k>_BASE`, as bancas da FLASH, `RV32_TICK_CYCLES` e as macros `RVMODEL_HALT_PASS` e `RVMODEL_HALT_FAIL`.
+
+### 9.6. Periféricos externos de `Peripherals`
+
+Uma entrada de `peripherals` com um dos `kind` externos é um periférico do repositório `Peripherals` que o topo gerado da placa instancia ao lado do SoC e liga aos pinos de um papel da placa (a seção `buses` do `board.yaml`, ver [board_schema](board_schema.md)). O registro de kinds (`memory_map/kinds.py`) é o único lugar que os lista.
+
+```yaml
+peripherals:
+  KBD:
+    kind: ps2
+    device: keyboard
+    base: 0x80007000
+  MOUSE:
+    kind: ps2
+    device: mouse
+    base: 0x80007100
+  ADC0:
+    kind: adc
+    chip: ltc2308
+    base: 0x80010000
+    instance: 1
+  SD:
+    kind: sd_spi
+    base: 0x80008000
+    need: optional
+```
+
+| Kind | Entidade | Papel da placa | Janela mínima | Linha do PLIC | Campos próprios |
+| :--- | :--- | :--- | ---: | :--- | :--- |
+| `ps2` | `ps2_keyboard` ou `ps2_mouse_top` | `ps2` | 16 ou 32 bytes | sim | `device` (`keyboard` ou `mouse`, padrão `keyboard`) |
+| `video` | `video` | `io.video` | 256 KiB | não | nenhum |
+| `sd_spi` | `sd_spi` | `sd` | 32 bytes | sim | nenhum |
+| `sd_native` | `sd_native` | `sd` | 64 bytes | sim | nenhum |
+| `ir` | `ir_receiver` | `ir` | 32 bytes | sim | `active_low` (booleano) |
+| `lcd` | `lcd` | `lcd` | 32 bytes | sim | nenhum |
+| `usb` | `usb_bridge` | `usb` | 64 bytes | sim | `int_active_high` (booleano) |
+| `i2c` | `i2c_master` | `i2c` | 32 bytes | sim | nenhum |
+| `audio` | `audio` | `audio` | 64 bytes | sim | nenhum |
+| `eth` | `eth` (MII) | `eth` | 256 bytes | sim | `phy_addr` (inteiro) |
+| `hdmi` | `hdmi_tx` | `hdmi` | 256 KiB | sim | nenhum |
+| `tv` | `tv` | `tv` | 64 bytes | sim | nenhum |
+| `adc` | `adc128s022`, `ltc2308` ou `max10_adc` | `adc` | 64, 64 ou 128 bytes | sim | `chip` (obrigatório) |
+| `spi` | `spi` | `spi` | 32 bytes | sim | `cs_count` (inteiro) |
+| `adxl345` | `adxl345` | `adxl345` | 32 bytes | sim | `three_wire` (booleano) |
+
+A janela mínima é uma palavra de 4 bytes para cada endereço que a entidade decodifica. Os campos comuns são os seguintes.
+
+| Campo | Significado |
+| :--- | :--- |
+| `base` | Endereço da janela, alinhado a ela |
+| `size` | Bytes de registradores; omitido, vale a janela mínima da entidade |
+| `instance` | A cópia do papel da placa que o periférico usa; omitido, cada periférico de um papel toma a menor cópia que nenhum anterior tomou, na ordem de `peripherals` |
+| `need` | `required` (padrão) ou `optional`; com `optional`, a placa sem o papel só gera um aviso e o periférico fica fora do topo |
+
+Cada entidade com linha de interrupção ganha uma fonte do PLIC pela mesma regra dos temporizadores da seção 5.2: a fonte escrita em `interrupts.sources` ou o menor número livre a partir de 5, na ordem de `peripherals` contando os temporizadores e os periféricos externos juntos. O `video` não tem linha.
+
+| Regra | Condição de rejeição |
+| :--- | :--- |
+| V-P11 | O `size` é menor que os registradores da entidade |
+| V-P12 | O campo que escolhe a entidade (`device`, `chip`) falta ou não é um dos valores do registro |
+| V-P13 | Dois periféricos tomam a mesma cópia do mesmo papel |
+| V-P10 | Uma fonte do `interrupts.sources` presa numa linha fixa do SoC (1, 2, 3, 4 ou 6) |
+
+Uma chave que o kind não conhece, um campo do tipo errado e um `need` que não é `required` nem `optional` são recusados ao ler a plataforma. A placa que não tem o papel, a cópia ou o chip pedido é tratada pelo `board_check` (V23).
+
+| Saída | Constantes |
+| :--- | :--- |
+| Pacote VHDL (`vhdl`) | Só com ao menos um periférico externo. `EXT_COUNT`, as tabelas `EXT_INDICES` (o índice de cada um nas tabelas de janelas) e `EXT_IRQ_IDS` (a fonte de cada um, 0 sem linha ou sem PLIC) e `<NOME>_EXT_POS`, a posição de cada um nas duas tabelas |
+| Cabeçalho do runtime (`runtime`) | `RV32_<NOME>_BASE` e, para quem tem linha, `RV32_IRQ_<NOME>` |
+| Topo da placa (`board generate`) | A instância de cada periférico e os pinos dele, ver [top_generator](top_generator.md) |
 
 ## 10. O `config_pkg`
 

@@ -38,6 +38,8 @@ $$ N_{blocks} = \sum_m \left\lceil \frac{8 s_m}{b_{block}} \right\rceil + N_{cac
 
 The implications of the ISA hold in the `terms` function: Zicntr and Zihpm imply Zicsr, M implies Zmmul, and Sscofpmf needs Zihpm and interrupts. The calibration uses the same function to fit, so the fit and the estimate do not diverge.
 
+Each external kind of the platform (section 9.6 of [memory_map](memory_map.md)) adds the term `peripherals.<ENTITY>`, with the name of the `Peripherals` entity in capitals (`PS2_KEYBOARD`, `LTC2308`, `HDMI_TX`). The table of the family may list it as `null` or not cite it at all, and both are "no measurement", a V18 warning that names the term and not an error. A term counts once for each entity, even with two instances, until it is measured.
+
 ## 4. Functions
 
 | Function | Does |

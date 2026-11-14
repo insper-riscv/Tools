@@ -25,6 +25,8 @@ from riscv_tools.fit_estimate import (
 from riscv_tools.fit_estimate.table import CalibrationTable
 from riscv_tools.memory_map.core import platform_list
 from riscv_tools.memory_map.expressions import evaluate
+from riscv_tools.memory_map.external import external_list
+from riscv_tools.memory_map.kinds import EXTERNAL
 
 BITS_PER_KBIT = 1024
 # Peripherals of the platform that the calibration table separates.
@@ -152,6 +154,11 @@ def profile_spec(ctx: Context) -> ProfileSpec:
     names = {
         str(item["name"]) for item in platform_list(platform, "peripherals")
     }
+    external = frozenset(
+        variant.entity.upper()
+        for item in external_list(platform)
+        if (variant := EXTERNAL[str(item["kind"])].variant(item)) is not None
+    )
     return ProfileSpec(
         base=base,
         extensions=extensions,
@@ -162,7 +169,8 @@ def profile_spec(ctx: Context) -> ProfileSpec:
         dcache_kbit=_cache_kbit(platform, "dcache"),
         peripherals=frozenset(
             term for name, term in TABLE_PERIPHERALS.items() if name in names
-        ),
+        )
+        | external,
         backends=_backends(ctx),
         emulated_bytes=_emulated_bytes(platform),
     )

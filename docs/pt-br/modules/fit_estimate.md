@@ -38,6 +38,8 @@ $$ N_{blocos} = \sum_m \left\lceil \frac{8 s_m}{b_{bloco}} \right\rceil + N_{cac
 
 As implicações da ISA valem na função `terms`: Zicntr e Zihpm implicam Zicsr, M implica Zmmul, e Sscofpmf exige Zihpm e interrupções. A calibração usa a mesma função para ajustar, de modo que o ajuste e a estimativa não divergem.
 
+Cada kind externo da plataforma (seção 9.6 de [memory_map](memory_map.md)) soma o termo `peripherals.<ENTIDADE>`, com o nome da entidade de `Peripherals` em maiúsculas (`PS2_KEYBOARD`, `LTC2308`, `HDMI_TX`). A tabela da família pode listá-lo com `null` ou nem citá-lo, e as duas formas são "sem medição", um aviso V18 que nomeia o termo e não um erro. Um termo conta uma vez por entidade, mesmo com duas instâncias, até haver medida.
+
 ## 4. Funções
 
 | Função | Faz |

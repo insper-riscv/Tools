@@ -76,6 +76,42 @@ modes:
 
 On each axis, `visible + front_porch + sync + back_porch` must equal `total`, and `polarity` is `negative` or `positive`, the polarity of the synchronism pulse. How the mode of a platform is resolved is in [board_video](board_video.md).
 
+### 3.2. The `buses` section
+
+The `buses` section of `board.yaml` says, for each role of an external peripheral, which signal of `pins.yaml` wires each pin of the peripheral. The key is the role (the "Board role" column of section 9.6 of [memory_map](memory_map.md), except for `video`, which stays in `io.video`) and the value is a mapping, or a list of mappings when the board has more than one copy of the role (the two PS/2 channels of the DE0-CV).
+
+```yaml
+buses:
+  ps2:
+    - {clk: PS2_CLK, dat: PS2_DAT}
+    - {clk: PS2_CLK2, dat: PS2_DAT2}
+  sd: {clk: SD_CLK, cmd: SD_CMD, dat: "SD_DAT[3:0]"}
+  adc:
+    - {chip: ltc2308, convst: ADC_CONVST, sck: ADC_SCK, sdi: ADC_SDI, sdo: ADC_SDO}
+```
+
+A value is a signal (`SD_CLK`) or a bus (`SD_DAT[3:0]`) of `pins.yaml`. The order of the copies is the one of `instance` in `peripherals`. The table shows the pins of each role, with the direction seen from the top of the board; the suffix `?` marks an optional pin.
+
+| Role | Pins (direction) |
+| :--- | :--- |
+| `ps2` | `clk` and `dat` (inout) |
+| `sd` | `clk` (out), `cmd` and `dat` (inout) |
+| `ir` | `rxd` (in) |
+| `lcd` | `data` (inout), `rs`, `rw`, `en`, `power` and `blon?` (out) |
+| `usb` | `addr`, `cs_n`, `rd_n`, `wr_n` and `rst_n` (out), `data` (inout), `int` (in) |
+| `i2c` | `scl` and `sda` (inout) |
+| `audio` | `xck`, `bclk`, `adclrck`, `daclrck` and `dacdat` (out), `adcdat` (in) |
+| `eth` (MII) | `rx_clk`, `rxd`, `rx_dv`, `rx_er`, `tx_clk` and `int_n?` (in), `txd`, `tx_en`, `tx_er`, `mdc` and `rst_n` (out), `mdio` (inout) |
+| `hdmi` | `d`, `clk`, `de`, `hs` and `vs` (out), `int` (in), `scl` and `sda` (inout) |
+| `tv` | `data` and `clk27` (in), `reset_n` (out) |
+| `adc` with `chip: adc128s022` | `cs_n`, `sclk` and `saddr` (out), `sdat` (in) |
+| `adc` with `chip: ltc2308` | `convst`, `sck` and `sdi` (out), `sdo` (in) |
+| `adc` with `chip: max10` | no pin, only the presence of the internal ADC |
+| `spi` | `sclk`, `mosi` and `cs_n` (out), `miso` (in) |
+| `adxl345` | `cs_n` and `sclk` (out), `mosi` (inout), `miso?` and `int1?` (in) |
+
+An unknown role, a pin the role does not have, a missing required pin and a `chip` that is missing or outside the registry are problems of the file, and `check-boards` refuses every cited signal that `pins.yaml` lacks.
+
 ## 4. New fields of the `platform.yaml`
 
 | Field | Rule |

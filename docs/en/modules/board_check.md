@@ -39,6 +39,8 @@ The `needs` key sits beside `sources` and `requires` in the `paths.yaml` of the 
 | V20 | E or W | A video request the board cannot meet (mode missing from the catalog, proportion that does not match the size, mode outside `modes` without `outside_manual`, more bits per channel than the board, framebuffer larger than the visible area, board without `io.video`), or the warning of a mode outside the manual marked with `outside_manual` |
 | V21 | E | Pixel clock of the mode that the PLL of the board cannot make together with the clocks of the platform |
 | V22 | E | Framebuffer that does not fit the free memory blocks |
+| V23 | E or W | An external peripheral the board does not serve (role, copy or chip missing in `buses`); an error when `need` is `required`, a warning and an omitted peripheral when it is `optional` |
+| V24 | E | A pin the entity needs and the board role does not wire (`miso` of the `adxl345` with `three_wire` false) |
 
 Rules V11 to V13 run the estimator of [fit_estimate](fit_estimate.md) on the profile, the caches, the peripherals and the memories of the platform, with the calibration table of the family of the board. An emulated region counts a power of two of bytes, because the address width decides the blocks. Without the `profile` field in the platform, or without the table, nothing is estimated. V14 (pins and PLLs) stays with the report of the Quartus. Rules V20 to V22, for the video, are described in [board_video](board_video.md).
 
@@ -46,7 +48,7 @@ Rules V11 to V13 run the estimator of [fit_estimate](fit_estimate.md) on the pro
 
 - In V9 the sector comes from the chip of a `dispositivo` NOR FLASH, or from the `sector_bytes` of an `emulado` FLASH.
 - In V15 a PLL output is a pair of frequency and phase, and the number of PLLs needed is the ceiling of the division by the outputs of one PLL of the family.
-- In V16 the pins in use are the one of the reference clock, the reset, the ones of the requested roles, the UART ones when the console is `pinos` and the ones that start with the prefixes of the memories in use.
+- In V16 the pins in use are the one of the reference clock, the reset, the ones of the requested roles, the UART ones when the console is `pinos`, the ones of the `buses` roles that the external peripherals use and the ones that start with the prefixes of the memories and of the video in use.
 - In V17 the check is the `check_chain` function, which receives the IDCODEs read from the cable; the command that identifies the board by the JTAG is the one that reads them.
 - In V19 the accepted widths are 8 and 16 for the NOR, 16 and 32 for the SRAM and 16 and 32 for the SDRAM (the chip width times the number of chips).
 

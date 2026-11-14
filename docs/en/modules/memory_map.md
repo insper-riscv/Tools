@@ -321,7 +321,7 @@ The rule depends only on the file, so the sources of the other peripherals keep 
 | Runtime header (`runtime`) | `RV32_<NAME>_BASE` and `RV32_IRQ_<NAME>` of each one |
 | Board top (`board generate`) | `timer_indices => TIMER_INDICES` and `timer_irq_ids => TIMER_IRQ_IDS` on the SoC, only when there is a timer |
 
-The `kind` is one of `timer`, `gpio` and `seg_display` (the list is in one place, `memory_map/kinds.py`). A timer must give `size`, which a `gpio` or `seg_display` block must not (its window comes from the groups). An unknown `kind` (V-P7), a window under 32 bytes (V-P8), a name that is not a VHDL identifier or that repeats in upper case (V-P9) and a source pinned to a fixed line (V-P10) are errors before generating. The alignment and the overlap of the windows follow the rules of the other peripherals (V-P2, V-P4 and V-P5).
+The `kind` is one of `timer`, `gpio`, `seg_display` and the external ones of section 9.6 (the list is in one place, `memory_map/kinds.py`). A timer must give `size`, which a `gpio` or `seg_display` block must not (its window comes from the groups). An unknown `kind` (V-P7), a window under 32 bytes (V-P8), a name that is not a VHDL identifier or that repeats in upper case (V-P9) and a source pinned to a fixed line (V-P10) are errors before generating. The alignment and the overlap of the windows follow the rules of the other peripherals (V-P2, V-P4 and V-P5).
 
 ## 6. The clocks of the platform
 
@@ -507,7 +507,7 @@ peripherals:
 | V-P4 | Two peripheral windows overlap |
 | V-P5 | The window of a peripheral overlaps a region |
 | V-P6 | The top-level `periph_window` field, or `ext_base` or `periph_base` of `generate.vhdl`, which the core no longer knows |
-| V-P7 | The `kind` of a peripheral is not `timer`, `gpio` or `seg_display` |
+| V-P7 | The `kind` of a peripheral is not one of the registry (`timer`, `gpio`, `seg_display` and the external ones of section 9.6) |
 | V-P8 | A timer has a `size` under 32 bytes |
 | V-P9 | A peripheral name is not a VHDL identifier, or repeats in upper case |
 | V-P10 | A timer is pinned to a fixed line of the SoC (1, 2, 3, 4 or 6) |
@@ -599,6 +599,75 @@ The pins of a role are numbered from 0, and a pin that is in no group is off. Ea
 The off pins come out as notes (`NOTE`) of `generate-memory-map`, and a `required` role of `io` whose blocks have no group at all comes out as a warning. The map package gains `<NAME>_BASE`, `<NAME>_INDEX` and the entries of the `PERIPH_BASES` and `PERIPH_MASKS` tables as for the other peripherals, and `memory_map.h` gains `RV32_<NAME>_G<k>_BASE`, the base plus $64k$ bytes.
 
 The key `generate.platform_h` writes the `rv32_platform.h` of the test programs from the platform: `RV32_RAM_BASE`, `RV32_RAM_END`, `RV32_STDOUT_BASE`, `RV32_TOHOST`, the `RV32_<NAME>_BASE` of each peripheral, the `RV32_<NAME>_G<k>_BASE`, the FLASH banks, `RV32_TICK_CYCLES` and the macros `RVMODEL_HALT_PASS` and `RVMODEL_HALT_FAIL`.
+
+### 9.6. External peripherals of `Peripherals`
+
+An entry of `peripherals` with one of the external `kind` values is a peripheral of the `Peripherals` repository that the generated top of the board instantiates next to the SoC and wires to the pins of a role of the board (the `buses` section of `board.yaml`, see [board_schema](board_schema.md)). The registry of kinds (`memory_map/kinds.py`) is the only place that lists them.
+
+```yaml
+peripherals:
+  KBD:
+    kind: ps2
+    device: keyboard
+    base: 0x80007000
+  MOUSE:
+    kind: ps2
+    device: mouse
+    base: 0x80007100
+  ADC0:
+    kind: adc
+    chip: ltc2308
+    base: 0x80010000
+    instance: 1
+  SD:
+    kind: sd_spi
+    base: 0x80008000
+    need: optional
+```
+
+| Kind | Entity | Board role | Minimum window | PLIC line | Own fields |
+| :--- | :--- | :--- | ---: | :--- | :--- |
+| `ps2` | `ps2_keyboard` or `ps2_mouse_top` | `ps2` | 16 or 32 bytes | yes | `device` (`keyboard` or `mouse`, default `keyboard`) |
+| `video` | `video` | `io.video` | 256 KiB | no | none |
+| `sd_spi` | `sd_spi` | `sd` | 32 bytes | yes | none |
+| `sd_native` | `sd_native` | `sd` | 64 bytes | yes | none |
+| `ir` | `ir_receiver` | `ir` | 32 bytes | yes | `active_low` (boolean) |
+| `lcd` | `lcd` | `lcd` | 32 bytes | yes | none |
+| `usb` | `usb_bridge` | `usb` | 64 bytes | yes | `int_active_high` (boolean) |
+| `i2c` | `i2c_master` | `i2c` | 32 bytes | yes | none |
+| `audio` | `audio` | `audio` | 64 bytes | yes | none |
+| `eth` | `eth` (MII) | `eth` | 256 bytes | yes | `phy_addr` (integer) |
+| `hdmi` | `hdmi_tx` | `hdmi` | 256 KiB | yes | none |
+| `tv` | `tv` | `tv` | 64 bytes | yes | none |
+| `adc` | `adc128s022`, `ltc2308` or `max10_adc` | `adc` | 64, 64 or 128 bytes | yes | `chip` (required) |
+| `spi` | `spi` | `spi` | 32 bytes | yes | `cs_count` (integer) |
+| `adxl345` | `adxl345` | `adxl345` | 32 bytes | yes | `three_wire` (boolean) |
+
+The minimum window is one word of 4 bytes for each address the entity decodes. The common fields are the following.
+
+| Field | Meaning |
+| :--- | :--- |
+| `base` | Address of the window, aligned to it |
+| `size` | Bytes of registers; when omitted it is the minimum window of the entity |
+| `instance` | The copy of the board role the peripheral uses; when omitted, each peripheral of a role takes the least copy that no earlier one took, in the order of `peripherals` |
+| `need` | `required` (default) or `optional`; with `optional`, a board without the role only gives a warning and the peripheral is left out of the top |
+
+Each entity with an interrupt line gets a PLIC source by the same rule as the timers of section 5.2, either the source written in `interrupts.sources` or the least free number from 5, in the order of `peripherals`, counting the timers and the external peripherals together. The `video` has no line.
+
+| Rule | Rejection condition |
+| :--- | :--- |
+| V-P11 | The `size` is smaller than the registers of the entity |
+| V-P12 | The field that picks the entity (`device`, `chip`) is missing or is not one of the values of the registry |
+| V-P13 | Two peripherals take the same copy of the same role |
+| V-P10 | A source of `interrupts.sources` pinned to a fixed line of the SoC (1, 2, 3, 4 or 6) |
+
+A key the kind does not know, a field of the wrong type and a `need` that is neither `required` nor `optional` are refused when the platform is read. A board that lacks the role, the copy or the chip asked for is handled by `board_check` (V23).
+
+| Output | Constants |
+| :--- | :--- |
+| VHDL package (`vhdl`) | Only with at least one external peripheral. `EXT_COUNT`, the tables `EXT_INDICES` (the index of each one in the window tables) and `EXT_IRQ_IDS` (the source of each one, 0 without a line or without a PLIC) and `<NAME>_EXT_POS`, the position of each one in the two tables |
+| Runtime header (`runtime`) | `RV32_<NAME>_BASE` and, for those with a line, `RV32_IRQ_<NAME>` |
+| Top of the board (`board generate`) | The instance of each peripheral and its pins, see [top_generator](top_generator.md) |
 
 ## 10. The `config_pkg`
 

@@ -11,6 +11,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any, cast
 
 from riscv_tools.board_inputs import BoardInputs, InputError, PinSignal
+from riscv_tools.board_ports.placement import Placement, placements
 from riscv_tools.board_schema.board import IO_ROLES
 
 _SEGMENTS = 7
@@ -49,6 +50,10 @@ class Port:
         Expressão VHDL de um bit de outra porta que esta porta usa no
         lugar de um pino próprio (o reset em `KEY[0]`); vazio quando a
         porta tem pino.
+    owner : str
+        O periférico externo dono da porta; vazio nas demais.
+    pin : str
+        O pino do papel que a porta liga no periférico (`clk`).
     """
 
     name: str
@@ -58,6 +63,8 @@ class Port:
     vector: bool
     active: str = "high"
     alias: str = ""
+    owner: str = ""
+    pin: str = ""
 
     @property
     def width(self) -> int:
@@ -605,6 +612,109 @@ def _reset_port(
     return Port(name, "reset", "in", (sig,), False, active)
 
 
+def _video_ports(inputs: BoardInputs, place: Placement) -> list[Port]:
+    """Monta as portas da saída de vídeo, uma por sinal do prefixo.
+
+    Parameters
+    ----------
+    inputs : BoardInputs
+        Os dados da placa.
+    place : Placement
+        O periférico `video` e o prefixo dos sinais.
+
+    Returns
+    -------
+    list of Port
+        As portas `VGA_R`, `VGA_G` e assim por diante, todas de saída.
+    """
+    prefix = str((place.pins or {})["video"])
+    made = _group_ports(inputs, "video", [prefix])
+    return [
+        replace(
+            port,
+            direction="out",
+            owner=place.name,
+            pin=port.name[len(prefix) + 1 :].lower(),
+        )
+        for port in made
+    ]
+
+
+def _placement_ports(inputs: BoardInputs, place: Placement) -> list[Port]:
+    """Monta as portas de um periférico externo.
+
+    Parameters
+    ----------
+    inputs : BoardInputs
+        Os dados da placa.
+    place : Placement
+        O periférico e os sinais da cópia do papel.
+
+    Returns
+    -------
+    list of Port
+        Uma porta por pino do papel que a cópia liga, com a direção do
+        registro de `kinds` e o dono.
+    """
+    if place.kind.role == "video":
+        return _video_ports(inputs, place)
+    ports: list[Port] = []
+    wired = place.pins or {}
+    for pin in place.variant.pins if place.variant else ():
+        if pin.name not in wired:
+            continue
+        ports += [
+            replace(
+                port,
+                direction=pin.direction,
+                owner=place.name,
+                pin=pin.name,
+            )
+            for port in _vector_port(
+                inputs, place.kind.role, wired[pin.name], "high"
+            )
+        ]
+    return ports
+
+
+def _bus_ports(inputs: BoardInputs) -> PortPlan:
+    """Monta as portas dos periféricos externos da plataforma.
+
+    Parameters
+    ----------
+    inputs : BoardInputs
+        Os dados da placa.
+
+    Returns
+    -------
+    PortPlan
+        As portas e os avisos dos periféricos opcionais que a placa
+        não atende.
+
+    Raises
+    ------
+    InputError
+        Se a placa não atende um periférico obrigatório.
+    """
+    ports: list[Port] = []
+    warnings: list[str] = []
+    name = inputs.board.get("board")
+    for place in placements(inputs.platform, inputs.board):
+        if place.pins is not None:
+            ports += _placement_ports(inputs, place)
+        elif place.need == "required":
+            raise InputError(
+                f"E peripheral {place.name} required but board {name!r}: "
+                f"{place.reason}"
+            )
+        else:
+            warnings.append(
+                f"W peripheral {place.name} optional and not on board "
+                f"{name!r} ({place.reason}); it is omitted"
+            )
+    return PortPlan(tuple(ports), warnings)
+
+
 def build_ports(inputs: BoardInputs) -> PortPlan:
     """Monta todas as portas do topo de uma plataforma numa placa.
 
@@ -639,10 +749,12 @@ def build_ports(inputs: BoardInputs) -> PortPlan:
         ),
         _reset_port(inputs, reset, list(io.ports)),
     ]
+    buses = _bus_ports(inputs)
     return PortPlan(
         tuple(head + list(io.ports) + _uart_ports(inputs))
-        + tuple(_memory_ports(inputs)),
-        io.warnings,
+        + tuple(_memory_ports(inputs))
+        + buses.ports,
+        io.warnings + buses.warnings,
     )
 
 

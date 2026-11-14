@@ -2,7 +2,7 @@
 
 from typing import Any, cast
 
-from riscv_tools.memory_map import memory, timers
+from riscv_tools.memory_map import external, memory, timers
 from riscv_tools.memory_map.core import (
     DEFAULT_ADDRESS_BITS,
     Mismatch,
@@ -298,7 +298,7 @@ def validate_platform(
         for text in platform.get("_group_problems", [])
     ]
     problems += _core_map_problems(platform, bits)
-    problems += timers.problems(platform)
+    problems += timers.problems(platform) + external.problems(platform)
     return problems + _peripheral_problems(
         platform_list(platform, "peripherals"), spans, bits
     )

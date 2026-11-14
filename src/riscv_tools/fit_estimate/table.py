@@ -16,6 +16,7 @@ from typing import Any, cast
 import yaml
 
 from riscv_tools.fit_estimate.policy import MAX_LOGIC_ERROR_PCT
+from riscv_tools.memory_map.kinds import EXTERNAL
 
 GROUPS = (
     "core",
@@ -56,6 +57,18 @@ class Vocabulary:
     backends: frozenset[str]
 
 
+# Um termo por entidade do `Peripherals` que um `kind` externo usa.
+EXTERNAL_TERMS = tuple(
+    sorted(
+        {
+            variant.entity.upper()
+            for kind in EXTERNAL.values()
+            for variant in kind.variants.values()
+        }
+    )
+)
+
+
 DEFAULT_VOCABULARY = Vocabulary(
     extensions=frozenset(
         {
@@ -78,6 +91,7 @@ DEFAULT_VOCABULARY = Vocabulary(
             "UART",
             "DISPLAY",
             "FLASH_CTRL",
+            *EXTERNAL_TERMS,
         }
     ),
     backends=frozenset({"sdram_16", "sdram_32", "nor", "sram"}),

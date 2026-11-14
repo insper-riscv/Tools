@@ -1,0 +1,6 @@
+# Catálogo de modos de vídeo da fixture: só o 640x480@60 que a placa de exemplo aceita.
+modes:
+  640x480@60:
+    pixel_clock_mhz: 25
+    horizontal: {visible: 640, front_porch: 16, sync: 96, back_porch: 48, total: 800, polarity: negative}
+    vertical: {visible: 480, front_porch: 10, sync: 2, back_porch: 33, total: 525, polarity: negative}

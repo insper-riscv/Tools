@@ -39,6 +39,8 @@ A chave `needs` mora ao lado de `sources` e `requires` no `paths.yaml` do reposi
 | V20 | E ou W | Pedido de vídeo que a placa não atende (modo ausente do catálogo, proporção que não bate com o tamanho, modo fora de `modes` sem `outside_manual`, mais bits por canal que a placa, framebuffer maior que a área visível, placa sem `io.video`), ou aviso de um modo fora do manual marcado com `outside_manual` |
 | V21 | E | Relógio de pixel do modo que o PLL da placa não gera junto com os relógios da plataforma |
 | V22 | E | Framebuffer que não cabe nos blocos de memória livres |
+| V23 | E ou W | Periférico externo que a placa não atende (papel, cópia ou chip ausente em `buses`); erro se `need` é `required`, aviso e periférico omitido se é `optional` |
+| V24 | E | Pino que a entidade pede e o papel da placa não liga (`miso` do `adxl345` com `three_wire` falso) |
 
 As regras V11 a V13 rodam o estimador de [fit_estimate](fit_estimate.md) sobre o perfil, as caches, os periféricos e as memórias da plataforma, com a tabela de calibração da família da placa. A região emulada conta uma potência de dois de bytes, porque a largura do endereço decide os blocos. Sem o campo `profile` na plataforma, ou sem a tabela, nada é estimado. A V14 (pinos e PLLs) fica com o relatório do Quartus. As regras V20 a V22, do vídeo, estão em [board_video](board_video.md).
 
@@ -46,7 +48,7 @@ As regras V11 a V13 rodam o estimador de [fit_estimate](fit_estimate.md) sobre o
 
 - Na V9 o setor vem do chip de uma FLASH NOR `dispositivo`, ou do `sector_bytes` de uma FLASH `emulado`.
 - Na V15 uma saída de PLL é um par de frequência e fase, e o número de PLLs necessário é o teto da divisão pelas saídas de um PLL da família.
-- Na V16 os pinos em uso são o do relógio de referência, o do reset, os dos papéis pedidos, os da UART quando o console é `pinos` e os que começam pelos prefixos das memórias em uso.
+- Na V16 os pinos em uso são o do relógio de referência, o do reset, os dos papéis pedidos, os da UART quando o console é `pinos`, os dos papéis `buses` que os periféricos externos usam e os que começam pelos prefixos das memórias e do vídeo em uso.
 - Na V17 a verificação é a função `check_chain`, que recebe os IDCODEs lidos do cabo; quem os lê é o comando de identificação pela JTAG.
 - Na V19 as larguras aceitas são 8 e 16 para a NOR, 16 e 32 para a SRAM e 16 e 32 para a SDRAM (a largura do chip vezes o número de chips).
 
