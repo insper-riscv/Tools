@@ -96,16 +96,11 @@ def test_the_header_names_each_timer(tmp_path: Path) -> None:
     check_in("#define RV32_IRQ_TIMER2 RV32_ADDRESS(0x00000008)", header)
 
 
-def test_has_timer_follows_the_timers(tmp_path: Path) -> None:
-    """HAS_TIMER is true with one timer or more and false with none."""
+def test_the_package_has_no_timer_constant(tmp_path: Path) -> None:
+    """The timers do not become a constant of config_pkg."""
     path = _three(tmp_path)
     text = render_variant(load_platform(path), path, tmp_path)
-    check_in("constant HAS_TIMER      : boolean := true;", text)
-    bare = write_zicsr_platform(
-        tmp_path, _platform([UART, CLINT, PLIC], [{"name": "UART", "id": 1}])
-    )
-    text = render_variant(load_platform(bare), bare, tmp_path)
-    check_in("constant HAS_TIMER      : boolean := false;", text)
+    check_not_in("HAS_TIMER", text)
 
 
 def test_no_timer_gives_empty_tables(tmp_path: Path) -> None:
