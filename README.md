@@ -26,6 +26,7 @@ Ele foi projetado para rodar em uma workstation com todas as ferramentas instala
 | `rom_writer`         | Grava uma imagem de ROM via JTAG sem reprogramar            | [docs/modules/rom_writer.md](docs/pt-br/modules/rom_writer.md) |
 | `ram_zero`           | Zera a RAM inteira via JTAG sem reprogramar                 | [docs/modules/ram_zero.md](docs/pt-br/modules/ram_zero.md) |
 | `ram_target`         | Onde fica a RAM (instância da FPGA ou porta de debug da SDRAM) | [docs/modules/ram_target.md](docs/pt-br/modules/ram_target.md) |
+| `ram_load`           | Carrega arquivos na SDRAM pela porta de debug, confere e dispara | [docs/modules/ram_load.md](docs/pt-br/modules/ram_load.md) |
 | `sdram_debug`        | Lê, escreve e preenche a SDRAM pela porta de debug JTAG      | [docs/modules/sdram_debug.md](docs/pt-br/modules/sdram_debug.md) |
 | `uart_console`       | Mostra a saída do programa pela UART JTAG enquanto ele roda  | [docs/modules/uart_console.md](docs/pt-br/modules/uart_console.md) |
 | `display`            | Lê e escreve o registrador do display de sete segmentos e a bandeira de falha da placa, com que o `run` e o `certify-board` mostram o programa em execução | [docs/modules/display.md](docs/pt-br/modules/display.md) |
@@ -101,7 +102,7 @@ uv run riscv-tools --config /path/to/project/config.yaml sim
 uv run riscv-tools --config /path/to/project/config.yaml sim --only test-a,test-b
 ```
 
-Veja `riscv-tools --help` para a lista completa de subcomandos (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `generate-config-pkg`, `check-paths`, `check-boards`, `check-tree`, `sources`, `ipxact`, `check-vhdl-style`, `vsg-config`, `vsg-rules`, `vhdl-files`, `platform`, `flash-image`, `timing-paths`, `board generate`, `calibrate` e `check-fit`).
+Veja `riscv-tools --help` para a lista completa de subcomandos (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `load-ram`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `generate-config-pkg`, `check-paths`, `check-boards`, `check-tree`, `sources`, `ipxact`, `check-vhdl-style`, `vsg-config`, `vsg-rules`, `vhdl-files`, `platform`, `flash-image`, `timing-paths`, `board generate`, `calibrate` e `check-fit`).
 
 ```bash
 # vhdl-sort não precisa de --config; é só análise do conteúdo dos arquivos,
