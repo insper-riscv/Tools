@@ -173,17 +173,24 @@ def platform_core(platform: dict[str, Any]) -> dict[str, Any]:
     return legacy_to_core(profile_name(platform), extras)
 
 
-def render_self_spec(core: dict[str, Any], default_march: str) -> str:
-    """Write the spec that gives a program the `-march` of the core.
+_SELF_SPEC = "\n*self_spec:\n"
+
+
+def add_self_spec(text: str, core: dict[str, Any], default_march: str) -> str:
+    """Give a program the `-march` of the core in a specs file.
 
     GCC puts its own default `-march` on the command line before any
     spec file is read, so a spec cannot tell a missing option from the
-    default. The spec replaces `-march` and `-mabi` only when `-march`
+    default. The rule replaces `-march` and `-mabi` only when `-march`
     is the default of the toolchain, which is what a program compiled
     without it carries; any other `-march` is kept.
 
     Parameters
     ----------
+    text : str
+        The specs file. When it already has a `*self_spec` (the one of
+        C++, see `cxx`), the rule goes at the end of that line, so the
+        file keeps a single section.
     core : dict of {str: Any}
         The `core` block.
     default_march : str
@@ -192,10 +199,14 @@ def render_self_spec(core: dict[str, Any], default_march: str) -> str:
     Returns
     -------
     str
-        The `*self_spec:` section, ending in a newline.
+        The file with the rule.
     """
-    return (
-        "*self_spec:\n"
+    rule = (
         f"%{{march={default_march}:%<march=* %<mabi=*"
-        f" -march={march_of(core)} -mabi={abi_of(core)}}}\n"
+        f" -march={march_of(core)} -mabi={abi_of(core)}}}"
     )
+    if _SELF_SPEC not in text:
+        return f"{text}{_SELF_SPEC}{rule}\n"
+    head, tail = text.split(_SELF_SPEC, 1)
+    line, rest = tail.split("\n", 1)
+    return f"{head}{_SELF_SPEC}{line} {rule}\n{rest}"

@@ -440,3 +440,61 @@ def test_check_memory_map_reports_the_refusals(tmp_path: Path) -> None:
     path = _write(tmp_path, _with_boot("1536"))
     _, problems = check_memory_map(path, tmp_path)
     check(any("V-B1" in str(p) for p in problems), str(problems))
+
+
+def _both() -> dict[str, Any]:
+    """Copy the platform with `march` and `cxx` on in the specs."""
+    return _with_march(cxx=True)
+
+
+def test_march_and_cxx_share_one_self_spec(tmp_path: Path) -> None:
+    """The C++ self spec holds the core rule in one section."""
+    text = _render(tmp_path, _both())[SPECS]
+    check_equal(text.count("*self_spec:"), 1)
+    check_in("%rename self_spec rv32imfpga_self_spec", text)
+    check_in(
+        "*self_spec:\n%(rv32imfpga_self_spec) %{!T:-T picolibcpp.ld} "
+        "%{march=rv32im_zmmul:%<march=* %<mabi=*"
+        " -march=rv32im_zicsr_zicntr -mabi=ilp32}\n",
+        text,
+    )
+
+
+def test_cxx_alone_and_march_alone_are_unchanged(tmp_path: Path) -> None:
+    """Each key alone writes what it wrote without the other."""
+    both = _render(tmp_path, _both())[SPECS]
+    cxx = _render(tmp_path, _with_march(cxx=True, march=False))[SPECS]
+    check_in("%{!T:-T picolibcpp.ld}\n", cxx)
+    check_not_in("-march=", cxx)
+    check(both.startswith(cxx.split("*self_spec:")[0]))
+
+
+@pytest.mark.skipif(shutil.which(GCC) is None, reason=f"needs {GCC} on PATH")
+def test_gcc_takes_the_core_and_the_cxx_linker_script(
+    tmp_path: Path,
+) -> None:
+    """Without `-march` gcc takes the core and the C++ linker script."""
+    platform = _with_march(cxx=True, default_march=_gcc_default())
+    specs = tmp_path / "x.specs"
+    specs.write_text(_render(tmp_path, platform)[SPECS])
+    plan = _run(
+        [GCC, f"--specs={specs}", "-###", "x.o", "-o", "x.elf"], "stderr"
+    )
+    check_in("picolibcpp.ld", plan)
+    check_in("-march=rv32im_zicsr_zicntr", plan)
+    check_in("-mabi=ilp32", plan)
+    own = _run(
+        [
+            GCC,
+            f"--specs={specs}",
+            "-march=rv32e",
+            "-mabi=ilp32e",
+            "-###",
+            "x.o",
+            "-o",
+            "x.elf",
+        ],
+        "stderr",
+    )
+    check_in("picolibcpp.ld", own)
+    check_not_in("rv32im_zicsr_zicntr", own)
