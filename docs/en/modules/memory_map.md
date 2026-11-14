@@ -241,9 +241,8 @@ Each rule is a problem of the platform, found before any file is generated and b
 | V-B1 | The size of the BOOT_MEMORY (`memory.boot.size`) is not a power of two |
 | V-B2 | `boot.wait_restart` is less than 20 bytes from the end of the BOOT_MEMORY, which is what the wait loop takes |
 | V-I1 | `core.type` is 64, because the toolchain image has no RV64 multilib and the compiler accepts `rv64` and links with the 32-bit libraries without a warning |
-| V-I2 | There is an instruction or a data cache and the core lacks `Zifencei`, whose `fence.i` makes the caches drop their lines |
 
-The extension `Q` is refused when the `core` block is read, because the GCC 16.1.0 does not support it. V-I1 and V-I2 hold for the platform and not for the variants of the `config_pkg` (section 10.4), which a formal proof may leave 64 bits wide or without `Zifencei`. The size of the assembled boot memory against the BOOT_MEMORY is checked by the generated linker script, whose `ASSERT(. <= ORIGIN + LENGTH)` fails a boot memory that overflows.
+The extension `Q` is refused when the `core` block is read, because the GCC 16.1.0 does not support it. V-I1 holds for the platform and not for the variants of the `config_pkg` (section 10.4), which a formal proof may leave 64 bits wide. No extension is required: Tools reads what the platform declares and adapts (`fence.i` exists only with `Zifencei`). The size of the assembled boot memory against the BOOT_MEMORY is checked by the generated linker script, whose `ASSERT(. <= ORIGIN + LENGTH)` fails a boot memory that overflows.
 
 ## 5. The interrupts of the platform
 
@@ -550,7 +549,6 @@ In the `config.yaml` the values arrive as `sim.parameters` named `ROM_EXTERNAL`,
 | V3 | With any cache, the FLASH and the RAM each fit one aligned window of up to 512 MiB (the tag of the caches keeps the bits below the window) | Error |
 | V4 | With the FLASH on the bus, its size fits the 1024 KiB window of the router | Error |
 | V5 | An `exec` region in the RAM needs the RAM and the FLASH on the bus | Error |
-| V7 | An `exec` region in the RAM behind the instruction cache needs Zifencei in the profile | Error |
 | V9 | A platform with peripherals | Note |
 | V10 | With any cache, `reserved.fromhost` exists and sits in the last 4 KiB page of the RAM, the one the cache skips | Error |
 | V-C1 | `icache.enabled` with `rom.external: false`: the instruction cache needs `FLASH_ON_BUS` | Error |

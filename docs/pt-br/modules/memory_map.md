@@ -241,9 +241,8 @@ Cada regra é um problema da plataforma, achado antes de gerar qualquer arquivo 
 | V-B1 | O tamanho da BOOT_MEMORY (`memory.boot.size`) não é potência de dois |
 | V-B2 | `boot.wait_restart` fica a menos de 20 bytes do fim da BOOT_MEMORY, o que o laço de espera ocupa |
 | V-I1 | `core.type` é 64, porque a imagem do toolchain não tem multilib RV64 e o compilador aceita `rv64` e liga em silêncio com as bibliotecas de 32 bits |
-| V-I2 | Há cache de instruções ou de dados e o núcleo não tem `Zifencei`, cujo `fence.i` faz as caches descartarem as linhas |
 
-A extensão `Q` é recusada já na leitura do bloco `core`, porque o GCC 16.1.0 não a suporta. A V-I1 e a V-I2 valem para a plataforma e não para as variantes do `config_pkg` (seção 10.4), que uma prova formal pode deixar com 64 bits ou sem `Zifencei`. O tamanho da BOOT montada contra o da BOOT_MEMORY é conferido pelo linker script gerado, cujo `ASSERT(. <= ORIGIN + LENGTH)` reprova uma BOOT que estoura.
+A extensão `Q` é recusada já na leitura do bloco `core`, porque o GCC 16.1.0 não a suporta. A V-I1 vale para a plataforma e não para as variantes do `config_pkg` (seção 10.4), que uma prova formal pode deixar com 64 bits. Nenhuma extensão é exigida: o Tools lê o que a plataforma declara e se adapta (o `fence.i` só existe com `Zifencei`). O tamanho da BOOT montada contra o da BOOT_MEMORY é conferido pelo linker script gerado, cujo `ASSERT(. <= ORIGIN + LENGTH)` reprova uma BOOT que estoura.
 
 ## 5. As interrupções da plataforma
 
@@ -550,7 +549,6 @@ No `config.yaml` os valores chegam como `sim.parameters` com os nomes `ROM_EXTER
 | V3 | Com alguma cache, a FLASH e a RAM cabem cada uma numa janela alinhada de até 512 MiB (a tag das caches guarda os bits abaixo da janela) | Erro |
 | V4 | Com a FLASH no barramento, o tamanho dela cabe na janela de 1024 KiB do roteador | Erro |
 | V5 | Região `exec` na RAM exige RAM e FLASH no barramento | Erro |
-| V7 | Região `exec` na RAM atrás da cache de instruções exige Zifencei no perfil | Erro |
 | V9 | Plataforma com periféricos | Nota |
 | V10 | Com alguma cache, `reserved.fromhost` existe e está na última página de 4 KiB da RAM, a que a cache ignora | Erro |
 | V-C1 | `icache.enabled` com `rom.external: false`: a cache de instruções exige `FLASH_ON_BUS` | Erro |

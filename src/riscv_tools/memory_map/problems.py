@@ -25,8 +25,7 @@ def platform_problems(
         The loaded platform.
     generics : dict of {str: bool or int}, optional
         The generics of the profile; without them the checks that need
-        the profile (Zifencei under a cache, the interrupts, V-A5) are
-        skipped.
+        the profile (the interrupts, V-A5) are skipped.
     xlen : int, optional
         The register width of V-A2 and V-A5, in place of the one of the
         profile of the platform.

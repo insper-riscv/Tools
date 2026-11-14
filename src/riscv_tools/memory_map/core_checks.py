@@ -9,8 +9,6 @@ generated and by `check-memory-map`, with what to do in the message.
 3. `V-I1`: `core.type` is 64. The compiler accepts `rv64` and links
    with the 32-bit libraries without a warning, because the toolchain
    image has no RV64 multilib.
-4. `V-I2`: a cache (instruction or data) without `Zifencei`. The
-   `fence.i` is what makes the caches drop their lines.
 
 The extension `Q` is refused when the `core` block is read (see
 `core_profile`), because no compiler of the image can generate it.
@@ -19,14 +17,11 @@ The extension `Q` is refused when the `core` block is read (see
 from contextlib import suppress
 from typing import Any
 
-from riscv_tools.memory_map import memory
-from riscv_tools.memory_map.boot_config import flags_of
 from riscv_tools.memory_map.core import Mismatch, platform_dict, platform_list
 from riscv_tools.memory_map.expressions import evaluate
 from riscv_tools.memory_map.march import (
     NO_RV64_MULTILIB,
     RV64,
-    platform_core,
 )
 from riscv_tools.memory_map.profile import xlen_of
 
@@ -98,7 +93,7 @@ def boot_size_problems(platform: dict[str, Any]) -> list[Mismatch]:
 def core_problems(
     platform: dict[str, Any],
 ) -> list[Mismatch]:
-    """Check the core against what the toolchain and the caches need.
+    """Check the core against what the toolchain serves.
 
     Parameters
     ----------
@@ -108,32 +103,13 @@ def core_problems(
     Returns
     -------
     list of Mismatch
-        V-I1 for a 64-bit core and V-I2 for a cache without Zifencei.
+        V-I1 for a 64-bit core.
     """
     found: list[Mismatch] = []
     # Um nome de perfil inválido é problema de quem lê o perfil.
     with suppress(ValueError):
         if xlen_of(platform) == RV64:
             found.append(_problem(f"V-I1 {NO_RV64_MULTILIB}"))
-    choice = memory.read(platform)[0]
-    if choice is None:
-        return found
-    caches = [
-        name
-        for name, present in (
-            ("icache", choice.has_icache),
-            ("dcache", choice.has_dcache),
-        )
-        if present
-    ]
-    if caches and not flags_of(platform_core(platform))["Zifencei"]:
-        found.append(
-            _problem(
-                f"V-I2 the platform has {' and '.join(caches)} but the "
-                "core lacks Zifencei, whose fence.i makes the caches drop "
-                "their lines; add Zifencei to core.extensions"
-            )
-        )
     return found
 
 
@@ -150,7 +126,7 @@ def problems(
     xlen : int, optional
         Given for a variant of the `config_pkg` (see `config_pkg`),
         which a formal proof may make 64 bits wide or without
-        `Zifencei` on purpose; the rules of the core (V-I1, V-I2) are
+        `Zifencei` on purpose; the rule of the core (V-I1) is
         then skipped, because no program is built for a variant.
 
     Returns
