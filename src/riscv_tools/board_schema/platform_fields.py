@@ -22,7 +22,7 @@ from riscv_tools.memory_map.platform_format import normalize
 
 BACKENDS = ("emulado", "dispositivo")
 DEVICES = {
-    "rom": ("nor", "flash-interna", "serial"),
+    "rom": ("nor", "flash-interna", "serial", "sdram"),
     "ram": ("sdram", "sram"),
 }
 CONSOLES = ("jtag", "pinos")

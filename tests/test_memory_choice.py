@@ -404,6 +404,46 @@ def test_the_rom_must_fit_the_router_window(tmp_path: Path) -> None:
     _render(tmp_path, platform)
 
 
+def _big_rom(device: str) -> dict[str, Any]:
+    """Build a platform whose ROM is 2 MiB of the given device.
+
+    Parameters
+    ----------
+    device : str
+        The `memory.rom.device`.
+
+    Returns
+    -------
+    dict of {str: Any}
+        The platform.
+    """
+    regions = deepcopy(MAP_REGIONS)
+    regions[1] |= {"size": "2M"}
+    regions[2] |= {"base": "0x300000"}
+    reserved = {"fromhost": {"base": "0x327FF0", "size": "8"}}
+    memory = deepcopy(MEMORY)
+    memory["rom"] = {
+        "external": True,
+        "backend": "dispositivo",
+        "device": device,
+    }
+    return _platform(regions=regions, reserved=reserved, memory=memory)
+
+
+def test_a_chip_rom_keeps_the_router_window(tmp_path: Path) -> None:
+    """V4: a NOR chip is held to the 1024 KiB the router sees."""
+    with pytest.raises(ValueError, match="window of the region router"):
+        _render(tmp_path, _big_rom("nor"))
+
+
+def test_an_sdram_rom_is_not_held_to_the_router_window(
+    tmp_path: Path,
+) -> None:
+    """V4: the SDRAM is read as the RAM is, with no 1024 KiB window."""
+    text = _render(tmp_path, _big_rom("sdram"))
+    check_in("FLASH", text)
+
+
 def test_a_cache_needs_the_bypassed_host_words(tmp_path: Path) -> None:
     """V10: the host words sit in the page the cache skips."""
     with pytest.raises(ValueError, match=r"needs reserved\.fromhost"):

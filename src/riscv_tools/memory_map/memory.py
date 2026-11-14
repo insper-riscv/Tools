@@ -51,6 +51,8 @@ DEFAULT_CACHE_BITS = 4096
 MIN_WINDOW_BITS = 26
 MAX_WINDOW_BITS = 29
 ROUTER_WINDOW_KIB = 1024
+# The ROM devices the router does not hold to its window.
+WINDOWLESS_ROM_DEVICES = ("sdram", "sram")
 PAGE = 4096
 
 _FIELDS = {
@@ -570,6 +572,7 @@ def _cache_problems(
     memory: Memory,
     rom: tuple[str, int, int] | None,
     ram: tuple[str, int, int] | None,
+    rom_device: str | None = None,
 ) -> list[Mismatch]:
     """Check what the tags of the caches and the router impose (V3, V4).
 
@@ -581,15 +584,25 @@ def _cache_problems(
         The ROM region, when named.
     ram : tuple of (str, int, int) or None
         The RAM region, when named.
+    rom_device : str or None, optional
+        The device of the ROM (`nor`, `sdram`), when it is named.
 
     Returns
     -------
     list of Mismatch
-        A region that fits no aligned window of the cache tag, and a
-        ROM larger than the window of the router.
+        A region that fits no aligned window of the cache tag, and a ROM
+        larger than the window of the router. A chip with a window (NOR,
+        not: the router sends the region to them as to the RAM.
+        not, because the router sends the region to them as to the RAM.
     """
     problems = _bus_problems(memory) + _window_problems(memory, rom, ram)
-    if memory.rom_external and rom and rom[2] > ROUTER_WINDOW_KIB * 1024:
+    windowed = rom_device not in WINDOWLESS_ROM_DEVICES
+    if (
+        windowed
+        and memory.rom_external
+        and rom
+        and rom[2] > ROUTER_WINDOW_KIB * 1024
+    ):
         problems.append(
             _problem(
                 f"ROM {rom[0]} is larger than the {ROUTER_WINDOW_KIB} "
@@ -689,7 +702,7 @@ def problems(platform: dict[str, Any]) -> list[Mismatch]:
     ram = region_span(platform, "ram")
     return (
         _legacy_problems(platform)
-        + _cache_problems(memory, rom, ram)
+        + _cache_problems(memory, rom, ram, _rom_device(platform))
         + _host_problems(memory, platform, ram)
     )
 
@@ -868,3 +881,25 @@ def vhdl_lines(memory: Memory, window: int = MIN_WINDOW_BITS) -> str:
         f"{str(value).lower() if isinstance(value, bool) else value};\n"
         for comment, name, kind, value in rows
     )
+
+
+def _rom_device(platform: dict[str, Any]) -> str | None:
+    """Read the device the ROM is made of.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+
+    Returns
+    -------
+    str or None
+        The `device` of `memory.rom` (`nor`, `sdram`, ...), or None when
+        the platform does not name one.
+    """
+    section = platform_dict(platform, "memory")
+    rom = section.get("rom")
+    if not isinstance(rom, dict):
+        return None
+    device = cast("dict[str, Any]", rom).get("device")
+    return None if device is None else str(device)
