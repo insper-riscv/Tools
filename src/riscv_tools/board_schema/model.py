@@ -208,13 +208,33 @@ class IoRole:
     Parameters
     ----------
     signals : str
-        The group of the pins file (`LEDR[9:0]`).
+        The group of the pins file (`LEDR[9:0]`); the first group when
+        the role has several.
     active : str
-        `high` or `low`.
+        `high` or `low`; the roles of general use (`gpio`, `ex_io`,
+        `hsmc`, `clock_extra`) have no polarity and say `high`.
+    groups : tuple of str
+        Every group of the role, in the order the pins of the role are
+        numbered; empty means `signals` alone.
+    bidirectional : bool
+        The pins are bidirectional, so the top makes `inout` ports.
     """
 
     signals: str
     active: str
+    groups: tuple[str, ...] = ()
+    bidirectional: bool = False
+
+    @property
+    def all_groups(self) -> tuple[str, ...]:
+        """List the groups of the role.
+
+        Returns
+        -------
+        tuple of str
+            `groups`, or `signals` alone when there is one group.
+        """
+        return self.groups or (self.signals,)
 
 
 @dataclass(frozen=True)

@@ -37,7 +37,19 @@ Além dos campos do esquema do documento de arquitetura, o `board.yaml` aceita o
 | `jtag.chain[].confirmed` | `manual`, `repo`, `inferred` ou `measured` |
 | `memories.<tipo>.signals` | Prefixo dos sinais no `pins.yaml`, ou lista de prefixos |
 
-Os sinais de `io.<papel>` seguem a gramática do `pins.yaml`: `LEDR[9:0]` são os bits 0 a 9, e `HEX[5:0][6:0]` são os dígitos 0 a 5 (primeiro intervalo, índice no nome) com os segmentos 0 a 6 (segundo intervalo).
+Os sinais de `io.<papel>` seguem a gramática do `pins.yaml`: `LEDR[9:0]` são os bits 0 a 9, e `HEX[5:0][6:0]` são os dígitos 0 a 5 (primeiro intervalo, índice no nome) com os segmentos 0 a 6 (segundo intervalo). Um sinal `NOME[i]` também acha o pino `NOMEi` do arquivo (`HSMC_CLKIN_N[1]` acha `HSMC_CLKIN_N1`).
+
+| Papel | Pinos | Polaridade |
+| :--- | :--- | :--- |
+| `leds`, `switches`, `keys`, `display`, `video` | Os papéis básicos | `active` é obrigatório (menos no `video`) |
+| `leds_green` | LEDs verdes (`LEDG[8:0]`) | `active` obrigatório |
+| `gpio` | Cabeçalhos de uso geral (DE2-115: `GPIO[35:0]`; DE0-CV: `GPIO_0[35:0]` e `GPIO_1[35:0]`) | Sem polaridade |
+| `ex_io` | `EX_IO[6:0]` (DE2-115) | Sem polaridade |
+| `hsmc` | Os 82 pinos `HSMC_*` (DE2-115) | Sem polaridade |
+| `clock_extra` | `CLOCK2_50`, `CLOCK3_50`, `SMA_CLKIN` (entrada) e `SMA_CLKOUT` (saída) | Sem polaridade |
+
+`signals` é um grupo ou uma lista de grupos, e os pinos do papel são numerados na ordem da lista (`GPIO_0` de 0 a 35, `GPIO_1` de 36 a 71). O campo opcional `bidirectional: true` (ou `direction: inout`) pede ao gerador do topo portas `inout`, e nos papéis sem polaridade `active` pode faltar (vale `high` e não é usado). Na plataforma os papéis `gpio`, `ex_io`, `hsmc`, `leds_green` e `clock_extra` só aceitam `need: optional`.
+
 
 ### 3.1. Papel `video` e catálogo de modos
 
@@ -101,6 +113,7 @@ O comando `check-boards` lê todo o catálogo e confere cada arquivo contra o es
 | `tests/test_board_schema.py::test_a_board_accepts_the_fields_of_the_boards_package` | Os campos do pacote de placas são aceitos |
 | `tests/test_board_schema.py::test_a_board_rejects_a_wrong_idcode_and_unknown_key` | IDCODE malformado e chave desconhecida |
 | `tests/test_board_schema.py::test_pins_signals_and_conflicts` | O selo de certeza do pino é conferido e `conflicts` é aceito |
+| `tests/test_io_roles.py` | Os papéis de uso geral: vários grupos de sinais, `bidirectional` e `direction: inout`, `active` opcional, a contagem por papel, `need: optional` na plataforma, o nome plano de pino e as portas `inout` em ordem de lista. |
 | `tests/test_board_schema.py::test_signal_groups_expand_as_the_format_says` | Expansão de barramentos e de barramentos de barramentos |
 | `tests/test_board_schema.py::test_platform_fields_are_read_and_typed` | Os campos novos da plataforma carregam |
 | `tests/test_board_schema.py::test_platform_field_problems` | Cada uso inválido dos campos novos é um problema tipado |

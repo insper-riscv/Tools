@@ -37,7 +37,19 @@ Besides the fields of the schema in the architecture document, the `board.yaml` 
 | `jtag.chain[].confirmed` | `manual`, `repo`, `inferred` or `measured` |
 | `memories.<kind>.signals` | Prefix of the signals in the `pins.yaml`, or a list of prefixes |
 
-The signals of `io.<role>` follow the grammar of the `pins.yaml`: `LEDR[9:0]` are bits 0 to 9, and `HEX[5:0][6:0]` are digits 0 to 5 (first range, the index in the name) with segments 0 to 6 (second range).
+The signals of `io.<role>` follow the grammar of the `pins.yaml`: `LEDR[9:0]` are bits 0 to 9, and `HEX[5:0][6:0]` are digits 0 to 5 (first range, the index in the name) with segments 0 to 6 (second range). A signal `NAME[i]` also finds the pin `NAMEi` of the file (`HSMC_CLKIN_N[1]` finds `HSMC_CLKIN_N1`).
+
+| Role | Pins | Polarity |
+| :--- | :--- | :--- |
+| `leds`, `switches`, `keys`, `display`, `video` | The basic roles | `active` is required (except for `video`) |
+| `leds_green` | Green LEDs (`LEDG[8:0]`) | `active` required |
+| `gpio` | General-use headers (DE2-115: `GPIO[35:0]`; DE0-CV: `GPIO_0[35:0]` and `GPIO_1[35:0]`) | No polarity |
+| `ex_io` | `EX_IO[6:0]` (DE2-115) | No polarity |
+| `hsmc` | The 82 `HSMC_*` pins (DE2-115) | No polarity |
+| `clock_extra` | `CLOCK2_50`, `CLOCK3_50`, `SMA_CLKIN` (input) and `SMA_CLKOUT` (output) | No polarity |
+
+`signals` is one group or a list of groups, and the pins of the role are numbered in the order of the list (`GPIO_0` from 0 to 35, `GPIO_1` from 36 to 71). The optional field `bidirectional: true` (or `direction: inout`) asks the top generator for `inout` ports, and in the roles without polarity `active` may be absent (it is `high` and is not used). On the platform the roles `gpio`, `ex_io`, `hsmc`, `leds_green` and `clock_extra` accept only `need: optional`.
+
 
 ### 3.1. The `video` role and the catalog of modes
 
@@ -101,6 +113,7 @@ The `check-boards` command reads the whole catalog and checks each file against 
 | `tests/test_board_schema.py::test_a_board_accepts_the_fields_of_the_boards_package` | The fields of the boards package are accepted |
 | `tests/test_board_schema.py::test_a_board_rejects_a_wrong_idcode_and_unknown_key` | Malformed IDCODE and unknown key |
 | `tests/test_board_schema.py::test_pins_signals_and_conflicts` | The certainty seal of a pin is checked and `conflicts` is accepted |
+| `tests/test_io_roles.py` | The roles of general use: several groups of signals, `bidirectional` and `direction: inout`, optional `active`, the count per role, `need: optional` on the platform, the flat pin name and the `inout` ports in list order. |
 | `tests/test_board_schema.py::test_signal_groups_expand_as_the_format_says` | Expansion of buses and buses of buses |
 | `tests/test_board_schema.py::test_platform_fields_are_read_and_typed` | The new platform fields load |
 | `tests/test_board_schema.py::test_platform_field_problems` | Each invalid use of the new fields is a typed problem |

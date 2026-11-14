@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from riscv_tools.board_schema.board import role_section
+from riscv_tools.board_schema.board import GENERAL_ROLES, role_section
 from riscv_tools.board_schema.fields import Section, raise_if
 from riscv_tools.board_schema.platform_video import (
     PlatformVideo,
@@ -317,6 +317,8 @@ def _io(top: Section) -> dict[str, IoNeed]:
             continue
         count = entry.integer("count", minimum=1)
         need = entry.text("need", choices=NEEDS)
+        if role in GENERAL_ROLES and need == "required":
+            entry.fail("need", "must be optional for a role of general use")
         entry.done()
         if count is not None and need is not None:
             found[role] = IoNeed(count, need)

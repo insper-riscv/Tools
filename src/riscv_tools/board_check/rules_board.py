@@ -2,7 +2,12 @@
 
 from riscv_tools.board_check.context import BOARD_KEY, Context
 from riscv_tools.board_check.findings import Finding, error, warning
-from riscv_tools.board_schema import Board, expand_group
+from riscv_tools.board_schema import (
+    Board,
+    bracketed,
+    expand_group,
+    role_signals,
+)
 
 
 def used_signals(ctx: Context) -> list[str]:
@@ -29,7 +34,7 @@ def used_signals(ctx: Context) -> list[str]:
     names += expand_group(board.clocks.reset_signal)
     for role in ctx.fields.io:
         if role in board.io:
-            names += expand_group(board.io[role].signals)
+            names += role_signals(board.io[role])
     if ctx.fields.console == "pinos":
         names += list(board.console.uart)
     return names
@@ -81,7 +86,11 @@ def rule_v16(ctx: Context) -> list[Finding]:
         )
         for pin in ctx.pins
         if pin.confirmed == "inferred"
-        and (pin.name in names or pin.name.startswith(prefixes))
+        and (
+            pin.name in names
+            or bracketed(pin.name) in names
+            or pin.name.startswith(prefixes)
+        )
     ]
 
 

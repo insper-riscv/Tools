@@ -205,40 +205,6 @@ Identificadores repetidos, fora de 1 a 1023, `priority_bits` fora de 1 a 32 e ja
 
 $$ \text{msip} = base, \quad \text{mtimecmp} = base + \texttt{0x4000}, \quad \text{mtime} = base + \texttt{0xBFF8} $$
 
-### 5.2. Temporizadores de uso geral
-
-A plataforma pode ter qualquer quantidade de temporizadores. Cada um é uma entrada de `peripherals` com `kind: timer`, nome livre, `base` própria e `size` de pelo menos 32 bytes (os oito registradores).
-
-```yaml
-peripherals:
-  TIMER0:
-    kind: timer
-    base: 0x80006000
-    size: 64
-  TIMER1:
-    kind: timer
-    base: 0x80006100
-    size: 64
-```
-
-A entrada chamada `TIMER` sem `kind` também é um temporizador, então as plataformas com um só continuam como estão. Cada temporizador tem uma fonte própria no PLIC, e a lista `interrupts.sources` não precisa nomeá-lo.
-
-| Situação | Número da fonte |
-| :--- | :--- |
-| O temporizador está em `interrupts.sources` | O que está escrito (não pode ser 1, 2, 3, 4 nem 6, as linhas fixas do SoC) |
-| O temporizador não está em `sources` | O menor número a partir de 5 que nenhuma fonte usa e que não é linha fixa, na ordem de `peripherals` |
-
-A regra só depende do arquivo, então as fontes dos outros periféricos não mudam de número com a quantidade de temporizadores.
-
-| Saída | Constantes |
-| :--- | :--- |
-| `config_pkg` | `HAS_TIMER`, verdadeira com pelo menos um temporizador |
-| Pacote VHDL (`vhdl`) | `<NOME>_BASE` e `<NOME>_INDEX` de cada um, `IRQ_<NOME>`, `TIMER_COUNT` e as tabelas `TIMER_INDICES` (o índice de cada um nas tabelas de janelas) e `TIMER_IRQ_IDS` (a fonte de cada um, 0 sem PLIC), vazias sem temporizador |
-| Cabeçalho do runtime (`runtime`) | `RV32_<NOME>_BASE` e `RV32_IRQ_<NOME>` de cada um |
-| Topo da placa (`board generate`) | `timer_indices => TIMER_INDICES` e `timer_irq_ids => TIMER_IRQ_IDS` no SoC, só quando há temporizador |
-
-Um `kind` desconhecido (V-P6), uma janela menor que 32 bytes (V-P7), um nome que não é identificador VHDL ou que repete em maiúsculas (V-P8) e uma fonte presa numa linha fixa (V-P9) são erros antes de gerar. O alinhamento e a sobreposição das janelas seguem as regras dos outros periféricos (V-P2, V-P4 e V-P5).
-
 ## 6. Os relógios da plataforma
 
 A seção `clocks` do `platform.yaml` é a fonte única das frequências: o PLL, o `.sdc` e o pacote VHDL saem dela (ver [pll_generator](pll_generator.md)). O mapa de memória lê dela o relógio do controlador da SDRAM e o do núcleo.
@@ -438,6 +404,81 @@ Os símbolos dos `checks` de um periférico são `<NOME>.base`, `<NOME>.size`, `
 | `PERIPH_MASKS` | `periph_addr_array_t(0 to PERIPH_COUNT - 1)` | A máscara da janela de cada periférico |
 
 
+O pacote VHDL ganha as constantes abaixo. `FLASH_ON_BUS` e `RAM_ON_BUS` dizem que a memória é alcançada pelo barramento, dentro ou fora do chip, e não pela porta direta do núcleo. Uma cache só existe sobre uma memória no barramento.
+
+| Constante | Tipo | Valor |
+| :--- | :--- | :--- |
+| `FLASH_ON_BUS` | boolean | `memory.rom.external` |
+| `RAM_ON_BUS` | boolean | `memory.ram.external` |
+| `HAS_ICACHE` | boolean | `memory.icache.enabled` |
+| `HAS_DCACHE` | boolean | `memory.dcache.enabled` |
+| `ICACHE_SIZE_BITS` | positive | `memory.icache.size_bits`, ou 256 sem a cache |
+| `DCACHE_SIZE_BITS` | positive | `memory.dcache.size_bits`, ou 256 sem a cache |
+| `I_CACHE_WINDOW_BITS`, `D_CACHE_WINDOW_BITS` | natural | Menor largura de 26 a 29 tal que a FLASH e a RAM cabem cada uma numa janela alinhada de $2^{\text{largura}}$ bytes (26 é 64 MiB, 27 é 128 MiB), derivada das regiões; as duas valem o mesmo |
+
+No `config.yaml` os valores chegam como `sim.parameters` com os nomes `ROM_EXTERNAL`, `RAM_EXTERNAL`, `HAS_ICACHE`, `HAS_DCACHE`, `ICACHE_SIZE_BITS` e `DCACHE_SIZE_BITS`, e com `CACHE_WINDOW_BITS` só quando passa de 26, e o topo de simulação precisa declarar os genéricos correspondentes. Sem `config.addr_widths` na plataforma, as larguras de endereço vêm da escolha, e saem a `boot_memory` e cada memória interna, já que uma memória externa é um chip dimensionado pelo próprio topo. Com `config.addr_widths` listado, a lista vale.
+
+### 7.2. Validação
+
+| Regra | Condição | Resultado |
+| :--- | :--- | :--- |
+| V1 | Os quatro booleanos existem e não há chave desconhecida | Erro |
+| V2 | `size_bits` é potência de dois e vale pelo menos 256 | Erro |
+| V3 | Com alguma cache, a FLASH e a RAM cabem cada uma numa janela alinhada de até 512 MiB (a tag das caches guarda os bits abaixo da janela) | Erro |
+| V4 | Com a FLASH no barramento, o tamanho dela cabe na janela de 1024 KiB do roteador | Erro |
+| V5 | Região `exec` na RAM exige RAM e FLASH no barramento | Erro |
+| V7 | Região `exec` na RAM atrás da cache de instruções exige Zifencei no perfil | Erro |
+| V9 | Plataforma com periféricos | Nota |
+| V10 | Com alguma cache, `reserved.fromhost` existe e está na última página de 4 KiB da RAM, a que a cache ignora | Erro |
+| V-C1 | `icache.enabled` com `rom.external: false`: a cache de instruções exige `FLASH_ON_BUS` | Erro |
+| V-C2 | `dcache.enabled` com `ram.external: false`: a cache de dados exige `RAM_ON_BUS` | Erro |
+
+Das 16 combinações de `rom.external`, `ram.external`, `icache.enabled` e `dcache.enabled`, 9 são válidas e 7 são recusadas pela V-C1 e pela V-C2. FLASH no barramento sem cache de instruções é válida. A nota sai em `NOTE` no erro padrão do `generate-memory-map`, e os erros impedem a geração.
+### 9.5. Blocos de GPIO e de display, com grupos
+
+Um periférico com `kind: gpio` ou `kind: seg_display` é um bloco que reúne os pinos de um ou mais papéis da placa em grupos, cada grupo com o seu arquivo de registradores. O `size` não se escreve, porque a janela é derivada dos grupos.
+
+```yaml
+peripherals:
+  LEDR:
+    kind: gpio
+    role: leds
+    base: 0x80002000
+    groups: solo
+  KEY:
+    kind: gpio
+    role: keys
+    base: 0x80004000
+    groups: [[0, 1], [2, 3]]
+  HEX:
+    kind: seg_display
+    base: 0x80005000
+    groups: [[0, 1, 2, 3], [4, 5]]
+```
+
+| Campo | Significado |
+| :--- | :--- |
+| `kind` | `gpio` ou `seg_display` |
+| `role` ou `roles` | Papel dos pinos (`leds`, `switches`, `keys`, `display`, `leds_green`, `gpio`, `ex_io`, `hsmc`); `roles: [a, b]` reúne os pinos de `a` e depois os de `b`. Um `seg_display` mostra só o papel `display`, e um `gpio` com `role: display` tem um pino por segmento (7 por dígito). Os papéis `gpio`, `ex_io` e `hsmc` têm direção livre, e um papel de vários grupos de sinais numera os pinos na ordem da lista (ver [board_schema](board_schema.md)) |
+| `base` | Base do bloco, alinhada à janela |
+| `groups` | `solo` (um grupo por pino), `all` (um grupo com todos), `pairs` ou `trios` (grupos de 2 ou 3 pinos seguidos, o último pode ser menor) ou uma lista de listas de índices de pino |
+
+Os pinos de um papel são numerados de 0, e um pino que não está em nenhum grupo fica desligado. Cada grupo ocupa 64 bytes, então o bloco tem $64 G$ bytes e a janela é a menor potência de dois que os cobre, com no mínimo 16 bytes. A contagem de pinos e a polaridade de cada papel vêm do `io` do `board.yaml` de cada placa de `boards`, e o `gpio` tem a direção fixa do papel (saída em `leds`, `leds_green` e `display`, entrada em `switches` e `keys`).
+
+| Regra | Condição de rejeição |
+| :--- | :--- |
+| G-0 | Um atalho que precisa dos pinos (`solo`, `pairs`, `trios`) sem `boards` ou sem o catálogo de placas |
+| G-1 | Um índice de pino maior ou igual ao número de pinos dos papéis na placa |
+| G-2 | Um pino repetido, em dois grupos ou duas vezes no mesmo |
+| G-3 | Um grupo vazio ou com mais de 32 pinos |
+| G-4 | A placa não tem um dos papéis do bloco |
+| G-5 | `groups` que não é um atalho nem uma lista de listas de inteiros |
+| G-6 | As placas de `boards` dão números de grupos diferentes ao mesmo bloco, e a janela diferiria |
+
+Os pinos desligados saem em notas (`NOTE`) do `generate-memory-map`, e um papel `required` em `io` cujos blocos não têm grupo algum sai como aviso. O pacote do mapa ganha `<NOME>_BASE`, `<NOME>_INDEX` e as entradas das tabelas `PERIPH_BASES` e `PERIPH_MASKS` como nos outros periféricos, e o `memory_map.h` ganha `RV32_<NOME>_G<k>_BASE`, a base mais $64k$ bytes.
+
+A chave `generate.platform_h` escreve o `rv32_platform.h` dos programas de teste a partir da plataforma: `RV32_RAM_BASE`, `RV32_RAM_END`, `RV32_STDOUT_BASE`, `RV32_TOHOST`, o `RV32_<NOME>_BASE` de cada periférico, os `RV32_<NOME>_G<k>_BASE`, as bancas da FLASH, `RV32_TICK_CYCLES` e as macros `RVMODEL_HALT_PASS` e `RVMODEL_HALT_FAIL`.
+
 ## 10. O `config_pkg`
 
 ### 10.1. Conteúdo
@@ -450,7 +491,7 @@ O `config_pkg` é o pacote VHDL de constantes de uma plataforma, escrito a parti
 | Sistema de memória | `HAS_ICACHE`, `HAS_DCACHE`, `FLASH_ON_BUS` e `RAM_ON_BUS` |
 | Extensões | Uma `HAS_<EXTENSÃO>` por chave do perfil (`HAS_ZICCLSM` a `HAS_ZIHINTPAUSE`) |
 | Memória | `BOOT_MEMORY_BITS`, `BOOT_MEMORY_BASE` e `BOOT_MEMORY_END` (de 0 a $2^{\text{BOOT\_MEMORY\_BITS}}$), `FLASH_BASE`, `FLASH_END`, `RAM_BASE` e `RAM_END` no tipo `map_addr_t`, e `I_CACHE_WINDOW_BITS` e `D_CACHE_WINDOW_BITS` |
-| Periféricos do núcleo | `HAS_GPIO`, `HAS_CLINT` e `HAS_PLIC`, verdadeiras quando o nome está em `peripherals`, e `HAS_TIMER`, verdadeira quando há pelo menos um temporizador (`kind: timer`) |
+| Periféricos do núcleo | `HAS_GPIO`, `HAS_CLINT`, `HAS_PLIC` e `HAS_TIMER`, verdadeiras quando o nome está em `peripherals` |
 | Compostas | `HAS_MULTIPLICATION` (`HAS_M or HAS_ZMMUL`), `HAS_ANY_COUNTER` (`HAS_ZICNTR or HAS_ZIHPM`) e `HAS_SSCOF` (`HAS_SSCOFPMF and HAS_ZIHPM and HAS_INTERRUPTS`) |
 | Funções | `isa_string`, o texto da ISA (`rv32im_zicsr_zicntr`), e `check_isa`, que falha na elaboração se uma dependência entre constantes não vale |
 
@@ -533,6 +574,7 @@ Algumas plataformas precisam de uma declaração a mais para que o `config_pkg` 
 | `tests/test_memory_map.py::test_check_stops_at_an_inconsistent_map` | Nenhuma cópia é lida se o próprio mapa é inconsistente. |
 | `tests/test_memory_map.py::test_load_platform_rejects_a_non_mapping` | Um arquivo que não é mapeamento é rejeitado. |
 | `tests/test_memory_map.py::test_cmd_check_memory_map_exit_status` | O comando imprime OK, ou sai com 1 listando as divergências. |
+| `tests/test_groups.py` | Os blocos `gpio` e `seg_display`: o tamanho de 64 bytes por grupo para `solo`, `all`, `pairs`, `trios` e a lista explícita, os pinos desligados, `roles`, as regras G-0 a G-6 contra cada placa, o tamanho que não se escreve, o `RV32_<NOME>_G<k>_BASE` e o `rv32_platform.h` gerado. |
 | `tests/test_layout.py` | O bloco `memory` vira as regiões e as quatro escolhas, dois segmentos são recusados ("vários segmentos ainda não são suportados"), as chaves antigas (`regions`, `memory.rom`, `kind`, `exec`) são recusadas com a migração, e `on_bus` vem nos dois segmentos ou em nenhum. O `tests/test_peripheral_offsets.py` prova que a ordem dos periféricos no arquivo é a ordem dos índices. |
 | `tests/test_core_profile.py` | O bloco `core` e o perfil inferido (ordem da matriz, `Zicsr` junto de `Zicntr`, extras), `--profile` que mantém os extras, cada erro (extensão desconhecida ou repetida, combinação recusada, `type: 64` sem base `rv64`, `isa` no lugar de `base`), a recusa de `profile:` e `extras:` com a migração e o nome sem matriz. |
 | `tests/test_peripheral_offsets.py` | A janela derivada do `size`, os símbolos `base`, `size`, `window` e `index`, uma rejeição para cada V-P1 a V-P5, a recusa de `id`, `offset` e `padding` com a mensagem de migração, as tabelas `PERIPH_BASES` e `PERIPH_MASKS`, a V-S1 e a `STRICT_PERIPH` no pacote do mapa. |
@@ -540,7 +582,6 @@ Algumas plataformas precisam de uma declaração a mais para que o `config_pkg` 
 | `tests/test_config_pkg.py` | O `config_pkg` para 32, 24 e 40 bits, a base E, as variantes e o que elas recusam, as `HAS_` dos periféricos do núcleo, `FLASH_ON_BUS` e `RAM_ON_BUS`, a regra de cache (V-C1 e V-C2), a ordem do mapa do núcleo (V-M), a escrita com o mapa e o `--check`, a coerência entre os dois pacotes, o comando e a prova de que o pacote do mapa e o `config_pkg` do DE0-CV não mudam. |
 | `tests/test_generate_memory_map.py` | Specs, linker script e pacote VHDL saem do mapa; `--check` pega arquivo ausente ou editado; endereço fora de KiB, janela de periférico sobre uma região e chave removida são rejeitados; o comando escreve e confere. |
 | `tests/test_interrupts.py` | O pacote traz `HAS_INTERRUPTS`, `CLOCK_HZ`, `MTIME_HZ` e `CLINT_TICK_CYCLES`, o cabeçalho traz os registradores do CLINT e a taxa do `mtime`, e uma seção inconsistente (taxa, CLINT ausente, perfil sem as interrupções) é rejeitada. |
-| `tests/test_timers.py` | Zero, um, três e oito temporizadores dão as tabelas, as linhas, o cabeçalho e o `HAS_TIMER`, as fontes dos outros periféricos nunca mudam, o nome `TIMER` continua válido, e um tipo, tamanho, nome, alinhamento, sobreposição ou linha fixa errados é rejeitado. |
 | `tests/test_memory_choice.py` | A seção `memory` e a opção `--memory` geram as 9 combinações válidas como 9 pacotes diferentes e recusam as 7 inválidas, as constantes e os parâmetros da simulação saem da escolha, e as regras V1 a V5, V7 e V10 falham com mensagem clara. |
 | `tests/test_config_from_platform.py` | As chaves de `memory`, o ambiente do `tohost` e do `stdout` e as larguras de endereço saem do mapa, e o mapa vale mais que o arquivo e os seus `extends`. |
 

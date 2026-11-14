@@ -99,7 +99,12 @@ def board_view(board: Board) -> dict[str, Any]:
             },
         },
         "io": {
-            role: {"signals": spec.signals, "active": spec.active}
+            role: {
+                "signals": spec.signals,
+                "active": spec.active,
+                "groups": list(spec.all_groups),
+                "bidirectional": spec.bidirectional,
+            }
             for role, spec in board.io.items()
         },
         "memories": {

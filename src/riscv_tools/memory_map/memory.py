@@ -705,17 +705,16 @@ def notes(platform: dict[str, Any]) -> list[str]:
     Returns
     -------
     list of str
-        The path that peripherals need in every combination.
+        The pins that no group has, the required roles without a pin
+        and the path that peripherals need in every combination.
     """
-    memory = resolve(platform)
-    if memory is None:
-        return []
-    if peripheral_list(platform):
-        return [
+    found = [str(note) for note in platform.get("_group_notes", [])]
+    if resolve(platform) is not None and peripheral_list(platform):
+        found.append(
             "peripherals need the external bus path to the "
             "interconnect in every combination"
-        ]
-    return []
+        )
+    return found
 
 
 def addr_width_names(platform: dict[str, Any]) -> list[str]:

@@ -7,14 +7,14 @@ barramento, `LEDR[3]` e `LEDR3`; a porta é sempre um vetor `LEDR`.
 """
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, cast
 
 from riscv_tools.board_inputs import BoardInputs, InputError, PinSignal
+from riscv_tools.board_schema.board import IO_ROLES
 
 _SEGMENTS = 7
 # Papéis de E/S, na ordem em que viram portas.
-IO_ROLES = ("leds", "switches", "keys", "display", "video")
 # O vídeo não vira porta aqui, porque os pinos dele entram junto com o
 # periférico.
 PORT_ROLES = tuple(role for role in IO_ROLES if role != "video")
@@ -224,7 +224,7 @@ def _display_ports(inputs: BoardInputs, spec: str, active: str) -> list[Port]:
 
 
 def _role_ports(
-    inputs: BoardInputs, role: str, active: str, spec: str
+    inputs: BoardInputs, role: str, found: dict[str, Any]
 ) -> list[Port]:
     """Monta as portas de um papel de E/S.
 
@@ -234,19 +234,28 @@ def _role_ports(
         Os dados da placa.
     role : str
         O papel.
-    active : str
-        Polaridade do papel.
-    spec : str
-        O grupo do `board.yaml`.
+    found : dict of {str: Any}
+        O papel no `board.yaml`: `signals`, `active`, os `groups` (um
+        vetor por grupo, na ordem em que os pinos do papel são
+        numerados) e `bidirectional`.
 
     Returns
     -------
     list of Port
-        As portas do papel.
+        As portas do papel; `inout` quando o papel é bidirecional.
     """
+    active = str(found.get("active", "high"))
+    groups = [str(g) for g in found.get("groups") or [found["signals"]]]
     if role == "display":
-        return _display_ports(inputs, spec, active)
-    return _vector_port(inputs, role, spec, active)
+        return _display_ports(inputs, groups[0], active)
+    ports = [
+        port
+        for spec in groups
+        for port in _vector_port(inputs, role, spec, active)
+    ]
+    if found.get("bidirectional"):
+        ports = [replace(port, direction="inout") for port in ports]
+    return ports
 
 
 def _offered_ports(inputs: BoardInputs, role: str) -> tuple[list[Port], int]:
@@ -268,9 +277,7 @@ def _offered_ports(inputs: BoardInputs, role: str) -> tuple[list[Port], int]:
     found = cast(dict[str, Any], offered.get(role) or {})
     if not found:
         return [], 0
-    made = _role_ports(
-        inputs, role, str(found.get("active", "high")), str(found["signals"])
-    )
+    made = _role_ports(inputs, role, found)
     items = sum(p.width for p in made)
     return made, items // _SEGMENTS if role == "display" else items
 
