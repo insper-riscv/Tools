@@ -26,6 +26,7 @@ from riscv_tools.memory_map import interrupts
 from riscv_tools.memory_map.core import peripheral_list
 from riscv_tools.memory_map.expressions import evaluate
 from riscv_tools.memory_map.groups import GROUP_BYTES
+from riscv_tools.memory_map.kinds import is_group_block
 
 _HEAD = """\
 /* O mapa de memória da plataforma {platform}, como números simples que um
@@ -104,7 +105,7 @@ def _peripheral_lines(platform: dict[str, Any]) -> list[str]:
         name = str(periph["name"]).upper()
         base = int(evaluate(periph["base"]))
         lines.append(_define(f"RV32_{name}_BASE", base))
-        if "kind" in periph:
+        if is_group_block(periph):
             groups = int(periph["size"]) // GROUP_BYTES
             lines.extend(
                 _define(f"RV32_{name}_G{k}_BASE", base + GROUP_BYTES * k)

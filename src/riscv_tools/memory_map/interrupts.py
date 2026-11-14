@@ -22,15 +22,20 @@ of two) and describes it in `interrupts`:
 
 ```yaml
 peripherals:
-  - {name: PLIC, base: 0xF0000000, id: 7, size: 4M}
+  PLIC:
+    base: 0xF0000000
+    size: 4M
 interrupts:
   clock_hz: 50000000
   mtime_hz: 1000000
   plic: {priority_bits: 3}
   sources:                 # the ids of the lines wired to the PLIC
     - {name: UART, id: 1}
-    - {name: TIMER, id: 2}
 ```
+
+The timers (`kind: timer`, see `riscv_tools.memory_map.timers`) need no
+line in `sources`: each one gets its own, in the order of
+`peripherals`. A timer that `sources` names keeps the number written.
 
 The VHDL package then also gets `PLIC_N_SOURCES` (the largest source
 id), `PLIC_PRIORITY_BITS`, `PLIC_ADDR_WIDTH` (the window in words, as a
@@ -54,6 +59,7 @@ from riscv_tools.memory_map.core import (
     platform_dict,
 )
 from riscv_tools.memory_map.expressions import evaluate
+from riscv_tools.memory_map.timers import auto_lines, timer_list
 
 # Byte offsets of the registers inside the 64 KiB window of the CLINT
 # (the layout of the CLINT of SiFive that the FreeRTOS port expects).
@@ -360,12 +366,25 @@ def sources_of(platform: dict[str, Any]) -> list[tuple[str, int]]:
     Returns
     -------
     list of tuple of (str, int)
-        `(NAME, id)` in the order of the file; empty without `sources`.
+        `(NAME, id)` in the order of the file, then one source for each
+        timer that the file does not name, in the order of
+        `peripherals` (see `riscv_tools.memory_map.timers`); empty
+        without `sources` and `plic`.
     """
     raw: list[dict[str, Any]] = (
         platform_dict(platform, "interrupts").get("sources") or []
     )
-    return [(str(s["name"]).upper(), int(s["id"])) for s in raw]
+    listed = [(str(s["name"]).upper(), int(s["id"])) for s in raw]
+    if not has_plic(platform):
+        return listed
+    named = {name for name, _ in listed}
+    waiting = [
+        str(item["name"]).upper()
+        for item in timer_list(platform)
+        if str(item["name"]).upper() not in named
+    ]
+    lines = auto_lines({ident for _, ident in listed}, len(waiting))
+    return listed + list(zip(waiting, lines, strict=True))
 
 
 def has_plic(platform: dict[str, Any]) -> bool:

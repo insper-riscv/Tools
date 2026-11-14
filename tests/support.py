@@ -39,6 +39,18 @@ MAP_RESERVED: dict[str, Any] = {
 }
 
 
+# Parte comum das plataformas de teste com Zicsr e as interrupções
+# (perfil, extras, memórias e boot); o teste acrescenta os periféricos.
+ZICSR_INTERRUPTS_PLATFORM: dict[str, Any] = {
+    "profile": "rv32i_zicsr",
+    "profiles": "matrix.yaml",
+    "extras": ["Interrupts"],
+    "regions": MAP_REGIONS,
+    "reserved": MAP_RESERVED,
+    "boot": {"entry": "0x800", "wait_restart": "0x100"},
+}
+
+
 def profile_matrix(*bases: str) -> dict[str, Any]:
     """Build a profile specification with the given base names.
 

@@ -2,6 +2,7 @@
 
 from typing import Any, cast
 
+from riscv_tools.memory_map.timers import has_timer
 from riscv_tools.top_generator.spec import (
     TopSpec,
     console,
@@ -79,10 +80,34 @@ def soc_generics(spec: TopSpec) -> list[str]:
         *_interrupt_generics(spec),
         *_table_generics(),
         *_index_generics(spec, (("clint", "CLINT"), ("plic", "PLIC"))),
+        *timer_generics(spec),
     ]
     if "zihpm" in str(spec.platform.get("profile", "")).lower():
         generics += ["hpm_counters => HPM_COUNTERS", "hpm_width => HPM_WIDTH"]
     return generics + _timing_generics(spec) + _role_generics(spec)
+
+
+def timer_generics(spec: TopSpec) -> list[str]:
+    """Monta os generics dos temporizadores de uso geral.
+
+    Parameters
+    ----------
+    spec : TopSpec
+        O topo.
+
+    Returns
+    -------
+    list of str
+        As tabelas `TIMER_INDICES` e `TIMER_IRQ_IDS` do pacote do mapa,
+        uma instância do temporizador por linha delas; nada quando a
+        plataforma não tem temporizador.
+    """
+    if not has_timer(spec.platform):
+        return []
+    return [
+        "timer_indices => TIMER_INDICES",
+        "timer_irq_ids => TIMER_IRQ_IDS",
+    ]
 
 
 def _timing_generics(spec: TopSpec) -> list[str]:

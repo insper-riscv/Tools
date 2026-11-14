@@ -50,7 +50,7 @@ change of the map without a new generation fails.
 from pathlib import Path
 from typing import Any, cast
 
-from riscv_tools.memory_map import banks, interrupts, sdram_clock
+from riscv_tools.memory_map import banks, interrupts, sdram_clock, timers
 from riscv_tools.memory_map import memory as memory_choice
 from riscv_tools.memory_map.config_pkg import render_variant, source_name
 from riscv_tools.memory_map.core import (
@@ -64,6 +64,7 @@ from riscv_tools.memory_map.core import (
 )
 from riscv_tools.memory_map.expressions import evaluate
 from riscv_tools.memory_map.groups import GROUP_BYTES
+from riscv_tools.memory_map.kinds import is_group_block
 from riscv_tools.memory_map.layout import FLASH, RAM
 from riscv_tools.memory_map.platform_h import render_platform_h
 from riscv_tools.memory_map.problems import platform_problems
@@ -364,7 +365,7 @@ def _group_total(periph: dict[str, Any]) -> int:
         The number of groups (`size` over 64 bytes); 0 for a peripheral
         that is not a block of groups.
     """
-    if "kind" not in periph:
+    if not is_group_block(periph):
         return 0
     return int(periph["size"]) // GROUP_BYTES
 
@@ -656,6 +657,7 @@ def render_vhdl(
         ),
         peripherals=_peripheral_lines(platform)
         + interrupts.vhdl_lines(platform)
+        + timers.vhdl_lines(platform)
         + sdram_clock.vhdl_lines(platform),
     )
 

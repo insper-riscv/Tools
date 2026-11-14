@@ -48,6 +48,7 @@ from riscv_tools.memory_map.profile import (
     resolve,
 )
 from riscv_tools.memory_map.symbol_table import symbol_table
+from riscv_tools.memory_map.timers import has_timer
 
 PACKAGE = "config_pkg"
 TEMPLATE = Path(__file__).resolve().parent / "templates" / "config_pkg.vhd.in"
@@ -55,7 +56,6 @@ TEMPLATE = Path(__file__).resolve().parent / "templates" / "config_pkg.vhd.in"
 # Constante do pacote de cada periférico que fala com o núcleo e o nome
 # dele em `peripherals`.
 PERIPHERALS = {
-    "HAS_TIMER": "TIMER",
     "HAS_GPIO": "GPIO",
     "HAS_CLINT": "CLINT",
     "HAS_PLIC": "PLIC",
@@ -224,6 +224,7 @@ def _flags(
     flags = {key.upper(): bool(generics.get(key)) for key in SWITCHES}
     flags["HAS_ICACHE"] = choice is not None and choice.has_icache
     flags["HAS_DCACHE"] = choice is not None and choice.has_dcache
+    flags["HAS_TIMER"] = has_timer(platform)
     return flags | {flag: name in names for flag, name in PERIPHERALS.items()}
 
 

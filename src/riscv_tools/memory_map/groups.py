@@ -42,7 +42,8 @@ from typing import Any, cast
 
 import yaml
 
-KINDS = ("gpio", "seg_display")
+from riscv_tools.memory_map.kinds import is_group_block
+
 ROLES = (
     "leds",
     "switches",
@@ -564,7 +565,7 @@ def _blocks(data: dict[str, Any]) -> list[dict[str, Any]]:
         The peripherals with a `kind`, in order.
     """
     items = cast("list[dict[str, Any]]", data.get("peripherals") or [])
-    return [item for item in items if item.get("kind")]
+    return [item for item in items if is_group_block(item)]
 
 
 def _unplanned(entries: list[dict[str, Any]]) -> list[str]:
