@@ -27,7 +27,34 @@ Um backend sem entidade (`sram`, `flash-interna` e `serial`) não gera instânci
 
 ### 3.1. Vídeo
 
-Quando a plataforma pede vídeo, o `TopSpec` carrega o `VideoPlan` e `video_generics` escreve os generics de temporização, de largura de canal e de framebuffer ([board_video](board_video.md)). O topo não instancia o periférico de vídeo, e o mapa de generics do SoC não os recebe.
+Quando a plataforma pede vídeo, o `TopSpec` carrega o `VideoPlan` e `video_generics` escreve os generics de temporização, de largura de canal e de framebuffer ([board_video](board_video.md)). O topo liga só `channel_bits` ao periférico `video` (seção 3.2), e o mapa de generics do SoC não recebe os generics do plano.
+
+### 3.2. Periféricos externos
+
+Cada entrada de `peripherals` com um `kind` externo (seção 9.6 de [memory_map](memory_map.md)) vira uma instância da entidade do `Peripherals`, com o rótulo `u_<nome>`, ligada aos pinos do papel da placa e a um barramento externo do SoC. Sem periférico externo o topo não ganha nada, e um periférico omitido pela placa (`need: optional`) fica com a leitura e a interrupção zeradas.
+
+O contrato com o SoC é o seguinte.
+
+| Item | Conteúdo |
+| :--- | :--- |
+| Generics | `ext_indices => EXT_INDICES`, `ext_irq_ids => EXT_IRQ_IDS` (as tabelas do pacote do mapa) e `ext_addr_width`, a maior largura de endereço de palavra entre as entidades |
+| Portas de saída | `o_ext_addr`, `o_ext_wdata`, `o_ext_byteena`, `o_ext_we` e `o_ext_re`, esta e a anterior com um bit por periférico |
+| Portas de entrada | `i_ext_rdata` (32 bits por periférico) e `i_ext_irq` (um bit por periférico) |
+| Posição | `<NOME>_EXT_POS`, do pacote do mapa, escolhe a fatia de cada periférico |
+
+A instância liga `i_clk` ao relógio do núcleo e `i_rst` ao reset do SoC, e os generics de frequência recebem o relógio do núcleo em hertz. Os campos do kind (`phy_addr`, `cs_count`, `three_wire`, `int_active_high`, `active_low`) viram generics com o mesmo nome do campo.
+
+| Entidade | Pinos |
+| :--- | :--- |
+| `ps2_keyboard`, `ps2_mouse_top` | `clk` e `dat` direto nas portas `inout` |
+| `sd_spi` | MOSI em `cmd`, MISO em `dat(0)`, CS em `dat(3)`, e os outros bits de `dat` em `'Z'` |
+| `sd_native` | `cmd` e cada bit de `dat` saem por `'Z'` com a habilitação da entidade |
+| `lcd`, `usb_bridge`, `eth` (MDIO), `hdmi_tx` (I2C), `adxl345` (`mosi`) | Saída com habilitação: `'Z'` quando desabilitada, e um sinal de volta com a leitura do pino |
+| `i2c_master` | Open drain: `'0'` quando a entidade pede baixo, senão `'Z'` |
+| `audio` | O FPGA é o mestre dos relógios do codec, e as entradas `i_bclk`, `i_adclrck` e `i_daclrck` ficam em `'0'` |
+| `adc128s022`, `ltc2308`, `ir_receiver`, `tv`, `spi` | Direto; o `cs_n` do `spi` é fatiado na largura da porta da placa |
+
+O `video` e o `hdmi_tx` precisam de um relógio de pixel do plano de relógios, e sem ele a instância fica fora com um aviso. O `max10_adc` precisa do IP do fabricante e também fica fora com um aviso.
 
 ## 4. Testes
 
@@ -35,6 +62,7 @@ Quando a plataforma pede vídeo, o `TopSpec` carrega o `VideoPlan` e `video_gene
 | :--- | :--- |
 | `tests/test_board_generate.py` | Conteúdo do topo da DE0-CV, latências, anel de pinos, polaridade e sintaxe aceita pelo GHDL |
 | `tests/test_board_video_generate.py` | Os generics de vídeo chegam ao `TopSpec` sem alterar o topo |
+| `tests/test_external_top.py` | A instância e os pinos de cada kind externo, o open drain, o `'Z' e o que fica fora do topo |
 
 ---
 
