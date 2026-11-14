@@ -28,8 +28,9 @@ def discover_tests(root: Path, cfg: dict[str, Any]) -> list[Path]:
     """Find every test source under paths.c_dir/paths.asm_dir.
 
     Each test is a <c_dir|asm_dir>/<name>/ folder with exactly one
-    `src.c` or `src.S` and, for "memory"-kind tests, a `golden.json`
-    with the expected {byte address: byte value} map.
+    `src.c`, `src.cc`, `src.cpp` (C++, see `toolchain.cxx`) or `src.S`
+    and, for "memory"-kind tests, a `golden.json` with the expected
+    {byte address: byte value} map.
 
     A folder with a `.off` file is skipped, and the file's content is
     printed as the reason. Use it for a test that can never build or run
@@ -45,13 +46,18 @@ def discover_tests(root: Path, cfg: dict[str, Any]) -> list[Path]:
     Returns
     -------
     list of Path
-        Every `src.c`/`src.S` found (excluding `.off` folders), sorted
-        by test name (the parent folder's name); folder names must be
-        unique across c_dir/asm_dir combined.
+        Every `src.c`, `src.cc`, `src.cpp` and `src.S` found (excluding
+        `.off` folders), sorted by test name (the parent folder's name);
+        folder names must be unique across c_dir/asm_dir combined.
     """
     c_dir = root / cfg["paths"]["c_dir"]
     asm_dir = root / cfg["paths"]["asm_dir"]
-    sources = list(c_dir.glob("*/src.c")) + list(asm_dir.glob("*/src.S"))
+    sources = [
+        *c_dir.glob("*/src.c"),
+        *c_dir.glob("*/src.cc"),
+        *c_dir.glob("*/src.cpp"),
+        *asm_dir.glob("*/src.S"),
+    ]
 
     kept: list[Path] = []
     for src in sources:

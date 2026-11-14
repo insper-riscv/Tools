@@ -1,6 +1,6 @@
 # `compiler`
 
-Compiles one bare-metal test source (`.c` or `.S`) into a linked `.elf`/`.bin`. This is what `compile --emit mif|hex|asm` (see Usage below) calls once per test discovered in a project's `c_dir`/`asm_dir`.
+Compiles one bare-metal test source (`.c`, `.cc`, `.cpp` or `.S`) into a linked `.elf`/`.bin`. This is what `compile --emit mif|hex|asm` (see Usage below) calls once per test discovered in a project's `c_dir`/`asm_dir`.
 
 ## Per-test header conventions
 
@@ -23,6 +23,29 @@ A test's own source file declares its build/run requirements in comments at the 
 | `picolibc` | `--specs=picolibc.specs -Wl,--no-gc-sections` | For a GCC configured with picolibc, such as the one Infra's `manual/GCC_SETUP.md` builds (and its `ci-elf` image carries) for `rv32im`/`ilp32`. `strlen`, `memcpy`, `printf` and the rest come from picolibc. |
 
 The startup code stays the project's own `crt0.S` (`-nostartfiles` in both cases). `picolibc.specs` turns on `--gc-sections`, which drops every section a link script neither keeps nor reaches from its entry, so it is switched off again. That toolchain has a single library variant (`rv32im`/`ilp32`), so a test built for a narrower `-march` links library code that may use instructions its core lacks, such as multiplication and division in `printf`.
+
+## C++
+
+`toolchain.cxx: true` (default `false`) lets a test be written in C++, as the `src.cc` or `src.cpp` of its folder under `c_dir`. It needs `toolchain.libc: picolibc` or a `toolchain.specs`, and a toolchain built with the `libstdc++` of the test's variant.
+
+| Part | What changes with `cxx: true` for a `.cc` or `.cpp` test |
+| :--- | :--- |
+| Driver | The toolchain's `g++`: the `gcc` name with `g++` in its place, or `toolchain.gxx`. It adds `-lstdc++` and `-lm` itself |
+| Standard | ISO/IEC 14882:2024 (C++23), `-std=c++23 -Wall -Wextra -Wpedantic -Werror` |
+| Extra flags | `toolchain.cxx_options`, a list for C++ sources only, such as `["-fno-exceptions", "-fno-rtti"]` |
+| Specs, without `toolchain.specs` | `--specs=picolibcpp.specs --crt0=hosted`, which links `crtbegin.o` and `crtend.o` and makes a returning `main` call `exit`, and the `picolibcpp.ld` linker script (`-T`, unless `paths.linker_script`) |
+| Specs, with `toolchain.specs` | The file generated with `cxx: true` (see [`memory_map`](memory_map.md)), which already carries all of it |
+| The project's C sources | Those of `paths.sources` are compiled apart, as C, and linked into the test; the C++-only flags of `emulator.gcc_flags` stay out of that compile |
+
+`crtbegin.o` registers the unwind frames and `crtend.o` ends `.eh_frame`. `picolibc.specs` leaves both out, and without them a `throw` jumps to address 0 or reads garbage at the end of the table. So the project's own `crt0` (`paths.crt0`) does not work with C++, and the compile refuses that combination.
+
+`picolibc.specs` and a specs file that already includes it cannot share a command line. The driver stops with `attempt to rename spec 'link' to already defined spec 'picolibc_link'`, so a test gets one of the two, and the project's `toolchain.specs` already includes `picolibc.specs`.
+
+Before compiling, the compile checks that the toolchain has the `libstdc++.a` of the variant (the test's `-march` and `-mabi`). Without it the test fails with `toolchain.cxx is true but the toolchain has no libstdc++.a for the variant -march=... -mabi=...: the toolchain must be built with libstdc++ for it`, instead of `cannot find -lstdc++` at link time or a missing `bits/c++config.h` at compile time.
+
+`libstdc++` asks the runtime for `getentropy`, `read`, `open` and `close` (through `std::random_device`, which every program with `new` or an exception carries) and for the `stdout` and `stderr` streams (through the `std::terminate` handler). The four functions come ready from `generate.syscalls` of [`memory_map`](memory_map.md), and the streams are those of the platform's `stdio.c`.
+
+Atomics are out of scope. GCC does not build `libatomic` for `riscv32-unknown-elf`, so an 8-byte `std::atomic`, and any `std::atomic` on a variant without the A extension, ends with `__atomic_*` undefined at link time.
 
 ## C23 standard
 
@@ -79,6 +102,9 @@ A program linked at `0x800` starts at `@00000200` (word address), so it needs no
 | `toolchain.gcc` | GCC binary name/path (default `riscv32-unknown-elf-gcc`). |
 | `toolchain.objcopy` | objcopy binary name/path (default `riscv32-unknown-elf-objcopy`). |
 | `toolchain.libc` | `none` or `picolibc` (default `none`); see [C library](#c-library). |
+| `toolchain.cxx` | `true` turns C++ on (default `false`); see [C++](#c). |
+| `toolchain.gxx` | `g++` binary name/path; by default the `gcc` one with `g++` in its place. |
+| `toolchain.cxx_options` | List of flags for C++ sources only (empty by default). |
 | `isa.base` | Base ISA letter, always `i`, never written in a test's own header. |
 | `isa.default_ext` | Extension string used when a test has no `RV32_EXT` header at all. Empty by default (plain `rv32i`). |
 | `isa.canonical_order` | Fixed letter order extension letters get sorted into before being appended to the base ISA string, so `RV32_EXT: A,M` and `RV32_EXT: M,A` both normalize to the same `-march=` value. |
@@ -116,6 +142,21 @@ A program linked at `0x800` starts at `@00000200` (word address), so it needs no
 | `tests/test_platform_runtime.py::test_cmd_compile_builds_every_kind_and_the_goldens` | A C test, a C memory test, a test that returns from `main`, one with initialized data and an assembly test compile; Spike generates the golden from the image built with the stand-in. |
 | `tests/test_platform_runtime.py::test_cmd_spike_run_passes_programs_that_return_from_main` | The same tests pass under Spike, including the ones that return from `main` and the one checking `.data`, `.bss` and a constant. |
 | `tests/test_platform_runtime.py::test_cmd_compile_hex_places_the_image_at_the_flash_base` | The simulation image starts at the flash base. |
+| `tests/test_compiler_cxx.py::test_cxx_with_picolibc_is_on` | `cxx: true` with picolibc or with a specs file turns C++ on; without picolibc, or with a non-boolean, it is refused. |
+| `tests/test_compiler_cxx.py::test_the_gxx_is_the_gcc_with_the_name_changed` | The `g++` comes from the `gcc` name, or from `toolchain.gxx`. |
+| `tests/test_compiler_cxx.py::test_cxx_flags_use_the_cpp_specs_and_linker_script` | The flags carry `picolibcpp.specs` and `picolibcpp.ld`, unless the project has a linker script. |
+| `tests/test_compiler_cxx.py::test_the_library_of_another_variant_is_refused` | The `libstdc++.a` of the default variant, which the driver returns for another variant, does not count. |
+| `tests/test_compiler_cxx.py::test_a_variant_without_the_library_is_refused_by_name` | The refusal names the variant and says the toolchain needs `libstdc++`. |
+| `tests/test_compiler_cxx.py::test_a_cxx_source_refuses_a_project_crt0` | `paths.crt0` with C++ is refused before any compiler runs. |
+| `tests/test_compiler_cxx.py::test_c_extras_drop_the_flags_only_cpp_takes` | The C sources of a C++ test are compiled without the C++-only flags. |
+| `tests/test_compiler_cxx.py::test_discovery_finds_cc_and_cpp_tests` | A folder with `src.cc` or `src.cpp` is a test. |
+| `tests/test_cxx_generate.py::test_cxx_specs_register_the_unwind_frames` | The specs file with `cxx: true` links `crtbegin` and `crtend` and picks the `crt0` outright. |
+| `tests/test_cxx_generate.py::test_cxx_false_is_the_c_specs_file` | With `cxx` false the specs file is identical to the C one. |
+| `tests/test_cxx_generate.py::test_syscalls_are_the_stubs_the_libstdcxx_needs` | `generate.syscalls` writes `getentropy`, `read`, `open` and `close`, each with `ENOSYS`. |
+| `tests/test_cxx_generate.py::test_syscalls_are_for_cxx_only` | `generate.syscalls` without `cxx: true` in some specs file is refused. |
+| `tests/test_cxx_runtime.py::test_cxx_programs_run` | A global constructor, a virtual call with `new` and `delete`, `std::array` and `std::vector` pass in Spike on `rv32i` and `rv32im` (skipped without a toolchain with `libstdc++`). |
+| `tests/test_cxx_runtime.py::test_throw_and_catch_run_the_destructors` | A `throw` is caught and destroys the locals, through the frames `crtbegin` registers. |
+| `tests/test_cxx_runtime.py::test_no_exceptions_no_rtti_runs` | `-fno-exceptions -fno-rtti` still links and runs. |
 
 ## Usage
 
