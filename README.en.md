@@ -26,6 +26,7 @@ It is designed to run on a workstation with all the tools installed, or inside t
 | `rom_writer`         | JTAG-write a ROM image without reprogramming                | [docs/modules/rom_writer.md](docs/en/modules/rom_writer.md) |
 | `ram_zero`           | JTAG-zero the whole RAM without reprogramming                | [docs/modules/ram_zero.md](docs/en/modules/ram_zero.md) |
 | `ram_target`         | Where the RAM lives (FPGA instance or SDRAM debug port)      | [docs/modules/ram_target.md](docs/en/modules/ram_target.md) |
+| `ram_load`           | Load files into the SDRAM through the debug port, verify and launch | [docs/modules/ram_load.md](docs/en/modules/ram_load.md) |
 | `sdram_debug`        | Read, write and fill the SDRAM through its JTAG debug port   | [docs/modules/sdram_debug.md](docs/en/modules/sdram_debug.md) |
 | `uart_console`       | Shows the output of the program through the JTAG UART while it runs | [docs/modules/uart_console.md](docs/en/modules/uart_console.md) |
 | `display`            | Reads and writes the seven-segment display register and the failure flag of the board, with which `run` and `certify-board` show the running program | [docs/modules/display.md](docs/en/modules/display.md) |
@@ -101,7 +102,7 @@ uv run riscv-tools --config /path/to/project/config.yaml sim
 uv run riscv-tools --config /path/to/project/config.yaml sim --only test-a,test-b
 ```
 
-See `riscv-tools --help` for the full subcommand list (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `generate-config-pkg`, `check-paths`, `check-boards`, `check-tree`, `sources`, `ipxact`, `check-vhdl-style`, `vsg-config`, `vsg-rules`, `vhdl-files`, `platform`, `flash-image`, `timing-paths`, and `board generate`).
+See `riscv-tools --help` for the full subcommand list (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `load-ram`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `generate-config-pkg`, `check-paths`, `check-boards`, `check-tree`, `sources`, `ipxact`, `check-vhdl-style`, `vsg-config`, `vsg-rules`, `vhdl-files`, `platform`, `flash-image`, `timing-paths`, and `board generate`).
 
 ```bash
 # vhdl-sort needs no --config; pure file-content analysis, e.g. wired

@@ -12,6 +12,23 @@ from riscv_tools.cli.board_cmd import (
     cmd_zero_ram,
 )
 from riscv_tools.cli.parser_util import add_command
+from riscv_tools.cli.ram_load_cmd import DEFAULT_MAGIC, cmd_load_ram
+
+
+def _integer(text: str) -> int:
+    """Read an integer argument in decimal, hex (0x) or binary (0b).
+
+    Parameters
+    ----------
+    text : str
+        The text of the argument.
+
+    Returns
+    -------
+    int
+        The value.
+    """
+    return int(text, 0)
 
 
 def add_board_commands(sub: Any) -> None:
@@ -59,6 +76,54 @@ def add_board_commands(sub: Any) -> None:
         type=int,
         default=None,
         help="how many words to dump; required when the RAM is in the SDRAM",
+    )
+
+    p = add_command(
+        sub,
+        cmd_load_ram,
+        "load-ram",
+        description=(
+            "JTAG-load a binary (and a second file) into the SDRAM, read it "
+            "back and write the launch magic last"
+        ),
+    )
+    p.add_argument("binary", help="file loaded at --address")
+    p.add_argument(
+        "--address",
+        type=_integer,
+        default=None,
+        help="byte address of the binary; the base of the RAM by default",
+    )
+    p.add_argument(
+        "--wad", default=None, help="second file, loaded at --wad-address"
+    )
+    p.add_argument(
+        "--wad-address",
+        type=_integer,
+        default=None,
+        help="byte address of the second file (required with --wad)",
+    )
+    p.add_argument(
+        "--launch-address",
+        type=_integer,
+        default=None,
+        help="byte address of the launch word; memory.launch_addr by default",
+    )
+    p.add_argument(
+        "--magic",
+        type=_integer,
+        default=DEFAULT_MAGIC,
+        help="value written to the launch word last (default 0x4D4F4F44)",
+    )
+    p.add_argument(
+        "--no-launch",
+        action="store_true",
+        help="load without writing the launch word",
+    )
+    p.add_argument(
+        "--no-verify",
+        action="store_true",
+        help="skip the read-back of each file",
     )
 
     p = add_command(
