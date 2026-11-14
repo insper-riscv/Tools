@@ -1,12 +1,14 @@
 """Read and check the board, family, chip and pins catalog files."""
 
 from riscv_tools.board_schema.board import parse_board
+from riscv_tools.board_schema.buses import bus_signals
 from riscv_tools.board_schema.catalog import Catalog, NotFoundError
 from riscv_tools.board_schema.chip import parse_chip
 from riscv_tools.board_schema.family import parse_family
 from riscv_tools.board_schema.fields import SchemaError
 from riscv_tools.board_schema.model import (
     Board,
+    BusInstance,
     Chip,
     Family,
     IoRole,
@@ -37,6 +39,7 @@ from riscv_tools.board_schema.video import parse_video_modes
 
 __all__ = [
     "Board",
+    "BusInstance",
     "Catalog",
     "Chip",
     "Family",
@@ -51,6 +54,7 @@ __all__ = [
     "VideoMode",
     "VideoRole",
     "bracketed",
+    "bus_signals",
     "declares_board",
     "expand_group",
     "group_count",

@@ -3,6 +3,7 @@
 import re
 from typing import Any
 
+from riscv_tools.board_schema.buses import parse_buses
 from riscv_tools.board_schema.fields import Section, raise_if
 from riscv_tools.board_schema.model import (
     Board,
@@ -468,6 +469,7 @@ def parse_board(raw: Any, label: str = "board") -> Board:
         "pins": top.text("pins"),
         "notes": tuple(top.texts("notes", required=False)),
         "video": _video(top),
+        "buses": parse_buses(top),
     }
     top.done()
     raise_if(problems)

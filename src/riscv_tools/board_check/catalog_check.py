@@ -16,8 +16,30 @@ from riscv_tools.board_schema import (
     SchemaError,
     VideoMode,
     bracketed,
+    bus_signals,
     role_signals,
 )
+
+
+def _bus_cited(board: Board) -> list[tuple[str, str]]:
+    """List the signals the `buses` of a board cite.
+
+    Parameters
+    ----------
+    board : Board
+        The board.
+
+    Returns
+    -------
+    list of tuple of (str, str)
+        The signal and the copy of the role that names it.
+    """
+    return [
+        (signal, f"buses.{role}[{index}]")
+        for role, copies in board.buses.items()
+        for index, copy in enumerate(copies)
+        for signal in bus_signals(copy)
+    ]
 
 
 def _cited(board: Board) -> list[tuple[str, str]]:
@@ -40,6 +62,7 @@ def _cited(board: Board) -> list[tuple[str, str]]:
     cited.append((board.clocks.reset_signal, "clocks.reset"))
     for role, entry in board.io.items():
         cited += [(s, f"io.{role}") for s in role_signals(entry)]
+    cited += _bus_cited(board)
     if board.video is not None:
         cited.append((f"{board.video.signals}_", "io.video"))
     cited += [(signal, "console.uart") for signal in board.console.uart]

@@ -223,8 +223,27 @@ def _pinned(platform: dict[str, Any]) -> dict[str, int]:
     return {str(s["name"]).upper(): int(s["id"]) for s in raw}
 
 
-def _table(name: str, comment: str, rows: list[str]) -> str:
-    """Write one table of the timers, an array of `integer_vector`."""
+def table(
+    name: str, comment: str, rows: list[str], count: str = "TIMER_COUNT"
+) -> str:
+    """Write one table of the peripherals, an array of `integer_vector`.
+
+    Parameters
+    ----------
+    name : str
+        The constant.
+    comment : str
+        The comment above it.
+    rows : list of str
+        The value of each element, in order.
+    count : str
+        The constant that holds the number of elements.
+
+    Returns
+    -------
+    str
+        The declaration; `others => 0` when `rows` is empty.
+    """
     body = (
         ",\n".join(f"\t\t{i} => {row}" for i, row in enumerate(rows))
         if rows
@@ -232,7 +251,7 @@ def _table(name: str, comment: str, rows: list[str]) -> str:
     )
     return (
         f"\t-- {comment}\n"
-        f"\tconstant {name} : integer_vector(0 to TIMER_COUNT - 1) := "
+        f"\tconstant {name} : integer_vector(0 to {count} - 1) := "
         f"(\n{body}\n\t);\n"
     )
 
@@ -262,13 +281,13 @@ def vhdl_lines(platform: dict[str, Any]) -> str:
         "timer`), o tamanho das tabelas abaixo.\n"
         f"\tconstant TIMER_COUNT : natural := {len(names)};\n"
     )
-    lines += _table(
+    lines += table(
         "TIMER_INDICES",
         "Índice de cada temporizador nas tabelas PERIPH_BASES e "
         "PERIPH_MASKS, na ordem de `peripherals`.",
         [f"{name}_INDEX" for name in names],
     )
-    return lines + _table(
+    return lines + table(
         "TIMER_IRQ_IDS",
         "Fonte do PLIC de cada temporizador, na mesma ordem (zero sem PLIC).",
         [f"IRQ_{name}" if wired else "0" for name in names],

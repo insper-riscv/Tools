@@ -118,6 +118,20 @@ def board_view(board: Board) -> dict[str, Any]:
             for kind, mem in board.memories.items()
         },
         "console": {"uart": {"rx": uart[0], "tx": uart[1]} if uart else {}},
+        "buses": {
+            role: [
+                {"chip": copy.chip, "pins": dict(copy.pins)} for copy in copies
+            ]
+            for role, copies in board.buses.items()
+        },
+        "video": (
+            None
+            if board.video is None
+            else {
+                "signals": board.video.signals,
+                "channel_bits": board.video.channel_bits,
+            }
+        ),
     }
 
 

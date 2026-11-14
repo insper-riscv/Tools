@@ -2,6 +2,7 @@
 
 from riscv_tools.board_check.context import BOARD_KEY, Context
 from riscv_tools.board_check.findings import Finding, error, warning
+from riscv_tools.board_check.rules_buses import used_signals as bus_signals
 from riscv_tools.board_schema import (
     Board,
     bracketed,
@@ -37,7 +38,7 @@ def used_signals(ctx: Context) -> list[str]:
             names += role_signals(board.io[role])
     if ctx.fields.console == "pinos":
         names += list(board.console.uart)
-    return names
+    return names + bus_signals(ctx)[0]
 
 
 def _used_prefixes(ctx: Context) -> list[str]:
@@ -58,7 +59,7 @@ def _used_prefixes(ctx: Context) -> list[str]:
         memory = ctx.board.memories.get(BOARD_KEY[str(use.device)])
         if memory is not None:
             found += [f"{prefix}_" for prefix in memory.signals]
-    return found
+    return found + bus_signals(ctx)[1]
 
 
 def rule_v16(ctx: Context) -> list[Finding]:

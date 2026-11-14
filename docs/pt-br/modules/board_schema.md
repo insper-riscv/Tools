@@ -76,6 +76,42 @@ modes:
 
 Em cada eixo, `visible + front_porch + sync + back_porch` tem de ser igual a `total`, e `polarity` é `negative` ou `positive`, a polaridade do pulso de sincronismo. A resolução do modo de uma plataforma está em [board_video](board_video.md).
 
+### 3.2. A seção `buses`
+
+A seção `buses` do `board.yaml` diz, para cada papel de um periférico externo, que sinal do `pins.yaml` liga cada pino do periférico. A chave é o papel (a coluna "Papel da placa" da seção 9.6 de [memory_map](memory_map.md), menos o `video`, que continua em `io.video`) e o valor é um mapa, ou uma lista de mapas quando a placa tem mais de uma cópia do papel (os dois canais PS/2 da DE0-CV).
+
+```yaml
+buses:
+  ps2:
+    - {clk: PS2_CLK, dat: PS2_DAT}
+    - {clk: PS2_CLK2, dat: PS2_DAT2}
+  sd: {clk: SD_CLK, cmd: SD_CMD, dat: "SD_DAT[3:0]"}
+  adc:
+    - {chip: ltc2308, convst: ADC_CONVST, sck: ADC_SCK, sdi: ADC_SDI, sdo: ADC_SDO}
+```
+
+Um valor é um sinal (`SD_CLK`) ou um barramento (`SD_DAT[3:0]`) do `pins.yaml`. A ordem das cópias é a de `instance` em `peripherals`. A tabela mostra os pinos de cada papel, com a direção vista do topo da placa; o sufixo `?` marca o pino opcional.
+
+| Papel | Pinos (direção) |
+| :--- | :--- |
+| `ps2` | `clk` e `dat` (inout) |
+| `sd` | `clk` (out), `cmd` e `dat` (inout) |
+| `ir` | `rxd` (in) |
+| `lcd` | `data` (inout), `rs`, `rw`, `en`, `power` e `blon?` (out) |
+| `usb` | `addr`, `cs_n`, `rd_n`, `wr_n` e `rst_n` (out), `data` (inout), `int` (in) |
+| `i2c` | `scl` e `sda` (inout) |
+| `audio` | `xck`, `bclk`, `adclrck`, `daclrck` e `dacdat` (out), `adcdat` (in) |
+| `eth` (MII) | `rx_clk`, `rxd`, `rx_dv`, `rx_er`, `tx_clk` e `int_n?` (in), `txd`, `tx_en`, `tx_er`, `mdc` e `rst_n` (out), `mdio` (inout) |
+| `hdmi` | `d`, `clk`, `de`, `hs` e `vs` (out), `int` (in), `scl` e `sda` (inout) |
+| `tv` | `data` e `clk27` (in), `reset_n` (out) |
+| `adc` com `chip: adc128s022` | `cs_n`, `sclk` e `saddr` (out), `sdat` (in) |
+| `adc` com `chip: ltc2308` | `convst`, `sck` e `sdi` (out), `sdo` (in) |
+| `adc` com `chip: max10` | nenhum pino, só a presença do ADC interno |
+| `spi` | `sclk`, `mosi` e `cs_n` (out), `miso` (in) |
+| `adxl345` | `cs_n` e `sclk` (out), `mosi` (inout), `miso?` e `int1?` (in) |
+
+Um papel desconhecido, um pino que o papel não tem, um pino obrigatório ausente e um `chip` ausente ou fora do registro são problemas do arquivo, e o `check-boards` recusa todo sinal citado que o `pins.yaml` não tem.
+
 ## 4. Campos novos do `platform.yaml`
 
 | Campo | Regra |

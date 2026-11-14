@@ -59,7 +59,8 @@ from riscv_tools.memory_map.core import (
     platform_dict,
 )
 from riscv_tools.memory_map.expressions import evaluate
-from riscv_tools.memory_map.timers import auto_lines, timer_list
+from riscv_tools.memory_map.external import line_list
+from riscv_tools.memory_map.timers import auto_lines
 
 # Byte offsets of the registers inside the 64 KiB window of the CLINT
 # (the layout of the CLINT of SiFive that the FreeRTOS port expects).
@@ -380,7 +381,7 @@ def sources_of(platform: dict[str, Any]) -> list[tuple[str, int]]:
     named = {name for name, _ in listed}
     waiting = [
         str(item["name"]).upper()
-        for item in timer_list(platform)
+        for item in line_list(platform)
         if str(item["name"]).upper() not in named
     ]
     lines = auto_lines({ident for _, ident in listed}, len(waiting))

@@ -17,6 +17,7 @@ from riscv_tools.board_check.rules_board import (
     rule_v16,
     rule_v18,
 )
+from riscv_tools.board_check.rules_buses import rule_buses
 from riscv_tools.board_check.rules_clocks import rule_v7, rule_v8, rule_v15
 from riscv_tools.board_check.rules_devices import (
     rule_v2,
@@ -60,6 +61,7 @@ RULES = (
     rule_v19,
     rule_fit,
     rule_video,
+    rule_buses,
 )
 KNOWN_SHOWN = 12
 

@@ -1,0 +1,95 @@
+# Placa de fixture: a DE2-115 do catálogo mais o papel `buses` de cada kind. Os pinos de IR, USB, áudio, Ethernet, TV e HDMI não estão no catálogo, então os números abaixo são de teste (inferred), não da placa.
+board: example
+name: Placa de exemplo dos periféricos externos (cópia da DE2-115 com os papéis de pino de todos os kinds)
+family: cyclone-iv-e
+device: EP4CE115F29C7
+speed_grade: C7
+target_level: N4
+jtag:
+  cable: usb-blaster
+  chain:
+    - {name: "10CL120(Y|Z)/EP3C120/..", idcode: "020F70DD", fpga: true, confirmed: measured}
+resources:
+  logic:       {unit: le, total: 114480}
+  block_ram:   {kind: m9k, blocks: 432, bits_per_block: 9216}
+  multipliers: {kind: dsp9x9, total: 532}
+  plls: 4
+  user_pins: null
+clocks:
+  inputs:
+    - {name: clock_50,  signal: CLOCK_50,  mhz: 50}
+    - {name: clock2_50, signal: CLOCK2_50, mhz: 50}
+    - {name: clock3_50, signal: CLOCK3_50, mhz: 50}
+  reference: clock_50
+  reset: {signal: "KEY[0]", active: low}
+io:
+  leds:     {signals: "LEDR[17:0]",     active: high}
+  switches: {signals: "SW[17:0]",       active: high}
+  keys:     {signals: "KEY[3:0]",       active: low}
+  display:  {signals: "HEX[7:0][6:0]",  active: low}
+  video:
+    kind: vga
+    channel_bits: 4
+    signals: VGA
+    default_mode: 640x480@60
+    modes: [640x480@60]
+memories:
+  sdram:
+    chip: IS42S16320B-7
+    chips: 2
+    signals: DRAM
+    clk_phase_ps: null
+  sram:
+    chip: IS61WV102416BLL-10
+    bus_width: 16
+    signals: SRAM
+  nor:
+    chip: S29GL064N90
+    bus_width: 8
+    signals: FL
+console:
+  default: jtag
+  uart: {rx: UART_RXD, tx: UART_TXD}
+pins: pins.yaml
+notes:
+  - "JP6 e JP7 mudam a tensao dos bancos de usuario: KEY, SW e parte dos HEX seguem o JP7 (fabrica 2.5 V), o GPIO e o SMA_CLKOUT seguem o JP6 (fabrica 3.3 V). O io_standard de cada pino esta em pins.yaml."
+  - "JP3 com os pinos 1 e 2 fechados isola a cadeia JTAG do HSMC, de modo que so o EP4CE115 aparece na cadeia."
+  - "A chave RUN/PROG (SW19) fica em RUN para configurar pela JTAG; PROG so para o modo AS (EPCS64)."
+  - "As pecas da SDRAM (IS42S16320B-7), da SRAM e da FLASH (S29GL064N90, sufixo nao verificado) sao inferidas de fonte de terceiros; o mapa de setores da FLASH e os tempos dependem do datasheet."
+  - "A FLASH NOR liga 8 bits (BYTE# em GND): uma palavra de 32 bits custa quatro leituras."
+  - "A SDRAM tem dois chips de 16 bits com controle e endereco em comum e um unico DRAM_CLK; a largura efetiva e de 32 bits."
+  - "O codigo do dispositivo na cadeia e compartilhado com o 10CL120 e o EP3C120; a placa e distinguida pelo inventario do host (documento 03 do plano)."
+# Papéis de pino dos periféricos externos (seção `buses`), um por kind de `Peripherals`.
+buses:
+  ps2:
+    - {clk: PS2_CLK, dat: PS2_DAT}
+    - {clk: PS2_CLK2, dat: PS2_DAT2}
+  sd: {clk: SD_CLK, cmd: SD_CMD, dat: "SD_DAT[3:0]"}
+  ir: {rxd: IRDA_RXD}
+  lcd: {data: "LCD_DATA[7:0]", rs: LCD_RS, rw: LCD_RW, en: LCD_EN, power: LCD_ON, blon: LCD_BLON}
+  usb: {addr: "OTG_ADDR[1:0]", data: "OTG_DATA[15:0]", cs_n: OTG_CS_N, rd_n: OTG_RD_N, wr_n: OTG_WR_N, rst_n: OTG_RST_N, int: OTG_INT}
+  i2c:
+    - {scl: EEP_I2C_SCLK, sda: EEP_I2C_SDAT}
+    - {scl: I2C_SCLK, sda: I2C_SDAT}
+  audio: {xck: AUD_XCK, bclk: AUD_BCLK, adclrck: AUD_ADCLRCK, adcdat: AUD_ADCDAT, daclrck: AUD_DACLRCK, dacdat: AUD_DACDAT}
+  eth:
+    rx_clk: ENET0_RX_CLK
+    rxd: "ENET0_RX_DATA[3:0]"
+    rx_dv: ENET0_RX_DV
+    rx_er: ENET0_RX_ER
+    tx_clk: ENET0_TX_CLK
+    txd: "ENET0_TX_DATA[3:0]"
+    tx_en: ENET0_TX_EN
+    tx_er: ENET0_TX_ER
+    mdc: ENET0_MDC
+    mdio: ENET0_MDIO
+    int_n: ENET0_INT_N
+    rst_n: ENET0_RST_N
+  hdmi: {d: "HDMI_TX_D[23:0]", clk: HDMI_TX_CLK, de: HDMI_TX_DE, hs: HDMI_TX_HS, vs: HDMI_TX_VS, int: HDMI_TX_INT, scl: HDMI_I2C_SCL, sda: HDMI_I2C_SDA}
+  tv: {data: "TD_DATA[7:0]", clk27: TD_CLK27, reset_n: TD_RESET_N}
+  adc:
+    - {chip: adc128s022, cs_n: ADC_CS_N, sclk: ADC_SCLK, saddr: ADC_SADDR, sdat: ADC_SDAT}
+    - {chip: ltc2308, convst: ADC_CONVST, sck: ADC_SCK, sdi: ADC_SDI, sdo: ADC_SDO}
+    - {chip: max10}
+  spi: {sclk: SPI_SCLK, mosi: SPI_MOSI, miso: SPI_MISO, cs_n: SPI_CS_N}
+  adxl345: {cs_n: ADXL_CS_N, sclk: ADXL_SCLK, mosi: ADXL_SDI, miso: ADXL_SDO, int1: ADXL_INT1}

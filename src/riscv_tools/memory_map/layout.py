@@ -46,7 +46,7 @@ derives them. The old keys are refused with the way to migrate.
 
 from typing import Any, cast
 
-from riscv_tools.memory_map import groups, kinds
+from riscv_tools.memory_map import external_entry, groups, kinds
 
 BOOT = "BOOT_MEMORY"
 FLASH = "FLASH"
@@ -413,6 +413,8 @@ def _peripheral(name: str, value: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(f"{where}.kind must be one of {list(kinds.KINDS)}")
     if kind == kinds.KIND_TIMER:
         return _timer(name, value)
+    if kind in kinds.EXTERNAL:
+        return external_entry.entry(name, value)
     extra = sorted(set(value) - {"kind", "role", "roles", "base", "groups"})
     if "size" in value:
         raise ValueError(
