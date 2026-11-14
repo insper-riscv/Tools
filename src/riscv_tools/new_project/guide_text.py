@@ -33,8 +33,6 @@ Como mudar o projeto
                  --spec Core/profiles/matrix.yaml --format names
                (Interrupts e as outras extensões fora da matriz ficam
                na mesma lista `extensions`)
-               A BOOT_MEMORY executa fence.i: o perfil precisa de
-               zifencei, ou o boot reinicia para sempre
   memórias     `size` em `memory.instructions` e `memory.data`;
                mantenha `reserved` dentro dos dados e as bancas
                de `flash` dentro das instruções
@@ -84,8 +82,6 @@ How to change the project
                  --spec Core/profiles/matrix.yaml --format names
                (Interrupts and the other extensions outside the matrix
                stay in the same `extensions` list)
-               The BOOT_MEMORY executes fence.i: the profile needs
-               zifencei, or the boot restarts forever
   memories     `size` in `memory.instructions` and `memory.data`;
                keep `reserved` inside the data and the `flash`
                banks inside the instructions

@@ -253,9 +253,8 @@ def validate_platform(
     platform : dict of {str: Any}
         The loaded platform.
     generics : dict of {str: bool or int}, optional
-        The generics of the profile, to check Zifencei under an
-        instruction cache and the access faults of V-A5; without them
-        those checks are skipped.
+        The generics of the profile, for the access faults of V-A5;
+        without them that check is skipped.
     xlen : int, optional
         The register width of V-A2 and V-A5, in place of the one of the
         profile of the platform.

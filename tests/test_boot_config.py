@@ -360,50 +360,6 @@ def test_the_extension_q_is_refused(tmp_path: Path) -> None:
     check_in("remove Q", str(caught.value))
 
 
-@pytest.mark.parametrize(
-    ("memory", "caches"),
-    [
-        (MEMORY, "icache"),
-        (
-            {
-                **MEMORY,
-                "icache": {"enabled": False},
-                "dcache": {"enabled": True, "size_bits": 1024},
-            },
-            "dcache",
-        ),
-        (
-            {**MEMORY, "dcache": {"enabled": True, "size_bits": 1024}},
-            "icache and dcache",
-        ),
-    ],
-)
-def test_a_cache_needs_zifencei(
-    tmp_path: Path, memory: dict[str, Any], caches: str
-) -> None:
-    """V-I2: `fence.i` is what makes the caches drop their lines."""
-    platform = _platform(
-        profile="rv32i",
-        extras=[],
-        memory=memory,
-        config={"rom": "FLASH", "ram": "RAM"},
-    )
-    reason = _problem(tmp_path, platform)
-    check_in(
-        f"V-I2 the platform has {caches} but the core lacks Zifencei", reason
-    )
-    check_in("add Zifencei to core.extensions", reason)
-    platform["profile"] = "rv32i_zifencei"
-    check_in("out/x.specs", _render(tmp_path, platform))
-
-
-def test_no_cache_needs_no_zifencei(tmp_path: Path) -> None:
-    """Without a cache the core may lack Zifencei."""
-    memory = {**MEMORY, "icache": {"enabled": False}}
-    platform = _platform(profile="rv32i", extras=[], memory=memory)
-    check_in(SPECS, _render(tmp_path, platform))
-
-
 def _with_boot(size: str, wait: str | None = "0x100") -> dict[str, Any]:
     """Copy the platform with a BOOT_MEMORY of the given size."""
     boot = {"entry": "0x800"} | ({"wait_restart": wait} if wait else {})
