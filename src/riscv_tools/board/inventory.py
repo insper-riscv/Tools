@@ -105,9 +105,9 @@ class Inventory:
     def lock_path(self, board: str, entry: InventoryEntry | None) -> Path:
         """Give the lock file of a board.
 
-        The name is the identifier without hyphens plus the host
-        (`de0cv-ws.lock`), the one the boards already use, unless the
-        host has two boards of the same kind, which then take their id.
+        The name is the identifier without hyphens plus the short
+        hostname (`de0cv-D-20003267-LINUX.lock`), unless the host has
+        two boards of the same kind, which then take their id.
 
         Parameters
         ----------
