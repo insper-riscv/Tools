@@ -83,18 +83,18 @@ Two equal candidates with no tie-break are a case 2 error with the list of cable
 
 ## 7. Per-board lock
 
-Each board has a lock file, taken with an exclusive `flock` for the whole session. The name is the board identifier without hyphens plus the host (`de0cv-ws.lock`), the file that the agents and the Tests runner already use. A host with two boards of the same kind uses the inventory `id`, and an entry can fix the file with `lock_file`.
+Each board has a lock file, taken with an exclusive `flock` for the whole session. The name is the board identifier without hyphens plus the short hostname of the machine (`de0cv-D-20003267-LINUX.lock`), the name the lab files already use. A host with two boards of the same kind uses the inventory `id`, and an entry can fix the file with `lock_file`.
 
 The owner writes the host, the user, the process, the command and the time into the file. Whoever finds the board busy reads that record; a plain `flock` records nothing, and the message says so. Without `--wait` the lock fails at once, and `--wait` alone waits up to 4 hours.
 
-### 7.1. Fixing the lab lock file
+### 7.1. Host label in the lock
 
-Without the `host` field, the lock name carries the short machine name (`de0cv-<machine name>.lock`), which only matches the lab files when the machine is called `ws` or `laptop`. For the file to be always `/tmp/de0cv-ws.lock` on the workstation and `/tmp/de0cv-laptop.lock` on the laptop, the inventory of the host fixes the label.
+Without the `host` field, the lock name carries the short hostname of the machine (`de0cv-<hostname>.lock`), which is what the lab files use. The laptop uses the label `laptop`. The `host` field of the inventory overrides the label when the file name has to be different.
 
 | Machine | Inventory | DE0-CV file |
 | :--- | :--- | :--- |
-| Workstation | `host: ws` | `/tmp/de0cv-ws.lock` |
-| Laptop | `host: laptop` | `/tmp/de0cv-laptop.lock` |
+| Workstation | no `host` (hostname) | `/tmp/de0cv-D-20003267-LINUX.lock` |
+| Laptop | `host: laptop` (optional) | `/tmp/de0cv-laptop.lock` |
 
 ```yaml
 host: laptop

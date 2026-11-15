@@ -83,18 +83,18 @@ Duas candidatas iguais sem desempate são um erro de caso 2 com a lista dos cabo
 
 ## 7. Trava por placa
 
-Cada placa tem um arquivo de trava, tomado com `flock` exclusivo durante a sessão inteira. O nome é o identificador da placa sem hífens mais o host (`de0cv-ws.lock`), que é o arquivo que os agentes e o runner do Tests já usam. Um host com duas placas do mesmo tipo usa o `id` do inventário, e a entrada pode fixar o arquivo com `lock_file`.
+Cada placa tem um arquivo de trava, tomado com `flock` exclusivo durante a sessão inteira. O nome é o identificador da placa sem hífens mais o hostname curto da máquina (`de0cv-D-20003267-LINUX.lock`), que é o nome dos arquivos que o laboratório já usa. Um host com duas placas do mesmo tipo usa o `id` do inventário, e a entrada pode fixar o arquivo com `lock_file`.
 
 O dono grava no arquivo o host, o usuário, o processo, o comando e o instante. Quem encontra a placa ocupada lê esse registro; um `flock` comum não grava nada, e a mensagem diz isso. Sem `--wait`, a trava falha na hora, e `--wait` sozinho espera até 4 horas.
 
-### 7.1. Fixar o arquivo de trava do laboratório
+### 7.1. Rótulo do host na trava
 
-Sem o campo `host`, o nome da trava leva o nome curto da máquina (`de0cv-<nome da máquina>.lock`), que só coincide com os arquivos do laboratório quando a máquina se chama `ws` ou `laptop`. Para que o arquivo seja sempre `/tmp/de0cv-ws.lock` na estação de trabalho e `/tmp/de0cv-laptop.lock` no notebook, o inventário do host fixa o rótulo.
+Sem o campo `host`, o nome da trava leva o hostname curto da máquina (`de0cv-<hostname>.lock`), que é o que os arquivos do laboratório usam. O notebook usa o rótulo `laptop`. O campo `host` do inventário substitui o rótulo quando o nome do arquivo precisa ser outro.
 
 | Máquina | Inventário | Arquivo da DE0-CV |
 | :--- | :--- | :--- |
-| Estação de trabalho | `host: ws` | `/tmp/de0cv-ws.lock` |
-| Notebook | `host: laptop` | `/tmp/de0cv-laptop.lock` |
+| Estação de trabalho | sem `host` (hostname) | `/tmp/de0cv-D-20003267-LINUX.lock` |
+| Notebook | `host: laptop` (opcional) | `/tmp/de0cv-laptop.lock` |
 
 ```yaml
 host: laptop
