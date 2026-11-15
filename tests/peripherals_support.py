@@ -9,6 +9,9 @@ from riscv_tools.board_generate import GenerateRequest
 
 FIXTURES = Path(__file__).parent / "fixtures" / "peripherals"
 EXAMPLES = sorted(p.stem for p in (FIXTURES / "platforms").glob("*.yaml"))
+# Exemplos sem entidade no `Peripherals`: o topo os recusa.
+MISSING = ("hdmi_tmds",)
+GENERATED = [k for k in EXAMPLES if k not in MISSING]
 
 
 def catalog(tmp_path: Path) -> Path:

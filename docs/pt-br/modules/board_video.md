@@ -57,14 +57,28 @@ O `VideoPlan.generics()` escreve as associações abaixo, e `top_generator.video
 | `video_v_visible`, `video_v_front_porch`, `video_v_sync`, `video_v_back_porch`, `video_v_total` | Temporização vertical, em linhas |
 | `video_h_sync_positive`, `video_v_sync_positive` | `true` quando o pulso de sincronismo é alto |
 
-O topo gerado ainda não instancia o periférico de vídeo, e os pinos de vídeo ainda não viram portas do topo. O mapa de generics do SoC não recebe os generics acima.
+O mapa de generics do SoC não recebe os generics acima.
 
-## 5. Testes
+## 5. Relógio de pixel
+
+Quando um periférico externo com a porta do relógio de pixel (`video`, `hdmi` ou `hdmi_tmds`) consta em `peripherals`, o `board_generate` resolve o vídeo e pede ao PLL a saída `pixel`, com a frequência do modo. Uma plataforma com esse periférico e sem `io.video` toma o modo padrão da placa, se ela tem `io.video`. O `pixel_request` junta as duas fontes da frequência: o modo resolvido e o `pixel_clock_khz` escrito no periférico. Se os dois existem e divergem, a geração falha; se só o campo existe, ele vale. O topo declara o sinal `clk_pixel` e liga o `i_pixel_clk` das entidades, e o `.sdc` trata o pixel como domínio próprio. Um relógio que o PLL não faz com os demais da plataforma falha com a mensagem do cálculo do [pll_generator](pll_generator.md).
+
+A tabela lista as saídas de vídeo das placas Terasic e os modos que cada uma oferece.
+
+| Placa | Saída | Modos da placa |
+| :--- | :--- | :--- |
+| DE0-CV | VGA | 640x480 |
+| DE10-Lite | VGA | 640x480 |
+| DE2-115 | VGA (ADV7123) | 640x480 a 1280x1024 |
+| DE10-Nano | HDMI (ADV7513) | 640x480 a 1920x1080 |
+
+## 6. Testes
 
 | Teste | O que verifica |
 | :--- | :--- |
 | `tests/test_board_video.py` | Leitura do papel `video` e do catálogo de modos, o pedido da plataforma (inclusive `16:9` sem aspas), a escolha do modo, as regras V20 a V22, os generics e a conferência do catálogo |
 | `tests/test_board_video_generate.py` | O plano chega ao `Generated`, o topo gerado não muda, os generics saem do `TopSpec` e o gerador recusa um pedido impossível |
+| `tests/test_video_clocks.py` | A saída `pixel` do PLL, o sinal e a ligação no topo, o domínio no `.sdc`, a fonte da frequência e a recusa do `hdmi_tmds` |
 
 ---
 
