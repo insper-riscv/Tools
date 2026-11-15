@@ -496,20 +496,9 @@ def test_the_core_map_must_be_in_order(tmp_path: Path) -> None:
 
 def _split_platform() -> dict[str, Any]:
     """Write the FLASH and the RAM as two windows of one SDRAM chip."""
-    memory = {
-        "rom": {
-            "external": True,
-            "backend": "dispositivo",
-            "device": "sdram",
-        },
-        "ram": {
-            "external": True,
-            "backend": "dispositivo",
-            "device": "sdram",
-        },
-        "icache": {"enabled": False},
-        "dcache": {"enabled": False},
-    }
+    chip = {"external": True, "backend": "dispositivo"} | {"device": "sdram"}
+    memory: dict[str, Any] = dict.fromkeys(("rom", "ram"), chip)
+    memory |= {key: {"enabled": False} for key in ("icache", "dcache")}
     regions = [
         {"name": "BOOT_MEMORY", "base": "0x0", "size": "4K", "exec": True},
         {
