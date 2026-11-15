@@ -107,7 +107,25 @@ def _pin_findings(place: Placement) -> list[Finding]:
                 "pin miso, which the board role does not wire",
             )
         )
+    found += _lane_findings(place, wired)
     return found
+
+
+def _lane_findings(place: Placement, wired: dict[str, str]) -> list[Finding]:
+    """Check that `lanes` of the camera is the width of the pin `d`."""
+    if place.kind.name != "mipi" or "d" not in wired:
+        return []
+    width = len(expand_group(wired["d"]))
+    lanes = int(place.item.get("lanes", width))
+    if lanes == width:
+        return []
+    return [
+        error(
+            "V24",
+            f"peripheral {place.name}: lanes {lanes} differs from the "
+            f"{width} lanes of the board pin d",
+        )
+    ]
 
 
 def _signals_of(place: Placement) -> set[str]:

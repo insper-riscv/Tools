@@ -687,6 +687,8 @@ peripherals:
 | `adc` | `adc128s022`, `ltc2308` or `max10_adc_shell` | `adc` | 64, 64 or 128 bytes | yes | `chip` (required) and those of section 9.7 |
 | `spi` | `spi` | `spi` | 32 bytes | yes | section 9.7 |
 | `adxl345` | `adxl345` | `adxl345` | 32 bytes | yes | section 9.7 |
+| `wifi` | `wifi` | `wifi` | 128 bytes | yes | section 9.7 |
+| `mipi` | `mipi` | `mipi` | 64 bytes | yes | section 9.7 |
 
 The minimum window is one word of 4 bytes for each address the entity decodes. The common fields are the following.
 
@@ -746,8 +748,12 @@ A field that exists in only one entity of a kind (`rx_fifo_depth` of the PS/2 ke
 | `adc` | `sclk_hz` (`adc128s022` and `ltc2308`); `channel_latency`, from 0 to 1 (`adc128s022` and `ltc2308`); `convst_ns`, `conversion_ns` and `acquisition_ns` (`ltc2308` only); `scan_freq` (`max10` only) | none |
 | `spi` | `cs_count`, from 1 to 64; `word_width`, from 1 to 32; `reset_sclk_hz`, `rx_fifo_depth` and `tx_fifo_depth` | none |
 | `adxl345` | `sclk_hz`, `sample_hz` and `cs_high_ns` | `three_wire` (`bool`) |
+| `wifi` | `reset_pulse_ms`, `spi_reset_sclk_hz`, `spi_rx_fifo_depth`, `spi_tx_fifo_depth`, `uart_baud_freq`, `uart_baud_limit`, `uart_rx_fifo_depth` and `uart_tx_fifo_depth` | `run_at_reset` and `has_flow_control` (`bool`) |
+| `mipi` | `lanes`, from 1 to 4; `fb_line_bytes`, from 4 up (the entity wants a multiple of four); `fb_lines`; `default_dt`, from 0 to 63 | none |
 
 The data width and word address width generics (`data_width`, `addr_width`) come from the registry and are not fields, and neither are the `master` of `audio` and the `gigabit` of `eth`, because the wiring of the top is that of the master `audio`, and the `gigabit` is the one that `eth_rgmii_mac` sets in its own MAC. The `video` has no fields, because its timing comes from the `io.video` block.
+
+The `lanes` of the `mipi` is the number of bits of the pin `d` of the `mipi` role; when omitted the top uses the width of the pin, and written with another value both the generation and rule V24 of `check-boards` refuse it. The camera has its own I2C, but the `mipi` entity has no I2C pins, so the camera bus is a separate `i2c` peripheral that takes the copy of the `i2c` role wired to the `SCL` and `SDA` of the camera (field `instance`).
 
 ## 10. The `config_pkg`
 

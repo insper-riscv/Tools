@@ -113,6 +113,8 @@ Um valor é um sinal (`SD_CLK`) ou um barramento (`SD_DAT[3:0]`) do `pins.yaml`.
 | `adc` com `chip: max10` | `clk10` (in), o pino `ADC_CLK_10` do PLL do conversor |
 | `spi` | `sclk`, `mosi` e `cs_n` (out), `miso` (in) |
 | `adxl345` | `cs_n` e `sclk` (out), `mosi` (inout), `miso?` e `int1?` (in) |
+| `wifi` | `reset_n` (out), `gpio0` (inout), `ack` (in); o SPI com `sck?`, `copi?` e `cs_n?` (out) e `cipo?` (in); a UART com `rx?` e `cts?` (out) e `tx?` e `rts?` (in), as linhas do módulo NINA-W102 |
+| `mipi` | `clk` (in) e `d` (in, um bit por lane), pares LVDS da câmera MIPI CSI-2 |
 
 Um papel desconhecido, um pino que o papel não tem, um pino obrigatório ausente e um `chip` ausente ou fora do registro são problemas do arquivo, e o `check-boards` recusa todo sinal citado que o `pins.yaml` não tem.
 

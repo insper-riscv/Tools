@@ -12,6 +12,8 @@ from riscv_tools.board_ports import Port, memory_clock_port
 from riscv_tools.chip_package import IoDelays
 from riscv_tools.sdc_generator.adc import adc_section
 from riscv_tools.sdc_generator.eth import eth_section
+from riscv_tools.sdc_generator.mipi import mipi_section
+from riscv_tools.sdc_generator.wifi import wifi_section
 
 # Frequência do relógio da JTAG só entra como domínio; o nome é o do
 # Quartus.
@@ -382,16 +384,20 @@ def _vendor_sections(
     Returns
     -------
     list of str
-        As linhas; vazias sem MAC RGMII e sem ADC interno.
+        As linhas; vazias sem MAC RGMII, ADC interno, câmera e Wi-Fi.
     """
     soc = [
         _node(pattern, plan.index(role))
         for role in ("core", "fetch", "mem")
         if plan.get(role) is not None
     ]
-    adc = adc_section(ports, soc)
+    others = (
+        adc_section(ports, soc)
+        + mipi_section(ports, soc)
+        + wifi_section(ports)
+    )
     if plan.get(ETH_TX) is None:
-        return adc
+        return others
     delayed = plan.get(ETH_TX_DLY) is not None
     eth = eth_section(
         ports,
@@ -399,7 +405,7 @@ def _vendor_sections(
         _node(pattern, plan.index(ETH_TX_DLY)) if delayed else None,
         soc,
     )
-    return eth + adc
+    return eth + others
 
 
 def render_sdc(

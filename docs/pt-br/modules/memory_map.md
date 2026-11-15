@@ -686,6 +686,8 @@ peripherals:
 | `adc` | `adc128s022`, `ltc2308` ou `max10_adc_shell` | `adc` | 64, 64 ou 128 bytes | sim | `chip` (obrigatório) e os da seção 9.7 |
 | `spi` | `spi` | `spi` | 32 bytes | sim | seção 9.7 |
 | `adxl345` | `adxl345` | `adxl345` | 32 bytes | sim | seção 9.7 |
+| `wifi` | `wifi` | `wifi` | 128 bytes | sim | seção 9.7 |
+| `mipi` | `mipi` | `mipi` | 64 bytes | sim | seção 9.7 |
 
 A janela mínima é uma palavra de 4 bytes para cada endereço que a entidade decodifica. Os campos comuns são os seguintes.
 
@@ -745,8 +747,12 @@ Um campo que só existe numa das entidades de um kind (`rx_fifo_depth` do teclad
 | `adc` | `sclk_hz` (`adc128s022` e `ltc2308`); `channel_latency`, de 0 a 1 (`adc128s022` e `ltc2308`); `convst_ns`, `conversion_ns` e `acquisition_ns` (só `ltc2308`); `scan_freq` (só `max10`) | nenhum |
 | `spi` | `cs_count`, de 1 a 64; `word_width`, de 1 a 32; `reset_sclk_hz`, `rx_fifo_depth` e `tx_fifo_depth` | nenhum |
 | `adxl345` | `sclk_hz`, `sample_hz` e `cs_high_ns` | `three_wire` (`bool`) |
+| `wifi` | `reset_pulse_ms`, `spi_reset_sclk_hz`, `spi_rx_fifo_depth`, `spi_tx_fifo_depth`, `uart_baud_freq`, `uart_baud_limit`, `uart_rx_fifo_depth` e `uart_tx_fifo_depth` | `run_at_reset` e `has_flow_control` (`bool`) |
+| `mipi` | `lanes`, de 1 a 4; `fb_line_bytes`, de 4 em diante (a entidade pede múltiplo de quatro); `fb_lines`; `default_dt`, de 0 a 63 | nenhum |
 
 Os generics de largura de dado e de endereço de palavra (`data_width`, `addr_width`) saem do registro e não são campos, e o `master` do `audio` e o `gigabit` do `eth` também não são, porque a ligação do topo é a do `audio` mestre e o `gigabit` é o do MAC do `eth_rgmii_mac`, que o liga sozinho. O `video` não tem campos, porque a temporização dele vem do bloco `io.video`.
+
+O `lanes` da `mipi` é o número de bits do pino `d` do papel `mipi`; omitido, o topo usa a largura do pino, e escrito com outro valor a geração e a regra V24 do `check-boards` o recusam. A câmera tem I2C próprio, mas a entidade `mipi` não tem pinos de I2C, então o barramento da câmera é um periférico `i2c` à parte, que toma a cópia do papel `i2c` ligada a `SCL` e `SDA` da câmera (campo `instance`).
 
 ## 10. O `config_pkg`
 

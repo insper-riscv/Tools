@@ -113,6 +113,8 @@ A value is a signal (`SD_CLK`) or a bus (`SD_DAT[3:0]`) of `pins.yaml`. The orde
 | `adc` with `chip: max10` | `clk10` (in), the `ADC_CLK_10` pin of the converter PLL |
 | `spi` | `sclk`, `mosi` and `cs_n` (out), `miso` (in) |
 | `adxl345` | `cs_n` and `sclk` (out), `mosi` (inout), `miso?` and `int1?` (in) |
+| `wifi` | `reset_n` (out), `gpio0` (inout), `ack` (in); the SPI with `sck?`, `copi?` and `cs_n?` (out) and `cipo?` (in); the UART with `rx?` and `cts?` (out) and `tx?` and `rts?` (in), the lines of the NINA-W102 module |
+| `mipi` | `clk` (in) and `d` (in, one bit per lane), the LVDS pairs of the MIPI CSI-2 camera |
 
 An unknown role, a pin the role does not have, a missing required pin and a `chip` that is missing or outside the registry are problems of the file, and `check-boards` refuses every cited signal that `pins.yaml` lacks.
 

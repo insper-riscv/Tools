@@ -16,7 +16,9 @@ Writes the timing constraints of a platform on a board from the clock plan, the 
 | 4 | Crossings between the `mem`, `core` and `fetch` domains, and between them and the JTAG clock |
 | 5 | RGMII Ethernet clocks: the 125 MHz `RXC` as an input clock, `GTX_CLK` as a generated clock of the PLL node, a group asynchronous to the SoC and false paths of MDC, MDIO, INT_N and RESET_N |
 | 6 | The 10 MHz `ADC_CLK_10` clock of the MAX 10 ADC, with the group asynchronous to the SoC |
-| 7 | False paths of the reset, switches, keys, LEDs, displays and the pins of the NOR FLASH and the SRAM |
+| 7 | The `CLK` clock of the MIPI camera as a 200 MHz input clock (a ceiling of 400 Mbit/s per lane), with the group asynchronous to the SoC |
+| 8 | False paths of the pins of the Wi-Fi module, which are slow and asynchronous to the core |
+| 9 | False paths of the reset, switches, keys, LEDs, displays and the pins of the NOR FLASH and the SRAM |
 
 ## 3. Crossing bound
 
@@ -42,6 +44,7 @@ The node name comes from the family field `pll.clock_node_pattern`, with `<insta
 | `tests/test_board_equivalence.py` | The generated DE0-CV `.sdc` has the constraints of the hand-written `de0-cv.sdc` |
 | `tests/test_board_generate.py` | `.sdc` of the boards with a test PLL |
 | `tests/test_eth_rgmii.py` | The RGMII Ethernet block and the crossing bound without its clocks |
+| `tests/test_external_top.py` | The MIPI camera clock and its asynchronous group, and the false paths of the Wi-Fi module |
 | `tests/test_vendor_ip.py` | The ADC clock, the IP and the script in the project, the USB `dreq` and `dack`, and rule V25 |
 
 ---

@@ -72,6 +72,7 @@ buses:
   i2c:
     - {scl: EEP_I2C_SCLK, sda: EEP_I2C_SDAT}
     - {scl: I2C_SCLK, sda: I2C_SDAT}
+    - {scl: MIPI_SCL, sda: MIPI_SDA}
   audio: {xck: AUD_XCK, bclk: AUD_BCLK, adclrck: AUD_ADCLRCK, adcdat: AUD_ADCDAT, daclrck: AUD_DACLRCK, dacdat: AUD_DACDAT}
   eth:
     - {rx_clk: ENET0_RX_CLK, rxd: "ENET0_RX_DATA[3:0]", rx_dv: ENET0_RX_DV, rx_er: ENET0_RX_ER, tx_clk: ENET0_TX_CLK, txd: "ENET0_TX_DATA[3:0]", tx_en: ENET0_TX_EN, tx_er: ENET0_TX_ER, mdc: ENET0_MDC, mdio: ENET0_MDIO, int_n: ENET0_INT_N, rst_n: ENET0_RST_N}
@@ -86,4 +87,6 @@ buses:
     - {chip: ltc2308, convst: ADC_CONVST, sck: ADC_SCK, sdi: ADC_SDI, sdo: ADC_SDO}
     - {chip: max10, clk10: ADC_CLK_10}
   spi: {sclk: SPI_SCLK, mosi: SPI_MOSI, miso: SPI_MISO, cs_n: SPI_CS_N}
+  wifi: {reset_n: WM_RESET_N, gpio0: WM_GPIO0, ack: WM_ACK, sck: WM_SCK, copi: WM_COPI, cipo: WM_CIPO, cs_n: WM_CS_N, tx: WM_TX, rx: WM_RX, rts: WM_RTS, cts: WM_CTS}
+  mipi: {clk: MIPI_CLK, d: "MIPI_D[1:0]"}
   adxl345: {cs_n: ADXL_CS_N, sclk: ADXL_SCLK, mosi: ADXL_SDI, miso: ADXL_SDO, int1: ADXL_INT1}

@@ -515,6 +515,42 @@ EXTERNAL: dict[str, ExternalKind] = {
                 *bools("three_wire"),
             ),
         ),
+        # O SPI e a UART do módulo são opcionais: o que a placa não liga
+        # fica aberto (saída) ou parado (entrada). O `gpio0` é uma saída
+        # com habilitação, sem leitura de volta.
+        ExternalKind(
+            "wifi",
+            "wifi",
+            True,
+            _one(
+                "wifi",
+                5,
+                ">reset_n =gpio0 <ack >sck? >copi? <cipo? >cs_n? <tx? "
+                ">rx? <rts? >cts?",
+                "clock_hz",
+            ),
+            fields=(
+                *ints("reset_pulse_ms spi_reset_sclk_hz", 1),
+                *ints("spi_rx_fifo_depth spi_tx_fifo_depth", 1),
+                *ints("uart_baud_freq uart_baud_limit"),
+                *ints("uart_rx_fifo_depth uart_tx_fifo_depth", 1),
+                *bools("run_at_reset has_flow_control"),
+            ),
+        ),
+        # O I2C da câmera é outro kind (`i2c`, na segunda cópia do papel
+        # `i2c`), porque a entidade não tem pinos de I2C.
+        ExternalKind(
+            "mipi",
+            "mipi",
+            True,
+            _one("mipi", 4, "<clk <d"),
+            fields=(
+                ranged("lanes", 1, 4),
+                *ints("fb_line_bytes", 4),
+                *ints("fb_lines", 1),
+                ranged("default_dt", 0, 63),
+            ),
+        ),
     )
 }
 # Papéis de pino do `board.yaml` (seção `buses`), na ordem do registro.

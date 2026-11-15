@@ -523,7 +523,75 @@ def _video(_inst: str, p: dict[str, Port]) -> Wiring:
     )
 
 
+def _wifi(inst: str, p: dict[str, Port]) -> Wiring:
+    """Liga o módulo Wi-Fi; o SPI e a UART são opcionais.
+
+    O `gpio0` sai com a habilitação da entidade e não é lido de volta.
+    Sem pino, uma saída fica aberta e uma entrada fica parada no nível
+    de repouso: `cipo` e `rts` em `'0'`, `tx` em `'1'` (linha serial
+    ociosa).
+    """
+    port = p["gpio0"]
+    stem = f"{inst}_wm_gpio0"
+    gpio0 = Wiring(
+        [f"o_wm_gpio0 => {stem}", f"o_wm_gpio0_oe => {stem}_oe"],
+        [f"signal {stem}, {stem}_oe : std_logic;"],
+        [f"{port.name} <= {stem} when {stem}_oe = '1' else 'Z';"],
+    )
+    return _merge(
+        [
+            _direct("o_wm_reset_n", p["reset_n"]),
+            gpio0,
+            _direct("i_wm_ack", p["ack"]),
+            _direct("o_wm_sck", p.get("sck")),
+            _direct("o_wm_copi", p.get("copi")),
+            _direct("i_wm_cipo", p.get("cipo"), "'0'"),
+            _direct("o_wm_cs_n", p.get("cs_n")),
+            _direct("i_wm_tx", p.get("tx"), "'1'"),
+            _direct("o_wm_rx", p.get("rx")),
+            _direct("i_wm_rts", p.get("rts"), "'0'"),
+            _direct("o_wm_cts", p.get("cts")),
+        ]
+    )
+
+
+def _mipi(inst: str, p: dict[str, Port]) -> Wiring:
+    """Liga a câmera MIPI: o relógio e o registrador DDR das lanes.
+
+    A entidade recebe cada lane já amostrada nas duas bordas do relógio
+    da câmera, então o topo instancia o registrador DDR de entrada
+    entre os pinos e a entidade.
+    """
+    clk, data = p["clk"], p["d"]
+    early, late = f"{inst}_early", f"{inst}_late"
+    lanes = f"std_logic_vector({data.width - 1} downto 0)"
+    sigs = [f"signal {early}, {late} : {lanes};"]
+    body: list[str] = []
+    source = data.name
+    if not data.vector:
+        source = f"{inst}_d"
+        sigs.append(f"signal {source} : {lanes};")
+        body.append(f"{source}(0) <= {data.name};")
+    body += [
+        f"u_{inst}_ddr : entity work.mipi_ddr_in",
+        f"\tgeneric map (width => {data.width})",
+        f"\tport map (i_clk => {clk.name}, i_d => {source}, "
+        f"o_q_early => {early}, o_q_late => {late});",
+    ]
+    return Wiring(
+        [
+            f"i_mipi_clk => {clk.name}",
+            f"i_mipi_early => {early}",
+            f"i_mipi_late => {late}",
+        ],
+        sigs,
+        body,
+    )
+
+
 WIRING = {
+    "wifi": _wifi,
+    "mipi": _mipi,
     "ps2_keyboard": _ps2,
     "ps2_mouse_top": _ps2,
     "sd_spi": _sd_spi,
@@ -667,6 +735,38 @@ def _wire(
     return WIRING[variant.entity](inst, pins)
 
 
+def _lanes_generic(item: dict[str, Any], width: int) -> list[str]:
+    """Dá o generic `lanes` da câmera, que segue a largura do pino `d`.
+
+    Parameters
+    ----------
+    item : dict of {str: Any}
+        A entrada de `peripherals`.
+    width : int
+        Os bits do pino `d` da placa, um por lane.
+
+    Returns
+    -------
+    list of str
+        A associação, vazia quando a entrada já a escreveu (o gerador
+        de generics a emitiu).
+
+    Raises
+    ------
+    InputError
+        Se `lanes` da entrada difere da largura do pino.
+    """
+    written = item.get("lanes")
+    if written is None:
+        return [f"lanes => {width}"]
+    if int(written) != width:
+        raise InputError(
+            f"E peripheral {item['name']}: lanes {written} differs from "
+            f"the {width} lanes of the board pin d"
+        )
+    return []
+
+
 def _instance(
     spec: TopSpec,
     item: dict[str, Any],
@@ -705,6 +805,8 @@ def _instance(
         return None
     wired = _wire(variant, item, pins)
     generics = instance_generics(spec, item, variant, kind)
+    if variant.entity == "mipi":
+        generics += _lanes_generic(item, pins["d"].width)
     maps = _bus_maps(variant, name, variant.addr_bits) + wired.maps
     if kind.irq:
         maps.append(f"o_irq => ext_irq({name.upper()}_EXT_POS)")
