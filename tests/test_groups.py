@@ -269,7 +269,7 @@ def test_the_size_cannot_be_written(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("change", "text"),
     [
-        ({"kind": "uart"}, "kind must be one of"),
+        ({"kind": "teletype"}, "kind must be one of"),
         ({"role": "leds", "roles": ["keys"]}, "exactly one of role and roles"),
         ({"role": "audio"}, "must be one of"),
         ({"other": 1}, "unknown keys"),

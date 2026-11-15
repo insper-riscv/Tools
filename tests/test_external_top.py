@@ -116,3 +116,116 @@ def test_a_platform_without_external_peripherals_has_no_bus(
         t for n, t in generate(req).files.items() if n.endswith("_top.vhd")
     )
     check_not_in("ext_", top)
+
+
+def test_hdmi_audio_wires_the_i2s_pins_and_its_generics(
+    tmp_path: Path,
+) -> None:
+    """The I2S entity gets the four pins and each field as a generic."""
+    text, _ = _top(tmp_path, "hdmi_audio")
+    check_in("u_hdmi_audio : entity work.hdmi_audio", text)
+    for generic in (
+        "clk_freq => 50000000",
+        "sample_rate => 44100",
+        "mclk_ratio => 128",
+        "word_bits => 16",
+        "tx_fifo_depth => 64",
+        "has_tone => false",
+        "tone_freq => 440",
+        "tone_amp => 4096",
+        "autostart => true",
+    ):
+        check_in(generic, text)
+    for formal, pin in (
+        ("o_mclk", "HDMI_MCLK"),
+        ("o_sclk", "HDMI_SCLK"),
+        ("o_lrclk", "HDMI_LRCLK"),
+        ("o_i2s0", "HDMI_I2S0"),
+    ):
+        check_in(f"{formal} => {pin}", text)
+    check_in("o_irq => ext_irq(HDMI_AUDIO_EXT_POS)", text)
+    check_in("i_address => ext_addr(3 downto 0)", text)
+
+
+def test_hdmi_audio_is_left_out_when_the_board_lacks_the_role(
+    tmp_path: Path,
+) -> None:
+    """With `need: optional` a board without the I2S pins skips it."""
+    req = request(tmp_path, "hdmi_audio")
+    board = req.boards_dir / "example" / "board.yaml"
+    board.write_text(
+        board.read_text(encoding="utf-8").replace(
+            "  hdmi_audio: {mclk: HDMI_MCLK, sclk: HDMI_SCLK, "
+            "lrclk: HDMI_LRCLK, i2s0: HDMI_I2S0}\n",
+            "",
+        ),
+        encoding="utf-8",
+    )
+    req.platform_file.write_text(
+        req.platform_file.read_text(encoding="utf-8").replace(
+            "kind: hdmi_audio,", "kind: hdmi_audio, need: optional,"
+        ),
+        encoding="utf-8",
+    )
+    result = generate(req)
+    top = " ".join(
+        next(
+            t for n, t in result.files.items() if n.endswith("_top.vhd")
+        ).split()
+    )
+    check_not_in("entity work.hdmi_audio", top)
+    check(any("HDMI_AUDIO" in w and "omitted" in w for w in result.warnings))
+
+
+def test_the_uart_wires_the_flow_control_lines(tmp_path: Path) -> None:
+    """RTS and CTS reach the pins and the queue depths are generics."""
+    text, _ = _top(tmp_path, "uart")
+    check_in("u_serial : entity work.uart", text)
+    for generic in (
+        "has_flow_control => true",
+        "rx_fifo_depth => 32",
+        "tx_fifo_depth => 8",
+        "baud_freq => 576",
+        "baud_limit => 15049",
+    ):
+        check_in(generic, text)
+    check_in("i_uart_rx => SER_RXD", text)
+    check_in("o_uart_tx => SER_TXD", text)
+    check_in("i_uart_cts => SER_CTS", text)
+    check_in("o_uart_rts => SER_RTS", text)
+    check_in("i_address => ext_addr(1 downto 0)", text)
+
+
+def test_the_uart_without_flow_pins_ties_cts_low(tmp_path: Path) -> None:
+    """A board with only RX and TX leaves CTS at '0' and RTS open."""
+    req = request(tmp_path, "uart")
+    board = req.boards_dir / "example" / "board.yaml"
+    board.write_text(
+        board.read_text(encoding="utf-8").replace(
+            ", cts: SER_CTS, rts: SER_RTS", ""
+        ),
+        encoding="utf-8",
+    )
+    top = " ".join(
+        next(
+            t for n, t in generate(req).files.items() if n.endswith("_top.vhd")
+        ).split()
+    )
+    check_in("i_uart_cts => '0'", top)
+    check_in("o_uart_rts => open", top)
+
+
+def test_the_eth_mac_and_mdio_fields_are_generics(tmp_path: Path) -> None:
+    """The MAC and the MDIO master each take their own generics."""
+    text, _ = _top(tmp_path, "eth")
+    for generic in (
+        "phy_addr => 16",
+        "mdc_freq_hz => 1000000",
+        "poll_cycles => 1000",
+        "tx_buffer_addr_bits => 10",
+        "rx_buffer_addr_bits => 8",
+        "rx_fifo_addr_bits => 5",
+        "sync_stages => 3",
+        "reset_cycles => 32",
+    ):
+        check_in(generic, text)

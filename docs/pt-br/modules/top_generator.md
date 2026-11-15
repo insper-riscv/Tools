@@ -42,7 +42,7 @@ O contrato com o SoC é o seguinte.
 | Portas de entrada | `i_ext_rdata` (32 bits por periférico) e `i_ext_irq` (um bit por periférico) |
 | Posição | `<NOME>_EXT_POS`, do pacote do mapa, escolhe a fatia de cada periférico |
 
-A instância liga `i_clk` ao relógio do núcleo e `i_rst` ao reset do SoC, e os generics de frequência recebem o relógio do núcleo em hertz. Os campos do kind (`phy_addr`, `cs_count`, `three_wire`, `int_active_high`, `active_low`) viram generics com o mesmo nome do campo.
+A instância liga `i_clk` ao relógio do núcleo e `i_rst` ao reset do SoC, e os generics de frequência recebem o relógio do núcleo em hertz. Os campos do kind (por exemplo `phy_addr`, `cs_count`, `three_wire`, `has_flow_control`, `sample_rate`) viram generics com o mesmo nome do campo, e só os campos escritos na plataforma entram no `generic map`.
 
 | Entidade | Pinos |
 | :--- | :--- |
@@ -52,6 +52,8 @@ A instância liga `i_clk` ao relógio do núcleo e `i_rst` ao reset do SoC, e os
 | `lcd`, `usb_bridge`, `eth` (MDIO), `hdmi_tx` (I2C), `adxl345` (`mosi`) | Saída com habilitação: `'Z'` quando desabilitada, e um sinal de volta com a leitura do pino |
 | `i2c_master` | Open drain: `'0'` quando a entidade pede baixo, senão `'Z'` |
 | `audio` | O FPGA é o mestre dos relógios do codec, e as entradas `i_bclk`, `i_adclrck` e `i_daclrck` ficam em `'0'` |
+| `hdmi_audio` | Quatro linhas de saída (`o_mclk`, `o_sclk`, `o_lrclk`, `o_i2s0`), com a entidade como mestre I2S |
+| `uart` | `rx` e `tx` direto; sem o pino `cts` a entrada fica em `'0'`, e sem `rts` a saída fica aberta |
 | `adc128s022`, `ltc2308`, `ir_receiver`, `tv`, `spi` | Direto; o `cs_n` do `spi` é fatiado na largura da porta da placa |
 
 O `video` e o `hdmi_tx` precisam de um relógio de pixel do plano de relógios, e sem ele a instância fica fora com um aviso. O `max10_adc` precisa do IP do fabricante e também fica fora com um aviso.

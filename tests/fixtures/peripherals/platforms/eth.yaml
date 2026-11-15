@@ -42,6 +42,6 @@ interrupts:
 peripherals:
   CLINT: {base: 0xE0000000, size: 64K}
   PLIC: {base: 0xF0000000, size: 4M}
-  ETH0: {kind: eth, base: 0x8000E000, phy_addr: 16}
+  ETH0: {kind: eth, base: 0x8000E000, phy_addr: 16, mdc_freq_hz: 1000000, poll_cycles: 1000, tx_buffer_addr_bits: 10, rx_buffer_addr_bits: 8, rx_fifo_addr_bits: 5, sync_stages: 3, reset_cycles: 32}
 generate:
   vhdl: {path: example_eth_map_pkg.vhd, package: example_eth_map_pkg, rom: FLASH, ram: RAM}

@@ -448,3 +448,11 @@ signals:
   - {name: "VGA_B[3]", pin: "FX124", io_standard: "3.3-V LVTTL", direction: "out", source: "fixture de teste", confirmed: "inferred"}
   - {name: "VGA_HS", pin: "FX125", io_standard: "3.3-V LVTTL", direction: "out", source: "fixture de teste", confirmed: "inferred"}
   - {name: "VGA_VS", pin: "FX126", io_standard: "3.3-V LVTTL", direction: "out", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "HDMI_MCLK", pin: "FX128", io_standard: "3.3-V LVTTL", direction: "out", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "HDMI_SCLK", pin: "FX129", io_standard: "3.3-V LVTTL", direction: "out", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "HDMI_LRCLK", pin: "FX130", io_standard: "3.3-V LVTTL", direction: "out", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "HDMI_I2S0", pin: "FX131", io_standard: "3.3-V LVTTL", direction: "out", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "SER_RXD", pin: "FX132", io_standard: "3.3-V LVTTL", direction: "in", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "SER_TXD", pin: "FX133", io_standard: "3.3-V LVTTL", direction: "out", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "SER_CTS", pin: "FX134", io_standard: "3.3-V LVTTL", direction: "in", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "SER_RTS", pin: "FX135", io_standard: "3.3-V LVTTL", direction: "out", source: "fixture de teste", confirmed: "inferred"}

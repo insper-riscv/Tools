@@ -103,6 +103,8 @@ A value is a signal (`SD_CLK`) or a bus (`SD_DAT[3:0]`) of `pins.yaml`. The orde
 | `audio` | `xck`, `bclk`, `adclrck`, `daclrck` and `dacdat` (out), `adcdat` (in) |
 | `eth` (MII) | `rx_clk`, `rxd`, `rx_dv`, `rx_er`, `tx_clk` and `int_n?` (in), `txd`, `tx_en`, `tx_er`, `mdc` and `rst_n` (out), `mdio` (inout) |
 | `hdmi` | `d`, `clk`, `de`, `hs` and `vs` (out), `int` (in), `scl` and `sda` (inout) |
+| `hdmi_audio` | `mclk`, `sclk`, `lrclk` and `i2s0` (out), the four I2S lines of the HDMI transmitter |
+| `serial` | `rx` and `cts?` (in), `tx` and `rts?` (out) |
 | `tv` | `data` and `clk27` (in), `reset_n` (out) |
 | `adc` with `chip: adc128s022` | `cs_n`, `sclk` and `saddr` (out), `sdat` (in) |
 | `adc` with `chip: ltc2308` | `convst`, `sck` and `sdi` (out), `sdo` (in) |

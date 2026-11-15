@@ -636,8 +636,10 @@ peripherals:
 | `usb` | `usb_bridge` | `usb` | 64 bytes | yes | `int_active_high` (boolean) |
 | `i2c` | `i2c_master` | `i2c` | 32 bytes | yes | none |
 | `audio` | `audio` | `audio` | 64 bytes | yes | none |
-| `eth` | `eth` (MII) | `eth` | 256 bytes | yes | `phy_addr` (integer) |
+| `eth` | `eth` (MII) | `eth` | 256 bytes | yes | `phy_addr`, `mdc_freq_hz` and `poll_cycles` (MDIO); `tx_buffer_addr_bits`, `rx_buffer_addr_bits`, `rx_fifo_addr_bits`, `sync_stages` and `reset_cycles` (MAC); all integers |
 | `hdmi` | `hdmi_tx` | `hdmi` | 256 KiB | yes | none |
+| `hdmi_audio` | `hdmi_audio` | `hdmi_audio` | 64 bytes | yes | `sample_rate`, `mclk_ratio`, `word_bits`, `tx_fifo_depth`, `tone_freq` and `tone_amp` (integers); `has_tone` and `autostart` (booleans) |
+| `uart` | `uart` | `serial` | 16 bytes | yes | `has_flow_control` (boolean); `baud_freq`, `baud_limit`, `rx_fifo_depth` and `tx_fifo_depth` (integers) |
 | `tv` | `tv` | `tv` | 64 bytes | yes | none |
 | `adc` | `adc128s022`, `ltc2308` or `max10_adc` | `adc` | 64, 64 or 128 bytes | yes | `chip` (required) |
 | `spi` | `spi` | `spi` | 32 bytes | yes | `cs_count` (integer) |

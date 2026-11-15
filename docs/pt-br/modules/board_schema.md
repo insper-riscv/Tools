@@ -103,6 +103,8 @@ Um valor é um sinal (`SD_CLK`) ou um barramento (`SD_DAT[3:0]`) do `pins.yaml`.
 | `audio` | `xck`, `bclk`, `adclrck`, `daclrck` e `dacdat` (out), `adcdat` (in) |
 | `eth` (MII) | `rx_clk`, `rxd`, `rx_dv`, `rx_er`, `tx_clk` e `int_n?` (in), `txd`, `tx_en`, `tx_er`, `mdc` e `rst_n` (out), `mdio` (inout) |
 | `hdmi` | `d`, `clk`, `de`, `hs` e `vs` (out), `int` (in), `scl` e `sda` (inout) |
+| `hdmi_audio` | `mclk`, `sclk`, `lrclk` e `i2s0` (out), as quatro linhas I2S do transmissor HDMI |
+| `serial` | `rx` e `cts?` (in), `tx` e `rts?` (out) |
 | `tv` | `data` e `clk27` (in), `reset_n` (out) |
 | `adc` com `chip: adc128s022` | `cs_n`, `sclk` e `saddr` (out), `sdat` (in) |
 | `adc` com `chip: ltc2308` | `convst`, `sck` e `sdi` (out), `sdo` (in) |
