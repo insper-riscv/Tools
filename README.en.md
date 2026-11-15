@@ -27,7 +27,9 @@ It is designed to run on a workstation with all the tools installed, or inside t
 | `ram_zero`           | JTAG-zero the whole RAM without reprogramming                | [docs/modules/ram_zero.md](docs/en/modules/ram_zero.md) |
 | `ram_target`         | Where the RAM lives (FPGA instance or SDRAM debug port)      | [docs/modules/ram_target.md](docs/en/modules/ram_target.md) |
 | `ram_load`           | Load files into the SDRAM through the debug port, verify and launch | [docs/modules/ram_load.md](docs/en/modules/ram_load.md) |
-| `sdram_debug`        | Read, write and fill the SDRAM through its JTAG debug port   | [docs/modules/sdram_debug.md](docs/en/modules/sdram_debug.md) |
+| `sdram_debug`        | Read, write and fill the SDRAM through its JTAG debug port, with `hold`, CRC and burst | [docs/modules/sdram_debug.md](docs/en/modules/sdram_debug.md) |
+| `sdram_windows`      | Window table of the FLASH and the RAM inside the SDRAM chip | [docs/modules/sdram_windows.md](docs/en/modules/sdram_windows.md) |
+| `flash_load`         | Writes the FLASH of the SDRAM through the JTAG with the core held and checks it by the CRC | [docs/modules/flash_load.md](docs/en/modules/flash_load.md) |
 | `uart_console`       | Shows the output of the program through the JTAG UART while it runs | [docs/modules/uart_console.md](docs/en/modules/uart_console.md) |
 | `display`            | Reads and writes the seven-segment display register and the failure flag of the board, with which `run` and `certify-board` show the running program | [docs/modules/display.md](docs/en/modules/display.md) |
 | `ram_dump`           | JTAG-dump the whole RAM to a `.mif`                          | [docs/modules/ram_dump.md](docs/en/modules/ram_dump.md) |
@@ -102,7 +104,7 @@ uv run riscv-tools --config /path/to/project/config.yaml sim
 uv run riscv-tools --config /path/to/project/config.yaml sim --only test-a,test-b
 ```
 
-See `riscv-tools --help` for the full subcommand list (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `load-ram`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `generate-config-pkg`, `check-paths`, `check-boards`, `check-tree`, `sources`, `ipxact`, `check-vhdl-style`, `vsg-config`, `vsg-rules`, `vhdl-files`, `platform`, `flash-image`, `timing-paths`, and `board generate`).
+See `riscv-tools --help` for the full subcommand list (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `load-ram`, `load-flash`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `generate-config-pkg`, `check-paths`, `check-boards`, `check-tree`, `sources`, `ipxact`, `check-vhdl-style`, `vsg-config`, `vsg-rules`, `vhdl-files`, `platform`, `flash-image`, `timing-paths`, and `board generate`).
 
 ```bash
 # vhdl-sort needs no --config; pure file-content analysis, e.g. wired

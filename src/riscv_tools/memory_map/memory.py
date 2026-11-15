@@ -57,7 +57,7 @@ PAGE = 4096
 
 _FIELDS = {
     "rom": ("external", "backend", "device", "latency", "sector_bytes"),
-    "ram": ("external", "backend", "device", "latency"),
+    "ram": ("external", "backend", "device", "latency", "fetch"),
     "icache": ("enabled", "size_bits"),
     "dcache": ("enabled", "size_bits"),
 }
@@ -682,6 +682,34 @@ def _legacy_problems(platform: dict[str, Any]) -> list[Mismatch]:
     ]
 
 
+def _flash_ctrl_problems(platform: dict[str, Any]) -> list[Mismatch]:
+    """Reject the FLASH controller over a FLASH only the JTAG writes.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+
+    Returns
+    -------
+    list of Mismatch
+        One when `FLASH_CTRL` is a peripheral and the FLASH is the sdram
+        or the sram: the core cannot erase or program those, so the
+        peripheral would have no chip to command.
+    """
+    if _rom_device(platform) not in WINDOWLESS_ROM_DEVICES:
+        return []
+    if any(p.get("name") == "FLASH_CTRL" for p in peripheral_list(platform)):
+        return [
+            _problem(
+                "FLASH_CTRL needs a FLASH the core can program (nor or "
+                "emulated); a FLASH in the sdram or the sram is written "
+                "only through the debug port"
+            )
+        ]
+    return []
+
+
 def problems(platform: dict[str, Any]) -> list[Mismatch]:
     """Check the memory choice against the map.
 
@@ -704,6 +732,7 @@ def problems(platform: dict[str, Any]) -> list[Mismatch]:
         _legacy_problems(platform)
         + _cache_problems(memory, rom, ram, _rom_device(platform))
         + _host_problems(memory, platform, ram)
+        + _flash_ctrl_problems(platform)
     )
 
 

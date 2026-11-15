@@ -1,0 +1,13 @@
+	sdram_instruction_bridge : entity work.sdram_cpu_bridge
+		generic map (addr_bits => SDRAM_ADDR_BITS)
+		port map (
+			i_clk_cpu => clk_core, i_rst_cpu => soc_rst,
+			i_addr => ins_addr, i_wdata => (others => '0'), i_byteena => (others => '0'),
+			i_rden => ins_rden, i_wren => '0', i_mem_advance => ins_adv,
+			o_ready => ins_ready, o_rdata => ins_rdata,
+			i_line => ins_line, i_wdata_x => (others => '0'), i_byteena_x => (others => '0'), o_rdata_x => ins_rdx,
+			o_req_tog => i_req, i_ack_tog => i_ack, i_init_done => init_done,
+			o_c_we => i_we, o_c_addr => i_addr, o_c_wdata => i_wdata, o_c_be => i_be, i_c_rdata => i_rdata,
+			o_c_line => i_line, o_c_wdata_x => i_wdx, o_c_be_x => i_bex, i_c_rdata_x => i_rdx
+		);
+

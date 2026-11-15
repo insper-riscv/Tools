@@ -46,6 +46,9 @@ class MemoryUse:
         The first and the next access, in cycles, of an emulated memory.
     sector_bytes : int or None
         The sector of an emulated FLASH.
+    fetch : bool
+        Whether the instruction port of the core also reaches the RAM
+        (execution from the data memory).
     """
 
     external: bool
@@ -53,6 +56,7 @@ class MemoryUse:
     device: str | None = None
     latency: tuple[int, int] | None = None
     sector_bytes: int | None = None
+    fetch: bool = False
 
 
 @dataclass(frozen=True)
@@ -228,6 +232,8 @@ def _check_emulated_only(entry: Section, key: str, use: MemoryUse) -> None:
     """
     if use.backend != "emulado" and "latency" in entry.raw:
         entry.fail("latency", "is only valid with the backend emulado")
+    if "fetch" in entry.raw and (key != "ram" or use.device != "sdram"):
+        entry.fail("fetch", "is only valid for the RAM (ram) in the sdram")
     if key == "ram" and "sector_bytes" in entry.raw:
         entry.fail("sector_bytes", "is only valid for the FLASH (rom)")
     if "sector_bytes" in entry.raw and use.backend != "emulado":
@@ -259,7 +265,8 @@ def _memory_use(parent: Section, key: str) -> MemoryUse | None:
     sector = entry.integer("sector_bytes", required=False, minimum=1)
     if sector is not None and not _is_power_of_two(sector):
         entry.fail("sector_bytes", "must be a power of 2")
-    use = MemoryUse(external, backend, device, latency, sector)
+    fetch = entry.flag("fetch", required=False)
+    use = MemoryUse(external, backend, device, latency, sector, fetch)
     _check_combination(entry, key, use)
     return use
 

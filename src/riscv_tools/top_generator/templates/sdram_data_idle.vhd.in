@@ -1,0 +1,10 @@
+	-- Nenhuma região de dados na SDRAM: o mestre de dados do árbitro fica sem pedidos.
+	a_req <= '0';
+	a_we <= '0';
+	a_line <= '0';
+	a_addr <= (others => '0');
+	a_wdata <= (others => '0');
+	a_be <= (others => '0');
+	a_wdx <= (others => '0');
+	a_bex <= (others => '0');
+

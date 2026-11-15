@@ -4,13 +4,21 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from riscv_tools import flash_loader, mem_edit, mem_validator, nor_program
+from riscv_tools import (
+    flash_load,
+    flash_loader,
+    mem_edit,
+    mem_validator,
+    nor_program,
+    sdram_windows,
+)
 from riscv_tools.jtag import JtagLink
 
 MEM_EDIT = "mem_edit"
 JTAG_LOADER = "jtag_loader"
 NOR_PROGRAM = "nor_program"
-METHODS = (MEM_EDIT, JTAG_LOADER, NOR_PROGRAM)
+SDRAM_DEBUG = "sdram_debug"
+METHODS = (MEM_EDIT, JTAG_LOADER, NOR_PROGRAM, SDRAM_DEBUG)
 
 
 def method_from_config(cfg: dict[str, Any]) -> str:
@@ -28,6 +36,8 @@ def method_from_config(cfg: dict[str, Any]) -> str:
         "jtag_loader" (the FLASH loader of the Memory repository) or
         "nor_program" (a program the host leaves in the SDRAM writes the
         bank of the NOR chip, see nor_program).
+        or "sdram_debug" (the FLASH is a window of the SDRAM, written
+        through its debug port with the core held, see flash_load).
 
     Raises
     ------
@@ -152,6 +162,8 @@ def write_rom_configured(
     method = method_from_config(cfg)
     if method == NOR_PROGRAM:
         return write_nor(link, cfg, mif_path)
+    if method == SDRAM_DEBUG:
+        return write_sdram_flash(link, cfg, mif_path)
     # O carregador não usa o editor: não lista a placa à toa.
     instances = (
         [] if method == JTAG_LOADER else mem_edit.rom_instances(link, cfg)
@@ -202,3 +214,46 @@ def write_nor(link: JtagLink, cfg: dict[str, Any], mif_path: Path) -> bool:
     if done != 1:
         raise RuntimeError(f"the NOR programmer failed (tohost {done:#x})")
     return False
+
+
+def write_sdram_flash(
+    link: JtagLink, cfg: dict[str, Any], mif_path: Path
+) -> bool:
+    """Write the `.mif` of the FLASH into its window of the SDRAM.
+
+    The core is held while the image is written and checked by the CRC
+    of the board, then released, so it restarts from the boot memory by
+    itself.
+
+    Parameters
+    ----------
+    link : JtagLink
+        Which JTAG cable/chip to write to.
+    cfg : dict of {str: Any}
+        The merged project config; `memory.sdram_windows` gives the
+        window of the FLASH.
+    mif_path : Path
+        The `.mif` of the FLASH, word 0 at the address 0 of the SoC.
+
+    Returns
+    -------
+    bool
+        True: the core restarts by itself.
+
+    Raises
+    ------
+    flash_load.FlashLoadError
+        The bitstream cannot hold the core, or the CRC differs.
+    sdram_windows.WindowError
+        The config has no window of the FLASH.
+    """
+    window = sdram_windows.window_named(
+        sdram_windows.windows_from_config(cfg), "FLASH"
+    )
+    words = mif_words(mif_path)
+    data = b"".join(w.to_bytes(4, "little") for w in words)
+    start = window.base
+    flash_load.load_flash(
+        link, window, flash_load.FlashImage(start, data[start:])
+    )
+    return True

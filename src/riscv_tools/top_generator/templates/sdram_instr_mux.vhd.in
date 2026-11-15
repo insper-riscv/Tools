@@ -1,0 +1,12 @@
+	-- A FLASH e a busca na RAM dividem a ponte de instruções: um pedido por vez, em rodízio.
+	sdram_instruction_mux : entity work.flash_arbiter
+		port map (
+			i_clk => clk_core, i_rst => soc_rst,
+			i_a_addr => fl_addr_c, i_a_rden => fl_rden, i_a_line => fl_line, i_a_advance => fl_adv,
+			o_a_ready => fl_ready, o_a_rdata => fl_rdata, o_a_rdata_x => fl_rdx,
+			i_b_addr => ri_addr_c, i_b_rden => ri_rden, i_b_line => ri_line, i_b_advance => ri_adv,
+			o_b_ready => ri_ready, o_b_rdata => ri_rdata, o_b_rdata_x => ri_rdx,
+			o_addr => ins_addr, o_rden => ins_rden, o_line => ins_line, o_advance => ins_adv,
+			i_ready => ins_ready, i_rdata => ins_rdata, i_rdata_x => ins_rdx
+		);
+

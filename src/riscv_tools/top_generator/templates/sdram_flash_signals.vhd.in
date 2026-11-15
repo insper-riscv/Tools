@@ -1,0 +1,4 @@
+	-- FLASH na SDRAM: face de instruções do SoC.
+	signal fl_addr, fl_rdata : std_logic_vector(31 downto 0);
+	signal fl_rden, fl_line, fl_adv, fl_ready, fl_busy : std_logic;
+	signal fl_rdx : std_logic_vector(95 downto 0);

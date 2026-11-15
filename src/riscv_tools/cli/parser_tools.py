@@ -271,7 +271,7 @@ def add_tool_commands(sub: Any) -> None:
         cmd_flash_image,
         "flash-image",
         description="Pack a program into the image of a FLASH bank, check "
-        "an image or send it over the JTAG UART",
+        "an image or send it over the JTAG UART or the SDRAM debug port",
     )
     p.add_argument(
         "action",
@@ -294,6 +294,15 @@ def add_tool_commands(sub: Any) -> None:
     p.add_argument(
         "--platform",
         help="pack: platform YAML (relative to --root) with the bank",
+    )
+    p.add_argument(
+        "--via",
+        choices=["uart", "debug"],
+        default="uart",
+        help="send: uart gives the image to the program that updates the "
+        "FLASH; debug writes it into its bank in the SDRAM through the "
+        "debug port, with the core held (needs --bank and --platform or "
+        "memory.sdram_windows)",
     )
     p.add_argument(
         "--bank",

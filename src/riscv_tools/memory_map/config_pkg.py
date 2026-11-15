@@ -27,11 +27,13 @@ of a variant of it (`--set IS_64=true --set ADDR_BITS=40`), for the
 formal proof and for the matrix of profiles of the Core.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
+from riscv_tools.memory_map import chip_split
 from riscv_tools.memory_map import memory as memory_choice
+from riscv_tools.memory_map.chip_split import ChipWindow
 from riscv_tools.memory_map.core import (
     address_bits,
     platform_dict,
@@ -91,6 +93,10 @@ class Config:
         `I_CACHE_WINDOW_BITS` and `D_CACHE_WINDOW_BITS`.
     addresses : dict of {str: int}
         `FLASH_BASE`, `FLASH_END`, `RAM_BASE` and `RAM_END`, in bytes.
+    windows : dict of {str: ChipWindow}
+        The chip window of each region that writes `offset`.
+    sizes : dict of {str: int}
+        The bytes of the `FLASH` and of the `RAM`.
     """
 
     is_64: bool
@@ -102,6 +108,10 @@ class Config:
     boot_bits: int
     cache_window_bits: int
     addresses: dict[str, int]
+    windows: dict[str, ChipWindow] = field(
+        default_factory=dict[str, ChipWindow]
+    )
+    sizes: dict[str, int] = field(default_factory=dict[str, int])
 
 
 def _override_value(item: str, name: str, text: str) -> bool | int:
@@ -409,6 +419,8 @@ def build_config(
         boot_bits=(table[f"{boot}.size"] - 1).bit_length(),
         cache_window_bits=memory_choice.cache_window_bits(platform),
         addresses=_addresses(platform, table),
+        windows=chip_split.windows(platform),
+        sizes=_sizes(platform, table),
     )
 
 
@@ -473,6 +485,7 @@ def render_config_pkg(
         "flash_on_bus": str(config.flash_on_bus).lower(),
         "ram_on_bus": str(config.ram_on_bus).lower(),
     }
+    fields |= _chip_fields(config)
     fields |= {
         key.lower(): _address(value, bits)
         for key, value in config.addresses.items()
@@ -536,3 +549,118 @@ def render_variant(
     return render_config_pkg(
         config, source_name(platform_file, root), overrides
     )
+
+
+def _sizes(platform: dict[str, Any], table: dict[str, int]) -> dict[str, int]:
+    """Read the bytes of the FLASH and of the RAM.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+    table : dict of {str: int}
+        The symbols of the map.
+
+    Returns
+    -------
+    dict of {str: int}
+        `FLASH` and `RAM`.
+    """
+    rom, ram = _rom_ram(platform)
+    return {FLASH: table[f"{rom}.size"], RAM: table[f"{ram}.size"]}
+
+
+def _chip_lines(prefix: str, window: ChipWindow | None) -> str:
+    """Write the VHDL constants of the place of a region in its chip.
+
+    Parameters
+    ----------
+    prefix : str
+        `FLASH` or `RAM`.
+    window : ChipWindow or None
+        The window; None when the platform gives no `offset`.
+
+    Returns
+    -------
+    str
+        Four constants, each with its comment, after a line break each;
+        empty without a window.
+    """
+    if window is None:
+        return ""
+    rows = (
+        (
+            f"Byte do chip onde a {prefix} começa (0 sem `offset`).",
+            "CHIP_OFFSET",
+            "natural",
+            str(window.offset),
+        ),
+        (
+            f"Bits baixos do endereço do SoC que percorrem a {prefix}.",
+            "CHIP_LOW_BITS",
+            "natural",
+            str(window.low_bits),
+        ),
+        (
+            f"A {prefix} usa uma constante nos bits altos, sem somador.",
+            "CHIP_ALIGNED",
+            "boolean",
+            str(window.aligned).lower(),
+        ),
+        (
+            f"Constante dos bits altos da {prefix} (vale com CHIP_ALIGNED).",
+            "CHIP_HIGH",
+            "natural",
+            str(window.fixed_high),
+        ),
+    )
+    return "\n" + "\n".join(
+        f"    -- {comment}\n"
+        f"    constant {prefix}_{name:<13} : {kind:<8} := {value};"
+        for comment, name, kind, value in rows
+    )
+
+
+def _flash_window(config: Config) -> str:
+    """Write the constant of the window of the FLASH, in KiB.
+
+    Parameters
+    ----------
+    config : Config
+        The choices.
+
+    Returns
+    -------
+    str
+        `FLASH_WINDOW_KIB` with its comment, which the region router
+        takes as its window; empty when the platform declares no
+        `offset`, so the package stays the default one.
+    """
+    if not config.windows:
+        return ""
+    kib = -(-config.sizes.get(FLASH, 0) // 1024)
+    return (
+        "\n    -- Janela da FLASH que o roteador de regiões cobre, em KiB "
+        "(o tamanho da região).\n"
+        f"    constant FLASH_WINDOW_KIB    : natural    := {kib};"
+    )
+
+
+def _chip_fields(config: Config) -> dict[str, str]:
+    """Write the fields of the template that carry the chip windows.
+
+    Parameters
+    ----------
+    config : Config
+        The choices.
+
+    Returns
+    -------
+    dict of {str: str}
+        `flash_chip` and `ram_chip`, empty without an `offset`.
+    """
+    return {
+        "flash_chip": _flash_window(config)
+        + _chip_lines("FLASH", config.windows.get(FLASH)),
+        "ram_chip": _chip_lines("RAM", config.windows.get(RAM)),
+    }

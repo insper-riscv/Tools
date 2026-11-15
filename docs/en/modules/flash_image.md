@@ -31,9 +31,10 @@ The payload is the `.bin` the linker produced for the bank, padded with `0xFF` t
 riscv-tools --root <project> flash-image pack program.bin --output image.bin --version 3 --platform src/cyclone-v/de0-cv/platform.yaml --bank B
 riscv-tools flash-image verify image.bin
 riscv-tools --config <config.yaml> flash-image send image.bin
+riscv-tools --config <config.yaml> flash-image send image.bin --via debug --bank A --platform src/platform.yaml
 ```
 
-`pack` with `--platform` and `--bank` checks that the image fits the bank. `send` requires `--config` and checks the image before sending it; what the program prints during the transfer goes to standard output. `pack` and `verify` do not need `--config`.
+`pack` with `--platform` and `--bank` checks that the image fits the bank. `send --via debug` writes the image into the bank `--bank` of the FLASH that sits in the SDRAM, through the debug port and with the core held ([`flash_load`](flash_load.md)), instead of handing it to the UART of the program that updates the FLASH. `send` requires `--config` and checks the image before sending it; what the program prints during the transfer goes to standard output. `pack` and `verify` do not need `--config`.
 
 ## 4. Prerequisites
 
