@@ -32,6 +32,59 @@ class ElfSegment:
     data: bytes
 
 
+def _check_header(path: Path, blob: bytes) -> None:
+    """Confere que o arquivo é um ELF32 little-endian.
+
+    Parameters
+    ----------
+    path : Path
+        O arquivo, para a mensagem.
+    blob : bytes
+        O conteúdo.
+
+    Raises
+    ------
+    ElfError
+        Se não é ELF, ou não é de 32 bits little-endian.
+    """
+    if blob[:4] != _ELF_MAGIC or len(blob) < _HEADER.size:
+        raise ElfError(f"{path}: not an ELF file")
+    if blob[4] != _CLASS_32 or blob[5] != _LITTLE:
+        raise ElfError(f"{path}: only 32-bit little-endian ELF is read")
+
+
+def _segment_at(path: Path, blob: bytes, start: int) -> ElfSegment | None:
+    """Lê um cabeçalho de programa e devolve o segmento carregável.
+
+    Parameters
+    ----------
+    path : Path
+        O arquivo, para a mensagem.
+    blob : bytes
+        O conteúdo.
+    start : int
+        O deslocamento do cabeçalho de programa.
+
+    Returns
+    -------
+    ElfSegment or None
+        O segmento `PT_LOAD` com conteúdo; `None` para os outros.
+
+    Raises
+    ------
+    ElfError
+        Se o cabeçalho ou o segmento passa do fim do arquivo.
+    """
+    if start + _PROGRAM.size > len(blob):
+        raise ElfError(f"{path}: truncated program header table")
+    kind, offset, _, paddr, filesz, *_ = _PROGRAM.unpack_from(blob, start)
+    if kind != _PT_LOAD or not filesz:
+        return None
+    if offset + filesz > len(blob):
+        raise ElfError(f"{path}: segment beyond the end of the file")
+    return ElfSegment(paddr, blob[offset : offset + filesz])
+
+
 def load_segments(path: Path) -> list[ElfSegment]:
     """Lê os segmentos `PT_LOAD` com conteúdo.
 
@@ -51,23 +104,15 @@ def load_segments(path: Path) -> list[ElfSegment]:
         Se o arquivo não é ELF32 little-endian ou está truncado.
     """
     blob = path.read_bytes()
-    if blob[:4] != _ELF_MAGIC or len(blob) < _HEADER.size:
-        raise ElfError(f"{path}: not an ELF file")
-    if blob[4] != _CLASS_32 or blob[5] != _LITTLE:
-        raise ElfError(f"{path}: only 32-bit little-endian ELF is read")
+    _check_header(path, blob)
     fields = _HEADER.unpack_from(blob)
     phoff, phentsize, phnum = fields[4], fields[8], fields[9]
-    found: list[ElfSegment] = []
-    for index in range(phnum):
-        start = phoff + index * phentsize
-        if start + _PROGRAM.size > len(blob):
-            raise ElfError(f"{path}: truncated program header table")
-        kind, offset, _, paddr, filesz, *_ = _PROGRAM.unpack_from(blob, start)
-        if kind == _PT_LOAD and filesz:
-            if offset + filesz > len(blob):
-                raise ElfError(f"{path}: segment beyond the end of the file")
-            found.append(ElfSegment(paddr, blob[offset : offset + filesz]))
-    return sorted(found, key=lambda s: s.address)
+    found = [
+        _segment_at(path, blob, phoff + index * phentsize)
+        for index in range(phnum)
+    ]
+    loaded = [s for s in found if s is not None]
+    return sorted(loaded, key=lambda s: s.address)
 
 
 def flat_binary(segments: list[ElfSegment]) -> tuple[int, bytes]:
