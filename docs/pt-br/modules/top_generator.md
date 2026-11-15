@@ -20,10 +20,11 @@ O topo gerado não tem lógica além do reset. Ele liga, nesta ordem, as portas 
 | Backend `emulado` da RAM | `onchip_ram_port` sobre o bloco `ram`, com a latência pedida |
 | Backend `dispositivo/sdram` | Duas pontes (dados e instruções), `sdram_arbiter`, `sdram_dbg_master`, `sdram_jtag_shell`, `sdram_ctrl` e um `tristate_buffer_1bit` por bit do dado em um `generate`; a largura de 16 ou 32 bits e os bits de linha, coluna e banco vêm do chip e de `memories.sdram.chips` |
 | Backend `dispositivo/nor` | `nor_flash_ctrl` de 8 bits com leitura em página e os comandos da atualização de programa, e o anel de pinos da FLASH |
+| Backend `dispositivo/sram` | `sram_ctrl` na porta de dados do SoC, com os pinos `ADDR` (20 bits), `CE#`, `OE#`, `WE#`, `LB#` e `UB#` ligados direto, um `tristate_buffer_1bit` por bit do `DQ` de 16 bits, o tamanho do pacote do chip e os tempos do `chip_timing_pkg`; a porta de instruções da RAM fica sem resposta, como na RAM emulada |
 
 ## 3. O que o topo não liga
 
-Um backend sem entidade (`sram`, `flash-interna` e `serial`) não gera instância: o topo avisa e deixa a região parada. O SoC não exporta o papel de LEDs: os pinos de LED ficam no nível apagado, menos o primeiro, que acende com a bandeira de falha que o hospedeiro grava no display (nó Virtual JTAG de índice 2). O texto de cada backend fica em `templates/`, com os nomes e as portas reais das entidades do Memory.
+Um backend sem entidade (`flash-interna` e `serial`) não gera instância: o topo avisa e deixa a região parada. O SoC não exporta o papel de LEDs: os pinos de LED ficam no nível apagado, menos o primeiro, que acende com a bandeira de falha que o hospedeiro grava no display (nó Virtual JTAG de índice 2). O texto de cada backend fica em `templates/`, com os nomes e as portas reais das entidades do Memory.
 
 ### 3.1. Vídeo
 
@@ -42,21 +43,23 @@ O contrato com o SoC é o seguinte.
 | Portas de entrada | `i_ext_rdata` (32 bits por periférico) e `i_ext_irq` (um bit por periférico) |
 | Posição | `<NOME>_EXT_POS`, do pacote do mapa, escolhe a fatia de cada periférico |
 
-A instância liga `i_clk` ao relógio do núcleo e `i_rst` ao reset do SoC, e os generics de frequência recebem o relógio do núcleo em hertz. Os campos do kind (por exemplo `phy_addr`, `cs_count`, `three_wire`, `has_flow_control`, `sample_rate`) viram generics com o mesmo nome do campo, e só os campos escritos na plataforma entram no `generic map`.
+A instância liga `i_clk` ao relógio do núcleo e `i_rst` ao reset do SoC, e os generics de frequência recebem o relógio do núcleo em hertz. Os campos do kind (por exemplo `phy_addr`, `cs_count`, `three_wire`, `has_flow_control`, `sample_rate`) viram generics com o mesmo nome do campo, e só os campos escritos na plataforma entram no `generic map`. Os tipos dos campos e o literal de cada um estão na seção 9.7 de [memory_map](memory_map.md).
 
 | Entidade | Pinos |
 | :--- | :--- |
 | `ps2_keyboard`, `ps2_mouse_top` | `clk` e `dat` direto nas portas `inout` |
 | `sd_spi` | MOSI em `cmd`, MISO em `dat(0)`, CS em `dat(3)`, e os outros bits de `dat` em `'Z'` |
 | `sd_native` | `cmd` e cada bit de `dat` saem por `'Z'` com a habilitação da entidade |
+| `eth_rgmii_mac` | `i_tx_clk` recebe `clk_eth_tx` e `i_tx_clk_dly` recebe `clk_eth_tx_dly` (ou `clk_eth_tx` com `shifted_txc` falso); `GTX_CLK`, `TXD` e `TX_CTL` saem direto, `RXC`, `RXD` e `RX_CTL` entram direto, e o MDIO sai com habilitação |
 | `lcd`, `usb_bridge`, `eth` (MDIO), `hdmi_tx` (I2C), `adxl345` (`mosi`) | Saída com habilitação: `'Z'` quando desabilitada, e um sinal de volta com a leitura do pino |
 | `i2c_master` | Open drain: `'0'` quando a entidade pede baixo, senão `'Z'` |
 | `audio` | O FPGA é o mestre dos relógios do codec, e as entradas `i_bclk`, `i_adclrck` e `i_daclrck` ficam em `'0'` |
 | `hdmi_audio` | Quatro linhas de saída (`o_mclk`, `o_sclk`, `o_lrclk`, `o_i2s0`), com a entidade como mestre I2S |
 | `uart` | `rx` e `tx` direto; sem o pino `cts` a entrada fica em `'0'`, e sem `rts` a saída fica aberta |
+| `usb_bridge` | `dreq` e `dack` opcionais: sem eles `i_otg_dreq` fica em `'0'` e `o_otg_dack` aberto |
 | `adc128s022`, `ltc2308`, `ir_receiver`, `tv`, `spi` | Direto; o `cs_n` do `spi` é fatiado na largura da porta da placa |
 
-O `video` e o `hdmi_tx` precisam de um relógio de pixel do plano de relógios, e sem ele a instância fica fora com um aviso. O `max10_adc` precisa do IP do fabricante e também fica fora com um aviso.
+O `video` e o `hdmi_tx` recebem o `i_pixel_clk` do sinal `clk_pixel`, declarado quando o plano de relógios tem a saída `pixel`; sem ela (nenhuma fonte dá a frequência) a instância fica fora com um aviso. O kind `hdmi_tmds` (saída TMDS direta, papel `hdmi_tmds` com `tmds`, `clk`, `scl`, `sda` e `hpd` opcional) está registrado, mas a entidade `hdmi_tmds_tx` não está no `Peripherals`; a geração falha com um erro que diz isso, e nenhuma porta é inventada. A dependência é o serializador TMDS do `Peripherals`, com o relógio de pixel e o relógio serial de cinco vezes (`pixel_x5`) que o plano já produz. O `max10_adc_shell` liga `i_adc_clk_10` ao pino `clk10` (`ADC_CLK_10`), e o IP do núcleo entra no projeto pelo [board_generate](board_generate.md).
 
 ## 4. Testes
 
@@ -65,6 +68,7 @@ O `video` e o `hdmi_tx` precisam de um relógio de pixel do plano de relógios, 
 | `tests/test_board_generate.py` | Conteúdo do topo da DE0-CV, latências, anel de pinos, polaridade e sintaxe aceita pelo GHDL |
 | `tests/test_board_video_generate.py` | Os generics de vídeo chegam ao `TopSpec` sem alterar o topo |
 | `tests/test_external_top.py` | A instância e os pinos de cada kind externo, o open drain, o `'Z' e o que fica fora do topo |
+| `tests/test_eth_rgmii.py` | A instância do MAC RGMII, os dois relógios do PLL e o `.sdc` do Ethernet |
 
 ---
 

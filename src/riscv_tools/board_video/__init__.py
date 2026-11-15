@@ -4,6 +4,11 @@ from riscv_tools.board_video.feasibility import (
     framebuffer_problem,
     pixel_clock_problem,
 )
+from riscv_tools.board_video.pixel import (
+    PixelRequest,
+    pixel_request,
+    uses_pixel,
+)
 from riscv_tools.board_video.plan import VideoPlan, plan_video
 from riscv_tools.board_video.resolve import (
     VideoError,
@@ -12,11 +17,14 @@ from riscv_tools.board_video.resolve import (
 )
 
 __all__ = [
+    "PixelRequest",
     "VideoError",
     "VideoPlan",
     "aspect_of",
     "framebuffer_problem",
     "pixel_clock_problem",
+    "pixel_request",
     "plan_video",
     "resolve_mode",
+    "uses_pixel",
 ]

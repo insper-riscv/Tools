@@ -56,6 +56,11 @@ def role_variants(role: str, chip: str = "") -> list[kinds.Variant]:
     return found
 
 
+def _requires(variant: kinds.Variant, name: str) -> bool:
+    """Tell whether an entity has a pin and requires it."""
+    return any(p.name == name and p.required for p in variant.pins)
+
+
 def role_pins(role: str, chip: str = "") -> dict[str, bool]:
     """List the pins a copy of a role may name.
 
@@ -69,14 +74,14 @@ def role_pins(role: str, chip: str = "") -> dict[str, bool]:
     Returns
     -------
     dict of {str: bool}
-        Each pin, and whether the copy must name it (required by every
-        entity of the role).
+        Each pin, and whether the copy must name it (every entity of
+        the role has it and requires it; a pin that only some entities
+        have, like `gtx_clk` of the RGMII, is optional here and the
+        entity that needs it checks it against the copy).
     """
-    pins: dict[str, bool] = {}
-    for variant in role_variants(role, chip):
-        for pin in variant.pins:
-            pins[pin.name] = pins.get(pin.name, True) and pin.required
-    return pins
+    variants = role_variants(role, chip)
+    names = dict.fromkeys(p.name for v in variants for p in v.pins)
+    return {name: all(_requires(v, name) for v in variants) for name in names}
 
 
 def _chip_choices(role: str) -> tuple[str, ...]:

@@ -37,6 +37,7 @@ from riscv_tools.top_generator.spec import (
     flash_ctrl_index,
     role_ports,
 )
+from riscv_tools.top_generator.sram import sram_backend
 
 SOC_ENTITY = "soc"
 # Índice do nó Virtual JTAG da UART; o 0 é o carregador da FLASH e o 3
@@ -151,6 +152,27 @@ def _entity(spec: TopSpec) -> list[str]:
     return [*lines, ";\n".join(body), "\t);", "end entity;", ""]
 
 
+def _extra_clocks(spec: TopSpec) -> list[str]:
+    """Declara os relógios do PLL que não são os quatro fixos.
+
+    Parameters
+    ----------
+    spec : TopSpec
+        O topo.
+
+    Returns
+    -------
+    list of str
+        Uma declaração com os sinais `clk_<papel>` dos demais relógios;
+        vazia quando o plano só tem os fixos.
+    """
+    fixed = ("core", "fetch", "mem", "mem_pin")
+    names = [f"clk_{c.role}" for c in spec.plan.roles if c.role not in fixed]
+    if not names:
+        return []
+    return [f"\tsignal {', '.join(names)} : std_logic;"]
+
+
 def _declarations(spec: TopSpec) -> list[str]:
     """Escreve os sinais comuns da arquitetura.
 
@@ -180,6 +202,7 @@ def _declarations(spec: TopSpec) -> list[str]:
         "",
         "\t-- Relógios por papel (K7) e travamento do PLL.",
         "\tsignal clk_core, clk_fetch, clk_mem, clk_mem_pin : std_logic;",
+        *_extra_clocks(spec),
         "\tsignal pll_locked : std_logic;",
         "\t-- Reset do usuário ativo em '1' e reset do SoC.",
         "\tsignal reset_active, rst_async, soc_rst : std_logic;",
@@ -721,10 +744,13 @@ def _region_backend(
             latency=latency.get("first", 0)
         )
         return backends.template("ram_signals").rstrip().split("\n"), body
-    if region == "ram" and device == "sdram":
-        return _sdram_backend(spec, notes)
-    if region == "rom" and device == "nor":
-        return _nor_backend(spec, notes)
+    maker = {
+        ("ram", "sdram"): _sdram_backend,
+        ("ram", "sram"): sram_backend,
+        ("rom", "nor"): _nor_backend,
+    }.get((region, device))
+    if maker is not None:
+        return maker(spec, notes)
     notes.append(
         f"W region {region}: backend {backend} {device} has no entity yet "
         "(M.5); the region was left idle"

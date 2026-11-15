@@ -17,7 +17,25 @@ them.
 from dataclasses import dataclass, field
 from typing import Any
 
+from riscv_tools.memory_map.kind_fields import (
+    FieldSpec,
+    bools,
+    ints,
+    ranged,
+)
+
 KIND_TIMER = "timer"
+# Entidades com relógio de pixel (`i_pixel_clk`) e `i_byteena`.
+PIXEL_ENTITIES = frozenset({"video", "hdmi_tx", "hdmi_tmds_tx"})
+# Entidades que levam também o relógio serial de 5 vezes o do pixel.
+SERIAL_ENTITIES = frozenset({"hdmi_tmds_tx"})
+# Entidades que o `Peripherals` ainda não tem, com o motivo da recusa.
+MISSING_ENTITIES = {
+    "hdmi_tmds_tx": (
+        "the serializer TMDS entity hdmi_tmds_tx is not in the "
+        "Peripherals repository yet"
+    )
+}
 GROUP_KINDS = ("gpio", "seg_display")
 # A palavra de registrador, em bytes: a janela é 4 << bits do endereço.
 WORD_BYTES = 4
@@ -74,29 +92,6 @@ class Variant:
             One word for each address the entity decodes.
         """
         return WORD_BYTES << self.addr_bits
-
-
-@dataclass(frozen=True)
-class FieldSpec:
-    """A field of an entry of `peripherals`, written as a generic.
-
-    Parameters
-    ----------
-    name : str
-        The key of the entry.
-    type : str
-        `int` or `bool`.
-    generic : str
-        The generic of the entity that receives the value.
-    group : str
-        The part of the entity the field belongs to (`mac`, `mdio`),
-        empty for a field with no part.
-    """
-
-    name: str
-    type: str
-    generic: str
-    group: str = ""
 
 
 @dataclass(frozen=True)
@@ -218,6 +213,15 @@ EXTERNAL: dict[str, ExternalKind] = {
             },
             "device",
             "keyboard",
+            fields=(
+                *ints("rx_fifo_depth", 1, ("keyboard",)),
+                *ints("filter_cycles inhibit_cycles timeout_cycles", 1),
+                *ints(
+                    "init_timeout_cycles packet_timeout_cycles",
+                    1,
+                    ("mouse",),
+                ),
+            ),
         ),
         ExternalKind(
             "video",
@@ -230,25 +234,39 @@ EXTERNAL: dict[str, ExternalKind] = {
             "sd",
             True,
             _one("sd_spi", 3, ">clk =cmd =dat", "clock_hz"),
+            fields=ints("init_sclk_hz rx_fifo_depth tx_fifo_depth", 1),
         ),
         ExternalKind(
             "sd_native",
             "sd",
             True,
             _one("sd_native", 4, ">clk =cmd =dat", "clock_hz"),
+            fields=ints("init_clk_hz default_timeout input_sync_stages", 1),
         ),
         ExternalKind(
             "ir",
             "ir",
             True,
             _one("ir_receiver", 3, "<rxd", "clk_freq_hz"),
-            fields=(FieldSpec("active_low", "bool", "active_low"),),
+            fields=(
+                *ints("tolerance_percent"),
+                *ints("glitch_us timeout_us fifo_depth", 1),
+                *bools("raw_enable active_low"),
+            ),
         ),
         ExternalKind(
             "lcd",
             "lcd",
             True,
             _one("lcd", 3, "=data >rs >rw >en >power >blon?", "clk_freq_hz"),
+            fields=(
+                *ints("fifo_depth", 1),
+                *bools("has_rw auto_init"),
+                *ints(
+                    "setup_ns pulse_ns hold_ns power_up_us exec_us "
+                    "exec_long_us busy_timeout_us"
+                ),
+            ),
         ),
         ExternalKind(
             "usb",
@@ -257,15 +275,26 @@ EXTERNAL: dict[str, ExternalKind] = {
             _one(
                 "usb_bridge",
                 4,
-                ">addr =data >cs_n >rd_n >wr_n >rst_n <int",
+                ">addr =data >cs_n >rd_n >wr_n >rst_n <int <dreq? >dack?",
             ),
-            fields=(FieldSpec("int_active_high", "bool", "int_active_high"),),
+            fields=(
+                *(
+                    ranged(name, 0, 255)
+                    for name in (
+                        "setup_cycles",
+                        "pulse_cycles",
+                        "recovery_cycles",
+                    )
+                ),
+                *bools("int_active_high"),
+            ),
         ),
         ExternalKind(
             "i2c",
             "i2c",
             True,
             _one("i2c_master", 3, "=scl =sda", "clk_freq"),
+            fields=ints("scl_freq", 1),
         ),
         ExternalKind(
             "audio",
@@ -277,19 +306,54 @@ EXTERNAL: dict[str, ExternalKind] = {
                 ">xck >bclk >adclrck <adcdat >daclrck >dacdat",
                 "clk_freq",
             ),
+            # O generic `master` fica fora: a ligação do topo é a do
+            # mestre, que dirige os três relógios do codec.
+            fields=(
+                *ints(
+                    "xck_freq sample_rate slot_bits word_bits "
+                    "tx_fifo_depth rx_fifo_depth tone_freq",
+                    1,
+                ),
+                *ints("tone_amp"),
+                *bools("has_tone autostart"),
+            ),
         ),
         ExternalKind(
             "eth",
             "eth",
             True,
-            _one(
-                "eth",
-                6,
-                "<rx_clk <rxd <rx_dv <rx_er <tx_clk >txd >tx_en >tx_er "
-                ">mdc =mdio <int_n? >rst_n",
-                "clk_freq_hz",
-            ),
+            {
+                "mii": Variant(
+                    "eth",
+                    6,
+                    _pins(
+                        "<rx_clk <rxd <rx_dv <rx_er <tx_clk >txd >tx_en "
+                        ">tx_er >mdc =mdio <int_n? >rst_n"
+                    ),
+                    "clk_freq_hz",
+                ),
+                # RGMII: TX_EN e RX_DV levam TX_CTL e RX_CTL (duas
+                # bordas), e o relógio de envio sai por GTX_CLK.
+                "rgmii": Variant(
+                    "eth_rgmii_mac",
+                    6,
+                    _pins(
+                        ">gtx_clk <rx_clk <rxd <rx_dv >txd >tx_en >mdc "
+                        "=mdio <int_n? >rst_n"
+                    ),
+                    "clk_freq_hz",
+                ),
+            },
+            "mode",
+            "mii",
             fields=(
+                FieldSpec(
+                    "shifted_txc",
+                    "bool",
+                    "shifted_txc",
+                    "mac",
+                    only=("rgmii",),
+                ),
                 FieldSpec("phy_addr", "int", "phy_addr", "mdio"),
                 FieldSpec("mdc_freq_hz", "int", "mdc_freq_hz", "mdio"),
                 FieldSpec("poll_cycles", "int", "poll_cycles", "mdio"),
@@ -321,6 +385,25 @@ EXTERNAL: dict[str, ExternalKind] = {
                 16,
                 ">d >clk >de >hs >vs <int =scl =sda",
                 "clk_freq",
+            ),
+            fields=(
+                *ints("fb_width fb_height scale", 1),
+                FieldSpec(
+                    "pixel_format",
+                    "choice",
+                    "pixel_format",
+                    choices=("indexed", "direct"),
+                ),
+                *ints("h_visible h_sync v_visible v_sync", 1),
+                *ints("h_front_porch h_back_porch v_front_porch v_back_porch"),
+                *bools("h_sync_positive v_sync_positive"),
+                *ints("mode_id pixel_clock_khz"),
+                *bools("init_enable init_auto_start"),
+                FieldSpec("init_table", "hex", "init_table"),
+                FieldSpec("audio_init_table", "hex", "audio_init_table"),
+                FieldSpec("i2c_dev_addr", "addr7", "i2c_dev_addr"),
+                *ints("i2c_freq", 1),
+                *bools("int_active_low"),
             ),
         ),
         ExternalKind(
@@ -357,6 +440,11 @@ EXTERNAL: dict[str, ExternalKind] = {
             "tv",
             True,
             _one("tv", 4, "<data <clk27 >reset_n"),
+            fields=(
+                *ints("fb_width fb_height src_width src_height", 1),
+                *ints("present_cycles", 1),
+                *bools("check_protection"),
+            ),
         ),
         ExternalKind(
             "adc",
@@ -375,16 +463,42 @@ EXTERNAL: dict[str, ExternalKind] = {
                     _pins(">convst >sck >sdi <sdo"),
                     "clock_hz",
                 ),
-                "max10": Variant("max10_adc", 5, (), "clk_freq"),
+                "max10": Variant(
+                    "max10_adc_shell", 5, _pins("<clk10"), "clk_freq"
+                ),
             },
             "chip",
+            fields=(
+                *ints("sclk_hz", 1, ("adc128s022", "ltc2308")),
+                FieldSpec(
+                    "channel_latency",
+                    "int",
+                    "channel_latency",
+                    maximum=1,
+                    only=("adc128s022", "ltc2308"),
+                ),
+                *ints(
+                    "convst_ns conversion_ns acquisition_ns", 1, ("ltc2308",)
+                ),
+                *ints("scan_freq", 1, ("max10",)),
+            ),
         ),
         ExternalKind(
             "spi",
             "spi",
             True,
             _one("spi", 3, ">sclk >mosi <miso >cs_n", "clock_hz"),
-            fields=(FieldSpec("cs_count", "int", "cs_count"),),
+            fields=(
+                ranged("cs_count", 1, 64),
+                ranged("word_width", 1, 32),
+                *ints("reset_sclk_hz rx_fifo_depth tx_fifo_depth", 1),
+            ),
+        ),
+        ExternalKind(
+            "hdmi_tmds",
+            "hdmi_tmds",
+            False,
+            _one("hdmi_tmds_tx", 16, ">tmds >clk =scl =sda <hpd?"),
         ),
         ExternalKind(
             "adxl345",
@@ -396,7 +510,10 @@ EXTERNAL: dict[str, ExternalKind] = {
                 ">cs_n >sclk =mosi <miso? <int1?",
                 "clock_hz",
             ),
-            fields=(FieldSpec("three_wire", "bool", "three_wire"),),
+            fields=(
+                *ints("sclk_hz sample_hz cs_high_ns", 1),
+                *bools("three_wire"),
+            ),
         ),
     )
 }

@@ -20,10 +20,11 @@ The generated top has no logic besides the reset. It wires, in this order, the b
 | `emulado` RAM backend | `onchip_ram_port` over the `ram` block, with the requested latency |
 | `dispositivo/sdram` backend | Two bridges (data and instruction), `sdram_arbiter`, `sdram_dbg_master`, `sdram_jtag_shell`, `sdram_ctrl` and one `tristate_buffer_1bit` per data bit in a `generate`; the 16 or 32-bit width and the row, column and bank bits come from the chip and from `memories.sdram.chips` |
 | `dispositivo/nor` backend | 8-bit `nor_flash_ctrl` with page read and the program update commands, and the FLASH pin ring |
+| `dispositivo/sram` backend | `sram_ctrl` on the data port of the SoC, with the `ADDR` (20 bits), `CE#`, `OE#`, `WE#`, `LB#` and `UB#` pins wired directly, one `tristate_buffer_1bit` for each bit of the 16-bit `DQ`, the size of the chip package and the timings of `chip_timing_pkg`; the instruction port of the RAM gets no answer, as in the emulated RAM |
 
 ## 3. What the top does not wire
 
-A backend without an entity (`sram`, `flash-interna` and `serial`) generates no instance: the top warns and leaves the region idle. The SoC does not export the LED role: the LED pins stay at the off level, except the first one, which lights with the failure flag the host writes to the display (Virtual JTAG node of index 2). The text of each backend lives in `templates/`, with the real names and ports of the Memory entities.
+A backend without an entity (`flash-interna` and `serial`) generates no instance: the top warns and leaves the region idle. The SoC does not export the LED role: the LED pins stay at the off level, except the first one, which lights with the failure flag the host writes to the display (Virtual JTAG node of index 2). The text of each backend lives in `templates/`, with the real names and ports of the Memory entities.
 
 ### 3.1. Video
 
@@ -42,21 +43,23 @@ The contract with the SoC is the following.
 | Input ports | `i_ext_rdata` (32 bits per peripheral) and `i_ext_irq` (one bit per peripheral) |
 | Position | `<NAME>_EXT_POS`, from the map package, picks the slice of each peripheral |
 
-The instance wires `i_clk` to the core clock and `i_rst` to the SoC reset, and the frequency generics receive the core clock in hertz. The fields of the kind (for example `phy_addr`, `cs_count`, `three_wire`, `has_flow_control`, `sample_rate`) become generics with the same name as the field, and only the fields written in the platform enter the `generic map`.
+The instance wires `i_clk` to the core clock and `i_rst` to the SoC reset, and the frequency generics receive the core clock in hertz. The fields of the kind (for example `phy_addr`, `cs_count`, `three_wire`, `has_flow_control`, `sample_rate`) become generics with the same name as the field, and only the fields written in the platform enter the `generic map`. The types of the fields and the literal of each one are in section 9.7 of [memory_map](memory_map.md).
 
 | Entity | Pins |
 | :--- | :--- |
 | `ps2_keyboard`, `ps2_mouse_top` | `clk` and `dat` straight to the `inout` ports |
 | `sd_spi` | MOSI on `cmd`, MISO on `dat(0)`, CS on `dat(3)`, and the other bits of `dat` at `'Z'` |
 | `sd_native` | `cmd` and each bit of `dat` go out through `'Z'` with the enable of the entity |
+| `eth_rgmii_mac` | `i_tx_clk` takes `clk_eth_tx` and `i_tx_clk_dly` takes `clk_eth_tx_dly` (or `clk_eth_tx` with `shifted_txc` false); `GTX_CLK`, `TXD` and `TX_CTL` leave directly, `RXC`, `RXD` and `RX_CTL` enter directly, and the MDIO leaves with enable |
 | `lcd`, `usb_bridge`, `eth` (MDIO), `hdmi_tx` (I2C), `adxl345` (`mosi`) | Output with enable, `'Z'` when disabled, and a signal back with the read of the pin |
 | `i2c_master` | Open drain, `'0'` when the entity asks for low and `'Z'` otherwise |
 | `audio` | The FPGA is the master of the codec clocks, and the inputs `i_bclk`, `i_adclrck` and `i_daclrck` stay at `'0'` |
 | `hdmi_audio` | Four output lines (`o_mclk`, `o_sclk`, `o_lrclk`, `o_i2s0`), the entity being the I2S master |
 | `uart` | `rx` and `tx` direct; without the `cts` pin the input is tied to `'0'`, and without `rts` the output is left open |
+| `usb_bridge` | `dreq` and `dack` are optional: without them `i_otg_dreq` stays at `'0'` and `o_otg_dack` open |
 | `adc128s022`, `ltc2308`, `ir_receiver`, `tv`, `spi` | Straight; the `cs_n` of the `spi` is sliced to the width of the board port |
 
-The `video` and the `hdmi_tx` need a pixel clock from the clock plan, and without it the instance is left out with a warning. The `max10_adc` needs the vendor IP and is also left out with a warning.
+The `video` and the `hdmi_tx` receive `i_pixel_clk` from the `clk_pixel` signal, declared when the clock plan has the `pixel` output; without it (no source gives the frequency) the instance is left out with a warning. The `hdmi_tmds` kind (direct TMDS output, role `hdmi_tmds` with `tmds`, `clk`, `scl`, `sda` and optional `hpd`) is registered, but the `hdmi_tmds_tx` entity is not in `Peripherals`; the generation fails with an error that says so, and no port is invented. The dependency is the TMDS serializer of `Peripherals`, with the pixel clock and the serial clock of five times (`pixel_x5`) that the plan already makes. The `max10_adc_shell` wires `i_adc_clk_10` to the `clk10` pin (`ADC_CLK_10`), and the IP of the core enters the project through [board_generate](board_generate.md).
 
 ## 4. Tests
 
@@ -65,6 +68,7 @@ The `video` and the `hdmi_tx` need a pixel clock from the clock plan, and withou
 | `tests/test_board_generate.py` | DE0-CV top content, latencies, pin ring, polarity and syntax accepted by GHDL |
 | `tests/test_board_video_generate.py` | The video generics reach the `TopSpec` without changing the top |
 | `tests/test_external_top.py` | The instance and the pins of each external kind, the open drain, the `'Z'` and what is left out of the top |
+| `tests/test_eth_rgmii.py` | The RGMII MAC instance, the two PLL clocks and the Ethernet `.sdc` |
 
 ---
 

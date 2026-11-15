@@ -71,7 +71,9 @@ def _problems(tmp_path: Path, items: list[dict[str, Any]]) -> list[str]:
 
 def test_every_kind_has_an_example_platform() -> None:
     """The examples are exactly the external kinds of the registry."""
-    check_equal(sorted(EXTERNAL), sorted(set(EXAMPLES) | {"sd_native"}))
+    # O exemplo `eth_rgmii` é o modo RGMII do `eth`, não outro kind.
+    kinds = (set(EXAMPLES) - {"eth_rgmii"}) | {"sd_native"}
+    check_equal(sorted(EXTERNAL), sorted(kinds))
     check_in("gpio", KINDS)
     check_in("timer", KINDS)
 

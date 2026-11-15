@@ -7,8 +7,11 @@ lentas.
 """
 
 from riscv_tools.board_clocks import PLL_INSTANCE, ClockPlan
+from riscv_tools.board_clocks.eth import ETH_TX, ETH_TX_DLY
 from riscv_tools.board_ports import Port, memory_clock_port
 from riscv_tools.chip_package import IoDelays
+from riscv_tools.sdc_generator.adc import adc_section
+from riscv_tools.sdc_generator.eth import eth_section
 
 # Frequência do relógio da JTAG só entra como domínio; o nome é o do
 # Quartus.
@@ -232,6 +235,43 @@ def _domains(plan: ClockPlan, pattern: str | None, has_mem: bool) -> list[str]:
     return lines
 
 
+def _video_domains(plan: ClockPlan, pattern: str | None) -> list[str]:
+    """Escreve os domínios do relógio de pixel e os cruzamentos.
+
+    O framebuffer tem uma porta em cada relógio, e as duas pontes são de
+    sincronizadores; o domínio do pixel só encontra o do núcleo ali, e
+    cada cruzamento é limitado pelo menor entre o período do pixel e o
+    menor período do SoC.
+
+    Parameters
+    ----------
+    plan : ClockPlan
+        Os relógios.
+    pattern : str or None
+        O padrão de nó da família.
+
+    Returns
+    -------
+    list of str
+        As linhas; vazio sem relógio de pixel.
+    """
+    pixel = plan.get("pixel")
+    if pixel is None:
+        return []
+    bound = _num(float(min(plan.min_period_ns, pixel.period_ns)))
+    lines = [
+        "",
+        "# O relógio de pixel é um domínio próprio, assíncrono aos demais;",
+        "# só se cruza com o do núcleo nas pontes do framebuffer.",
+    ]
+    for clock in plan.video_roles:
+        node = _node(pattern, plan.index(clock.role))
+        lines.append(f"set clk_{clock.role} {{{node}}}")
+    lines.append("set video_clocks [get_clocks $clk_pixel]")
+    lines += _crossing("$video_clocks", "$core_clocks", bound)
+    return lines
+
+
 def _slow_false_paths(ports: tuple[Port, ...]) -> list[str]:
     """Escreve os caminhos falsos de E/S lentas (reset, chaves, LEDs).
 
@@ -272,27 +312,29 @@ def _slow_false_paths(ports: tuple[Port, ...]) -> list[str]:
     return lines
 
 
-def _nor_false_paths(nor: list[Port]) -> list[str]:
-    """Escreve os caminhos falsos dos pinos da FLASH NOR.
+def _async_chip_false_paths(chip: list[Port], name: str) -> list[str]:
+    """Escreve os caminhos falsos dos pinos de um chip assíncrono.
 
     Parameters
     ----------
-    nor : list of Port
-        As portas do papel nor.
+    chip : list of Port
+        As portas do papel do chip.
+    name : str
+        O chip, como o comentário o cita (`FLASH NOR`, `SRAM`).
 
     Returns
     -------
     list of str
         As linhas; vazia sem portas.
     """
-    if not nor:
+    if not chip:
         return []
     lines = [
         "",
-        "# A FLASH NOR é assíncrona: o controlador conta os ciclos dos",
+        f"# A {name} é assíncrona: o controlador conta os ciclos dos",
         "# tempos do chip, então os pinos dela não têm requisito.",
     ]
-    for p in nor:
+    for p in chip:
         names = _targets([p], (p.direction,))
         if p.direction in ("in", "inout"):
             lines.append(f"set_false_path -from [get_ports {{{names}}}]")
@@ -315,7 +357,49 @@ def _false_paths(ports: tuple[Port, ...]) -> list[str]:
         As linhas.
     """
     nor = [p for p in ports if p.role == "nor"]
-    return _slow_false_paths(ports) + _nor_false_paths(nor)
+    sram = [p for p in ports if p.role == "sram"]
+    return (
+        _slow_false_paths(ports)
+        + _async_chip_false_paths(nor, "FLASH NOR")
+        + _async_chip_false_paths(sram, "SRAM")
+    )
+
+
+def _vendor_sections(
+    plan: ClockPlan, ports: tuple[Port, ...], pattern: str | None
+) -> list[str]:
+    """Escreve as restrições do Ethernet RGMII e do ADC do MAX 10.
+
+    Parameters
+    ----------
+    plan : ClockPlan
+        Os relógios.
+    ports : tuple of Port
+        As portas do topo.
+    pattern : str or None
+        O padrão de nó da família.
+
+    Returns
+    -------
+    list of str
+        As linhas; vazias sem MAC RGMII e sem ADC interno.
+    """
+    soc = [
+        _node(pattern, plan.index(role))
+        for role in ("core", "fetch", "mem")
+        if plan.get(role) is not None
+    ]
+    adc = adc_section(ports, soc)
+    if plan.get(ETH_TX) is None:
+        return adc
+    delayed = plan.get(ETH_TX_DLY) is not None
+    eth = eth_section(
+        ports,
+        _node(pattern, plan.index(ETH_TX)),
+        _node(pattern, plan.index(ETH_TX_DLY)) if delayed else None,
+        soc,
+    )
+    return eth + adc
 
 
 def render_sdc(
@@ -362,5 +446,7 @@ def render_sdc(
             raise SdcError("sdram without chip io_timing")
         lines += _memory_section(plan, ports, delays, pattern)
     lines += _domains(plan, pattern, has_mem)
+    lines += _video_domains(plan, pattern)
+    lines += _vendor_sections(plan, ports, pattern)
     lines += _false_paths(ports)
     return "\n".join(lines) + "\n"
