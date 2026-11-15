@@ -56,7 +56,7 @@ A instância liga `i_clk` ao relógio do núcleo e `i_rst` ao reset do SoC, e os
 | `uart` | `rx` e `tx` direto; sem o pino `cts` a entrada fica em `'0'`, e sem `rts` a saída fica aberta |
 | `adc128s022`, `ltc2308`, `ir_receiver`, `tv`, `spi` | Direto; o `cs_n` do `spi` é fatiado na largura da porta da placa |
 
-O `video` e o `hdmi_tx` precisam de um relógio de pixel do plano de relógios, e sem ele a instância fica fora com um aviso. O `video` ganha o relógio com o modo resolvido de `io.video`; o `hdmi_tx` ainda não. O `max10_adc` precisa do IP do fabricante e também fica fora com um aviso.
+O `video` e o `hdmi_tx` precisam de um relógio de pixel do plano de relógios, e sem ele a instância fica fora com um aviso. O `video` ganha o relógio com o modo resolvido de `io.video`; o `hdmi_tx` ainda não. Os generics de tempo do `ps2_keyboard` e do `ps2_mouse_top` (`filter_cycles`, `inhibit_cycles`, `timeout_cycles` e, no mouse, `init_timeout_cycles` e `packet_timeout_cycles`) contam ciclos e têm o padrão de um relógio de 50 MHz, então o topo os reescreve para o relógio do núcleo, arredondando para cima. O `max10_adc` precisa do IP do fabricante e também fica fora com um aviso.
 
 ## 4. Testes
 

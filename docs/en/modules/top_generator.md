@@ -56,7 +56,7 @@ The instance wires `i_clk` to the core clock and `i_rst` to the SoC reset, and t
 | `uart` | `rx` and `tx` direct; without the `cts` pin the input is tied to `'0'`, and without `rts` the output is left open |
 | `adc128s022`, `ltc2308`, `ir_receiver`, `tv`, `spi` | Straight; the `cs_n` of the `spi` is sliced to the width of the board port |
 
-The `video` and the `hdmi_tx` need a pixel clock from the clock plan, and without it the instance is left out with a warning. The `video` gets the clock with the mode resolved from `io.video`; the `hdmi_tx` does not yet. The `max10_adc` needs the vendor IP and is also left out with a warning.
+The `video` and the `hdmi_tx` need a pixel clock from the clock plan, and without it the instance is left out with a warning. The `video` gets the clock with the mode resolved from `io.video`; the `hdmi_tx` does not yet. The timing generics of `ps2_keyboard` and `ps2_mouse_top` (`filter_cycles`, `inhibit_cycles`, `timeout_cycles` and, on the mouse, `init_timeout_cycles` and `packet_timeout_cycles`) count cycles and default to a 50 MHz clock, so the top rewrites them for the core clock, rounding up. The `max10_adc` needs the vendor IP and is also left out with a warning.
 
 ## 4. Tests
 

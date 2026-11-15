@@ -45,6 +45,30 @@ def test_ps2_keyboard_and_mouse_take_the_two_channels(
     check_equal([w for w in warnings if "peripheral" in w], [])
 
 
+def test_ps2_times_follow_the_core_clock(tmp_path: Path) -> None:
+    """The cycle counts are the ones of 50 MHz, scaled to the core."""
+    (tmp_path / "a").mkdir()
+    base, _ = _top(tmp_path / "a", "ps2")
+    check_in("filter_cycles => 8", base)
+    check_in("inhibit_cycles => 6000", base)
+    check_in("init_timeout_cycles => 100000000", base)
+    (tmp_path / "b").mkdir()
+    req = request(tmp_path / "b", "ps2")
+    text = req.platform_file.read_text(encoding="utf-8")
+    req.platform_file.write_text(
+        text.replace("core: {mhz: 50,", "core: {mhz: 100,"), encoding="utf-8"
+    )
+    fast = " ".join(
+        next(
+            t for n, t in generate(req).files.items() if n.endswith("_top.vhd")
+        ).split()
+    )
+    check_in("filter_cycles => 16", fast)
+    check_in("inhibit_cycles => 12000", fast)
+    check_in("timeout_cycles => 2000000", fast)
+    check_in("packet_timeout_cycles => 10000000", fast)
+
+
 def test_the_sd_card_in_spi_mode_uses_clk_cmd_and_dat(
     tmp_path: Path,
 ) -> None:
