@@ -22,6 +22,7 @@ from typing import Any
 
 from riscv_tools.board_ports import Port
 from riscv_tools.memory_map.external import external_list
+from riscv_tools.memory_map.kind_fields import FieldSpec
 from riscv_tools.memory_map.kinds import EXTERNAL, Variant
 from riscv_tools.top_generator.spec import TopSpec
 
@@ -487,7 +488,33 @@ def _hz(spec: TopSpec) -> int:
     return round(_HZ / float(core.period_ns)) if core else 50_000_000
 
 
-def _generics(
+def _literal(field_spec: FieldSpec, value: Any) -> str:
+    """Escreve o valor de um campo como literal VHDL.
+
+    Parameters
+    ----------
+    field_spec : FieldSpec
+        O campo, cujo tipo diz a forma do literal.
+    value : Any
+        O valor lido da plataforma, já validado pelo tipo.
+
+    Returns
+    -------
+    str
+        `true` ou `false` para booleano, o número para inteiro, a cadeia
+        entre aspas para `choice` e `hex`, e a cadeia de 7 bits para o
+        endereço I2C.
+    """
+    if field_spec.type == "bool":
+        return str(value).lower()
+    if field_spec.type == "addr7":
+        return f'"{int(value):07b}"'
+    if field_spec.type in ("choice", "hex"):
+        return f'"{value}"'
+    return str(value)
+
+
+def instance_generics(
     spec: TopSpec, item: dict[str, Any], variant: Variant, kind: Any
 ) -> list[str]:
     """Escreve os generics de uma entidade.
@@ -516,7 +543,7 @@ def _generics(
         if field_spec.name not in item:
             continue
         value = item[field_spec.name]
-        text = str(value).lower() if field_spec.type == "bool" else str(value)
+        text = _literal(field_spec, value)
         out.append(f"{field_spec.generic} => {text}")
     if spec.video is not None and variant.entity == "video":
         out += [f"channel_bits => {spec.video.channel_bits}"]
@@ -582,7 +609,7 @@ def _instance(
         wired = _spi(name.lower(), pins, int(item.get("cs_count", 1)))
     else:
         wired = WIRING[variant.entity](name.lower(), pins)
-    generics = _generics(spec, item, variant, kind)
+    generics = instance_generics(spec, item, variant, kind)
     maps = _bus_maps(variant, name, variant.addr_bits) + wired.maps
     if kind.irq:
         maps.append(f"o_irq => ext_irq({name.upper()}_EXT_POS)")
