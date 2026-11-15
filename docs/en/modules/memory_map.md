@@ -636,7 +636,7 @@ peripherals:
 | `usb` | `usb_bridge` | `usb` | 64 bytes | yes | section 9.7 |
 | `i2c` | `i2c_master` | `i2c` | 32 bytes | yes | section 9.7 |
 | `audio` | `audio` | `audio` | 64 bytes | yes | section 9.7 |
-| `eth` | `eth` (MII) | `eth` | 256 bytes | yes | section 9.7 |
+| `eth` | `eth` (MII) or `eth_rgmii_mac` (RGMII) | `eth` | 256 bytes | yes | `mode` (`mii` or `rgmii`, default `mii`) and those of section 9.7 |
 | `hdmi` | `hdmi_tx` | `hdmi` | 256 KiB | yes | section 9.7 |
 | `hdmi_audio` | `hdmi_audio` | `hdmi_audio` | 64 bytes | yes | section 9.7 |
 | `uart` | `uart` | `serial` | 16 bytes | yes | section 9.7 |
@@ -695,7 +695,7 @@ A field that exists in only one entity of a kind (`rx_fifo_depth` of the PS/2 ke
 | `usb` | `setup_cycles`, `pulse_cycles` and `recovery_cycles`, from 0 to 255 | `int_active_high` (`bool`) |
 | `i2c` | `scl_freq` | none |
 | `audio` | `xck_freq`, `sample_rate`, `slot_bits`, `word_bits`, `tx_fifo_depth`, `rx_fifo_depth`, `tone_freq` and `tone_amp` | `has_tone` and `autostart` (`bool`) |
-| `eth` | `phy_addr`, `mdc_freq_hz`, `poll_cycles`, `tx_buffer_addr_bits`, `rx_buffer_addr_bits`, `rx_fifo_addr_bits`, `sync_stages` and `reset_cycles` | none |
+| `eth` | `phy_addr`, `mdc_freq_hz`, `poll_cycles`, `tx_buffer_addr_bits`, `rx_buffer_addr_bits`, `rx_fifo_addr_bits`, `sync_stages` and `reset_cycles` | `shifted_txc` (`bool`, only `rgmii`) |
 | `hdmi` | `fb_width`, `fb_height`, `scale`, `h_visible`, `h_front_porch`, `h_sync`, `h_back_porch`, `v_visible`, `v_front_porch`, `v_sync`, `v_back_porch`, `mode_id`, `pixel_clock_khz` and `i2c_freq` | `pixel_format` (`choice`, `indexed` or `direct`); `h_sync_positive`, `v_sync_positive`, `init_enable`, `init_auto_start` and `int_active_low` (`bool`); `init_table` and `audio_init_table` (`hex`); `i2c_dev_addr` (`addr7`) |
 | `hdmi_audio` | `sample_rate`, `mclk_ratio`, `word_bits`, `tx_fifo_depth`, `tone_freq` and `tone_amp` | `has_tone` and `autostart` (`bool`) |
 | `uart` | `baud_freq`, `baud_limit`, `rx_fifo_depth` and `tx_fifo_depth` | `has_flow_control` (`bool`) |
@@ -704,7 +704,7 @@ A field that exists in only one entity of a kind (`rx_fifo_depth` of the PS/2 ke
 | `spi` | `cs_count`, from 1 to 64; `word_width`, from 1 to 32; `reset_sclk_hz`, `rx_fifo_depth` and `tx_fifo_depth` | none |
 | `adxl345` | `sclk_hz`, `sample_hz` and `cs_high_ns` | `three_wire` (`bool`) |
 
-The data width and word address width generics (`data_width`, `addr_width`) come from the registry and are not fields, and neither are the `master` of `audio` and the `gigabit` of `eth`, because the wiring of the top is that of the master `audio` and of the 100 Mbit/s MII. The `video` has no fields, because its timing comes from the `io.video` block.
+The data width and word address width generics (`data_width`, `addr_width`) come from the registry and are not fields, and neither are the `master` of `audio` and the `gigabit` of `eth`, because the wiring of the top is that of the master `audio`, and the `gigabit` is the one that `eth_rgmii_mac` sets in its own MAC. The `video` has no fields, because its timing comes from the `io.video` block.
 
 ## 10. The `config_pkg`
 

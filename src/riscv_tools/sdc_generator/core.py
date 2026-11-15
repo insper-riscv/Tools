@@ -7,8 +7,10 @@ lentas.
 """
 
 from riscv_tools.board_clocks import PLL_INSTANCE, ClockPlan
+from riscv_tools.board_clocks.eth import ETH_TX, ETH_TX_DLY
 from riscv_tools.board_ports import Port, memory_clock_port
 from riscv_tools.chip_package import IoDelays
+from riscv_tools.sdc_generator.eth import eth_section
 
 # Frequência do relógio da JTAG só entra como domínio; o nome é o do
 # Quartus.
@@ -325,6 +327,41 @@ def _false_paths(ports: tuple[Port, ...]) -> list[str]:
     )
 
 
+def _vendor_sections(
+    plan: ClockPlan, ports: tuple[Port, ...], pattern: str | None
+) -> list[str]:
+    """Escreve as restrições do Ethernet RGMII.
+
+    Parameters
+    ----------
+    plan : ClockPlan
+        Os relógios.
+    ports : tuple of Port
+        As portas do topo.
+    pattern : str or None
+        O padrão de nó da família.
+
+    Returns
+    -------
+    list of str
+        As linhas; vazias sem MAC RGMII.
+    """
+    soc = [
+        _node(pattern, plan.index(role))
+        for role in ("core", "fetch", "mem")
+        if plan.get(role) is not None
+    ]
+    if plan.get(ETH_TX) is None:
+        return []
+    delayed = plan.get(ETH_TX_DLY) is not None
+    return eth_section(
+        ports,
+        _node(pattern, plan.index(ETH_TX)),
+        _node(pattern, plan.index(ETH_TX_DLY)) if delayed else None,
+        soc,
+    )
+
+
 def render_sdc(
     plan: ClockPlan,
     ports: tuple[Port, ...],
@@ -369,5 +406,6 @@ def render_sdc(
             raise SdcError("sdram without chip io_timing")
         lines += _memory_section(plan, ports, delays, pattern)
     lines += _domains(plan, pattern, has_mem)
+    lines += _vendor_sections(plan, ports, pattern)
     lines += _false_paths(ports)
     return "\n".join(lines) + "\n"

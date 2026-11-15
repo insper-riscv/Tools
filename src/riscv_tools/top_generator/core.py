@@ -152,6 +152,27 @@ def _entity(spec: TopSpec) -> list[str]:
     return [*lines, ";\n".join(body), "\t);", "end entity;", ""]
 
 
+def _extra_clocks(spec: TopSpec) -> list[str]:
+    """Declara os relógios do PLL que não são os quatro fixos.
+
+    Parameters
+    ----------
+    spec : TopSpec
+        O topo.
+
+    Returns
+    -------
+    list of str
+        Uma declaração com os sinais `clk_<papel>` dos demais relógios;
+        vazia quando o plano só tem os fixos.
+    """
+    fixed = ("core", "fetch", "mem", "mem_pin")
+    names = [f"clk_{c.role}" for c in spec.plan.roles if c.role not in fixed]
+    if not names:
+        return []
+    return [f"\tsignal {', '.join(names)} : std_logic;"]
+
+
 def _declarations(spec: TopSpec) -> list[str]:
     """Escreve os sinais comuns da arquitetura.
 
@@ -181,6 +202,7 @@ def _declarations(spec: TopSpec) -> list[str]:
         "",
         "\t-- Relógios por papel (K7) e travamento do PLL.",
         "\tsignal clk_core, clk_fetch, clk_mem, clk_mem_pin : std_logic;",
+        *_extra_clocks(spec),
         "\tsignal pll_locked : std_logic;",
         "\t-- Reset do usuário ativo em '1' e reset do SoC.",
         "\tsignal reset_active, rst_async, soc_rst : std_logic;",

@@ -636,7 +636,7 @@ peripherals:
 | `usb` | `usb_bridge` | `usb` | 64 bytes | sim | seção 9.7 |
 | `i2c` | `i2c_master` | `i2c` | 32 bytes | sim | seção 9.7 |
 | `audio` | `audio` | `audio` | 64 bytes | sim | seção 9.7 |
-| `eth` | `eth` (MII) | `eth` | 256 bytes | sim | seção 9.7 |
+| `eth` | `eth` (MII) ou `eth_rgmii_mac` (RGMII) | `eth` | 256 bytes | sim | `mode` (`mii` ou `rgmii`, padrão `mii`) e os da seção 9.7 |
 | `hdmi` | `hdmi_tx` | `hdmi` | 256 KiB | sim | seção 9.7 |
 | `hdmi_audio` | `hdmi_audio` | `hdmi_audio` | 64 bytes | sim | seção 9.7 |
 | `uart` | `uart` | `serial` | 16 bytes | sim | seção 9.7 |
@@ -659,7 +659,7 @@ Cada entidade com linha de interrupção ganha uma fonte do PLIC pela mesma regr
 | Regra | Condição de rejeição |
 | :--- | :--- |
 | V-P11 | O `size` é menor que os registradores da entidade |
-| V-P12 | O campo que escolhe a entidade (`device`, `chip`) falta ou não é um dos valores do registro |
+| V-P12 | O campo que escolhe a entidade (`device`, `chip`, `mode`) falta ou não é um dos valores do registro |
 | V-P13 | Dois periféricos tomam a mesma cópia do mesmo papel |
 | V-P10 | Uma fonte do `interrupts.sources` presa numa linha fixa do SoC (1, 2, 3, 4 ou 6) |
 
@@ -683,7 +683,7 @@ Cada campo de um kind é o generic de mesmo nome da entidade, e só os campos es
 | `hex` | Dígitos hexadecimais, em múltiplo de quatro | A cadeia entre aspas |
 | `addr7` | Inteiro de 0 a 127 | A cadeia de 7 bits |
 
-Um campo que só existe numa das entidades de um kind (`rx_fifo_depth` do teclado PS/2, `scan_freq` do `max10_adc`) é recusado quando o `device` ou o `chip` escrito é outro.
+Um campo que só existe numa das entidades de um kind (`rx_fifo_depth` do teclado PS/2, `scan_freq` do `max10_adc`) é recusado quando o `device`, o `chip` ou o `mode` escrito é outro.
 
 | Kind | Campos inteiros | Campos de outro tipo |
 | :--- | :--- | :--- |
@@ -695,7 +695,7 @@ Um campo que só existe numa das entidades de um kind (`rx_fifo_depth` do teclad
 | `usb` | `setup_cycles`, `pulse_cycles` e `recovery_cycles`, de 0 a 255 | `int_active_high` (`bool`) |
 | `i2c` | `scl_freq` | nenhum |
 | `audio` | `xck_freq`, `sample_rate`, `slot_bits`, `word_bits`, `tx_fifo_depth`, `rx_fifo_depth`, `tone_freq` e `tone_amp` | `has_tone` e `autostart` (`bool`) |
-| `eth` | `phy_addr`, `mdc_freq_hz`, `poll_cycles`, `tx_buffer_addr_bits`, `rx_buffer_addr_bits`, `rx_fifo_addr_bits`, `sync_stages` e `reset_cycles` | nenhum |
+| `eth` | `phy_addr`, `mdc_freq_hz`, `poll_cycles`, `tx_buffer_addr_bits`, `rx_buffer_addr_bits`, `rx_fifo_addr_bits`, `sync_stages` e `reset_cycles` | `shifted_txc` (`bool`, só `rgmii`) |
 | `hdmi` | `fb_width`, `fb_height`, `scale`, `h_visible`, `h_front_porch`, `h_sync`, `h_back_porch`, `v_visible`, `v_front_porch`, `v_sync`, `v_back_porch`, `mode_id`, `pixel_clock_khz` e `i2c_freq` | `pixel_format` (`choice`, `indexed` ou `direct`); `h_sync_positive`, `v_sync_positive`, `init_enable`, `init_auto_start` e `int_active_low` (`bool`); `init_table` e `audio_init_table` (`hex`); `i2c_dev_addr` (`addr7`) |
 | `hdmi_audio` | `sample_rate`, `mclk_ratio`, `word_bits`, `tx_fifo_depth`, `tone_freq` e `tone_amp` | `has_tone` e `autostart` (`bool`) |
 | `uart` | `baud_freq`, `baud_limit`, `rx_fifo_depth` e `tx_fifo_depth` | `has_flow_control` (`bool`) |
@@ -704,7 +704,7 @@ Um campo que só existe numa das entidades de um kind (`rx_fifo_depth` do teclad
 | `spi` | `cs_count`, de 1 a 64; `word_width`, de 1 a 32; `reset_sclk_hz`, `rx_fifo_depth` e `tx_fifo_depth` | nenhum |
 | `adxl345` | `sclk_hz`, `sample_hz` e `cs_high_ns` | `three_wire` (`bool`) |
 
-Os generics de largura de dado e de endereço de palavra (`data_width`, `addr_width`) saem do registro e não são campos, e o `master` do `audio` e o `gigabit` do `eth` também não são, porque a ligação do topo é a do `audio` mestre e a do MII de 100 Mbit/s. O `video` não tem campos, porque a temporização dele vem do bloco `io.video`.
+Os generics de largura de dado e de endereço de palavra (`data_width`, `addr_width`) saem do registro e não são campos, e o `master` do `audio` e o `gigabit` do `eth` também não são, porque a ligação do topo é a do `audio` mestre e o `gigabit` é o do MAC do `eth_rgmii_mac`, que o liga sozinho. O `video` não tem campos, porque a temporização dele vem do bloco `io.video`.
 
 ## 10. O `config_pkg`
 

@@ -80,19 +80,34 @@ def _missing(place: Placement, board: str) -> Finding:
 def _pin_findings(place: Placement) -> list[Finding]:
     """Check the pins a peripheral needs beyond the role (V24)."""
     wired = place.pins or {}
+    found: list[Finding] = []
+    variant = place.variant
+    needed = [
+        pin.name
+        for pin in (variant.pins if variant else ())
+        if pin.required and pin.name not in wired
+    ]
+    if variant and needed:
+        found.append(
+            error(
+                "V24",
+                f"peripheral {place.name}: {variant.entity} needs the "
+                f"pins {needed}, which the board role does not wire",
+            )
+        )
     if (
         place.kind.name == "adxl345"
         and place.item.get("three_wire") is False
         and "miso" not in wired
     ):
-        return [
+        found.append(
             error(
                 "V24",
                 f"peripheral {place.name}: three_wire false needs the "
                 "pin miso, which the board role does not wire",
             )
-        ]
-    return []
+        )
+    return found
 
 
 def rule_buses(ctx: Context) -> list[Finding]:
