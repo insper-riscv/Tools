@@ -25,10 +25,10 @@ import re
 from typing import Any, cast
 
 from riscv_tools.board_clocks import PLL_INSTANCE
-from riscv_tools.board_ports import Port
 from riscv_tools.top_generator import backends
 from riscv_tools.top_generator.external import ExternalTop, external_top
 from riscv_tools.top_generator.generics import soc_generics
+from riscv_tools.top_generator.sdram import sdram_backend
 from riscv_tools.top_generator.spec import (
     RenderedTop,
     TopSpec,
@@ -46,7 +46,6 @@ UART_JTAG_INSTANCE = 1
 # Índice do nó Virtual JTAG do display, pelo qual o hospedeiro lê e
 # escreve o registrador e a bandeira de falha.
 DISPLAY_JTAG_INSTANCE = 2
-_SDRAM_ACTIVE_LOW = ("cas", "ras", "we", "cs")
 # Valores do SoC sem interrupções, que o pacote do mapa não traz.
 
 
@@ -502,102 +501,6 @@ def _io_wiring(spec: TopSpec) -> list[str]:
     return [*lines, ""]
 
 
-def _sdram_key(name: str) -> str:
-    """Classifica uma porta de SDRAM pelo sufixo do nome.
-
-    Parameters
-    ----------
-    name : str
-        Nome da porta (`DRAM_CAS_N`, `oSDRAM_CASn`).
-
-    Returns
-    -------
-    str
-        `addr`, `ba`, `cas_n`, `dq`, `ldqm` e assim por diante.
-    """
-    key = re.sub(r"^[obi]?s?dram_?", "", name.lower()).replace("_", "")
-    for base in _SDRAM_ACTIVE_LOW:
-        if key == f"{base}n":
-            return f"{base}_n"
-    return key
-
-
-def _sdram_backend(spec: TopSpec, notes: list[str]) -> tuple[list[str], str]:
-    """Escreve o backend de SDRAM, se o controlador suporta a placa.
-
-    Parameters
-    ----------
-    spec : TopSpec
-        O topo.
-    notes : list of str
-        Recebe os avisos.
-
-    Returns
-    -------
-    tuple of (list of str, str)
-        Os sinais e o corpo, vazios quando o controlador de hoje não
-        serve (largura de dados diferente de 16 bits).
-    """
-    pin_map = {_sdram_key(p.name): p for p in role_ports(spec, "sdram")}
-    dq = pin_map["dq"]
-    if dq.width not in backends.SDRAM_DQ_WIDTHS:
-        notes.append(
-            f"W sdram data width {dq.width} is not one of "
-            f"{backends.SDRAM_DQ_WIDTHS}; no SDRAM backend was instantiated"
-        )
-        return [], ""
-    skip = ("dq", "clk", "ldqm", "udqm", "dqm")
-    pins = ",\n".join(
-        f"\t\t\to_dram_{key} => {port.name}"
-        for key, port in pin_map.items()
-        if key not in skip
-    )
-    dqm_lines = _dqm_assignments(pin_map)
-    mem = spec.plan.get("mem")
-    tck_ps = round(float(mem.period_ns) * 1000) if mem else 0
-    fields = {
-        "dq": dq.width,
-        "dqm": dq.width // 8,
-        "tck_ps": tck_ps,
-        "chip": spec.chip_packages.get("sdram", ""),
-        "pins": pins,
-        "dq_name": dq.name,
-        "dq_hi": dq.width - 1,
-    }
-    body = backends.template("sdram_body").format(**fields)
-    clk = pin_map.get("clk")
-    extra = [f"\t{clk.name} <= clk_mem_pin;"] if clk else []
-    return (
-        backends.template("sdram_signals")
-        .format(**fields)
-        .rstrip()
-        .split("\n"),
-        body + "\n".join([*dqm_lines, *extra]) + "\n",
-    )
-
-
-def _dqm_assignments(pin_map: dict[str, Port]) -> list[str]:
-    """Liga a máscara de bytes interna aos pinos da placa.
-
-    Parameters
-    ----------
-    pin_map : dict of {str: Port}
-        As portas de SDRAM por tipo.
-
-    Returns
-    -------
-    list of str
-        `DRAM_LDQM <= dqm(0)` e assim por diante.
-    """
-    if "dqm" in pin_map:
-        return [f"\t{pin_map['dqm'].name} <= dqm;"]
-    return [
-        f"\t{pin_map[key].name} <= dqm({i});"
-        for i, key in enumerate(("ldqm", "udqm"))
-        if key in pin_map
-    ]
-
-
 _NOR_PIN_MAP = {
     "addr": "o_fl_addr",
     "ce_n": "o_fl_ce_n",
@@ -744,8 +647,13 @@ def _region_backend(
             latency=latency.get("first", 0)
         )
         return backends.template("ram_signals").rstrip().split("\n"), body
+    rom_device = external(spec).get("rom", ("", ""))[1]
+    if (region, device) == ("ram", "sdram") and rom_device == "sdram":
+        # A FLASH e a RAM dividem um só controlador, o da FLASH.
+        return [], ""
     maker = {
-        ("ram", "sdram"): _sdram_backend,
+        ("rom", "sdram"): sdram_backend,
+        ("ram", "sdram"): sdram_backend,
         ("ram", "sram"): sram_backend,
         ("rom", "nor"): _nor_backend,
     }.get((region, device))

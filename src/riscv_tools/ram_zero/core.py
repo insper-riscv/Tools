@@ -58,7 +58,7 @@ def zero_ram(
     None
     """
     if isinstance(ram_mem_instance, ram_target.SdramDebugRam):
-        sdram_debug.fill(link, 0, ram_words, 0)
+        sdram_debug.fill(link, ram_mem_instance.chip_words, ram_words, 0)
         return
     blank = _blank_mif(ram_words)
     try:

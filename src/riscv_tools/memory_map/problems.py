@@ -4,6 +4,7 @@ from typing import Any
 
 from riscv_tools.memory_map import (
     banks,
+    chip_split,
     core_checks,
     interrupts,
     sdram_clock,
@@ -17,7 +18,7 @@ def platform_problems(
     generics: dict[str, bool | int] | None = None,
     xlen: int | None = None,
 ) -> list[Mismatch]:
-    """Check the map, the banks, the interrupts and the clocks.
+    """Check the map, the banks, the chip split, the interrupts, clocks.
 
     Parameters
     ----------
@@ -39,6 +40,7 @@ def platform_problems(
         validate_platform(platform, generics, xlen)
         + core_checks.problems(platform, xlen)
         + banks.problems(platform)
+        + chip_split.problems(platform)
         + interrupts.problems(platform, generics)
         + sdram_clock.problems(platform)
     )

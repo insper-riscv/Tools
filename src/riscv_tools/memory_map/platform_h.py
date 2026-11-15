@@ -22,7 +22,7 @@ import re
 from typing import Any
 
 from riscv_tools.flash_image import MAGIC
-from riscv_tools.memory_map import interrupts
+from riscv_tools.memory_map import chip_split, interrupts
 from riscv_tools.memory_map.core import peripheral_list
 from riscv_tools.memory_map.expressions import evaluate
 from riscv_tools.memory_map.groups import GROUP_BYTES
@@ -142,6 +142,40 @@ def _bank_lines(table: dict[str, int]) -> list[str]:
     return lines
 
 
+def _chip_lines(platform: dict[str, Any], table: dict[str, int]) -> list[str]:
+    """Write the place of each region in its chip.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+    table : dict of {str: int}
+        The symbols of the map.
+
+    Returns
+    -------
+    list of str
+        For each region that writes `offset`, the byte of the chip, the
+        width of the low bits and the constant of the high bits (the
+        host builds its window table from them), and the window of the
+        FLASH in KiB; empty when no region writes `offset`.
+    """
+    found = chip_split.windows(platform)
+    if not found:
+        return []
+    lines = [""]
+    for name, window in found.items():
+        lines += [
+            _define(f"RV32_{name}_CHIP_OFFSET", window.offset),
+            _define(f"RV32_{name}_CHIP_LOW_BITS", window.low_bits),
+            _define(f"RV32_{name}_CHIP_HIGH", window.fixed_high),
+        ]
+    if "FLASH" in found:
+        kib = -(-table["FLASH.size"] // 1024)
+        lines.append(_define("RV32_FLASH_WINDOW_KIB", kib))
+    return lines
+
+
 def render_platform_h(
     platform: dict[str, Any], table: dict[str, int], source: str
 ) -> str:
@@ -171,6 +205,7 @@ def render_platform_h(
     ):
         if word in table:
             lines.append(_define(macro, table[word]))
+    lines += _chip_lines(platform, table)
     lines += ["", *_peripheral_lines(platform), *_bank_lines(table)]
     if interrupts.declared(platform):
         tick = interrupts.tick_cycles(platform)

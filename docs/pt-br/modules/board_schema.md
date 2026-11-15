@@ -124,6 +124,7 @@ Um papel desconhecido, um pino que o papel não tem, um pino obrigatório ausent
 | `memory.<rom ou ram>.backend` | `emulado` ou `dispositivo`, obrigatório com `external: true` |
 | `memory.<rom ou ram>.device` | Só com `dispositivo`, e do tipo da região (`nor`, `flash-interna`, `serial` para a ROM; `sdram`, `sram` para a RAM) |
 | `memory.<rom ou ram>.latency` | `{first, next}`, só com `emulado` |
+| `memory.ram.fetch` | Booleano opcional, só com `dispositivo` e `sdram`: a porta de instruções do núcleo também alcança a RAM (execução a partir dos dados), desligada por padrão |
 | `memory.rom.sector_bytes` | Potência de 2, só na FLASH `emulado` |
 | `clocks.core`, `clocks.fetch`, `clocks.mem` | `{mhz, phase_ps}`; o `core` é obrigatório e o `mem` é obrigatório com um backend `dispositivo` |
 | `console` | `jtag` (padrão) ou `pinos` |

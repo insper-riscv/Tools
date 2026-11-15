@@ -1,0 +1,9 @@
+	-- A carga da FLASH pela JTAG prende o núcleo em reset; o nível passa por dois flip-flops no clock do núcleo.
+	process (clk_core)
+	begin
+		if rising_edge(clk_core) then
+			core_hold_sr <= core_hold_sr(0) & core_hold;
+		end if;
+	end process;
+	flash_halt <= core_hold_sr(1);
+

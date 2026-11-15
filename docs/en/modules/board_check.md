@@ -27,7 +27,7 @@ The `needs` key sits beside `sources` and `requires` in the `paths.yaml` of the 
 | V7 | E | Clock above the PLL range of the family or the ceiling of the chip |
 | V8 | W | Core clock above the measured Fmax of the family and grade |
 | V9 | E | FLASH bank off the sector multiple, counted from the start of the region |
-| V10 | E | Region bigger than the capacity of the device |
+| V10 | E | Region bigger than the capacity of the device, or whose `offset` plus size passes the end of the chip |
 | V15 | E | More PLL outputs (distinct clocks plus the SDRAM clock) than the board offers |
 | V16 | E | `inferred` pin in use without `--accept-inferred-pins` |
 | V17 | E | The JTAG chain read from the cable is not the board's |

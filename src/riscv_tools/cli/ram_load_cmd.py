@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from riscv_tools import ram_load
+from riscv_tools import ram_load, sdram_windows
 from riscv_tools.cli.common import jtag_link
 from riscv_tools.settings import load_config
 
@@ -91,6 +91,7 @@ def cmd_load_ram(args: argparse.Namespace) -> None:
     words = memory.get("ram_words")
     segments = _segments(args, base)
     launch = _launch(args, memory)
+    window = sdram_windows.windows_from_config(cfg).get("RAM")
     link = jtag_link(cfg)
     try:
         ram_load.load_ram(
@@ -101,6 +102,7 @@ def cmd_load_ram(args: argparse.Namespace) -> None:
             ram_load.LoadOptions(
                 ram_bytes=None if words is None else int(words) * 4,
                 verify=not args.no_verify,
+                chip_words=0 if window is None else window.offset // 4,
                 report=print,
             ),
         )

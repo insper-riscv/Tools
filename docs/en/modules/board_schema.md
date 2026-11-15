@@ -124,6 +124,7 @@ An unknown role, a pin the role does not have, a missing required pin and a `chi
 | `memory.<rom or ram>.backend` | `emulado` or `dispositivo`, required with `external: true` |
 | `memory.<rom or ram>.device` | Only with `dispositivo`, and of the kind of the region (`nor`, `flash-interna`, `serial` for the ROM; `sdram`, `sram` for the RAM) |
 | `memory.<rom or ram>.latency` | `{first, next}`, only with `emulado` |
+| `memory.ram.fetch` | Optional boolean, only with `dispositivo` and `sdram`: the instruction port of the core also reaches the RAM (execution from data), off by default |
 | `memory.rom.sector_bytes` | Power of 2, only in an `emulado` FLASH |
 | `clocks.core`, `clocks.fetch`, `clocks.mem` | `{mhz, phase_ps}`; `core` is required and `mem` is required with a `dispositivo` backend |
 | `console` | `jtag` (default) or `pinos` |

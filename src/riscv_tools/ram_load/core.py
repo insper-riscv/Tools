@@ -67,6 +67,8 @@ class LoadOptions:
     ram_bytes: int | None = None
     # Lê cada segmento de volta antes de seguir.
     verify: bool = True
+    # Palavra do chip onde a RAM começa (`offset` da janela sobre 4).
+    chip_words: int = 0
     # Recebe uma linha de progresso por etapa.
     report: Callable[[str], None] = _silent
 
@@ -203,9 +205,9 @@ def check_layout(
             )
 
 
-def _word_address(address: int, ram_base: int) -> int:
+def _word_address(address: int, ram_base: int, chip_words: int = 0) -> int:
     """Converta um endereço de byte em endereço de palavra da SDRAM."""
-    return (address - ram_base) // WORD_BYTES
+    return chip_words + (address - ram_base) // WORD_BYTES
 
 
 def verify_segment(
@@ -213,6 +215,7 @@ def verify_segment(
     segment: Segment,
     ram_base: int,
     expected: Sequence[int],
+    chip_words: int = 0,
 ) -> None:
     """Lê o segmento de volta e compara com as palavras escritas.
 
@@ -226,13 +229,15 @@ def verify_segment(
         Endereço de byte da base da SDRAM.
     expected : sequence of int
         As palavras que foram escritas.
+    chip_words : int, optional
+        Palavra do chip onde a RAM começa.
 
     Raises
     ------
     VerifyError
         Uma palavra lida difere da escrita; a mensagem dá a primeira.
     """
-    first = _word_address(segment.address, ram_base)
+    first = _word_address(segment.address, ram_base, chip_words)
     for start in range(0, len(expected), VERIFY_CHUNK_WORDS):
         want = expected[start : start + VERIFY_CHUNK_WORDS]
         got = sdram_debug.read_words(link, first + start, len(want))
@@ -282,10 +287,11 @@ def load_ram(
     """
     chosen = options or LoadOptions()
     verify, say = chosen.verify, chosen.report
+    chip = chosen.chip_words
     check_layout(segments, ram_base, chosen.ram_bytes, launch)
     if launch is not None:
         sdram_debug.write_word(
-            link, _word_address(launch.address, ram_base), 0
+            link, _word_address(launch.address, ram_base, chip), 0
         )
     for segment in segments:
         words = pack_words(segment.data)
@@ -293,13 +299,13 @@ def load_ram(
             f"{segment.name}: {len(words)} palavras em 0x{segment.address:08x}"
         )
         sdram_debug.load_words(
-            link, _word_address(segment.address, ram_base), words
+            link, _word_address(segment.address, ram_base, chip), words
         )
         if verify:
-            verify_segment(link, segment, ram_base, words)
+            verify_segment(link, segment, ram_base, words, chip)
             say(f"{segment.name}: conferido")
     if launch is not None:
         sdram_debug.write_word(
-            link, _word_address(launch.address, ram_base), launch.magic
+            link, _word_address(launch.address, ram_base, chip), launch.magic
         )
         say(f"magia 0x{launch.magic:08x} em 0x{launch.address:08x}")

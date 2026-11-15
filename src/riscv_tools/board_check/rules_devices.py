@@ -9,6 +9,7 @@ from riscv_tools.board_check.context import (
     Context,
 )
 from riscv_tools.board_check.findings import Finding, error, size_text
+from riscv_tools.memory_map import chip_split
 from riscv_tools.memory_map.core import platform_dict
 from riscv_tools.memory_map.expressions import evaluate
 from riscv_tools.memory_map.validation import hex_text
@@ -157,7 +158,7 @@ def rule_v2(ctx: Context) -> list[Finding]:
 
 
 def rule_v10(ctx: Context) -> list[Finding]:
-    """Report a region bigger than the device behind it.
+    """Report a region bigger than its device, or past the end of it.
 
     Parameters
     ----------
@@ -171,9 +172,27 @@ def rule_v10(ctx: Context) -> list[Finding]:
     """
     used = ctx.used_devices()
     found: list[Finding] = []
+    chip = chip_split.windows(ctx.platform)
     for region in ctx.regions:
         use = used.get(region.memory)
         capacity = None if use is None else ctx.capacity(str(use.device))
+        window = chip.get(region.name)
+        if (
+            use is not None
+            and capacity is not None
+            and window
+            and region.size <= capacity < window.end
+        ):
+            found.append(
+                error(
+                    "V10",
+                    f"region {region.name} ends at byte "
+                    f"{hex_text(window.end)} of the chip (offset "
+                    f"{hex_text(window.offset)}), beyond the "
+                    f"{size_text(capacity)} of board "
+                    f"'{ctx.board.board}'",
+                )
+            )
         if use is not None and capacity is not None and region.size > capacity:
             label = DEVICE_LABEL[str(use.device)]
             found.append(

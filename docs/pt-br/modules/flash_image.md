@@ -31,9 +31,10 @@ A carga é o `.bin` que o linker gerou para a banca, preenchido com `0xFF` até 
 riscv-tools --root <projeto> flash-image pack programa.bin --output imagem.bin --version 3 --platform src/cyclone-v/de0-cv/platform.yaml --bank B
 riscv-tools flash-image verify imagem.bin
 riscv-tools --config <config.yaml> flash-image send imagem.bin
+riscv-tools --config <config.yaml> flash-image send imagem.bin --via debug --bank A --platform src/platform.yaml
 ```
 
-`pack` com `--platform` e `--bank` confere que a imagem cabe na banca. `send` exige `--config` e confere a imagem antes de enviá-la; o que o programa imprime durante o envio vai para a saída padrão. `pack` e `verify` não precisam de `--config`.
+`pack` com `--platform` e `--bank` confere que a imagem cabe na banca. `send --via debug` grava a imagem na banca `--bank` da FLASH que fica na SDRAM, pela porta de debug e com o núcleo preso ([`flash_load`](flash_load.md)), em vez de entregá-la à UART do programa que atualiza a FLASH. `send` exige `--config` e confere a imagem antes de enviá-la; o que o programa imprime durante o envio vai para a saída padrão. `pack` e `verify` não precisam de `--config`.
 
 ## 4. Pré-requisitos
 
