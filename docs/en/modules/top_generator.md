@@ -42,7 +42,7 @@ The contract with the SoC is the following.
 | Input ports | `i_ext_rdata` (32 bits per peripheral) and `i_ext_irq` (one bit per peripheral) |
 | Position | `<NAME>_EXT_POS`, from the map package, picks the slice of each peripheral |
 
-The instance wires `i_clk` to the core clock and `i_rst` to the SoC reset, and the frequency generics receive the core clock in hertz. The fields of the kind (for example `phy_addr`, `cs_count`, `three_wire`, `has_flow_control`, `sample_rate`) become generics with the same name as the field, and only the fields written in the platform enter the `generic map`.
+The instance wires `i_clk` to the core clock and `i_rst` to the SoC reset, and the frequency generics receive the core clock in hertz. The fields of the kind (for example `phy_addr`, `cs_count`, `three_wire`, `has_flow_control`, `sample_rate`) become generics with the same name as the field, and only the fields written in the platform enter the `generic map`. The types of the fields and the literal of each one are in section 9.7 of [memory_map](memory_map.md).
 
 | Entity | Pins |
 | :--- | :--- |

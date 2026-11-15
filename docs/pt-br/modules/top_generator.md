@@ -42,7 +42,7 @@ O contrato com o SoC é o seguinte.
 | Portas de entrada | `i_ext_rdata` (32 bits por periférico) e `i_ext_irq` (um bit por periférico) |
 | Posição | `<NOME>_EXT_POS`, do pacote do mapa, escolhe a fatia de cada periférico |
 
-A instância liga `i_clk` ao relógio do núcleo e `i_rst` ao reset do SoC, e os generics de frequência recebem o relógio do núcleo em hertz. Os campos do kind (por exemplo `phy_addr`, `cs_count`, `three_wire`, `has_flow_control`, `sample_rate`) viram generics com o mesmo nome do campo, e só os campos escritos na plataforma entram no `generic map`.
+A instância liga `i_clk` ao relógio do núcleo e `i_rst` ao reset do SoC, e os generics de frequência recebem o relógio do núcleo em hertz. Os campos do kind (por exemplo `phy_addr`, `cs_count`, `three_wire`, `has_flow_control`, `sample_rate`) viram generics com o mesmo nome do campo, e só os campos escritos na plataforma entram no `generic map`. Os tipos dos campos e o literal de cada um estão na seção 9.7 de [memory_map](memory_map.md).
 
 | Entidade | Pinos |
 | :--- | :--- |

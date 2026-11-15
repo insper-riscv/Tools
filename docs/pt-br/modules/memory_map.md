@@ -627,23 +627,23 @@ peripherals:
 
 | Kind | Entidade | Papel da placa | Janela mínima | Linha do PLIC | Campos próprios |
 | :--- | :--- | :--- | ---: | :--- | :--- |
-| `ps2` | `ps2_keyboard` ou `ps2_mouse_top` | `ps2` | 16 ou 32 bytes | sim | `device` (`keyboard` ou `mouse`, padrão `keyboard`) |
+| `ps2` | `ps2_keyboard` ou `ps2_mouse_top` | `ps2` | 16 ou 32 bytes | sim | `device` (`keyboard` ou `mouse`, padrão `keyboard`) e os da seção 9.7 |
 | `video` | `video` | `io.video` | 256 KiB | não | nenhum |
-| `sd_spi` | `sd_spi` | `sd` | 32 bytes | sim | nenhum |
-| `sd_native` | `sd_native` | `sd` | 64 bytes | sim | nenhum |
-| `ir` | `ir_receiver` | `ir` | 32 bytes | sim | `active_low` (booleano) |
-| `lcd` | `lcd` | `lcd` | 32 bytes | sim | nenhum |
-| `usb` | `usb_bridge` | `usb` | 64 bytes | sim | `int_active_high` (booleano) |
-| `i2c` | `i2c_master` | `i2c` | 32 bytes | sim | nenhum |
-| `audio` | `audio` | `audio` | 64 bytes | sim | nenhum |
-| `eth` | `eth` (MII) | `eth` | 256 bytes | sim | `phy_addr`, `mdc_freq_hz` e `poll_cycles` (MDIO); `tx_buffer_addr_bits`, `rx_buffer_addr_bits`, `rx_fifo_addr_bits`, `sync_stages` e `reset_cycles` (MAC); todos inteiros |
-| `hdmi` | `hdmi_tx` | `hdmi` | 256 KiB | sim | nenhum |
-| `hdmi_audio` | `hdmi_audio` | `hdmi_audio` | 64 bytes | sim | `sample_rate`, `mclk_ratio`, `word_bits`, `tx_fifo_depth`, `tone_freq` e `tone_amp` (inteiros); `has_tone` e `autostart` (booleanos) |
-| `uart` | `uart` | `serial` | 16 bytes | sim | `has_flow_control` (booleano); `baud_freq`, `baud_limit`, `rx_fifo_depth` e `tx_fifo_depth` (inteiros) |
-| `tv` | `tv` | `tv` | 64 bytes | sim | nenhum |
-| `adc` | `adc128s022`, `ltc2308` ou `max10_adc` | `adc` | 64, 64 ou 128 bytes | sim | `chip` (obrigatório) |
-| `spi` | `spi` | `spi` | 32 bytes | sim | `cs_count` (inteiro) |
-| `adxl345` | `adxl345` | `adxl345` | 32 bytes | sim | `three_wire` (booleano) |
+| `sd_spi` | `sd_spi` | `sd` | 32 bytes | sim | seção 9.7 |
+| `sd_native` | `sd_native` | `sd` | 64 bytes | sim | seção 9.7 |
+| `ir` | `ir_receiver` | `ir` | 32 bytes | sim | seção 9.7 |
+| `lcd` | `lcd` | `lcd` | 32 bytes | sim | seção 9.7 |
+| `usb` | `usb_bridge` | `usb` | 64 bytes | sim | seção 9.7 |
+| `i2c` | `i2c_master` | `i2c` | 32 bytes | sim | seção 9.7 |
+| `audio` | `audio` | `audio` | 64 bytes | sim | seção 9.7 |
+| `eth` | `eth` (MII) | `eth` | 256 bytes | sim | seção 9.7 |
+| `hdmi` | `hdmi_tx` | `hdmi` | 256 KiB | sim | seção 9.7 |
+| `hdmi_audio` | `hdmi_audio` | `hdmi_audio` | 64 bytes | sim | seção 9.7 |
+| `uart` | `uart` | `serial` | 16 bytes | sim | seção 9.7 |
+| `tv` | `tv` | `tv` | 64 bytes | sim | seção 9.7 |
+| `adc` | `adc128s022`, `ltc2308` ou `max10_adc` | `adc` | 64, 64 ou 128 bytes | sim | `chip` (obrigatório) e os da seção 9.7 |
+| `spi` | `spi` | `spi` | 32 bytes | sim | seção 9.7 |
+| `adxl345` | `adxl345` | `adxl345` | 32 bytes | sim | seção 9.7 |
 
 A janela mínima é uma palavra de 4 bytes para cada endereço que a entidade decodifica. Os campos comuns são os seguintes.
 
@@ -670,6 +670,41 @@ Uma chave que o kind não conhece, um campo do tipo errado e um `need` que não 
 | Pacote VHDL (`vhdl`) | Só com ao menos um periférico externo. `EXT_COUNT`, as tabelas `EXT_INDICES` (o índice de cada um nas tabelas de janelas) e `EXT_IRQ_IDS` (a fonte de cada um, 0 sem linha ou sem PLIC) e `<NOME>_EXT_POS`, a posição de cada um nas duas tabelas |
 | Cabeçalho do runtime (`runtime`) | `RV32_<NOME>_BASE` e, para quem tem linha, `RV32_IRQ_<NOME>` |
 | Topo da placa (`board generate`) | A instância de cada periférico e os pinos dele, ver [top_generator](top_generator.md) |
+
+### 9.7. Campos dos kinds
+
+Cada campo de um kind é o generic de mesmo nome da entidade, e só os campos escritos na plataforma entram no `generic map` do topo; os omitidos ficam com o padrão da entidade. O registro de campos (`memory_map/kind_fields.py`) dá a cada um destes tipos, e a leitura da plataforma recusa o valor que não serve.
+
+| Tipo | Valor aceito | Literal no `generic map` |
+| :--- | :--- | :--- |
+| `int` | Inteiro de pelo menos o mínimo do campo (0 para `natural`, 1 para `positive`) e de no máximo o limite, quando há | O número |
+| `bool` | `true` ou `false` | `true` ou `false` |
+| `choice` | Um dos valores do campo | A cadeia entre aspas |
+| `hex` | Dígitos hexadecimais, em múltiplo de quatro | A cadeia entre aspas |
+| `addr7` | Inteiro de 0 a 127 | A cadeia de 7 bits |
+
+Um campo que só existe numa das entidades de um kind (`rx_fifo_depth` do teclado PS/2, `scan_freq` do `max10_adc`) é recusado quando o `device` ou o `chip` escrito é outro.
+
+| Kind | Campos inteiros | Campos de outro tipo |
+| :--- | :--- | :--- |
+| `ps2` | `filter_cycles`, `inhibit_cycles` e `timeout_cycles`; `rx_fifo_depth` (só `keyboard`); `init_timeout_cycles` e `packet_timeout_cycles` (só `mouse`) | nenhum |
+| `sd_spi` | `init_sclk_hz`, `rx_fifo_depth` e `tx_fifo_depth` | nenhum |
+| `sd_native` | `init_clk_hz`, `default_timeout` e `input_sync_stages` | nenhum |
+| `ir` | `tolerance_percent`, `glitch_us`, `timeout_us` e `fifo_depth` | `raw_enable` e `active_low` (`bool`) |
+| `lcd` | `fifo_depth`, `setup_ns`, `pulse_ns`, `hold_ns`, `power_up_us`, `exec_us`, `exec_long_us` e `busy_timeout_us` | `has_rw` e `auto_init` (`bool`) |
+| `usb` | `setup_cycles`, `pulse_cycles` e `recovery_cycles`, de 0 a 255 | `int_active_high` (`bool`) |
+| `i2c` | `scl_freq` | nenhum |
+| `audio` | `xck_freq`, `sample_rate`, `slot_bits`, `word_bits`, `tx_fifo_depth`, `rx_fifo_depth`, `tone_freq` e `tone_amp` | `has_tone` e `autostart` (`bool`) |
+| `eth` | `phy_addr`, `mdc_freq_hz`, `poll_cycles`, `tx_buffer_addr_bits`, `rx_buffer_addr_bits`, `rx_fifo_addr_bits`, `sync_stages` e `reset_cycles` | nenhum |
+| `hdmi` | `fb_width`, `fb_height`, `scale`, `h_visible`, `h_front_porch`, `h_sync`, `h_back_porch`, `v_visible`, `v_front_porch`, `v_sync`, `v_back_porch`, `mode_id`, `pixel_clock_khz` e `i2c_freq` | `pixel_format` (`choice`, `indexed` ou `direct`); `h_sync_positive`, `v_sync_positive`, `init_enable`, `init_auto_start` e `int_active_low` (`bool`); `init_table` e `audio_init_table` (`hex`); `i2c_dev_addr` (`addr7`) |
+| `hdmi_audio` | `sample_rate`, `mclk_ratio`, `word_bits`, `tx_fifo_depth`, `tone_freq` e `tone_amp` | `has_tone` e `autostart` (`bool`) |
+| `uart` | `baud_freq`, `baud_limit`, `rx_fifo_depth` e `tx_fifo_depth` | `has_flow_control` (`bool`) |
+| `tv` | `fb_width`, `fb_height`, `src_width`, `src_height` e `present_cycles` | `check_protection` (`bool`) |
+| `adc` | `sclk_hz` (`adc128s022` e `ltc2308`); `channel_latency`, de 0 a 1 (`adc128s022` e `ltc2308`); `convst_ns`, `conversion_ns` e `acquisition_ns` (só `ltc2308`); `scan_freq` (só `max10`) | nenhum |
+| `spi` | `cs_count`, de 1 a 64; `word_width`, de 1 a 32; `reset_sclk_hz`, `rx_fifo_depth` e `tx_fifo_depth` | nenhum |
+| `adxl345` | `sclk_hz`, `sample_hz` e `cs_high_ns` | `three_wire` (`bool`) |
+
+Os generics de largura de dado e de endereço de palavra (`data_width`, `addr_width`) saem do registro e não são campos, e o `master` do `audio` e o `gigabit` do `eth` também não são, porque a ligação do topo é a do `audio` mestre e a do MII de 100 Mbit/s. O `video` não tem campos, porque a temporização dele vem do bloco `io.video`.
 
 ## 10. O `config_pkg`
 
