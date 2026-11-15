@@ -70,6 +70,35 @@ def uses_pixel(platform: dict[str, Any]) -> bool:
     return any(e in PIXEL_ENTITIES for e, _ in _entities(platform))
 
 
+def _written_khz(users: list[dict[str, Any]]) -> int | None:
+    """Read the `pixel_clock_khz` the peripherals write.
+
+    Parameters
+    ----------
+    users : list of dict of str to Any
+        The peripherals that take a pixel clock.
+
+    Returns
+    -------
+    int or None
+        The written value, or None when no peripheral writes one.
+
+    Raises
+    ------
+    VideoError
+        If two peripherals write different values.
+    """
+    written = {
+        int(i["pixel_clock_khz"]) for i in users if "pixel_clock_khz" in i
+    }
+    if len(written) > 1:
+        raise VideoError(
+            "peripherals write different pixel_clock_khz values "
+            f"({', '.join(str(v) for v in sorted(written))})"
+        )
+    return next(iter(written), None)
+
+
 def pixel_request(
     platform: dict[str, Any], video: VideoPlan | None
 ) -> PixelRequest | None:
@@ -106,20 +135,13 @@ def pixel_request(
     if not users:
         return None
     serial = any(e in SERIAL_ENTITIES for e, _ in _entities(platform))
-    written = {
-        int(i["pixel_clock_khz"]) for i in users if "pixel_clock_khz" in i
-    }
-    if len(written) > 1:
-        raise VideoError(
-            "peripherals write different pixel_clock_khz values "
-            f"({', '.join(str(v) for v in sorted(written))})"
-        )
+    written = _written_khz(users)
     mode = Fraction(str(video.mode.pixel_clock_mhz)) if video else None
-    if written:
-        khz = Fraction(next(iter(written)), _KHZ_PER_MHZ)
+    if written is not None:
+        khz = Fraction(written, _KHZ_PER_MHZ)
         if mode is not None and khz != mode:
             raise VideoError(
-                f"pixel_clock_khz {next(iter(written))} differs from the "
+                f"pixel_clock_khz {written} differs from the "
                 f"{mode} MHz of mode {video.mode.name if video else ''}"
             )
         mode = khz

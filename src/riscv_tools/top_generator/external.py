@@ -20,16 +20,22 @@ entidade, e o open drain do I2C leva o `'0'` ou solta o pino.
 from dataclasses import dataclass, field
 from typing import Any
 
+from riscv_tools.board_inputs import InputError
 from riscv_tools.board_ports import Port
 from riscv_tools.memory_map.external import external_list
 from riscv_tools.memory_map.kind_fields import FieldSpec
-from riscv_tools.memory_map.kinds import EXTERNAL, Variant
+from riscv_tools.memory_map.kinds import (
+    EXTERNAL,
+    MISSING_ENTITIES,
+    PIXEL_ENTITIES,
+    Variant,
+)
 from riscv_tools.top_generator.spec import TopSpec
 
 # Entidades sem o sinal `i_read` e as que têm `i_byteena` e relógio de
 # pixel.
 NO_READ = frozenset({"video", "hdmi_tx", "adc128s022", "ltc2308", "adxl345"})
-WITH_PIXEL = frozenset({"video", "hdmi_tx"})
+WITH_PIXEL = PIXEL_ENTITIES
 _WORD = 32
 _HZ = 1_000_000_000
 
@@ -756,7 +762,13 @@ def _place(spec: TopSpec, item: dict[str, Any], result: ExternalTop) -> None:
     """Instancia um periférico ou zera o que ele deixa no barramento."""
     name = str(item["name"])
     pins = {p.pin: p for p in spec.ports if p.owner == name}
+    variant = EXTERNAL[str(item["kind"])].variant(item)
     wired = None
+    if variant is not None and variant.entity in MISSING_ENTITIES:
+        raise InputError(
+            f"E peripheral {name}: {item['kind']} cannot be generated, "
+            f"{MISSING_ENTITIES[variant.entity]}"
+        )
     if pins:
         wired = _instance(spec, item, pins, result.notes)
     if wired is None:

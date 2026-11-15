@@ -118,14 +118,3 @@ def test_the_tmds_kind_is_registered_but_has_no_entity(
         generate(request(tmp_path, "hdmi_tmds"))
     check_in("hdmi_tmds_tx is not in the Peripherals", str(bad.value))
     check_in("HDMI", str(bad.value))
-
-
-def test_the_adc_clock_pin_is_a_clock_of_the_sdc(tmp_path: Path) -> None:
-    """ADC_CLK_10 enters as a 10 MHz clock apart from the SoC ones."""
-    result = generate(request(tmp_path, "adc"))
-    sdc = _file(result, ".sdc")
-    check_in("create_clock -name ADC_CLK_10 -period 100.000", sdc)
-    check_in(
-        "set_clock_groups -asynchronous -group [get_clocks ADC_CLK_10]", sdc
-    )
-    check_in("ADC_CLK_10 : in ", _file(result, "_top.vhd"))

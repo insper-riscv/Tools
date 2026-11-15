@@ -104,6 +104,7 @@ Um valor é um sinal (`SD_CLK`) ou um barramento (`SD_DAT[3:0]`) do `pins.yaml`.
 | `eth` com `mode: mii` | `rx_clk`, `rxd`, `rx_dv`, `rx_er`, `tx_clk` e `int_n?` (in), `txd`, `tx_en`, `tx_er`, `mdc` e `rst_n` (out), `mdio` (inout) |
 | `eth` com `mode: rgmii` | `rx_clk`, `rxd` (4 bits), `rx_dv` (RX_CTL) e `int_n?` (in), `gtx_clk`, `txd` (4 bits), `tx_en` (TX_CTL), `mdc` e `rst_n` (out), `mdio` (inout) |
 | `hdmi` | `d`, `clk`, `de`, `hs` e `vs` (out), `int` (in), `scl` e `sda` (inout) |
+| `hdmi_tmds` | `tmds` (vetor de três linhas), `clk` (out), `scl` e `sda` (inout), `hpd?` (in), a saída TMDS direta sem conversor, como a da Vidor |
 | `hdmi_audio` | `mclk`, `sclk`, `lrclk` e `i2s0` (out), as quatro linhas I2S do transmissor HDMI |
 | `serial` | `rx` e `cts?` (in), `tx` e `rts?` (out) |
 | `tv` | `data` e `clk27` (in), `reset_n` (out) |

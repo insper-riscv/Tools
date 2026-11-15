@@ -639,6 +639,7 @@ peripherals:
 | `eth` | `eth` (MII) or `eth_rgmii_mac` (RGMII) | `eth` | 256 bytes | yes | `mode` (`mii` or `rgmii`, default `mii`) and those of section 9.7 |
 | `hdmi` | `hdmi_tx` | `hdmi` | 256 KiB | yes | section 9.7 |
 | `hdmi_audio` | `hdmi_audio` | `hdmi_audio` | 64 bytes | yes | section 9.7 |
+| `hdmi_tmds` | `hdmi_tmds_tx` (not yet in `Peripherals`) | `hdmi_tmds` | 256 KiB | no | none |
 | `uart` | `uart` | `serial` | 16 bytes | yes | section 9.7 |
 | `tv` | `tv` | `tv` | 64 bytes | yes | section 9.7 |
 | `adc` | `adc128s022`, `ltc2308` or `max10_adc_shell` | `adc` | 64, 64 or 128 bytes | yes | `chip` (required) and those of section 9.7 |

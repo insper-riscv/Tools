@@ -59,7 +59,7 @@ A instância liga `i_clk` ao relógio do núcleo e `i_rst` ao reset do SoC, e os
 | `usb_bridge` | `dreq` e `dack` opcionais: sem eles `i_otg_dreq` fica em `'0'` e `o_otg_dack` aberto |
 | `adc128s022`, `ltc2308`, `ir_receiver`, `tv`, `spi` | Direto; o `cs_n` do `spi` é fatiado na largura da porta da placa |
 
-O `video` e o `hdmi_tx` precisam de um relógio de pixel do plano de relógios, e sem ele a instância fica fora com um aviso. O `max10_adc_shell` liga `i_adc_clk_10` ao pino `clk10` (`ADC_CLK_10`), e o IP do núcleo entra no projeto pelo [board_generate](board_generate.md).
+O `video` e o `hdmi_tx` recebem o `i_pixel_clk` do sinal `clk_pixel`, declarado quando o plano de relógios tem a saída `pixel`; sem ela (nenhuma fonte dá a frequência) a instância fica fora com um aviso. O kind `hdmi_tmds` (saída TMDS direta, papel `hdmi_tmds` com `tmds`, `clk`, `scl`, `sda` e `hpd` opcional) está registrado, mas a entidade `hdmi_tmds_tx` não está no `Peripherals`; a geração falha com um erro que diz isso, e nenhuma porta é inventada. A dependência é o serializador TMDS do `Peripherals`, com o relógio de pixel e o relógio serial de cinco vezes (`pixel_x5`) que o plano já produz. O `max10_adc_shell` liga `i_adc_clk_10` ao pino `clk10` (`ADC_CLK_10`), e o IP do núcleo entra no projeto pelo [board_generate](board_generate.md).
 
 ## 4. Testes
 

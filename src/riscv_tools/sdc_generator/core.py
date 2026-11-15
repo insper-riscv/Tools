@@ -235,6 +235,43 @@ def _domains(plan: ClockPlan, pattern: str | None, has_mem: bool) -> list[str]:
     return lines
 
 
+def _video_domains(plan: ClockPlan, pattern: str | None) -> list[str]:
+    """Escreve os domínios do relógio de pixel e os cruzamentos.
+
+    O framebuffer tem uma porta em cada relógio, e as duas pontes são de
+    sincronizadores; o domínio do pixel só encontra o do núcleo ali, e
+    cada cruzamento é limitado pelo menor entre o período do pixel e o
+    menor período do SoC.
+
+    Parameters
+    ----------
+    plan : ClockPlan
+        Os relógios.
+    pattern : str or None
+        O padrão de nó da família.
+
+    Returns
+    -------
+    list of str
+        As linhas; vazio sem relógio de pixel.
+    """
+    pixel = plan.get("pixel")
+    if pixel is None:
+        return []
+    bound = _num(float(min(plan.min_period_ns, pixel.period_ns)))
+    lines = [
+        "",
+        "# O relógio de pixel é um domínio próprio, assíncrono aos demais;",
+        "# só se cruza com o do núcleo nas pontes do framebuffer.",
+    ]
+    for clock in plan.video_roles:
+        node = _node(pattern, plan.index(clock.role))
+        lines.append(f"set clk_{clock.role} {{{node}}}")
+    lines.append("set video_clocks [get_clocks $clk_pixel]")
+    lines += _crossing("$video_clocks", "$core_clocks", bound)
+    return lines
+
+
 def _slow_false_paths(ports: tuple[Port, ...]) -> list[str]:
     """Escreve os caminhos falsos de E/S lentas (reset, chaves, LEDs).
 
@@ -409,6 +446,7 @@ def render_sdc(
             raise SdcError("sdram without chip io_timing")
         lines += _memory_section(plan, ports, delays, pattern)
     lines += _domains(plan, pattern, has_mem)
+    lines += _video_domains(plan, pattern)
     lines += _vendor_sections(plan, ports, pattern)
     lines += _false_paths(ports)
     return "\n".join(lines) + "\n"

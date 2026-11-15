@@ -59,7 +59,7 @@ The instance wires `i_clk` to the core clock and `i_rst` to the SoC reset, and t
 | `usb_bridge` | `dreq` and `dack` are optional: without them `i_otg_dreq` stays at `'0'` and `o_otg_dack` open |
 | `adc128s022`, `ltc2308`, `ir_receiver`, `tv`, `spi` | Straight; the `cs_n` of the `spi` is sliced to the width of the board port |
 
-The `video` and the `hdmi_tx` need a pixel clock from the clock plan, and without it the instance is left out with a warning. The `max10_adc_shell` wires `i_adc_clk_10` to the `clk10` pin (`ADC_CLK_10`), and the IP of the core enters the project through [board_generate](board_generate.md).
+The `video` and the `hdmi_tx` receive `i_pixel_clk` from the `clk_pixel` signal, declared when the clock plan has the `pixel` output; without it (no source gives the frequency) the instance is left out with a warning. The `hdmi_tmds` kind (direct TMDS output, role `hdmi_tmds` with `tmds`, `clk`, `scl`, `sda` and optional `hpd`) is registered, but the `hdmi_tmds_tx` entity is not in `Peripherals`; the generation fails with an error that says so, and no port is invented. The dependency is the TMDS serializer of `Peripherals`, with the pixel clock and the serial clock of five times (`pixel_x5`) that the plan already makes. The `max10_adc_shell` wires `i_adc_clk_10` to the `clk10` pin (`ADC_CLK_10`), and the IP of the core enters the project through [board_generate](board_generate.md).
 
 ## 4. Tests
 

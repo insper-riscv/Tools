@@ -20,6 +20,7 @@ clocks:
     - {name: clock_50,  signal: CLOCK_50,  mhz: 50}
     - {name: clock2_50, signal: CLOCK2_50, mhz: 50}
     - {name: clock3_50, signal: CLOCK3_50, mhz: 50}
+    - {name: adc_clk_10, signal: ADC_CLK_10, mhz: 10}
   reference: clock_50
   reset: {signal: "KEY[0]", active: low}
 io:
@@ -75,6 +76,7 @@ buses:
   eth:
     - {rx_clk: ENET0_RX_CLK, rxd: "ENET0_RX_DATA[3:0]", rx_dv: ENET0_RX_DV, rx_er: ENET0_RX_ER, tx_clk: ENET0_TX_CLK, txd: "ENET0_TX_DATA[3:0]", tx_en: ENET0_TX_EN, tx_er: ENET0_TX_ER, mdc: ENET0_MDC, mdio: ENET0_MDIO, int_n: ENET0_INT_N, rst_n: ENET0_RST_N}
     - {gtx_clk: ENET1_GTX_CLK, rx_clk: ENET1_RX_CLK, rxd: "ENET1_RX_DATA[3:0]", rx_dv: ENET1_RX_DV, txd: "ENET1_TX_DATA[3:0]", tx_en: ENET1_TX_EN, mdc: ENET1_MDC, mdio: ENET1_MDIO, int_n: ENET1_INT_N, rst_n: ENET1_RST_N}
+  hdmi_tmds: {tmds: "TMDS[2:0]", clk: TMDS_CLK, scl: TMDS_SCL, sda: TMDS_SDA, hpd: TMDS_HPD}
   hdmi_audio: {mclk: HDMI_MCLK, sclk: HDMI_SCLK, lrclk: HDMI_LRCLK, i2s0: HDMI_I2S0}
   serial: {rx: SER_RXD, tx: SER_TXD, cts: SER_CTS, rts: SER_RTS}
   hdmi: {d: "HDMI_TX_D[23:0]", clk: HDMI_TX_CLK, de: HDMI_TX_DE, hs: HDMI_TX_HS, vs: HDMI_TX_VS, int: HDMI_TX_INT, scl: HDMI_I2C_SCL, sda: HDMI_I2C_SDA}
