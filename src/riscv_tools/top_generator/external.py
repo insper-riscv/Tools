@@ -20,24 +20,38 @@ entidade, e o open drain do I2C leva o `'0'` ou solta o pino.
 from dataclasses import dataclass, field
 from typing import Any
 
-from riscv_tools.board_inputs import InputError
 from riscv_tools.board_ports import Port
 from riscv_tools.memory_map.external import external_list
-from riscv_tools.memory_map.kind_fields import FieldSpec
-from riscv_tools.memory_map.kinds import (
-    EXTERNAL,
-    MISSING_ENTITIES,
-    PIXEL_ENTITIES,
-    Variant,
-)
+from riscv_tools.memory_map.kinds import EXTERNAL, Variant
 from riscv_tools.top_generator.spec import TopSpec
 
 # Entidades sem o sinal `i_read` e as que têm `i_byteena` e relógio de
 # pixel.
 NO_READ = frozenset({"video", "hdmi_tx", "adc128s022", "ltc2308", "adxl345"})
-WITH_PIXEL = PIXEL_ENTITIES
+WITH_PIXEL = frozenset({"video", "hdmi_tx"})
+# A entidade que só existe com o IP do fabricante, fora do topo.
+NEEDS_IP = frozenset({"max10_adc"})
 _WORD = 32
 _HZ = 1_000_000_000
+# Os generics de tempo do PS/2 contam ciclos, e os valores padrão da
+# entidade valem para um relógio de 50 MHz (160 ns de filtro, 120 us de
+# inibição, 20 ms de limite do quadro, 2 s de inicialização do mouse e
+# 100 ms de limite do pacote). Cada um é refeito para o relógio do
+# núcleo.
+_PS2_BASE_HZ = 50_000_000
+_PS2_CYCLES = {
+    "filter_cycles": 8,
+    "inhibit_cycles": 6000,
+    "timeout_cycles": 1_000_000,
+}
+_PS2_MOUSE_CYCLES = {
+    "init_timeout_cycles": 100_000_000,
+    "packet_timeout_cycles": 5_000_000,
+}
+_PS2_TABLES = {
+    "ps2_keyboard": _PS2_CYCLES,
+    "ps2_mouse_top": {**_PS2_CYCLES, **_PS2_MOUSE_CYCLES},
+}
 
 
 @dataclass
@@ -275,8 +289,8 @@ def _usb(inst: str, p: dict[str, Port]) -> Wiring:
         _direct("o_otg_rst_n", p["rst_n"]),
         _direct("o_otg_addr", p["addr"]),
         _tri(inst, ("o_otg_data", "o_otg_data_oe", "i_otg_data"), p["data"]),
-        _direct("i_otg_dreq", p.get("dreq"), "'0'"),
-        _direct("o_otg_dack", p.get("dack")),
+        _direct("i_otg_dreq", None, "'0'"),
+        _direct("o_otg_dack", None),
         Wiring(
             [f"i_otg_int => {irq}"],
             [f"signal {irq} : std_logic_vector(1 downto 0);"],
@@ -334,42 +348,6 @@ def _eth(inst: str, p: dict[str, Port]) -> Wiring:
     )
 
 
-def _eth_rgmii(inst: str, p: dict[str, Port], shifted: bool) -> Wiring:
-    """Liga o Ethernet RGMII, com o MDIO.
-
-    Parameters
-    ----------
-    inst : str
-        O rótulo da instância.
-    p : dict of {str: Port}
-        Os pinos do papel.
-    shifted : bool
-        Se o `GTX_CLK` sai do relógio deslocado de 90 graus do PLL
-        (`clk_eth_tx_dly`) ou do próprio `clk_eth_tx`.
-
-    Returns
-    -------
-    Wiring
-        As associações: relógios de envio do PLL, pinos DDR e MDIO.
-    """
-    delayed = "clk_eth_tx_dly" if shifted else "clk_eth_tx"
-    return _merge(
-        [
-            Wiring(["i_tx_clk => clk_eth_tx", f"i_tx_clk_dly => {delayed}"]),
-            _direct("o_rgmii_txc", p["gtx_clk"]),
-            _direct("o_rgmii_txd", p["txd"]),
-            _direct("o_rgmii_tx_ctl", p["tx_en"]),
-            _direct("i_rgmii_rxc", p["rx_clk"]),
-            _direct("i_rgmii_rxd", p["rxd"]),
-            _direct("i_rgmii_rx_ctl", p["rx_dv"]),
-            _direct("o_mdc", p["mdc"]),
-            _tri(inst, ("o_mdio_out", "o_mdio_oe", "i_mdio"), p["mdio"]),
-            _direct("i_phy_int_n", p.get("int_n"), "'1'"),
-            _direct("o_phy_rst_n", p["rst_n"]),
-        ]
-    )
-
-
 def _hdmi(inst: str, p: dict[str, Port]) -> Wiring:
     """Liga a saída HDMI e o I2C do ADV7513."""
     parts = [
@@ -412,11 +390,6 @@ def _uart(_inst: str, p: dict[str, Port]) -> Wiring:
             _direct("o_uart_rts", p.get("rts")),
         ]
     )
-
-
-def _max10(_inst: str, p: dict[str, Port]) -> Wiring:
-    """Liga o ADC do MAX 10: o relógio de 10 MHz."""
-    return _direct("i_adc_clk_10", p["clk10"])
 
 
 def _tv(_inst: str, p: dict[str, Port]) -> Wiring:
@@ -520,7 +493,6 @@ WIRING = {
     "uart": _uart,
     "tv": _tv,
     "adc128s022": _adc128,
-    "max10_adc_shell": _max10,
     "ltc2308": _ltc,
     "adxl345": _adxl,
     "spi": _spi,
@@ -534,33 +506,7 @@ def _hz(spec: TopSpec) -> int:
     return round(_HZ / float(core.period_ns)) if core else 50_000_000
 
 
-def _literal(field_spec: FieldSpec, value: Any) -> str:
-    """Escreve o valor de um campo como literal VHDL.
-
-    Parameters
-    ----------
-    field_spec : FieldSpec
-        O campo, cujo tipo diz a forma do literal.
-    value : Any
-        O valor lido da plataforma, já validado pelo tipo.
-
-    Returns
-    -------
-    str
-        `true` ou `false` para booleano, o número para inteiro, a cadeia
-        entre aspas para `choice` e `hex`, e a cadeia de 7 bits para o
-        endereço I2C.
-    """
-    if field_spec.type == "bool":
-        return str(value).lower()
-    if field_spec.type == "addr7":
-        return f'"{int(value):07b}"'
-    if field_spec.type in ("choice", "hex"):
-        return f'"{value}"'
-    return str(value)
-
-
-def instance_generics(
+def _generics(
     spec: TopSpec, item: dict[str, Any], variant: Variant, kind: Any
 ) -> list[str]:
     """Escreve os generics de uma entidade.
@@ -589,10 +535,12 @@ def instance_generics(
         if field_spec.name not in item:
             continue
         value = item[field_spec.name]
-        text = _literal(field_spec, value)
+        text = str(value).lower() if field_spec.type == "bool" else str(value)
         out.append(f"{field_spec.generic} => {text}")
     if spec.video is not None and variant.entity == "video":
-        out += [f"channel_bits => {spec.video.channel_bits}"]
+        out += spec.video.entity_generics()
+    for name, at_base in _PS2_TABLES.get(variant.entity, {}).items():
+        out.append(f"{name} => {-(-at_base * _hz(spec) // _PS2_BASE_HZ)}")
     return out
 
 
@@ -613,35 +561,6 @@ def _bus_maps(variant: Variant, name: str, bits: int) -> list[str]:
     if variant.entity in WITH_PIXEL:
         maps.append("i_byteena => ext_byteena")
     return maps
-
-
-def _wire(
-    variant: Variant, item: dict[str, Any], pins: dict[str, Port]
-) -> Wiring:
-    """Liga uma entidade aos pinos, com o que o campo da entrada muda.
-
-    Parameters
-    ----------
-    variant : Variant
-        A entidade.
-    item : dict of {str: Any}
-        A entrada de `peripherals`.
-    pins : dict of {str: Port}
-        As portas da placa do periférico, por pino do papel.
-
-    Returns
-    -------
-    Wiring
-        As ligações; o `spi` fatia `cs_n` por `cs_count` e o RGMII lê
-        `shifted_txc`.
-    """
-    inst = str(item["name"]).lower()
-    if variant.entity == "spi":
-        return _spi(inst, pins, int(item.get("cs_count", 1)))
-    if variant.entity == "eth_rgmii_mac":
-        shifted = bool(item.get("shifted_txc", True))
-        return _eth_rgmii(inst, pins, shifted)
-    return WIRING[variant.entity](inst, pins)
 
 
 def _instance(
@@ -680,8 +599,11 @@ def _instance(
             "clock plan has none; left out"
         )
         return None
-    wired = _wire(variant, item, pins)
-    generics = instance_generics(spec, item, variant, kind)
+    if variant.entity == "spi":
+        wired = _spi(name.lower(), pins, int(item.get("cs_count", 1)))
+    else:
+        wired = WIRING[variant.entity](name.lower(), pins)
+    generics = _generics(spec, item, variant, kind)
     maps = _bus_maps(variant, name, variant.addr_bits) + wired.maps
     if kind.irq:
         maps.append(f"o_irq => ext_irq({name.upper()}_EXT_POS)")
@@ -764,12 +686,12 @@ def _place(spec: TopSpec, item: dict[str, Any], result: ExternalTop) -> None:
     pins = {p.pin: p for p in spec.ports if p.owner == name}
     variant = EXTERNAL[str(item["kind"])].variant(item)
     wired = None
-    if variant is not None and variant.entity in MISSING_ENTITIES:
-        raise InputError(
-            f"E peripheral {name}: {item['kind']} cannot be generated, "
-            f"{MISSING_ENTITIES[variant.entity]}"
+    if variant is not None and variant.entity in NEEDS_IP:
+        result.notes.append(
+            f"W peripheral {name}: {variant.entity} needs the vendor IP "
+            "shell (no entity to instantiate in the top); left out"
         )
-    if pins:
+    elif pins:
         wired = _instance(spec, item, pins, result.notes)
     if wired is None:
         pos = f"{name.upper()}_EXT_POS"

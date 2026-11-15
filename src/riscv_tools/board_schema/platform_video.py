@@ -8,6 +8,8 @@ from riscv_tools.board_schema.video import CHANNEL_BITS, read_aspect
 
 # Nome do periférico de vídeo na lista `peripherals` da plataforma.
 VIDEO_PERIPHERAL = "VIDEO"
+# Formatos de pixel do periférico `video`: o indexado é o padrão.
+PIXEL_FORMATS = ("indexed", "direct")
 
 
 @dataclass(frozen=True)
@@ -36,6 +38,12 @@ class PlatformVideo:
     outside_manual : bool
         Whether a mode that the manual of the board does not list may be
         used.
+    pixel_format : str or None
+        `indexed` (8 bits per pixel and a palette of 256 colors, the
+        default) or `direct` (the color in the pixel).
+    scale : int or None
+        The enlargement of each framebuffer pixel in x and in y; the
+        largest that fits the visible area when None.
     """
 
     width: int | None = None
@@ -46,6 +54,8 @@ class PlatformVideo:
     fb_width: int | None = None
     fb_height: int | None = None
     outside_manual: bool = False
+    pixel_format: str | None = None
+    scale: int | None = None
 
 
 def _requested(platform: dict[str, Any]) -> bool:
@@ -92,6 +102,10 @@ def _read(entry: Section) -> PlatformVideo:
     fb_width = entry.integer("fb_width", required=False, minimum=1)
     fb_height = entry.integer("fb_height", required=False, minimum=1)
     outside = entry.flag("outside_manual", required=False)
+    pixel_format = entry.text(
+        "pixel_format", required=False, choices=PIXEL_FORMATS
+    )
+    scale = entry.integer("scale", required=False, minimum=1)
     entry.done()
     if bits is not None and bits not in CHANNEL_BITS:
         entry.fail("channel_bits", "must be 4 or 8")
@@ -101,7 +115,16 @@ def _read(entry: Section) -> PlatformVideo:
     if (fb_width is None) != (fb_height is None):
         entry.fail("fb_width", "and fb_height must be written together")
     return PlatformVideo(
-        width, height, aspect, refresh, bits, fb_width, fb_height, outside
+        width,
+        height,
+        aspect,
+        refresh,
+        bits,
+        fb_width,
+        fb_height,
+        outside,
+        pixel_format,
+        scale,
     )
 
 

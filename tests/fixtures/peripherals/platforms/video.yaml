@@ -35,6 +35,7 @@ io:
   leds:
     count: 18
     need: required
+  video: {fb_width: 320, fb_height: 200}
 interrupts:
   clock_hz: 50000000
   mtime_hz: 1000000

@@ -5,8 +5,16 @@ from dataclasses import dataclass
 from riscv_tools.board_schema import PlatformVideo, VideoMode, VideoRole
 from riscv_tools.board_video.resolve import VideoError, resolve_mode
 
-# Cada pixel do framebuffer guarda os três canais, sem preenchimento.
+# Uma cor tem três canais.
 CHANNELS = 3
+# Formato indexado: um byte por pixel e uma paleta de 256 entradas.
+INDEXED = "indexed"
+DIRECT = "direct"
+INDEXED_BITS = 8
+PALETTE_ENTRIES = 256
+# A memória do framebuffer é escrita em palavras de 32 bits.
+WORD_BITS = 32
+HALF_WORD_BITS = 16
 
 
 @dataclass(frozen=True)
@@ -27,6 +35,11 @@ class VideoPlan:
         The lines of the framebuffer.
     warnings : tuple of str
         The warnings found while resolving.
+    pixel_format : str
+        `indexed` (a byte that indexes the palette) or `direct` (the
+        color in the pixel).
+    scale : int
+        The enlargement of each framebuffer pixel in x and in y.
     """
 
     kind: str
@@ -35,16 +48,85 @@ class VideoPlan:
     fb_width: int
     fb_height: int
     warnings: tuple[str, ...] = ()
+    pixel_format: str = INDEXED
+    scale: int = 1
+
+    @property
+    def indexed(self) -> bool:
+        """Tell whether the pixel is an index of the palette."""
+        return self.pixel_format == INDEXED
 
     @property
     def pixel_bits(self) -> int:
-        """Give the bits one pixel of the framebuffer stores."""
-        return CHANNELS * self.channel_bits
+        """Give the bits one pixel of the framebuffer stores.
+
+        Returns
+        -------
+        int
+            8 when indexed; when direct, 16 if the three channels fit
+            in 16 bits, else 32 (the storage of the `video` entity).
+        """
+        if self.indexed:
+            return INDEXED_BITS
+        narrow = CHANNELS * self.channel_bits <= HALF_WORD_BITS
+        return HALF_WORD_BITS if narrow else WORD_BITS
+
+    @property
+    def row_words(self) -> int:
+        """Give the 32-bit words one line of the framebuffer takes."""
+        return -(-self.fb_width * self.pixel_bits // WORD_BITS)
+
+    @property
+    def framebuffer_words(self) -> int:
+        """Give the 32-bit words of the whole framebuffer."""
+        return self.row_words * self.fb_height
 
     @property
     def framebuffer_bits(self) -> int:
         """Give the bits of the whole framebuffer."""
-        return self.fb_width * self.fb_height * self.pixel_bits
+        return self.framebuffer_words * WORD_BITS
+
+    @property
+    def palette_bits(self) -> int:
+        """Give the bits of the palette (zero when direct)."""
+        if not self.indexed:
+            return 0
+        return PALETTE_ENTRIES * CHANNELS * self.channel_bits
+
+    @property
+    def memory_bits(self) -> int:
+        """Give the bits of memory the framebuffer and palette take."""
+        return self.framebuffer_bits + self.palette_bits
+
+    def entity_generics(self) -> list[str]:
+        """Write the generics of the `video` entity of the Peripherals.
+
+        Returns
+        -------
+        list of str
+            One `name => value` per generic the entity has: the
+            framebuffer, the channel, the format, the scale and the
+            timing of each axis.
+        """
+        out = [
+            f"fb_width => {self.fb_width}",
+            f"fb_height => {self.fb_height}",
+            f"channel_bits => {self.channel_bits}",
+            f'pixel_format => "{self.pixel_format}"',
+            f"scale => {self.scale}",
+        ]
+        for prefix, axis in (
+            ("h", self.mode.horizontal),
+            ("v", self.mode.vertical),
+        ):
+            out += [
+                f"{prefix}_visible => {axis.visible}",
+                f"{prefix}_front_porch => {axis.front_porch}",
+                f"{prefix}_sync => {axis.sync}",
+                f"{prefix}_back_porch => {axis.back_porch}",
+                f"{prefix}_sync_positive => {str(axis.positive).lower()}",
+            ]
+        return out
 
     def generics(self) -> list[str]:
         """Write the generics of the video, as VHDL associations.
@@ -53,15 +135,17 @@ class VideoPlan:
         -------
         list of str
             One `name => value` per generic: the kind, the bits of the
-            channel, the size of the framebuffer, and for each axis
-            (`h` and `v`) the visible area, the porches, the
-            synchronism, the total and the polarity.
+            channel, the size and format of the framebuffer, the scale,
+            and for each axis (`h` and `v`) the visible area, the
+            porches, the synchronism, the total and the polarity.
         """
         out = [
             f'video_kind => "{self.kind}"',
             f"video_channel_bits => {self.channel_bits}",
             f"video_fb_width => {self.fb_width}",
             f"video_fb_height => {self.fb_height}",
+            f'video_pixel_format => "{self.pixel_format}"',
+            f"video_scale => {self.scale}",
         ]
         for prefix, axis in (
             ("h", self.mode.horizontal),
@@ -158,4 +242,52 @@ def plan_video(
             f"{role.channel_bits} bits per channel of the board"
         )
     width, height = _size(mode, request)
-    return VideoPlan(role.kind, mode, bits, width, height, tuple(warnings))
+    scale = _scale(mode, request, width, height)
+    return VideoPlan(
+        role.kind,
+        mode,
+        bits,
+        width,
+        height,
+        tuple(warnings),
+        request.pixel_format or INDEXED,
+        scale,
+    )
+
+
+def _scale(
+    mode: VideoMode, request: PlatformVideo, width: int, height: int
+) -> int:
+    """Choose the enlargement of each framebuffer pixel.
+
+    Parameters
+    ----------
+    mode : VideoMode
+        The resolved mode.
+    request : PlatformVideo
+        The request.
+    width : int
+        The columns of the framebuffer.
+    height : int
+        The lines of the framebuffer.
+
+    Returns
+    -------
+    int
+        The requested scale, or the largest that fits the visible area.
+
+    Raises
+    ------
+    VideoError
+        If the enlarged image is larger than the visible area.
+    """
+    fit = min(mode.width // width, mode.height // height)
+    if request.scale is None:
+        return max(fit, 1)
+    if request.scale > fit:
+        raise VideoError(
+            f"io.video scale {request.scale} makes the {width}x{height} "
+            f"framebuffer larger than the visible area {mode.width}x"
+            f"{mode.height} of mode {mode.name}"
+        )
+    return request.scale

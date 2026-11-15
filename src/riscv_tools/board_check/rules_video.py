@@ -17,6 +17,7 @@ from riscv_tools.board_video import (
     framebuffer_problem,
     pixel_clock_problem,
     plan_video,
+    window_problem,
 )
 
 
@@ -125,4 +126,7 @@ def rule_video(ctx: Context) -> list[Finding]:
     except VideoError as bad:
         return [error("V20", str(bad))]
     found = [warning("V20", text[2:]) for text in plan.warnings]
+    window = window_problem(plan)
+    if window is not None:
+        found.append(error("V22", window))
     return found + _pixel_clock(ctx, plan) + _framebuffer(ctx, plan)

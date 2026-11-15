@@ -4,10 +4,12 @@ from fractions import Fraction
 from typing import Any
 
 from riscv_tools.board_clocks import ClockRole
-from riscv_tools.board_video.plan import VideoPlan
+from riscv_tools.board_video.plan import PALETTE_ENTRIES, VideoPlan
 from riscv_tools.pll_generator import PllError, solve
 
 VIDEO_ROLE = "video"
+# Bits do endereço de palavra da janela da entidade `video`.
+WINDOW_BITS = 16
 
 
 def pixel_clock_problem(
@@ -98,13 +100,43 @@ def framebuffer_problem(
     str or None
         The message; None when the framebuffer fits.
     """
-    needed = -(-plan.framebuffer_bits // block_bits)
+    needed = -(-plan.memory_bits // block_bits)
     if needed <= free_blocks:
+        return None
+    palette = (
+        f" plus a palette of {PALETTE_ENTRIES} entries" if plan.indexed else ""
+    )
+    return (
+        f"framebuffer {plan.fb_width}x{plan.fb_height} at "
+        f"{plan.pixel_bits} bits per pixel{palette} needs {needed} memory "
+        f"blocks but only {max(free_blocks, 0)} of {total_blocks} are free; "
+        f"write io.video fb_width and fb_height smaller or a lower "
+        f"channel_bits"
+    )
+
+
+def window_problem(plan: VideoPlan) -> str | None:
+    """Tell whether the framebuffer fits the window of the peripheral.
+
+    The framebuffer takes the upper half of the window of
+    `WINDOW_BITS` address bits of the `video` entity.
+
+    Parameters
+    ----------
+    plan : VideoPlan
+        The resolved video.
+
+    Returns
+    -------
+    str or None
+        The message; None when the framebuffer fits.
+    """
+    room = 1 << (WINDOW_BITS - 1)
+    if plan.framebuffer_words <= room:
         return None
     return (
         f"framebuffer {plan.fb_width}x{plan.fb_height} at "
-        f"{plan.pixel_bits} bits per pixel needs {needed} memory blocks "
-        f"but only {max(free_blocks, 0)} of {total_blocks} are free; "
-        f"write io.video fb_width and fb_height smaller or a lower "
-        f"channel_bits"
+        f"{plan.pixel_bits} bits per pixel takes {plan.framebuffer_words} "
+        f"words but the window of the video peripheral holds {room}; "
+        f"write io.video fb_width and fb_height smaller"
     )

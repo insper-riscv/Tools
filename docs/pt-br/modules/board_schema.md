@@ -98,19 +98,17 @@ Um valor é um sinal (`SD_CLK`) ou um barramento (`SD_DAT[3:0]`) do `pins.yaml`.
 | `sd` | `clk` (out), `cmd` e `dat` (inout) |
 | `ir` | `rxd` (in) |
 | `lcd` | `data` (inout), `rs`, `rw`, `en`, `power` e `blon?` (out) |
-| `usb` | `addr`, `cs_n`, `rd_n`, `wr_n` e `rst_n` (out), `data` (inout), `int`, `dreq?` (in), `dack?` (out) |
+| `usb` | `addr`, `cs_n`, `rd_n`, `wr_n` e `rst_n` (out), `data` (inout), `int` (in) |
 | `i2c` | `scl` e `sda` (inout) |
 | `audio` | `xck`, `bclk`, `adclrck`, `daclrck` e `dacdat` (out), `adcdat` (in) |
-| `eth` com `mode: mii` | `rx_clk`, `rxd`, `rx_dv`, `rx_er`, `tx_clk` e `int_n?` (in), `txd`, `tx_en`, `tx_er`, `mdc` e `rst_n` (out), `mdio` (inout) |
-| `eth` com `mode: rgmii` | `rx_clk`, `rxd` (4 bits), `rx_dv` (RX_CTL) e `int_n?` (in), `gtx_clk`, `txd` (4 bits), `tx_en` (TX_CTL), `mdc` e `rst_n` (out), `mdio` (inout) |
+| `eth` (MII) | `rx_clk`, `rxd`, `rx_dv`, `rx_er`, `tx_clk` e `int_n?` (in), `txd`, `tx_en`, `tx_er`, `mdc` e `rst_n` (out), `mdio` (inout) |
 | `hdmi` | `d`, `clk`, `de`, `hs` e `vs` (out), `int` (in), `scl` e `sda` (inout) |
-| `hdmi_tmds` | `tmds` (vetor de três linhas), `clk` (out), `scl` e `sda` (inout), `hpd?` (in), a saída TMDS direta sem conversor, como a da Vidor |
 | `hdmi_audio` | `mclk`, `sclk`, `lrclk` e `i2s0` (out), as quatro linhas I2S do transmissor HDMI |
 | `serial` | `rx` e `cts?` (in), `tx` e `rts?` (out) |
 | `tv` | `data` e `clk27` (in), `reset_n` (out) |
 | `adc` com `chip: adc128s022` | `cs_n`, `sclk` e `saddr` (out), `sdat` (in) |
 | `adc` com `chip: ltc2308` | `convst`, `sck` e `sdi` (out), `sdo` (in) |
-| `adc` com `chip: max10` | `clk10` (in), o pino `ADC_CLK_10` do PLL do conversor |
+| `adc` com `chip: max10` | nenhum pino, só a presença do ADC interno |
 | `spi` | `sclk`, `mosi` e `cs_n` (out), `miso` (in) |
 | `adxl345` | `cs_n` e `sclk` (out), `mosi` (inout), `miso?` e `int1?` (in) |
 
@@ -124,12 +122,11 @@ Um papel desconhecido, um pino que o papel não tem, um pino obrigatório ausent
 | `memory.<rom ou ram>.backend` | `emulado` ou `dispositivo`, obrigatório com `external: true` |
 | `memory.<rom ou ram>.device` | Só com `dispositivo`, e do tipo da região (`nor`, `flash-interna`, `serial` para a ROM; `sdram`, `sram` para a RAM) |
 | `memory.<rom ou ram>.latency` | `{first, next}`, só com `emulado` |
-| `memory.ram.fetch` | Booleano opcional, só com `dispositivo` e `sdram`: a porta de instruções do núcleo também alcança a RAM (execução a partir dos dados), desligada por padrão |
 | `memory.rom.sector_bytes` | Potência de 2, só na FLASH `emulado` |
 | `clocks.core`, `clocks.fetch`, `clocks.mem` | `{mhz, phase_ps}`; o `core` é obrigatório e o `mem` é obrigatório com um backend `dispositivo` |
 | `console` | `jtag` (padrão) ou `pinos` |
 | `io.<papel>` | `{count, need}` com `need` igual a `required` ou `optional` |
-| `io.video` | Todos os campos são opcionais. `width` e `height` (juntos), `aspect` (`4:3` ou `16:9`, entre aspas ou não), `refresh_hz`, `channel_bits` (`4` ou `8`), `fb_width` e `fb_height` (juntos) e `outside_manual`. Escrever `io.video` vazio, ou listar o periférico `VIDEO`, pede o modo padrão da placa |
+| `io.video` | Todos os campos são opcionais. `width` e `height` (juntos), `aspect` (`4:3` ou `16:9`, entre aspas ou não), `refresh_hz`, `channel_bits` (`4` ou `8`), `fb_width` e `fb_height` (juntos), `pixel_format` (`indexed`, o padrão, ou `direct`), `scale` e `outside_manual`. Escrever `io.video` vazio, ou listar o periférico `VIDEO`, pede o modo padrão da placa |
 | `top` | Componente, ou lista de componentes, cujo fecho de `requires` reúne os `needs` do validador |
 
 Os campos do mapa (regiões, periféricos, perfil) continuam sendo lidos e conferidos pelo módulo `memory_map`.

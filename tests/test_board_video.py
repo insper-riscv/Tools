@@ -321,8 +321,10 @@ def test_the_generics_describe_the_timing() -> None:
     check_equal(generics["video_h_sync_positive"], "true")
     check_equal(generics["video_v_total"], "750")
     check_equal(generics["video_v_sync"], "5")
-    check_equal(len(generics), 16)
-    check_equal(plan.framebuffer_bits, 320 * 200 * 24)
+    check_equal(generics["video_pixel_format"], '"indexed"')
+    check_equal(generics["video_scale"], "3")
+    check_equal(len(generics), 18)
+    check_equal(plan.framebuffer_bits, 320 * 200 * 8)
 
 
 def _check(
@@ -422,12 +424,104 @@ def test_v21_names_the_other_clocks_when_they_are_the_cause(
 
 
 def test_v22_the_framebuffer_does_not_fit(tmp_path: Path) -> None:
-    """640x480 at 24 bits needs 800 blocks, and 100 are free."""
-    board = video_board(blocks=100)
-    found = _check(tmp_path, video_platform(), board)
+    """320x200 indexed plus palette needs 57 blocks, and 50 exist."""
+    board = video_board(blocks=50)
+    request = video_platform(fb_width=320, fb_height=200)
+    found = _check(tmp_path, request, board)
     check_equal(len(found), 1)
-    check(found[0].startswith("V22 E framebuffer 640x480 at 24 bits per"))
-    check_in("needs 800 memory blocks but only 100 of 100 are free", found[0])
+    check(found[0].startswith("V22 E framebuffer 320x200 at 8 bits per"))
+    check_in("plus a palette of 256 entries", found[0])
+    check_in("needs 57 memory blocks but only 50 of 50 are free", found[0])
+
+
+def test_v22_the_direct_format_has_no_palette(tmp_path: Path) -> None:
+    """160x100 direct at 8 bits per channel is 32 bits per pixel."""
+    board = video_board(blocks=50)
+    request = video_platform(
+        fb_width=160, fb_height=100, pixel_format="direct"
+    )
+    found = _check(tmp_path, request, board)
+    check_equal(len(found), 1)
+    check_in("at 32 bits per pixel needs 56 memory blocks", found[0])
+    check("palette" not in found[0])
+
+
+def test_v22_the_framebuffer_must_fit_the_window(tmp_path: Path) -> None:
+    """The default 640x480 indexed takes more words than the window."""
+    found = _check(tmp_path, video_platform())
+    check_equal(len(found), 1)
+    check(found[0].startswith("V22 E framebuffer 640x480 at 8 bits per"))
+    check_in("takes 76800 words but the window", found[0])
+
+
+def test_the_indexed_format_is_the_default() -> None:
+    """Eight bits per pixel and a palette of 256 colors."""
+    plan = _plan(PlatformVideo(fb_width=320, fb_height=200))
+    check_equal(plan.pixel_format, "indexed")
+    check_equal(plan.pixel_bits, 8)
+    check_equal(plan.framebuffer_bits, 320 * 200 * 8)
+    check_equal(plan.palette_bits, 256 * 3 * 8)
+    check_equal(plan.memory_bits, 320 * 200 * 8 + 256 * 24)
+
+
+def test_the_direct_format_has_the_storage_of_the_entity() -> None:
+    """Three channels in 16 bits when they fit, else 32; no palette."""
+    narrow = VideoRole("vga", 4, "VGA", "640x480@60", ("640x480@60",))
+    four = _plan(PlatformVideo(pixel_format="direct", channel_bits=4), narrow)
+    check_equal(four.pixel_bits, 16)
+    check_equal(four.palette_bits, 0)
+    check_equal(four.framebuffer_bits, 640 * 480 * 16)
+    eight = _plan(PlatformVideo(pixel_format="direct"))
+    check_equal(eight.pixel_bits, 32)
+    check_equal(eight.memory_bits, 640 * 480 * 32)
+
+
+def test_the_indexed_palette_follows_the_channel_width() -> None:
+    """The palette of a 4 bit board has 12 bit entries."""
+    narrow = VideoRole("vga", 4, "VGA", "640x480@60", ("640x480@60",))
+    plan = _plan(PlatformVideo(fb_width=320, fb_height=200), narrow)
+    check_equal(plan.pixel_bits, 8)
+    check_equal(plan.palette_bits, 256 * 12)
+
+
+def test_the_scale_is_the_largest_that_fits() -> None:
+    """320x200 doubles in 640x480; the default 640x480 stays at one."""
+    check_equal(_plan(PlatformVideo(fb_width=320, fb_height=200)).scale, 2)
+    check_equal(_plan(PlatformVideo()).scale, 1)
+    wide = _plan(PlatformVideo(aspect="16:9", fb_width=320, fb_height=200))
+    check_equal(wide.scale, 3)
+
+
+def test_a_scale_is_taken_when_it_fits() -> None:
+    """A smaller scale is honored; a larger one is refused."""
+    check_equal(
+        _plan(PlatformVideo(fb_width=320, fb_height=200, scale=1)).scale, 1
+    )
+    with pytest.raises(VideoError) as bad:
+        _plan(PlatformVideo(fb_width=320, fb_height=200, scale=3))
+    check_in("scale 3 makes the 320x200 framebuffer larger", str(bad.value))
+
+
+def test_the_format_and_the_scale_are_read_from_the_platform() -> None:
+    """`pixel_format` and `scale` land in the request."""
+    request = _platform_video("io: {video: {pixel_format: direct, scale: 2}}")
+    check_equal(request, PlatformVideo(pixel_format="direct", scale=2))
+    with pytest.raises(SchemaError) as bad:
+        _platform_video("io: {video: {pixel_format: rgb}}")
+    check(any("pixel_format" in problem for problem in bad.value.problems))
+
+
+def test_the_entity_generics_use_the_names_of_the_video_entity() -> None:
+    """The names are the generics of `video` in the Peripherals."""
+    plan = _plan(PlatformVideo(fb_width=320, fb_height=200))
+    generics = dict(line.split(" => ") for line in plan.entity_generics())
+    check_equal(generics["pixel_format"], '"indexed"')
+    check_equal(generics["scale"], "2")
+    check_equal(generics["fb_width"], "320")
+    check_equal(generics["channel_bits"], "8")
+    check_equal(generics["h_visible"], "640")
+    check_equal(generics["v_sync_positive"], "false")
+    check_equal(len(generics), 15)
 
 
 def test_v22_a_smaller_framebuffer_fits(tmp_path: Path) -> None:
