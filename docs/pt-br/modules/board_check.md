@@ -27,7 +27,7 @@ A chave `needs` mora ao lado de `sources` e `requires` no `paths.yaml` do reposi
 | V7 | E | Relógio acima da faixa do PLL da família ou do teto do chip |
 | V8 | W | Relógio do núcleo acima do Fmax medido da família e do grau |
 | V9 | E | Banca da FLASH fora do múltiplo do setor, contado a partir do início da região |
-| V10 | E | Região maior que a capacidade do dispositivo |
+| V10 | E | Região maior que a capacidade do dispositivo, ou cujo `offset` mais o tamanho passa do fim do chip |
 | V15 | E | Mais saídas de PLL (relógios distintos mais o relógio da SDRAM) que a placa oferece |
 | V16 | E | Pino `inferred` em uso sem `--accept-inferred-pins` |
 | V17 | E | A cadeia JTAG lida do cabo não é a da placa |

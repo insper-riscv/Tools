@@ -371,9 +371,11 @@ memory:
 
 | Segment field | Type | Meaning |
 | :--- | :--- | :--- |
-| `type` | `flash`, `sdram`, `sram`, `onchip` or `emulated` | What the memory is: a NOR chip, the SDRAM or the SRAM of the board, memory blocks of the FPGA, or FPGA blocks with the latency of a chip (`emulated`) |
+| `type` | `flash`, `sdram`, `sram`, `onchip` or `emulated` | What the memory is: a NOR chip, the SDRAM or the SRAM of the board, memory blocks of the FPGA, or FPGA blocks with the latency of a chip (`emulated`). `instructions` takes the five types and `data` takes all but `flash`, which the CPU does not write by an ordinary access |
 | `base`, `size` | address and size | Where the segment sits; required |
-| `on_bus` | boolean | The memory is reached through the bus (`FLASH_ON_BUS` and `RAM_ON_BUS`) and not through the direct port. A type other than `onchip` needs `on_bus: true`. It is given in both segments or in none, and without it the choice comes from `--memory` |
+| `on_bus` | boolean | `false` is the memory read straight from the port of the CPU, without going through the bus, and `true` is the memory that the CPU reads through the bus (`FLASH_ON_BUS` and `RAM_ON_BUS`). `onchip` is `on_bus: false`, and `emulated`, `sdram`, `sram` and `flash` need `on_bus: true`. It is given in both segments or in none, and without it the choice comes from `--memory` |
+| `offset` | bytes, multiple of 4096 | Only with `type: sdram`: the byte of the chip where the segment starts (section 7.4) |
+| `fetch` | boolean | Only in `data` with `type: sdram`: the instruction port of the core also reaches the RAM, to execute code from it; the default is `false` |
 | `latency` | `first` and `next` | Only in the `emulated` memory: cycles of the first access and of the following ones |
 | `sector_bytes` | power of two | Erase sector of the emulated FLASH |
 | `cache` | `size_bits` | Present: the cache of the segment exists (instruction cache in `instructions`, data cache in `data`); `size_bits` is a power of two of at least 256 |
@@ -428,7 +430,47 @@ A key that is not named keeps the choice of the platform, and a platform without
 uv run riscv-tools --root <project> --memory rom=ext,ram=int,icache=on,dcache=off generate-memory-map --platform src/platform/platform.yaml
 ```
 
+### 7.4. Splitting a chip between the FLASH and the RAM
+
+A SDRAM chip serves the FLASH and the RAM at the same time, and the platform chooses the size of each one: the split of 32 MiB and 32 MiB is one case, and 48 and 16 MiB, or 16 and 48 MiB, are others. The `offset` of each segment says at which byte of the chip it starts, and the module `riscv_tools.memory_map.chip_split` derives the rest.
+
+```yaml
+memory:
+  instructions:
+    - {type: sdram, base: 0x00001000, size: 0x1FFF000, offset: 0x1000, on_bus: true}
+  data:
+    - {type: sdram, base: 0x40000000, size: 32M, offset: 32M, on_bus: true}
+```
+
+The byte of the chip of an address $A$ of the SoC is $\text{offset} + (A - \text{base})$. The generated top gets it without a subtraction whenever the offset is aligned.
+
+| Quantity | Definition |
+| :--- | :--- |
+| `low_bits` ($w$) | Smallest $w$ such that $(\text{base} \bmod 2^w) + \text{size} \le 2^w$, the width of the low bits of the SoC address that walk the region |
+| `delta` | $\text{offset} - (\text{base} \bmod 2^w)$ |
+| aligned | `delta` is a non-negative multiple of $2^w$, the chip bits above $w$ hold the constant $\text{delta} / 2^w$ and there is no logic |
+| not aligned | The chip address is `delta` added to the $w$ low bits, a constant adder, and the generation warns |
+
+With the FLASH in `[0x1000, 32 MiB)` and the RAM in `[0x40000000, +32 MiB)`, the FLASH has 25 low bits and constant 0, and the RAM has 25 low bits and constant 1 (`offset` 32 MiB). With 48 and 16 MiB the FLASH has 26 low bits and the RAM 24 low bits with constant 3. With 16 and 48 MiB the `offset` of the RAM, 16 MiB, is not a multiple of $2^{26}$, and the address of the RAM takes the adder.
+
+Validation refuses an `offset` on a type other than `sdram`, an `offset` or a size that is not a multiple of 4096, two regions in the same chip without `offset` in both, and two regions whose ranges of the chip overlap. Whether `offset` plus size fits the capacity of the chip is rule V10 of the board ([board_check](board_check.md)), and the sum of the regions is V2. Without the `offset` field the region keeps the address of the SoC, as before.
+
+The constants package (`config_pkg`) and the `rv32_platform.h` header carry the split when the platform declares `offset` (sections 7.5 and 10.1). A `FLASH_CTRL` among the peripherals with the FLASH in the SDRAM or the SRAM is refused, because the core neither erases nor programs those chips; the FLASH of the SDRAM is only written through the debug port ([flash_load](flash_load.md)), and the platform has no PLIC line for it.
+
+### 7.5. Constants of the split
+
+| Constant | Value |
+| :--- | :--- |
+| `FLASH_WINDOW_KIB` | Size of the FLASH region in KiB, the window that the region router covers |
+| `<R>_CHIP_OFFSET` | `offset` of the region `<R>` (`FLASH` or `RAM`), in bytes |
+| `<R>_CHIP_LOW_BITS` | The `low_bits` of the region |
+| `<R>_CHIP_ALIGNED` | The region is aligned |
+| `<R>_CHIP_HIGH` | The constant of the high bits, valid when aligned |
+
+These constants only enter the `config_pkg` when the platform declares `offset`. The `rv32_platform.h` carries them as `RV32_<R>_CHIP_OFFSET`, `RV32_<R>_CHIP_LOW_BITS`, `RV32_<R>_CHIP_HIGH` and `RV32_FLASH_WINDOW_KIB`.
+
 ## 8. Reading the configuration from the map
+
 
 A project `config.yaml` declares `memory_map: <path of the platform.yaml>`, and the configuration loader replaces the keys the map fixes with the map's own: `isa.base`, `memory.boot_memory_base`, `boot_memory_words`, `rom_base`, `rom_words`, `ram_base`, `ram_words`, `tohost_addr`, `fromhost_addr` `sim.env.TOHOST_ADDR`, `sim.env.STDOUT_ADDR` (the testbench reads the address from the environment) and, for the memories the `config.addr_widths` section of the map lists, `sim.parameters.<memory>_addr_width`. What the map fixes wins over what the file or its `extends` say, so no address or size is written twice.
 
@@ -718,6 +760,7 @@ The `config_pkg` is the VHDL package of constants of a platform, written from th
 | Base and widths | `IS_64`, `IS_E`, `ADDR_BITS`, `XLEN`, `REG_BITS`, `NUM_REGS` and the subtypes `word_t`, `reg_t`, `addr_t` and `map_addr_t` |
 | Memory system | `HAS_ICACHE`, `HAS_DCACHE`, `FLASH_ON_BUS` and `RAM_ON_BUS` |
 | Extensions | One `HAS_<EXTENSION>` per profile key (`HAS_ZICCLSM` to `HAS_ZIHINTPAUSE`) |
+| Chip split | `FLASH_WINDOW_KIB` and, per region, `<R>_CHIP_OFFSET`, `<R>_CHIP_LOW_BITS`, `<R>_CHIP_ALIGNED` and `<R>_CHIP_HIGH`, only when the platform declares `offset` (section 7.5) |
 | Memory | `BOOT_MEMORY_BITS`, `BOOT_MEMORY_BASE` and `BOOT_MEMORY_END` (from 0 to $2^{\text{BOOT\_MEMORY\_BITS}}$), `FLASH_BASE`, `FLASH_END`, `RAM_BASE` and `RAM_END` of type `map_addr_t`, and `I_CACHE_WINDOW_BITS` and `D_CACHE_WINDOW_BITS` |
 | Composite | `HAS_MULTIPLICATION` (`HAS_M or HAS_ZMMUL`), `HAS_ANY_COUNTER` (`HAS_ZICNTR or HAS_ZIHPM`) and `HAS_SSCOF` (`HAS_SSCOFPMF and HAS_ZIHPM and HAS_INTERRUPTS`) |
 | Functions | `isa_string`, the ISA text (`rv32im_zicsr_zicntr`), and `check_isa`, which fails at elaboration when a dependency between constants does not hold |
@@ -807,6 +850,7 @@ Some platforms need one more declaration so that the generated `config_pkg` refl
 | `tests/test_config_from_platform.py` | The `memory` keys, the `tohost` and `stdout` environment and the address widths come from the map, and the map wins over the file and its `extends`. |
 | `tests/test_groups.py` | The `gpio` and `seg_display` blocks: the size of 64 bytes per group for `solo`, `all`, `pairs`, `trios` and the explicit list, the off pins, `roles`, rules G-0 to G-6 against each board, the size that is not written, `RV32_<NAME>_G<k>_BASE` and the generated `rv32_platform.h`. |
 | `tests/test_layout.py` | The `memory` block becomes the regions and the four choices, two segments are refused ("vários segmentos ainda não são suportados"), the old keys (`regions`, `memory.rom`, `kind`, `exec`) are refused with the migration, and `on_bus` comes in both segments or in none. `tests/test_peripheral_offsets.py` proves that the order of the peripherals in the file is the order of the indexes. |
+| `tests/test_chip_split.py` | The `offset` of the splits of 32 and 32, 48 and 16, 16 and 48 MiB, the overlap and the missing `offset` in the same chip, `FLASH_CTRL` over the FLASH of the SDRAM, `data` without `flash` and with the other types, `instructions` with the five, the `on_bus` of each type, `fetch`, the constants of the header and the window table of the host |
 | `tests/test_core_profile.py` | The `core` block and the inferred profile (matrix order, `Zicsr` beside `Zicntr`, extras), `--profile` keeping the extras, each error (unknown or repeated extension, refused combination, `type: 64` without an `rv64` base, `isa` in place of `base`), the refusal of `profile:` and `extras:` with the migration, and the name without a matrix. |
 | `tests/test_march.py` | The `-march`, the `-mabi` and the multilib of the 480 profiles of the matrix of the Core, with and without `Zihintntl` and `Zihintpause` (960 cases), against the measured table of the six variants, and, when `riscv32-unknown-elf-gcc` is on the `PATH`, the compiler accepting each pair and choosing the library of the table, with `libc.a` and `crt0-hosted.o`. |
 | `tests/test_boot_config.py` | The `boot_config.h` (one macro per extension, `RV32_IS_E`, `RV32_TEST_WAIT`, reading it from a `.S`), the `march` of the specs file with the GCC of the image and the specs without `march` that do not change, the platform without `boot.wait_restart`, the refusal of the extension `Q`, V-B1, V-B2, V-I1 and V-I2 in the generation and in `check-memory-map`. |

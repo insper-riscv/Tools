@@ -124,11 +124,12 @@ Um papel desconhecido, um pino que o papel não tem, um pino obrigatório ausent
 | `memory.<rom ou ram>.backend` | `emulado` ou `dispositivo`, obrigatório com `external: true` |
 | `memory.<rom ou ram>.device` | Só com `dispositivo`, e do tipo da região (`nor`, `flash-interna`, `serial` para a ROM; `sdram`, `sram` para a RAM) |
 | `memory.<rom ou ram>.latency` | `{first, next}`, só com `emulado` |
+| `memory.ram.fetch` | Booleano opcional, só com `dispositivo` e `sdram`: a porta de instruções do núcleo também alcança a RAM (execução a partir dos dados), desligada por padrão |
 | `memory.rom.sector_bytes` | Potência de 2, só na FLASH `emulado` |
 | `clocks.core`, `clocks.fetch`, `clocks.mem` | `{mhz, phase_ps}`; o `core` é obrigatório e o `mem` é obrigatório com um backend `dispositivo` |
 | `console` | `jtag` (padrão) ou `pinos` |
 | `io.<papel>` | `{count, need}` com `need` igual a `required` ou `optional` |
-| `io.video` | Todos os campos são opcionais. `width` e `height` (juntos), `aspect` (`4:3` ou `16:9`, entre aspas ou não), `refresh_hz`, `channel_bits` (`4` ou `8`), `fb_width` e `fb_height` (juntos) e `outside_manual`. Escrever `io.video` vazio, ou listar o periférico `VIDEO`, pede o modo padrão da placa |
+| `io.video` | Todos os campos são opcionais. `width` e `height` (juntos), `aspect` (`4:3` ou `16:9`, entre aspas ou não), `refresh_hz`, `channel_bits` (`4` ou `8`), `fb_width` e `fb_height` (juntos), `pixel_format` (`indexed`, o padrão, ou `direct`), `scale` e `outside_manual`. Escrever `io.video` vazio, ou listar o periférico `VIDEO`, pede o modo padrão da placa |
 | `top` | Componente, ou lista de componentes, cujo fecho de `requires` reúne os `needs` do validador |
 
 Os campos do mapa (regiões, periféricos, perfil) continuam sendo lidos e conferidos pelo módulo `memory_map`.

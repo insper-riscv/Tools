@@ -4,8 +4,9 @@ import argparse
 import sys
 from pathlib import Path
 
-from riscv_tools import flash_image
+from riscv_tools import flash_image, flash_load, sdram_windows
 from riscv_tools.cli.common import jtag_link, project_root
+from riscv_tools.cli.sdram_window_args import banks_of, windows_of
 from riscv_tools.memory_map import banks, evaluate, load_platform
 from riscv_tools.settings import load_config
 
@@ -63,12 +64,37 @@ def _verify(args: argparse.Namespace) -> None:
     )
 
 
+def _send_debug(args: argparse.Namespace, image: bytes) -> None:
+    """Write an image into its FLASH bank through the debug port."""
+    cfg = load_config(args.config)
+    if args.bank is None:
+        raise flash_image.ImageError("--via debug needs --bank")
+    try:
+        window = sdram_windows.window_named(windows_of(args, cfg), "FLASH")
+        known = banks_of(args, cfg)
+        if args.bank not in known:
+            raise flash_image.ImageError(f"no bank {args.bank}")
+        flash_load.load_flash(
+            jtag_link(cfg),
+            window,
+            flash_load.FlashImage(
+                known[args.bank][0], image, flash_image.HEADER_SIZE
+            ),
+            report=print,
+        )
+    except (flash_load.FlashLoadError, sdram_windows.WindowError) as error:
+        raise flash_image.ImageError(str(error)) from error
+
+
 def _send(args: argparse.Namespace) -> None:
     """Send an image to the program that receives it."""
     if args.config is None:
         raise flash_image.ImageError("--config is required to send")
     image = Path(args.input).read_bytes()
     flash_image.verify(image)
+    if args.via == "debug":
+        _send_debug(args, image)
+        return
     link = jtag_link(load_config(args.config))
 
     def show(chunk: bytes) -> None:

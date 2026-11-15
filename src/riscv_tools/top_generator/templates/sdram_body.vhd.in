@@ -1,5 +1,6 @@
-	-- Reset do controlador: liberado dois ciclos do relógio de memória depois do PLL travar.
-	rst_mem_async <= (not pll_locked) or reset_active;
+	-- Reset do controlador: só o travamento do PLL o reinicia, e o botão da placa reinicia apenas o núcleo, para o conteúdo da SDRAM sobreviver.
+	-- Liberado dois ciclos do relógio de memória depois do PLL travar.
+	rst_mem_async <= not pll_locked;
 	process (clk_mem, rst_mem_async)
 	begin
 		if rst_mem_async = '1' then
@@ -9,32 +10,6 @@
 		end if;
 	end process;
 	rst_mem <= rst_mem_sr(1);
-
-	sdram_data_bridge : entity work.sdram_cpu_bridge
-		generic map (addr_bits => SDRAM_ADDR_BITS)
-		port map (
-			i_clk_cpu => clk_core, i_rst_cpu => soc_rst,
-			i_addr => rd_addr, i_wdata => rd_wdata, i_byteena => rd_be,
-			i_rden => rd_rden, i_wren => rd_wren, i_mem_advance => rd_adv,
-			o_ready => rd_ready, o_rdata => rd_rdata,
-			i_line => rd_line, i_wdata_x => rd_wdx, i_byteena_x => (others => '0'), o_rdata_x => rd_rdx,
-			o_req_tog => a_req, i_ack_tog => a_ack, i_init_done => init_done,
-			o_c_we => a_we, o_c_addr => a_addr, o_c_wdata => a_wdata, o_c_be => a_be, i_c_rdata => a_rdata,
-			o_c_line => a_line, o_c_wdata_x => a_wdx, o_c_be_x => a_bex, i_c_rdata_x => a_rdx
-		);
-
-	sdram_instruction_bridge : entity work.sdram_cpu_bridge
-		generic map (addr_bits => SDRAM_ADDR_BITS)
-		port map (
-			i_clk_cpu => clk_core, i_rst_cpu => soc_rst,
-			i_addr => ri_addr, i_wdata => (others => '0'), i_byteena => (others => '0'),
-			i_rden => ri_rden, i_wren => '0', i_mem_advance => ri_adv,
-			o_ready => ri_ready, o_rdata => ri_rdata,
-			i_line => ri_line, i_wdata_x => (others => '0'), i_byteena_x => (others => '0'), o_rdata_x => ri_rdx,
-			o_req_tog => i_req, i_ack_tog => i_ack, i_init_done => init_done,
-			o_c_we => i_we, o_c_addr => i_addr, o_c_wdata => i_wdata, o_c_be => i_be, i_c_rdata => i_rdata,
-			o_c_line => i_line, o_c_wdata_x => i_wdx, o_c_be_x => i_bex, i_c_rdata_x => i_rdx
-		);
 
 	sdram_arbiter_inst : entity work.sdram_arbiter
 		generic map (addr_bits => SDRAM_ADDR_BITS)
@@ -61,7 +36,7 @@
 			o_rsp_addr => r_addr, o_rsp_data => r_data, o_rsp_status => r_status,
 			i_init_done => init_done,
 			o_b_req_tog => b_req, i_b_ack_tog => b_ack, o_b_we => b_we, o_b_addr => b_addr,
-			o_b_wdata => b_wdata, o_b_be => b_be, i_b_rdata => b_rdata
+			o_b_wdata => b_wdata, o_b_be => b_be, i_b_rdata => b_rdata{hold_port}
 		);
 
 	sdram_jtag_inst : entity work.sdram_jtag_shell

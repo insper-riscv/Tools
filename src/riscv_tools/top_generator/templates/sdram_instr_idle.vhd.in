@@ -1,0 +1,10 @@
+	-- Nenhuma busca na SDRAM: o mestre de instruções do árbitro fica sem pedidos.
+	i_req <= '0';
+	i_we <= '0';
+	i_line <= '0';
+	i_addr <= (others => '0');
+	i_wdata <= (others => '0');
+	i_be <= (others => '0');
+	i_wdx <= (others => '0');
+	i_bex <= (others => '0');
+

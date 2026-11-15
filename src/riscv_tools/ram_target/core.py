@@ -12,13 +12,22 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
-from riscv_tools import mem_edit, sdram_debug
+from riscv_tools import mem_edit, sdram_debug, sdram_windows
 from riscv_tools.jtag import JtagLink
 
 
 @dataclass(frozen=True)
 class SdramDebugRam:
-    """The RAM is the SDRAM, reached through its JTAG debug port."""
+    """The RAM is the SDRAM, reached through its JTAG debug port.
+
+    Parameters
+    ----------
+    chip_words : int, optional
+        The word of the chip where the RAM starts (its window offset
+        over 4); 0 when the RAM is the whole chip or starts it.
+    """
+
+    chip_words: int = 0
 
 
 RamTarget = int | SdramDebugRam
@@ -56,7 +65,8 @@ def target_from_config(
     quartus = cfg["quartus"]
     backend = quartus.get("ram_backend", "ismce")
     if backend == "sdram_debug":
-        return SdramDebugRam()
+        window = sdram_windows.windows_from_config(cfg).get("RAM")
+        return SdramDebugRam(0 if window is None else window.offset // 4)
     if backend == "ismce":
         if quartus.get("ram_mem_name") and link is None:
             raise ValueError("quartus.ram_mem_name needs the JTAG link")
@@ -89,7 +99,9 @@ def read_words(
         The values read, in address order.
     """
     if isinstance(target, SdramDebugRam):
-        return sdram_debug.read_words(link, word_offset, word_count)
+        return sdram_debug.read_words(
+            link, target.chip_words + word_offset, word_count
+        )
     return mem_edit.read_words(link, target, word_offset, word_count)
 
 
@@ -114,7 +126,7 @@ def write_word(
     None
     """
     if isinstance(target, SdramDebugRam):
-        sdram_debug.write_word(link, word_offset, value)
+        sdram_debug.write_word(link, target.chip_words + word_offset, value)
     else:
         mem_edit.write_word(link, target, word_offset, value)
 

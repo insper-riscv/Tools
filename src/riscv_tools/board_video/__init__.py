@@ -3,6 +3,7 @@
 from riscv_tools.board_video.feasibility import (
     framebuffer_problem,
     pixel_clock_problem,
+    window_problem,
 )
 from riscv_tools.board_video.pixel import (
     PixelRequest,
@@ -27,4 +28,5 @@ __all__ = [
     "plan_video",
     "resolve_mode",
     "uses_pixel",
+    "window_problem",
 ]

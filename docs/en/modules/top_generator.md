@@ -18,9 +18,32 @@ The generated top has no logic besides the reset. It wires, in this order, the b
 | Program update | With the `FLASH_CTRL` peripheral the SoC carries the controller (`has_flash_ctrl`) and the FLASH backend adds the `flash_cmd_port` on port B of the storage, which the loader takes while the core is stopped, and returns the rewritten region to the SoC so it drops the cache lines |
 | Critical path cuts | The top turns on `registered_irqs`, `fast_icache_select` (with the fetch clock defined) and the page at the top of the RAM outside the data cache (`RAM_LAST_PAGE`), the same cuts as the hand-written top |
 | `emulado` RAM backend | `onchip_ram_port` over the `ram` block, with the requested latency |
-| `dispositivo/sdram` backend | Two bridges (data and instruction), `sdram_arbiter`, `sdram_dbg_master`, `sdram_jtag_shell`, `sdram_ctrl` and one `tristate_buffer_1bit` per data bit in a `generate`; the 16 or 32-bit width and the row, column and bank bits come from the chip and from `memories.sdram.chips` |
+| `dispositivo/sdram` backend | One controller for both regions (section 2.1): `sdram_arbiter`, `sdram_dbg_master`, `sdram_jtag_shell`, `sdram_ctrl` and one `tristate_buffer_1bit` per data bit in a `generate`; the data bridge exists when the RAM is in the SDRAM and the instruction bridge when the FLASH is, or when the RAM has `fetch`; the 16 or 32-bit width and the row, column and bank bits come from the chip and from `memories.sdram.chips` |
 | `dispositivo/nor` backend | 8-bit `nor_flash_ctrl` with page read and the program update commands, and the FLASH pin ring |
 | `dispositivo/sram` backend | `sram_ctrl` on the data port of the SoC, with the `ADDR` (20 bits), `CE#`, `OE#`, `WE#`, `LB#` and `UB#` pins wired directly, one `tristate_buffer_1bit` for each bit of the 16-bit `DQ`, the size of the chip package and the timings of `chip_timing_pkg`; the instruction port of the RAM gets no answer, as in the emulated RAM |
+
+### 2.1. The shared SDRAM
+
+With the FLASH and the RAM in the SDRAM the memory is a single chip, and the top instantiates one `sdram_ctrl`, one `sdram_arbiter` and one set of `DRAM_*` pins. The requests arrive through three masters of the arbiter.
+
+| Master | Origin | Exists when |
+| :--- | :--- | :--- |
+| A | Data port of the SoC, through the data bridge | The RAM is `sdram` |
+| I | Face of the FLASH and, with `fetch`, the fetch face of the RAM, through the instruction bridge | The FLASH is `sdram`, or the RAM is `sdram` with `fetch` |
+| B | Debug through the JTAG | Always |
+
+With the FLASH and `fetch` both on, a `flash_arbiter` joins the two origins before the instruction bridge, one request at a time and in round robin. Without master I the top leaves it without requests. The address of each origin goes through the `offset` of the region (section 7.4 of [memory_map](memory_map.md)) before it enters the bridge, by a constant in the high bits or by a constant adder, and a region without `offset` keeps the address of the SoC. The elaboration assertions check that the region fits the chip.
+
+With the FLASH in the SDRAM the top also wires the `o_core_hold` output of `sdram_dbg_master`, takes the level to the core clock through two flip-flops and adds it to the reset of the SoC, so that the JTAG writes the FLASH with the core held. The reset of the controller depends only on the PLL lock, and the reset button of the board restarts only the core, so the content of the SDRAM survives it. That platform has no `FLASH_CTRL` nor its PLIC line, and the top does not instantiate `flash_cmd_port`, `flash_loader` nor the storage of the emulated FLASH.
+
+The instruction memory is a choice of the platform among four options that coexist with the data RAM in any of the combinations.
+
+| Option | `instructions.type` | `on_bus` | Backend |
+| :--- | :--- | :--- | :--- |
+| a | `onchip` | `false` | FPGA blocks read straight from the port of the CPU |
+| b | `emulated` | `true` | `flash_chip` and `flash` with the requested latency |
+| c | `sdram` | `true` | Window of the SDRAM chip of this section |
+| d | `flash` | `true` | `nor_flash_ctrl`, the NOR chip of the board |
 
 ## 3. What the top does not wire
 
@@ -28,7 +51,7 @@ A backend without an entity (`flash-interna` and `serial`) generates no instance
 
 ### 3.1. Video
 
-When the platform asks for video, the `TopSpec` carries the `VideoPlan` and `video_generics` writes the generics of timing, channel width and framebuffer ([board_video](board_video.md)). The top wires only `channel_bits` to the `video` peripheral (section 3.2), and the generic map of the SoC does not receive the generics of the plan.
+When the platform asks for video, the `TopSpec` carries the `VideoPlan` and `video_generics` writes the generics of timing, channel width and framebuffer ([board_video](board_video.md)). The top wires the generics of the entity to the `video` peripheral (section 3.2): `fb_width`, `fb_height`, `channel_bits`, `pixel_format`, `scale` and the timing. The clock plan gains the `pixel` output of the PLL and the `clk_pixel` signal, and the generic map of the SoC does not receive the generics of the plan.
 
 ### 3.2. External peripherals
 
@@ -59,13 +82,14 @@ The instance wires `i_clk` to the core clock and `i_rst` to the SoC reset, and t
 | `usb_bridge` | `dreq` and `dack` are optional: without them `i_otg_dreq` stays at `'0'` and `o_otg_dack` open |
 | `adc128s022`, `ltc2308`, `ir_receiver`, `tv`, `spi` | Straight; the `cs_n` of the `spi` is sliced to the width of the board port |
 
-The `video` and the `hdmi_tx` receive `i_pixel_clk` from the `clk_pixel` signal, declared when the clock plan has the `pixel` output; without it (no source gives the frequency) the instance is left out with a warning. The `hdmi_tmds` kind (direct TMDS output, role `hdmi_tmds` with `tmds`, `clk`, `scl`, `sda` and optional `hpd`) is registered, but the `hdmi_tmds_tx` entity is not in `Peripherals`; the generation fails with an error that says so, and no port is invented. The dependency is the TMDS serializer of `Peripherals`, with the pixel clock and the serial clock of five times (`pixel_x5`) that the plan already makes. The `max10_adc_shell` wires `i_adc_clk_10` to the `clk10` pin (`ADC_CLK_10`), and the IP of the core enters the project through [board_generate](board_generate.md).
+The `video` and the `hdmi_tx` receive `i_pixel_clk` from the `clk_pixel` signal, declared when the clock plan has the `pixel` output; without it (no source gives the frequency) the instance is left out with a warning. The `hdmi_tmds` kind (direct TMDS output, role `hdmi_tmds` with `tmds`, `clk`, `scl`, `sda` and optional `hpd`) is registered, but the `hdmi_tmds_tx` entity is not in `Peripherals`; the generation fails with an error that says so, and no port is invented. The dependency is the TMDS serializer of `Peripherals`, with the pixel clock and the serial clock of five times (`pixel_x5`) that the plan already makes. The `max10_adc_shell` wires `i_adc_clk_10` to the `clk10` pin (`ADC_CLK_10`), and the IP of the core enters the project through [board_generate](board_generate.md). The timing generics of `ps2_keyboard` and `ps2_mouse_top` (`filter_cycles`, `inhibit_cycles`, `timeout_cycles` and, on the mouse, `init_timeout_cycles` and `packet_timeout_cycles`) count cycles and default to a 50 MHz clock, so the top rewrites them for the core clock, rounding up.
 
 ## 4. Tests
 
 | Test | What it checks |
 | :--- | :--- |
 | `tests/test_board_generate.py` | DE0-CV top content, latencies, pin ring, polarity and syntax accepted by GHDL |
+| `tests/test_sdram_split_top.py` | One controller for the FLASH and the RAM in the splits of 32 and 32, 48 and 16, 16 and 48 MiB, the `hold`, the reset, the `fetch` and the options a, b, c and d of the instruction memory |
 | `tests/test_board_video_generate.py` | The video generics reach the `TopSpec` without changing the top |
 | `tests/test_external_top.py` | The instance and the pins of each external kind, the open drain, the `'Z'` and what is left out of the top |
 | `tests/test_eth_rgmii.py` | The RGMII MAC instance, the two PLL clocks and the Ethernet `.sdc` |

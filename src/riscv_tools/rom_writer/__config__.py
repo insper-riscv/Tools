@@ -16,6 +16,8 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         # (the FLASH loader of the Memory repository: a single copy,
         # written with the core halted, which restarts from the boot
         # memory by itself).
+        # "nor_program" (NOR bank), "sdram_debug" (FLASH in the
+        # SDRAM, written by its debug port).
         "rom_write_method": "mem_edit",
     },
     "memory": {

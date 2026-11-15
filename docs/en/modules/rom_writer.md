@@ -4,13 +4,15 @@ Loads a new ROM image into an already-programmed board over JTAG, without a full
 
 A project with more than one physical copy of the same ROM content (see [`quartus_program`](quartus_program.md)'s `rom_mif_target`/`rom_mem_instances`) writes to every listed instance in one call, keeping all copies in sync.
 
+With `quartus.rom_write_method` set to `sdram_debug`, the FLASH is a window of the SDRAM and [`flash_load`](flash_load.md) writes it through the debug port, with the core held and checked by the CRC-32 of the board; the core restarts by itself and the caller does not write `fromhost`. The window comes from `memory.sdram_windows`.
+
 With `quartus.rom_write_method` set to `jtag_loader`, the image goes into the single FLASH copy through [`flash_loader`](flash_loader.md), with the core halted, and the loader itself restarts the core from the BOOT_MEMORY. With that method the caller does not write `fromhost`.
 
 ## Configuration
 
 | Key | Meaning |
 | :--- | :--- |
-| `quartus.rom_write_method` | `mem_edit` (default) writes each listed instance through the In-System Memory Content Editor; `jtag_loader` uses the JTAG loader of the FLASH. |
+| `quartus.rom_write_method` | `mem_edit` (default) writes each listed instance through the In-System Memory Content Editor; `jtag_loader` uses the JTAG loader of the FLASH; `nor_program` writes the NOR chip; `sdram_debug` writes the FLASH window in the SDRAM. |
 | `quartus.rom_mem_names` | Names (the IP's `INSTANCE_NAME`, e.g. `[FLASH, FLASH_MEM]`) of the ROM instances; the host turns them into the board's indices once per session. It wins over `quartus.rom_mem_instances`. |
 | `quartus.rom_mem_instances` | Instance index/indices Quartus' In-System Memory Content Editor assigns to the ROM debug tap(s), in declaration order in the project. `[0]` is the common case (a single ROM instantiated first). |
 | `memory.rom_words` | ROM depth in words, project-specific. Used to validate/format a program's `.mif` before writing it. |

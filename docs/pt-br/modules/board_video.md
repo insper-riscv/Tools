@@ -36,13 +36,24 @@ O relógio de pixel é mais uma saída do PLL que já gera os relógios do `plat
 
 ### 3.2. Framebuffer
 
-Cada pixel guarda os três canais, ou seja, $3 \cdot \text{channel\_bits}$ bits, e o framebuffer ocupa
+O formato do pixel é `pixel_format` de `io.video`, e o padrão é `indexed`. Cada formato guarda os bits da tabela abaixo, e o periférico escreve o framebuffer em palavras de 32 bits, com cada linha arredondada para palavras inteiras.
+
+| `pixel_format` | Bits por pixel | Paleta |
+| :--- | ---: | :--- |
+| `indexed` | 8 | 256 entradas de $3 \cdot \text{channel\_bits}$ bits |
+| `direct` | 16 se $3 \cdot \text{channel\_bits} \le 16$, senão 32 | nenhuma |
+
+O framebuffer e a paleta ocupam
 
 $$
-\left\lceil \frac{\text{fb\_width} \cdot \text{fb\_height} \cdot 3 \cdot \text{channel\_bits}}{\text{bits\_per\_block}} \right\rceil
+\left\lceil \frac{\text{fb\_height} \cdot \left\lceil \text{fb\_width} \cdot \text{bits} / 32 \right\rceil \cdot 32 + 256 \cdot 3 \cdot \text{channel\_bits}}{\text{bits\_per\_block}} \right\rceil
 $$
 
-blocos de memória. O livre é a capacidade da placa menos os blocos que a estimativa de [fit_estimate](fit_estimate.md) calcula para o perfil. Sem a tabela de calibração da família, a conferência compara com o total do dispositivo. Sem `fb_width` e `fb_height` o framebuffer tem a área visível do modo.
+blocos de memória, sem o termo da paleta no formato `direct`. O livre é a capacidade da placa menos os blocos que a estimativa de [fit_estimate](fit_estimate.md) calcula para o perfil. Sem a tabela de calibração da família, a conferência compara com o total do dispositivo. Sem `fb_width` e `fb_height` o framebuffer tem a área visível do modo.
+
+O framebuffer ocupa a metade alta da janela do periférico, de $2^{15}$ palavras (128 KiB), e a V22 também reprova um framebuffer que passa disso (o 640x480 indexado, de 300 KiB, não cabe, e o 320x200 sim).
+
+O `scale` de `io.video` é a ampliação de cada pixel do framebuffer. Sem ele, vale a maior ampliação inteira em que a imagem cabe na área visível, e um valor maior que essa é erro V20.
 
 ## 4. Generics para o topo
 
@@ -53,11 +64,12 @@ O `VideoPlan.generics()` escreve as associações abaixo, e `top_generator.video
 | `video_kind` | `"vga"` ou `"hdmi"` |
 | `video_channel_bits` | 4 ou 8 |
 | `video_fb_width`, `video_fb_height` | Tamanho do framebuffer |
+| `video_pixel_format`, `video_scale` | `"indexed"` ou `"direct"`, e a ampliação do pixel |
 | `video_h_visible`, `video_h_front_porch`, `video_h_sync`, `video_h_back_porch`, `video_h_total` | Temporização horizontal, em pixels |
 | `video_v_visible`, `video_v_front_porch`, `video_v_sync`, `video_v_back_porch`, `video_v_total` | Temporização vertical, em linhas |
 | `video_h_sync_positive`, `video_v_sync_positive` | `true` quando o pulso de sincronismo é alto |
 
-O mapa de generics do SoC não recebe os generics acima.
+O periférico `video` do topo gerado recebe os generics da entidade, com os nomes dela e sem o prefixo `video_`, escritos por `VideoPlan.entity_generics()`: `fb_width`, `fb_height`, `channel_bits`, `pixel_format`, `scale` e, para cada direção, `h_` e `v_` seguidos de `visible`, `front_porch`, `sync`, `back_porch` e `sync_positive`. O mapa de generics do SoC não recebe os generics acima.
 
 ## 5. Relógio de pixel
 
@@ -79,6 +91,7 @@ A tabela lista as saídas de vídeo das placas Terasic e os modos que cada uma o
 | `tests/test_board_video.py` | Leitura do papel `video` e do catálogo de modos, o pedido da plataforma (inclusive `16:9` sem aspas), a escolha do modo, as regras V20 a V22, os generics e a conferência do catálogo |
 | `tests/test_board_video_generate.py` | O plano chega ao `Generated`, o topo gerado não muda, os generics saem do `TopSpec` e o gerador recusa um pedido impossível |
 | `tests/test_video_clocks.py` | A saída `pixel` do PLL, o sinal e a ligação no topo, o domínio no `.sdc`, a fonte da frequência e a recusa do `hdmi_tmds` |
+| `tests/test_external_top.py` | O periférico `video` recebe os generics da entidade, com o plano de vídeo e o formato de pixel |
 
 ---
 

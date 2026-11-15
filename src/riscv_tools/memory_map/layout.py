@@ -17,6 +17,7 @@ memory:
         first: 24
         next: 4
       sector_bytes: 4096
+      offset: 0x1000     # sdram only: byte of the chip where it starts
       cache:             # present: the instruction cache exists
         size_bits: 32768
   data:                  # not executable; one segment in this phase
@@ -24,6 +25,7 @@ memory:
       base: 0x40000000
       size: 64M
       on_bus: true
+      fetch: false       # sdram only: the port reaches the RAM
       cache:
         size_bits: 32768
 peripherals:             # the order is the order of `<NAME>_INDEX`
@@ -34,9 +36,17 @@ peripherals:             # the order is the order of `<NAME>_INDEX`
 
 `type` says what the memory is: `flash` (a NOR chip), `sdram`, `sram`,
 `onchip` (blocks of the FPGA) or `emulated` (blocks of the FPGA with the
-latency of a chip). A type that is not `onchip` is outside the core and
-so needs `on_bus: true`. `on_bus` is given in both segments or in none
-(the choice then comes from `--memory`).
+latency of a chip). `instructions` takes all five types, and `data`
+takes all but `flash`, which the CPU does not write by an ordinary
+access. `on_bus: false` means the core reads the memory straight from
+its own port, and `on_bus: true` means it reads through the bus, so
+`onchip` is `on_bus: false` and every other type (`emulated`, `sdram`,
+`sram`, `flash`) is `on_bus: true`. `on_bus` is given in both segments
+or in none (the choice then comes from `--memory`).
+
+`offset` (optional, `sdram` only) is the byte of the chip where the
+segment starts. Two segments that share the chip give it in both (see
+`riscv_tools.memory_map.chip_split`).
 
 The rest of the Tools reads the lists `regions` (`BOOT_MEMORY`, `FLASH`,
 `RAM`), the section `memory` of the four choices (`rom`, `ram`,
@@ -62,6 +72,8 @@ _SEGMENT_KEYS = (
     "cache",
     "latency",
     "sector_bytes",
+    "offset",
+    "fetch",
 )
 _SIDES = (("instructions", "rom", "icache"), ("data", "ram", "dcache"))
 _OLD_MEMORY = ("rom", "ram", "icache", "dcache")
@@ -187,9 +199,16 @@ def _segment(raw: Any, side: str) -> dict[str, Any]:
         raise ValueError(f"{where} needs one segment")
     seg = _mapping(items[0], f"{where}[0]")
     _check_keys(seg, where)
+    if side == "instructions" and "fetch" in seg:
+        raise ValueError(f"{where}.fetch only belongs to the data segment")
     if seg["type"] not in TYPES:
         raise ValueError(
             f"{where}.type {seg['type']!r} must be one of {list(TYPES)}"
+        )
+    if side == "data" and seg["type"] == "flash":
+        raise ValueError(
+            "memory.data.type flash is not allowed: flash is not data "
+            "memory, the CPU does not write it by ordinary access"
         )
     return seg
 
@@ -223,7 +242,7 @@ def _side(seg: dict[str, Any], where: str) -> dict[str, Any]:
         entry["backend"] = "emulado"
     elif kind in _DEVICE:
         entry |= {"backend": "dispositivo", "device": _DEVICE[kind]}
-    for key in ("latency", "sector_bytes"):
+    for key in ("latency", "sector_bytes", "fetch"):
         if key in seg:
             entry[key] = seg[key]
     return entry
@@ -523,7 +542,10 @@ def normalize_layout(data: dict[str, Any]) -> None:
 
 def _region(seg: dict[str, Any]) -> dict[str, Any]:
     """Give the `base` and `size` of a segment."""
-    return {"base": seg["base"], "size": seg["size"]}
+    out = {"base": seg["base"], "size": seg["size"]}
+    if "offset" in seg:
+        out["offset"] = seg["offset"]
+    return out
 
 
 def _segment_of(
@@ -547,6 +569,8 @@ def _segment_of(
     """
     seg: dict[str, Any] = {"type": "onchip"}
     seg |= {"base": region["base"], "size": region["size"]}
+    if "offset" in region:
+        seg["offset"] = region["offset"]
     if entry is None:
         return seg
     device = entry.get("device")
@@ -555,7 +579,9 @@ def _segment_of(
     elif device in _OF_DEVICE:
         seg["type"] = _OF_DEVICE[device]
     seg["on_bus"] = entry["external"]
-    seg |= {k: entry[k] for k in ("latency", "sector_bytes") if k in entry}
+    seg |= {
+        k: entry[k] for k in ("latency", "sector_bytes", "fetch") if k in entry
+    }
     if cache and cache.get("enabled"):
         seg["cache"] = {"size_bits": cache["size_bits"]}
     return seg

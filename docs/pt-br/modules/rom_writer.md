@@ -4,13 +4,15 @@ Carrega uma nova imagem de ROM numa placa já programada por JTAG, sem uma recom
 
 Um projeto com mais de uma cópia física do mesmo conteúdo de ROM (veja o `rom_mif_target`/`rom_mem_instances` do [`quartus_program`](quartus_program.md)) escreve em todas as instâncias listadas numa só chamada, mantendo todas as cópias em sincronia.
 
+Com `quartus.rom_write_method` igual a `sdram_debug`, a FLASH é uma janela da SDRAM e o [`flash_load`](flash_load.md) a grava pela porta de debug, com o núcleo preso e conferido pelo CRC-32 da placa; o núcleo reinicia sozinho e o chamador não escreve o `fromhost`. A janela vem de `memory.sdram_windows`.
+
 Com `quartus.rom_write_method` igual a `jtag_loader`, a imagem vai para a única cópia da FLASH pelo [`flash_loader`](flash_loader.md), com o núcleo parado, e o próprio carregador reinicia o núcleo pela BOOT_MEMORY. Nesse método o chamador não escreve o `fromhost`.
 
 ## Configuração
 
 | Chave | Significado |
 | :--- | :--- |
-| `quartus.rom_write_method` | `mem_edit` (padrão) grava cada instância listada pelo In-System Memory Content Editor; `jtag_loader` usa o carregador JTAG da FLASH. |
+| `quartus.rom_write_method` | `mem_edit` (padrão) grava cada instância listada pelo In-System Memory Content Editor; `jtag_loader` usa o carregador JTAG da FLASH; `nor_program` grava o chip NOR; `sdram_debug` grava a janela da FLASH na SDRAM. |
 | `quartus.rom_mem_names` | Nomes (`INSTANCE_NAME` do IP, por exemplo `[FLASH, FLASH_MEM]`) das instâncias da ROM; o host os converte nos índices da placa uma vez por sessão. Vale mais que `quartus.rom_mem_instances`. |
 | `quartus.rom_mem_instances` | Índice(s) de instância que o In-System Memory Content Editor do Quartus atribui ao(s) tap(s) de debug da ROM, na ordem de declaração no projeto. `[0]` é o caso comum (uma única ROM instanciada primeiro). |
 | `memory.rom_words` | Profundidade da ROM em palavras, específica do projeto. Usada para validar/formatar o `.mif` de um programa antes de escrevê-lo. |

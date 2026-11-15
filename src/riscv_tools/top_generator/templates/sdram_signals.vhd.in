@@ -1,14 +1,9 @@
-	-- SDRAM: pontes de dados e de instrução, árbitro, mestre de depuração e controlador.
+	-- SDRAM: árbitro, mestre de depuração e controlador.
 	-- Largura do barramento de dados e bits do endereço de palavra de 32 bits, da geometria do chip do catálogo.
 	constant SDRAM_DQ : natural := {dq};
 	constant SDRAM_ADDR_BITS : natural := work.sdram_pkg.dram_word_addr_bits(work.{chip}.ROW_BITS, work.{chip}.BANK_BITS, work.{chip}.COL_BITS, {dq});
-	signal rd_addr, rd_wdata, rd_rdata : std_logic_vector(31 downto 0);
-	signal rd_be : std_logic_vector(3 downto 0);
-	signal rd_rden, rd_wren, rd_line, rd_adv, rd_ready : std_logic;
-	signal rd_wdx, rd_rdx : std_logic_vector(95 downto 0);
-	signal ri_addr, ri_rdata : std_logic_vector(31 downto 0);
-	signal ri_rden, ri_line, ri_adv, ri_ready : std_logic;
-	signal ri_rdx : std_logic_vector(95 downto 0);
+	-- Largura em bits do endereço de byte do chip.
+	constant SDRAM_BYTE_BITS : natural := SDRAM_ADDR_BITS + 2;
 	signal a_req, a_ack, a_we, a_line : std_logic;
 	signal a_addr : std_logic_vector(SDRAM_ADDR_BITS - 1 downto 0);
 	signal a_wdata, a_rdata : std_logic_vector(31 downto 0);

@@ -1,0 +1,4 @@
+	-- SDRAM: pedido de instrução que entra na ponte de instruções, com o endereço já no chip.
+	signal ins_addr, ins_rdata : std_logic_vector(31 downto 0);
+	signal ins_rden, ins_line, ins_adv, ins_ready : std_logic;
+	signal ins_rdx : std_logic_vector(95 downto 0);

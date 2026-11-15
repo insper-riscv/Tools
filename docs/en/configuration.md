@@ -61,7 +61,7 @@ No `tests_real_dir`/`tests_sim_dir`/`golden_dir` split: every test under `c_dir`
 | `generate` | optional | `program`: `platform`, `out` and, if needed, `boards_dir`, `chips_dir` and `accept_inferred_pins`; with it `program` runs the `board generate` of the platform before compiling, and `project_dir` points to the generated project under `out` |
 | `stale_cache_dirs` | `[db, incremental_db, output_files, simulation]` | `quartus_program`: directories (relative to `project_dir`) deleted before every compile, since a ROM `init_file` isn't a tracked project source |
 | `rom_mem_instances` | `[0]` | `rom_writer`: In-System Memory Content Editor instance index/indices of the ROM (a list; a project with more than one physical ROM copy, e.g. one per read port if a true dual-port memory isn't available, lists every one, all kept in sync on every write) |
-| `rom_write_method` | `mem_edit` | `rom_writer`: `mem_edit` writes each instance through the In-System Memory Content Editor and needs the `fromhost` pulse afterwards; `jtag_loader` writes the single FLASH copy through the [JTAG loader](modules/flash_loader.md) with the core halted and restarts it by itself |
+| `rom_write_method` | `mem_edit` | `rom_writer`: `mem_edit` writes each instance through the In-System Memory Content Editor and needs the `fromhost` pulse afterwards; `jtag_loader` writes the single FLASH copy through the [JTAG loader](modules/flash_loader.md) with the core halted and restarts it by itself; `nor_program` writes the NOR chip; `sdram_debug` writes the FLASH window in the SDRAM through [`flash_load`](modules/flash_load.md) and restarts the core by itself |
 | `ram_mem_instance` | `1` | `ram_zero`, `ram_dump`, `htif`: same, for RAM |
 | `rom_mem_names` | unset | `rom_writer`: names (the IP's `INSTANCE_NAME`, e.g. `[FLASH, FLASH_MEM]`) of the ROM instances; the host asks the board and turns each name into its current index. It wins over `rom_mem_instances` when both are set |
 | `ram_mem_name` | unset | `ram_zero`, `ram_dump`, `htif`: same, for RAM (e.g. `RAM`); it wins over `ram_mem_instance` |
@@ -80,6 +80,7 @@ No `tests_real_dir`/`tests_sim_dir`/`golden_dir` split: every test under `c_dir`
 | `rom_base` | Byte address the program image is linked at (0 for a ROM that starts at address 0). The `.mif`/`.hex` of a test linked above 0 gets `rom_base / 4` leading zero words, because the memory is addressed raw, without subtracting a base |
 | `rom_origin` | Byte address that the first word of the FLASH storage has (0 by default). The leading padding of the `.mif`/`.hex` becomes `(rom_base - rom_origin) / 4` words and the memory regions of Spike start there: a FLASH behind the caches starts at its own base and has no padding |
 | `rom_words` | ROM depth in words: used to validate/format a program's `.mif` |
+| `sdram_windows` | Optional. Map `FLASH` and `RAM`, each with `base`, `size` and `offset` (the window of each region in the SDRAM chip, see [`sdram_windows`](modules/sdram_windows.md)); it repeats the numbers of the `platform.yaml` and holds when the commands do not receive `--platform`. Without it the RAM is a window at byte 0 of the chip |
 
 ### `flash:` and `flash_image:` (optional; platform with banks in the FLASH)
 

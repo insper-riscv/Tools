@@ -492,3 +492,58 @@ def test_the_core_map_must_be_in_order(tmp_path: Path) -> None:
     moved = {**PLATFORM, "regions": [late, *MAP_REGIONS[1:]]}
     with pytest.raises(ValueError, match="V-M1"):
         _config(tmp_path, moved)
+
+
+def _split_platform() -> dict[str, Any]:
+    """Write the FLASH and the RAM as two windows of one SDRAM chip."""
+    chip = {"external": True, "backend": "dispositivo"} | {"device": "sdram"}
+    memory: dict[str, Any] = dict.fromkeys(("rom", "ram"), chip)
+    memory |= {key: {"enabled": False} for key in ("icache", "dcache")}
+    regions = [
+        {"name": "BOOT_MEMORY", "base": "0x0", "size": "4K", "exec": True},
+        {
+            "name": "FLASH",
+            "base": "0x1000",
+            "size": "28K",
+            "exec": True,
+            "offset": "0x1000",
+        },
+        {
+            "name": "RAM",
+            "base": "0x8000",
+            "size": "160K",
+            "kind": "ram",
+            "offset": "0x40000",
+        },
+    ]
+    return {**PLATFORM, "regions": regions, "memory": memory}
+
+
+def test_the_split_of_the_chip_reaches_the_config_pkg(tmp_path: Path) -> None:
+    """Only a platform with `offset` carries the window constants."""
+    platform = _write(tmp_path, _split_platform())
+    write_all(platform, tmp_path)
+    config = " ".join((tmp_path / "out/config_pkg.vhd").read_text().split())
+    _has(
+        config,
+        "constant FLASH_WINDOW_KIB : natural := 28;",
+        "constant FLASH_CHIP_OFFSET : natural := 4096;",
+        "constant FLASH_CHIP_LOW_BITS : natural := 15;",
+        "constant FLASH_CHIP_ALIGNED : boolean := true;",
+        "constant FLASH_CHIP_HIGH : natural := 0;",
+        "constant RAM_CHIP_OFFSET : natural := 262144;",
+        "constant RAM_CHIP_LOW_BITS : natural := 18;",
+        "constant RAM_CHIP_ALIGNED : boolean := false;",
+    )
+    check_equal(check_memory_map(platform, tmp_path)[1], [])
+
+
+def test_a_platform_without_offset_keeps_the_default_package(
+    tmp_path: Path,
+) -> None:
+    """No window constant appears without a declared `offset`."""
+    platform = _write(tmp_path, PLATFORM)
+    write_all(platform, tmp_path)
+    config = (tmp_path / "out/config_pkg.vhd").read_text()
+    check_not_in("CHIP_OFFSET", config)
+    check_not_in("FLASH_WINDOW_KIB", config)

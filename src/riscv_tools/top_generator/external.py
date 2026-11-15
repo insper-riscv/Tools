@@ -38,6 +38,25 @@ NO_READ = frozenset({"video", "hdmi_tx", "adc128s022", "ltc2308", "adxl345"})
 WITH_PIXEL = PIXEL_ENTITIES
 _WORD = 32
 _HZ = 1_000_000_000
+# Os generics de tempo do PS/2 contam ciclos, e os valores padrão da
+# entidade valem para um relógio de 50 MHz (160 ns de filtro, 120 us de
+# inibição, 20 ms de limite do quadro, 2 s de inicialização do mouse e
+# 100 ms de limite do pacote). Cada um é refeito para o relógio do
+# núcleo.
+_PS2_BASE_HZ = 50_000_000
+_PS2_CYCLES = {
+    "filter_cycles": 8,
+    "inhibit_cycles": 6000,
+    "timeout_cycles": 1_000_000,
+}
+_PS2_MOUSE_CYCLES = {
+    "init_timeout_cycles": 100_000_000,
+    "packet_timeout_cycles": 5_000_000,
+}
+_PS2_TABLES = {
+    "ps2_keyboard": _PS2_CYCLES,
+    "ps2_mouse_top": {**_PS2_CYCLES, **_PS2_MOUSE_CYCLES},
+}
 
 
 @dataclass
@@ -592,7 +611,11 @@ def instance_generics(
         text = _literal(field_spec, value)
         out.append(f"{field_spec.generic} => {text}")
     if spec.video is not None and variant.entity == "video":
-        out += [f"channel_bits => {spec.video.channel_bits}"]
+        out += spec.video.entity_generics()
+    for name, at_base in _PS2_TABLES.get(variant.entity, {}).items():
+        if name in item:
+            continue
+        out.append(f"{name} => {-(-at_base * _hz(spec) // _PS2_BASE_HZ)}")
     return out
 
 

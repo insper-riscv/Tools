@@ -11,6 +11,7 @@ from riscv_tools.cli.board_cmd import (
     cmd_write_rom,
     cmd_zero_ram,
 )
+from riscv_tools.cli.flash_load_cmd import cmd_load_flash
 from riscv_tools.cli.parser_util import add_command
 from riscv_tools.cli.ram_load_cmd import DEFAULT_MAGIC, cmd_load_ram
 
@@ -77,6 +78,32 @@ def add_board_commands(sub: Any) -> None:
         default=None,
         help="how many words to dump; required when the RAM is in the SDRAM",
     )
+    p.add_argument(
+        "--region",
+        choices=["FLASH", "RAM", "flash", "ram"],
+        default=None,
+        help="dump a region that sits in the SDRAM instead of the RAM "
+        "instance; out ending in .bin is written as bytes, else as a .mif",
+    )
+    p.add_argument(
+        "--range",
+        default=None,
+        metavar="ADDRESS:LENGTH",
+        help="with --region: byte address and length in bytes of the part "
+        "to read (for example 0x41FFF000:0x1000)",
+    )
+    p.add_argument(
+        "--full",
+        action="store_true",
+        help="with --region: read the whole region (uses the burst of the "
+        "debug port)",
+    )
+    p.add_argument(
+        "--platform",
+        default=None,
+        help="with --region: platform YAML (relative to --root) that gives "
+        "the windows of the SDRAM, in place of memory.sdram_windows",
+    )
 
     p = add_command(
         sub,
@@ -124,6 +151,43 @@ def add_board_commands(sub: Any) -> None:
         "--no-verify",
         action="store_true",
         help="skip the read-back of each file",
+    )
+
+    p = add_command(
+        sub,
+        cmd_load_flash,
+        "load-flash",
+        description=(
+            "Hold the core, write a program into the FLASH window of the "
+            "SDRAM through the debug port, check it by the CRC-32 of the "
+            "board and release the core"
+        ),
+    )
+    p.add_argument("--image", default=None, help="packed bank image (.bin)")
+    p.add_argument("--elf", default=None, help="ELF of the program")
+    p.add_argument(
+        "--bank",
+        default=None,
+        help="bank of the platform that receives it (an ELF is packed with "
+        "the header of the bank)",
+    )
+    p.add_argument(
+        "--address",
+        type=_integer,
+        default=None,
+        help="byte address of --image without a bank",
+    )
+    p.add_argument(
+        "--version",
+        type=int,
+        default=1,
+        help="version of the image packed from an ELF (default 1)",
+    )
+    p.add_argument(
+        "--platform",
+        default=None,
+        help="platform YAML (relative to --root) that gives the windows and "
+        "the banks, in place of the project config",
     )
 
     p = add_command(

@@ -15,10 +15,12 @@ from riscv_tools import (
     ram_target,
     ram_zero,
     rom_writer,
+    sdram_windows,
     uart_console,
 )
 from riscv_tools import display as display_mod
 from riscv_tools.cli.common import jtag_link, project_root
+from riscv_tools.cli.sdram_window_args import windows_of
 from riscv_tools.quartus_program.core import DEFAULT_SEED
 from riscv_tools.settings import load_config
 from riscv_tools.sources import SourcesError
@@ -132,6 +134,53 @@ def cmd_display(args: argparse.Namespace) -> None:
     print(f"{value:06x}")
 
 
+def _range_of(args: argparse.Namespace, window: Any) -> tuple[int, int]:
+    """Read `--range` or `--full` of a region dump.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Uses args.range and args.full.
+    window : Window
+        The window of the region.
+
+    Returns
+    -------
+    tuple of (int, int)
+        The byte address of the start and the length in bytes.
+    """
+    if args.full == (args.range is not None):
+        sys.exit("dump-ram: give exactly one of --range and --full")
+    if args.full:
+        return window.base, window.size
+    start, _, length = args.range.partition(":")
+    return int(start, 0), int(length, 0)
+
+
+def _dump_region(
+    args: argparse.Namespace, cfg: dict[str, Any], link: Any
+) -> None:
+    """Dump a range of the FLASH or of the RAM that sit in the SDRAM.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Uses args.region, args.range, args.full, args.platform and
+        args.out.
+    cfg : dict of {str: Any}
+        The merged project config.
+    link : JtagLink
+        The board.
+    """
+    try:
+        window = sdram_windows.window_named(windows_of(args, cfg), args.region)
+        start, length = _range_of(args, window)
+        data = ram_dump.dump_region(link, window, start, length, print)
+    except (ValueError, sdram_windows.WindowError) as error:
+        sys.exit(f"dump-ram: {error}")
+    ram_dump.save_region(Path(args.out), window, start, data)
+
+
 def cmd_dump_ram(args: argparse.Namespace) -> None:
     """Implement `riscv-tools dump-ram`.
 
@@ -143,7 +192,8 @@ def cmd_dump_ram(args: argparse.Namespace) -> None:
     ----------
     args : argparse.Namespace
         Parsed CLI arguments: uses args.config, args.out,
-        args.start_word, args.words.
+        args.start_word, args.words, args.region, args.range, args.full
+        and args.platform.
 
     Returns
     -------
@@ -151,6 +201,9 @@ def cmd_dump_ram(args: argparse.Namespace) -> None:
     """
     cfg = load_config(args.config)
     link = jtag_link(cfg)
+    if args.region is not None:
+        _dump_region(args, cfg, link)
+        return
     words = None
     if args.words is not None:
         words = list(range(args.start_word, args.start_word + args.words))
