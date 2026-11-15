@@ -641,7 +641,7 @@ peripherals:
 | `hdmi_audio` | `hdmi_audio` | `hdmi_audio` | 64 bytes | yes | section 9.7 |
 | `uart` | `uart` | `serial` | 16 bytes | yes | section 9.7 |
 | `tv` | `tv` | `tv` | 64 bytes | yes | section 9.7 |
-| `adc` | `adc128s022`, `ltc2308` or `max10_adc` | `adc` | 64, 64 or 128 bytes | yes | `chip` (required) and those of section 9.7 |
+| `adc` | `adc128s022`, `ltc2308` or `max10_adc_shell` | `adc` | 64, 64 or 128 bytes | yes | `chip` (required) and those of section 9.7 |
 | `spi` | `spi` | `spi` | 32 bytes | yes | section 9.7 |
 | `adxl345` | `adxl345` | `adxl345` | 32 bytes | yes | section 9.7 |
 
@@ -683,7 +683,7 @@ Each field of a kind is the generic of the entity with the same name, and only t
 | `hex` | Hexadecimal digits, in a multiple of four | The quoted string |
 | `addr7` | An integer from 0 to 127 | The 7-bit string |
 
-A field that exists in only one entity of a kind (`rx_fifo_depth` of the PS/2 keyboard, `scan_freq` of `max10_adc`) is refused when the `device` or the `chip` written is the other one.
+A field that exists in only one entity of a kind (`rx_fifo_depth` of the PS/2 keyboard, `scan_freq` of `max10_adc_shell`) is refused when the `device` or the `chip` written is the other one.
 
 | Kind | Integer fields | Fields of another type |
 | :--- | :--- | :--- |

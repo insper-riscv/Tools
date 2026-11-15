@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from riscv_tools.board_clocks import clock_plan
+from riscv_tools.board_generate.vendor_ip import vendor_ip
 from riscv_tools.board_inputs import BoardInputs, InputError, load_inputs
 from riscv_tools.board_ports import PortPlan, build_ports
 from riscv_tools.board_schema import SchemaError, read_platform_video
@@ -213,6 +214,7 @@ def _qsf_and_qpf(
             f"{top}.vhd",
         ),
         extra=(
+            *vendor_ip(request.sources, inputs.platform).qsf_lines,
             *rendered.qsf_lines,
             *cast("list[str]", inputs.family.get("qsf") or []),
             *render_pins(
@@ -326,6 +328,7 @@ def generate(request: GenerateRequest) -> Generated:
         ),
         f"{top}.vhd": rendered_top.text,
         **chip_files,
+        **vendor_ip(request.sources, inputs.platform).files,
         **_qsf_and_qpf(
             inputs, request, stem, (rendered, tuple(chip_files), ports)
         ),

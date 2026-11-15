@@ -15,7 +15,8 @@ Escreve as restrições de tempo de uma plataforma numa placa, a partir do plano
 | 3 | Caminho de leitura da memória (ciclo múltiplo 2 e 1) |
 | 4 | Cruzamentos entre os domínios `mem`, `core` e `fetch`, e entre eles e o relógio da JTAG |
 | 5 | Relógios do Ethernet RGMII: `RXC` de 125 MHz como relógio de entrada, `GTX_CLK` como relógio gerado do nó do PLL, grupo assíncrono ao SoC e caminhos falsos de MDC, MDIO, INT_N e RESET_N |
-| 6 | Caminhos falsos do reset, das chaves, dos botões, dos LEDs, dos displays e dos pinos da FLASH NOR e da SRAM |
+| 6 | Relógio `ADC_CLK_10` de 10 MHz do ADC do MAX 10, com o grupo assíncrono ao SoC |
+| 7 | Caminhos falsos do reset, das chaves, dos botões, dos LEDs, dos displays e dos pinos da FLASH NOR e da SRAM |
 
 ## 3. Limite dos cruzamentos
 
@@ -36,6 +37,7 @@ O nome do nó vem do campo `pll.clock_node_pattern` da família, com `<instance>
 | `tests/test_board_equivalence.py` | O `.sdc` gerado da DE0-CV tem as restrições do `de0-cv.sdc` escrito à mão |
 | `tests/test_board_generate.py` | `.sdc` das placas com PLL de teste |
 | `tests/test_eth_rgmii.py` | O bloco do Ethernet RGMII e o limite dos cruzamentos sem os relógios dele |
+| `tests/test_vendor_ip.py` | O relógio do ADC, o IP e o script no projeto, o `dreq` e o `dack` do USB e a regra V25 |
 
 ---
 

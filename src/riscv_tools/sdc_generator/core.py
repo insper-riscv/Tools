@@ -10,6 +10,7 @@ from riscv_tools.board_clocks import PLL_INSTANCE, ClockPlan
 from riscv_tools.board_clocks.eth import ETH_TX, ETH_TX_DLY
 from riscv_tools.board_ports import Port, memory_clock_port
 from riscv_tools.chip_package import IoDelays
+from riscv_tools.sdc_generator.adc import adc_section
 from riscv_tools.sdc_generator.eth import eth_section
 
 # Frequência do relógio da JTAG só entra como domínio; o nome é o do
@@ -330,7 +331,7 @@ def _false_paths(ports: tuple[Port, ...]) -> list[str]:
 def _vendor_sections(
     plan: ClockPlan, ports: tuple[Port, ...], pattern: str | None
 ) -> list[str]:
-    """Escreve as restrições do Ethernet RGMII.
+    """Escreve as restrições do Ethernet RGMII e do ADC do MAX 10.
 
     Parameters
     ----------
@@ -344,22 +345,24 @@ def _vendor_sections(
     Returns
     -------
     list of str
-        As linhas; vazias sem MAC RGMII.
+        As linhas; vazias sem MAC RGMII e sem ADC interno.
     """
     soc = [
         _node(pattern, plan.index(role))
         for role in ("core", "fetch", "mem")
         if plan.get(role) is not None
     ]
+    adc = adc_section(ports, soc)
     if plan.get(ETH_TX) is None:
-        return []
+        return adc
     delayed = plan.get(ETH_TX_DLY) is not None
-    return eth_section(
+    eth = eth_section(
         ports,
         _node(pattern, plan.index(ETH_TX)),
         _node(pattern, plan.index(ETH_TX_DLY)) if delayed else None,
         soc,
     )
+    return eth + adc
 
 
 def render_sdc(

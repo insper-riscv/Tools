@@ -641,7 +641,7 @@ peripherals:
 | `hdmi_audio` | `hdmi_audio` | `hdmi_audio` | 64 bytes | sim | seção 9.7 |
 | `uart` | `uart` | `serial` | 16 bytes | sim | seção 9.7 |
 | `tv` | `tv` | `tv` | 64 bytes | sim | seção 9.7 |
-| `adc` | `adc128s022`, `ltc2308` ou `max10_adc` | `adc` | 64, 64 ou 128 bytes | sim | `chip` (obrigatório) e os da seção 9.7 |
+| `adc` | `adc128s022`, `ltc2308` ou `max10_adc_shell` | `adc` | 64, 64 ou 128 bytes | sim | `chip` (obrigatório) e os da seção 9.7 |
 | `spi` | `spi` | `spi` | 32 bytes | sim | seção 9.7 |
 | `adxl345` | `adxl345` | `adxl345` | 32 bytes | sim | seção 9.7 |
 
@@ -683,7 +683,7 @@ Cada campo de um kind é o generic de mesmo nome da entidade, e só os campos es
 | `hex` | Dígitos hexadecimais, em múltiplo de quatro | A cadeia entre aspas |
 | `addr7` | Inteiro de 0 a 127 | A cadeia de 7 bits |
 
-Um campo que só existe numa das entidades de um kind (`rx_fifo_depth` do teclado PS/2, `scan_freq` do `max10_adc`) é recusado quando o `device`, o `chip` ou o `mode` escrito é outro.
+Um campo que só existe numa das entidades de um kind (`rx_fifo_depth` do teclado PS/2, `scan_freq` do `max10_adc_shell`) é recusado quando o `device`, o `chip` ou o `mode` escrito é outro.
 
 | Kind | Campos inteiros | Campos de outro tipo |
 | :--- | :--- | :--- |

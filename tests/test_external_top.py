@@ -82,15 +82,16 @@ def test_the_usb_bridge_gets_its_polarity_and_tristate(
 
 
 def test_the_adc_picks_the_entity_by_chip(tmp_path: Path) -> None:
-    """Each chip has its entity and the internal ADC is left out."""
+    """Each chip has its entity, the ADC with its pin."""
     text, warnings = _top(tmp_path, "adc")
     check_in("u_adc0 : entity work.adc128s022", text)
     check_in("o_adc_saddr => ADC_SADDR", text)
     check_in("u_adc1 : entity work.ltc2308", text)
     check_in("o_adc_convst => ADC_CONVST", text)
-    check_not_in("max10_adc", text)
-    check(any("ADC2" in w and "vendor IP" in w for w in warnings))
-    check_in("ext_irq(ADC2_EXT_POS) <= '0';", text)
+    check_in("u_adc2 : entity work.max10_adc_shell", text)
+    check_in("i_adc_clk_10 => ADC_CLK_10", text)
+    check_in("o_irq => ext_irq(ADC2_EXT_POS)", text)
+    check_equal([w for w in warnings if "ADC2" in w], [])
 
 
 def test_video_and_hdmi_wait_for_the_pixel_clock(tmp_path: Path) -> None:

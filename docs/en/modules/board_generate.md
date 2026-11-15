@@ -15,6 +15,9 @@ Calls each generator and joins the text, writing no content of its own. The outp
 | `<platform>_<board>.sdc` | `sdc_generator` |
 | `<platform>_<board>.qpf` and `.qsf` | `quartus_project`, with the pins of `pin_assignments` |
 | `chip_<chip>_pkg.vhd` | `chip_package`, one per board chip |
+| `generate_ip.sh` | `vendor_ip`, only with the MAX 10 ADC; the `.qsf` gains the `QIP_FILE` line of the core it generates |
+
+The `generate_ip.sh` calls the `ip/generate.sh` of `Peripherals` (Platform Designer of Quartus Prime Lite) and writes `max10_adc_core/synthesis/max10_adc_core.qip` in the project folder; it runs before compilation. The file exists only when the platform has an `adc` with `chip: max10` and the sources include `max10_adc_ip.vhd`.
 
 The memory map (VHDL package, linker script, `.specs` and headers) is not generated here: the command calls the same code as `generate-memory-map` for the platform and writes the files at the paths of `generate`. The project lives in `<out>/<platform>-<board>/`. The compile command is `program` (see [quartus_program](quartus_program.md)).
 
