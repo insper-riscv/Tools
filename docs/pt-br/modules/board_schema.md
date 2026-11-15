@@ -98,7 +98,7 @@ Um valor é um sinal (`SD_CLK`) ou um barramento (`SD_DAT[3:0]`) do `pins.yaml`.
 | `sd` | `clk` (out), `cmd` e `dat` (inout) |
 | `ir` | `rxd` (in) |
 | `lcd` | `data` (inout), `rs`, `rw`, `en`, `power` e `blon?` (out) |
-| `usb` | `addr`, `cs_n`, `rd_n`, `wr_n` e `rst_n` (out), `data` (inout), `int` (in) |
+| `usb` | `addr`, `cs_n`, `rd_n`, `wr_n` e `rst_n` (out), `data` (inout), `int`, `dreq?` (in), `dack?` (out) |
 | `i2c` | `scl` e `sda` (inout) |
 | `audio` | `xck`, `bclk`, `adclrck`, `daclrck` e `dacdat` (out), `adcdat` (in) |
 | `eth` com `mode: mii` | `rx_clk`, `rxd`, `rx_dv`, `rx_er`, `tx_clk` e `int_n?` (in), `txd`, `tx_en`, `tx_er`, `mdc` e `rst_n` (out), `mdio` (inout) |
@@ -109,7 +109,7 @@ Um valor é um sinal (`SD_CLK`) ou um barramento (`SD_DAT[3:0]`) do `pins.yaml`.
 | `tv` | `data` e `clk27` (in), `reset_n` (out) |
 | `adc` com `chip: adc128s022` | `cs_n`, `sclk` e `saddr` (out), `sdat` (in) |
 | `adc` com `chip: ltc2308` | `convst`, `sck` e `sdi` (out), `sdo` (in) |
-| `adc` com `chip: max10` | nenhum pino, só a presença do ADC interno |
+| `adc` com `chip: max10` | `clk10` (in), o pino `ADC_CLK_10` do PLL do conversor |
 | `spi` | `sclk`, `mosi` e `cs_n` (out), `miso` (in) |
 | `adxl345` | `cs_n` e `sclk` (out), `mosi` (inout), `miso?` e `int1?` (in) |
 

@@ -264,7 +264,7 @@ EXTERNAL: dict[str, ExternalKind] = {
             _one(
                 "usb_bridge",
                 4,
-                ">addr =data >cs_n >rd_n >wr_n >rst_n <int",
+                ">addr =data >cs_n >rd_n >wr_n >rst_n <int <dreq? >dack?",
             ),
             fields=(
                 *(
@@ -452,7 +452,9 @@ EXTERNAL: dict[str, ExternalKind] = {
                     _pins(">convst >sck >sdi <sdo"),
                     "clock_hz",
                 ),
-                "max10": Variant("max10_adc", 5, (), "clk_freq"),
+                "max10": Variant(
+                    "max10_adc_shell", 5, _pins("<clk10"), "clk_freq"
+                ),
             },
             "chip",
             fields=(

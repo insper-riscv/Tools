@@ -56,9 +56,10 @@ A instância liga `i_clk` ao relógio do núcleo e `i_rst` ao reset do SoC, e os
 | `audio` | O FPGA é o mestre dos relógios do codec, e as entradas `i_bclk`, `i_adclrck` e `i_daclrck` ficam em `'0'` |
 | `hdmi_audio` | Quatro linhas de saída (`o_mclk`, `o_sclk`, `o_lrclk`, `o_i2s0`), com a entidade como mestre I2S |
 | `uart` | `rx` e `tx` direto; sem o pino `cts` a entrada fica em `'0'`, e sem `rts` a saída fica aberta |
+| `usb_bridge` | `dreq` e `dack` opcionais: sem eles `i_otg_dreq` fica em `'0'` e `o_otg_dack` aberto |
 | `adc128s022`, `ltc2308`, `ir_receiver`, `tv`, `spi` | Direto; o `cs_n` do `spi` é fatiado na largura da porta da placa |
 
-O `video` e o `hdmi_tx` precisam de um relógio de pixel do plano de relógios, e sem ele a instância fica fora com um aviso. O `max10_adc` precisa do IP do fabricante e também fica fora com um aviso.
+O `video` e o `hdmi_tx` precisam de um relógio de pixel do plano de relógios, e sem ele a instância fica fora com um aviso. O `max10_adc_shell` liga `i_adc_clk_10` ao pino `clk10` (`ADC_CLK_10`), e o IP do núcleo entra no projeto pelo [board_generate](board_generate.md).
 
 ## 4. Testes
 

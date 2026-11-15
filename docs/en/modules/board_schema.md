@@ -98,7 +98,7 @@ A value is a signal (`SD_CLK`) or a bus (`SD_DAT[3:0]`) of `pins.yaml`. The orde
 | `sd` | `clk` (out), `cmd` and `dat` (inout) |
 | `ir` | `rxd` (in) |
 | `lcd` | `data` (inout), `rs`, `rw`, `en`, `power` and `blon?` (out) |
-| `usb` | `addr`, `cs_n`, `rd_n`, `wr_n` and `rst_n` (out), `data` (inout), `int` (in) |
+| `usb` | `addr`, `cs_n`, `rd_n`, `wr_n` and `rst_n` (out), `data` (inout), `int`, `dreq?` (in), `dack?` (out) |
 | `i2c` | `scl` and `sda` (inout) |
 | `audio` | `xck`, `bclk`, `adclrck`, `daclrck` and `dacdat` (out), `adcdat` (in) |
 | `eth` with `mode: mii` | `rx_clk`, `rxd`, `rx_dv`, `rx_er`, `tx_clk` and `int_n?` (in), `txd`, `tx_en`, `tx_er`, `mdc` and `rst_n` (out), `mdio` (inout) |
@@ -109,7 +109,7 @@ A value is a signal (`SD_CLK`) or a bus (`SD_DAT[3:0]`) of `pins.yaml`. The orde
 | `tv` | `data` and `clk27` (in), `reset_n` (out) |
 | `adc` with `chip: adc128s022` | `cs_n`, `sclk` and `saddr` (out), `sdat` (in) |
 | `adc` with `chip: ltc2308` | `convst`, `sck` and `sdi` (out), `sdo` (in) |
-| `adc` with `chip: max10` | no pin, only the presence of the internal ADC |
+| `adc` with `chip: max10` | `clk10` (in), the `ADC_CLK_10` pin of the converter PLL |
 | `spi` | `sclk`, `mosi` and `cs_n` (out), `miso` (in) |
 | `adxl345` | `cs_n` and `sclk` (out), `mosi` (inout), `miso?` and `int1?` (in) |
 

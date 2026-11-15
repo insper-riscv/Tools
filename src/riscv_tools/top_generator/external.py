@@ -30,8 +30,6 @@ from riscv_tools.top_generator.spec import TopSpec
 # pixel.
 NO_READ = frozenset({"video", "hdmi_tx", "adc128s022", "ltc2308", "adxl345"})
 WITH_PIXEL = frozenset({"video", "hdmi_tx"})
-# A entidade que só existe com o IP do fabricante, fora do topo.
-NEEDS_IP = frozenset({"max10_adc"})
 _WORD = 32
 _HZ = 1_000_000_000
 
@@ -271,8 +269,8 @@ def _usb(inst: str, p: dict[str, Port]) -> Wiring:
         _direct("o_otg_rst_n", p["rst_n"]),
         _direct("o_otg_addr", p["addr"]),
         _tri(inst, ("o_otg_data", "o_otg_data_oe", "i_otg_data"), p["data"]),
-        _direct("i_otg_dreq", None, "'0'"),
-        _direct("o_otg_dack", None),
+        _direct("i_otg_dreq", p.get("dreq"), "'0'"),
+        _direct("o_otg_dack", p.get("dack")),
         Wiring(
             [f"i_otg_int => {irq}"],
             [f"signal {irq} : std_logic_vector(1 downto 0);"],
@@ -410,6 +408,11 @@ def _uart(_inst: str, p: dict[str, Port]) -> Wiring:
     )
 
 
+def _max10(_inst: str, p: dict[str, Port]) -> Wiring:
+    """Liga o ADC do MAX 10: o relógio de 10 MHz."""
+    return _direct("i_adc_clk_10", p["clk10"])
+
+
 def _tv(_inst: str, p: dict[str, Port]) -> Wiring:
     """Liga a captura de TV."""
     return _merge(
@@ -511,6 +514,7 @@ WIRING = {
     "uart": _uart,
     "tv": _tv,
     "adc128s022": _adc128,
+    "max10_adc_shell": _max10,
     "ltc2308": _ltc,
     "adxl345": _adxl,
     "spi": _spi,
@@ -752,14 +756,8 @@ def _place(spec: TopSpec, item: dict[str, Any], result: ExternalTop) -> None:
     """Instancia um periférico ou zera o que ele deixa no barramento."""
     name = str(item["name"])
     pins = {p.pin: p for p in spec.ports if p.owner == name}
-    variant = EXTERNAL[str(item["kind"])].variant(item)
     wired = None
-    if variant is not None and variant.entity in NEEDS_IP:
-        result.notes.append(
-            f"W peripheral {name}: {variant.entity} needs the vendor IP "
-            "shell (no entity to instantiate in the top); left out"
-        )
-    elif pins:
+    if pins:
         wired = _instance(spec, item, pins, result.notes)
     if wired is None:
         pos = f"{name.upper()}_EXT_POS"

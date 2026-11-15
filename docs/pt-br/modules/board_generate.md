@@ -15,8 +15,11 @@ Chama cada gerador e junta o texto, sem escrever conteúdo próprio. A pasta de 
 | `<plataforma>_<placa>.sdc` | `sdc_generator` |
 | `<plataforma>_<placa>.qpf` e `.qsf` | `quartus_project`, com os pinos de `pin_assignments` |
 | `chip_<chip>_pkg.vhd` | `chip_package`, um por chip da placa |
+| `generate_ip.sh` | `vendor_ip`, só com o ADC do MAX 10; o `.qsf` ganha a linha `QIP_FILE` do núcleo que ele gera |
 
 O mapa de memória (pacote VHDL, linker, `.specs` e cabeçalhos) não é gerado aqui: o comando chama o mesmo código do `generate-memory-map` para a plataforma e escreve os arquivos nos caminhos de `generate`. O projeto fica em `<saída>/<plataforma>-<placa>/`. O comando de compilação é o `program` (ver [quartus_program](quartus_program.md)).
+
+O `generate_ip.sh` chama o `ip/generate.sh` do `Peripherals` (Platform Designer do Quartus Prime Lite) e escreve `max10_adc_core/synthesis/max10_adc_core.qip` na pasta do projeto; ele roda antes da compilação. O arquivo só existe quando a plataforma tem um `adc` com `chip: max10` e as fontes trazem o `max10_adc_ip.vhd`.
 
 Quando a plataforma pede vídeo (`io.video`), a geração resolve o modo pelo [board_video](board_video.md) e recusa um pedido impossível com a mensagem da regra V20. O plano resolvido fica em `Generated.video`, e a conferência de V21 e V22 roda junto com a do cabimento.
 

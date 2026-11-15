@@ -82,6 +82,6 @@ buses:
   adc:
     - {chip: adc128s022, cs_n: ADC_CS_N, sclk: ADC_SCLK, saddr: ADC_SADDR, sdat: ADC_SDAT}
     - {chip: ltc2308, convst: ADC_CONVST, sck: ADC_SCK, sdi: ADC_SDI, sdo: ADC_SDO}
-    - {chip: max10}
+    - {chip: max10, clk10: ADC_CLK_10}
   spi: {sclk: SPI_SCLK, mosi: SPI_MOSI, miso: SPI_MISO, cs_n: SPI_CS_N}
   adxl345: {cs_n: ADXL_CS_N, sclk: ADXL_SCLK, mosi: ADXL_SDI, miso: ADXL_SDO, int1: ADXL_INT1}

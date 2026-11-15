@@ -472,3 +472,6 @@ signals:
   - {name: "ENET1_TX_DATA[2]", pin: "FX213", io_standard: "2.5 V", direction: "out", source: "fixture de teste", confirmed: "inferred"}
   - {name: "ENET1_RX_DATA[3]", pin: "FX214", io_standard: "2.5 V", direction: "in", source: "fixture de teste", confirmed: "inferred"}
   - {name: "ENET1_TX_DATA[3]", pin: "FX215", io_standard: "2.5 V", direction: "out", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "ADC_CLK_10", pin: "FX300", io_standard: "3.3-V LVTTL", direction: "in", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "OTG_DREQ", pin: "FX301", io_standard: "3.3-V LVTTL", direction: "in", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "OTG_DACK", pin: "FX302", io_standard: "3.3-V LVTTL", direction: "out", source: "fixture de teste", confirmed: "inferred"}

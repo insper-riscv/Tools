@@ -1,4 +1,4 @@
-"""The rules about the external peripherals: V23 and V24."""
+"""The rules about the external peripherals: V23, V24 and V25."""
 
 from riscv_tools.board_check.context import Context
 from riscv_tools.board_check.findings import Finding, error, warning
@@ -110,6 +110,37 @@ def _pin_findings(place: Placement) -> list[Finding]:
     return found
 
 
+def _signals_of(place: Placement) -> set[str]:
+    """List the signals of the board a placed peripheral wires."""
+    return {
+        signal
+        for spec in (place.pins or {}).values()
+        for signal in expand_group(spec)
+    }
+
+
+def _shared_signals(places: list[Placement]) -> list[Finding]:
+    """Find a signal of the board that two peripherals wire (V25).
+
+    Two entities that drive one pin (the I2C pair of the EEPROM and of
+    the ADXL345 on the DE0-Nano) would make two ports of one name in
+    the top and two drivers on the line, so the platform keeps only one.
+    """
+    owners: dict[str, list[str]] = {}
+    for place in places:
+        for signal in _signals_of(place):
+            owners.setdefault(signal, []).append(place.name)
+    return [
+        error(
+            "V25",
+            f"signal {signal} is wired by the peripherals "
+            f"{names}; one board pin takes only one of them",
+        )
+        for signal, names in owners.items()
+        if len(names) > 1
+    ]
+
+
 def rule_buses(ctx: Context) -> list[Finding]:
     """Check the external peripherals against the board.
 
@@ -124,12 +155,14 @@ def rule_buses(ctx: Context) -> list[Finding]:
         V23 when the board lacks the role (or the copy, or the chip)
         that a peripheral uses, an error for a required peripheral and a
         warning for an optional one; V24 for a pin the entity needs
-        and the board does not wire. Empty without external peripherals.
+        and the board does not wire; V25 for a signal that two
+        peripherals wire. Empty without external peripherals.
     """
     found: list[Finding] = []
-    for place in placed(ctx):
+    places = placed(ctx)
+    for place in places:
         if place.pins is None:
             found.append(_missing(place, ctx.board.board))
         else:
             found += _pin_findings(place)
-    return found
+    return found + _shared_signals(places)
