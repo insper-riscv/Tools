@@ -330,6 +330,42 @@ def _eth(inst: str, p: dict[str, Port]) -> Wiring:
     )
 
 
+def _eth_rgmii(inst: str, p: dict[str, Port], shifted: bool) -> Wiring:
+    """Liga o Ethernet RGMII, com o MDIO.
+
+    Parameters
+    ----------
+    inst : str
+        O rótulo da instância.
+    p : dict of {str: Port}
+        Os pinos do papel.
+    shifted : bool
+        Se o `GTX_CLK` sai do relógio deslocado de 90 graus do PLL
+        (`clk_eth_tx_dly`) ou do próprio `clk_eth_tx`.
+
+    Returns
+    -------
+    Wiring
+        As associações: relógios de envio do PLL, pinos DDR e MDIO.
+    """
+    delayed = "clk_eth_tx_dly" if shifted else "clk_eth_tx"
+    return _merge(
+        [
+            Wiring(["i_tx_clk => clk_eth_tx", f"i_tx_clk_dly => {delayed}"]),
+            _direct("o_rgmii_txc", p["gtx_clk"]),
+            _direct("o_rgmii_txd", p["txd"]),
+            _direct("o_rgmii_tx_ctl", p["tx_en"]),
+            _direct("i_rgmii_rxc", p["rx_clk"]),
+            _direct("i_rgmii_rxd", p["rxd"]),
+            _direct("i_rgmii_rx_ctl", p["rx_dv"]),
+            _direct("o_mdc", p["mdc"]),
+            _tri(inst, ("o_mdio_out", "o_mdio_oe", "i_mdio"), p["mdio"]),
+            _direct("i_phy_int_n", p.get("int_n"), "'1'"),
+            _direct("o_phy_rst_n", p["rst_n"]),
+        ]
+    )
+
+
 def _hdmi(inst: str, p: dict[str, Port]) -> Wiring:
     """Liga a saída HDMI e o I2C do ADV7513."""
     parts = [
@@ -569,6 +605,35 @@ def _bus_maps(variant: Variant, name: str, bits: int) -> list[str]:
     return maps
 
 
+def _wire(
+    variant: Variant, item: dict[str, Any], pins: dict[str, Port]
+) -> Wiring:
+    """Liga uma entidade aos pinos, com o que o campo da entrada muda.
+
+    Parameters
+    ----------
+    variant : Variant
+        A entidade.
+    item : dict of {str: Any}
+        A entrada de `peripherals`.
+    pins : dict of {str: Port}
+        As portas da placa do periférico, por pino do papel.
+
+    Returns
+    -------
+    Wiring
+        As ligações; o `spi` fatia `cs_n` por `cs_count` e o RGMII lê
+        `shifted_txc`.
+    """
+    inst = str(item["name"]).lower()
+    if variant.entity == "spi":
+        return _spi(inst, pins, int(item.get("cs_count", 1)))
+    if variant.entity == "eth_rgmii_mac":
+        shifted = bool(item.get("shifted_txc", True))
+        return _eth_rgmii(inst, pins, shifted)
+    return WIRING[variant.entity](inst, pins)
+
+
 def _instance(
     spec: TopSpec,
     item: dict[str, Any],
@@ -605,10 +670,7 @@ def _instance(
             "clock plan has none; left out"
         )
         return None
-    if variant.entity == "spi":
-        wired = _spi(name.lower(), pins, int(item.get("cs_count", 1)))
-    else:
-        wired = WIRING[variant.entity](name.lower(), pins)
+    wired = _wire(variant, item, pins)
     generics = instance_generics(spec, item, variant, kind)
     maps = _bus_maps(variant, name, variant.addr_bits) + wired.maps
     if kind.irq:

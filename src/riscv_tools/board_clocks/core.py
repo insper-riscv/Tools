@@ -10,13 +10,17 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 from typing import Any, cast
 
+from riscv_tools.board_clocks.eth import eth_requests
 from riscv_tools.board_inputs import BoardInputs, InputError
 
 # Nome único da instância do PLL em todos os topos gerados; o `.sdc`
 # não varia com ele.
 PLL_INSTANCE = "pll_inst"
 # Ordem das saídas do PLL.
-ROLE_ORDER = ("mem", "mem_pin", "fetch", "core")
+ROLE_ORDER = ("mem", "mem_pin", "fetch", "core", "eth_tx", "eth_tx_dly")
+# Relógios fora do SoC: o do pino da SDRAM e os do envio RGMII, que não
+# entram no limite dos cruzamentos entre núcleo e controlador.
+OUTSIDE_SOC = frozenset({"mem_pin", "eth_tx", "eth_tx_dly"})
 
 
 @dataclass(frozen=True)
@@ -97,7 +101,9 @@ class ClockPlan:
     @property
     def min_period_ns(self) -> Fraction:
         """Menor período entre os relógios do SoC."""
-        return min(c.period_ns for c in self.roles if c.role != "mem_pin")
+        return min(
+            c.period_ns for c in self.roles if c.role not in OUTSIDE_SOC
+        )
 
 
 def _fraction(value: Any, what: str) -> Fraction:
@@ -257,6 +263,10 @@ def clock_plan(inputs: BoardInputs) -> ClockPlan:
                     int(fields.get("phase_ps", 0)),
                 )
             )
+    roles.extend(
+        ClockRole(role, mhz, phase)
+        for role, mhz, phase in eth_requests(inputs.platform)
+    )
     return ClockPlan(
         str(reference["signal"]),
         _fraction(reference["mhz"], "clocks.inputs"),

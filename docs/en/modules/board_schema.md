@@ -101,7 +101,8 @@ A value is a signal (`SD_CLK`) or a bus (`SD_DAT[3:0]`) of `pins.yaml`. The orde
 | `usb` | `addr`, `cs_n`, `rd_n`, `wr_n` and `rst_n` (out), `data` (inout), `int` (in) |
 | `i2c` | `scl` and `sda` (inout) |
 | `audio` | `xck`, `bclk`, `adclrck`, `daclrck` and `dacdat` (out), `adcdat` (in) |
-| `eth` (MII) | `rx_clk`, `rxd`, `rx_dv`, `rx_er`, `tx_clk` and `int_n?` (in), `txd`, `tx_en`, `tx_er`, `mdc` and `rst_n` (out), `mdio` (inout) |
+| `eth` with `mode: mii` | `rx_clk`, `rxd`, `rx_dv`, `rx_er`, `tx_clk` and `int_n?` (in), `txd`, `tx_en`, `tx_er`, `mdc` and `rst_n` (out), `mdio` (inout) |
+| `eth` with `mode: rgmii` | `rx_clk`, `rxd` (4 bits), `rx_dv` (RX_CTL) and `int_n?` (in), `gtx_clk`, `txd` (4 bits), `tx_en` (TX_CTL), `mdc` and `rst_n` (out), `mdio` (inout) |
 | `hdmi` | `d`, `clk`, `de`, `hs` and `vs` (out), `int` (in), `scl` and `sda` (inout) |
 | `hdmi_audio` | `mclk`, `sclk`, `lrclk` and `i2s0` (out), the four I2S lines of the HDMI transmitter |
 | `serial` | `rx` and `cts?` (in), `tx` and `rts?` (out) |

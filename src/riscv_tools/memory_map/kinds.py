@@ -311,14 +311,38 @@ EXTERNAL: dict[str, ExternalKind] = {
             "eth",
             "eth",
             True,
-            _one(
-                "eth",
-                6,
-                "<rx_clk <rxd <rx_dv <rx_er <tx_clk >txd >tx_en >tx_er "
-                ">mdc =mdio <int_n? >rst_n",
-                "clk_freq_hz",
-            ),
+            {
+                "mii": Variant(
+                    "eth",
+                    6,
+                    _pins(
+                        "<rx_clk <rxd <rx_dv <rx_er <tx_clk >txd >tx_en "
+                        ">tx_er >mdc =mdio <int_n? >rst_n"
+                    ),
+                    "clk_freq_hz",
+                ),
+                # RGMII: TX_EN e RX_DV levam TX_CTL e RX_CTL (duas
+                # bordas), e o relógio de envio sai por GTX_CLK.
+                "rgmii": Variant(
+                    "eth_rgmii_mac",
+                    6,
+                    _pins(
+                        ">gtx_clk <rx_clk <rxd <rx_dv >txd >tx_en >mdc "
+                        "=mdio <int_n? >rst_n"
+                    ),
+                    "clk_freq_hz",
+                ),
+            },
+            "mode",
+            "mii",
             fields=(
+                FieldSpec(
+                    "shifted_txc",
+                    "bool",
+                    "shifted_txc",
+                    "mac",
+                    only=("rgmii",),
+                ),
                 FieldSpec("phy_addr", "int", "phy_addr", "mdio"),
                 FieldSpec("mdc_freq_hz", "int", "mdc_freq_hz", "mdio"),
                 FieldSpec("poll_cycles", "int", "poll_cycles", "mdio"),

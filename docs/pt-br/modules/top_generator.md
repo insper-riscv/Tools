@@ -50,6 +50,7 @@ A instância liga `i_clk` ao relógio do núcleo e `i_rst` ao reset do SoC, e os
 | `ps2_keyboard`, `ps2_mouse_top` | `clk` e `dat` direto nas portas `inout` |
 | `sd_spi` | MOSI em `cmd`, MISO em `dat(0)`, CS em `dat(3)`, e os outros bits de `dat` em `'Z'` |
 | `sd_native` | `cmd` e cada bit de `dat` saem por `'Z'` com a habilitação da entidade |
+| `eth_rgmii_mac` | `i_tx_clk` recebe `clk_eth_tx` e `i_tx_clk_dly` recebe `clk_eth_tx_dly` (ou `clk_eth_tx` com `shifted_txc` falso); `GTX_CLK`, `TXD` e `TX_CTL` saem direto, `RXC`, `RXD` e `RX_CTL` entram direto, e o MDIO sai com habilitação |
 | `lcd`, `usb_bridge`, `eth` (MDIO), `hdmi_tx` (I2C), `adxl345` (`mosi`) | Saída com habilitação: `'Z'` quando desabilitada, e um sinal de volta com a leitura do pino |
 | `i2c_master` | Open drain: `'0'` quando a entidade pede baixo, senão `'Z'` |
 | `audio` | O FPGA é o mestre dos relógios do codec, e as entradas `i_bclk`, `i_adclrck` e `i_daclrck` ficam em `'0'` |
@@ -66,6 +67,7 @@ O `video` e o `hdmi_tx` precisam de um relógio de pixel do plano de relógios, 
 | `tests/test_board_generate.py` | Conteúdo do topo da DE0-CV, latências, anel de pinos, polaridade e sintaxe aceita pelo GHDL |
 | `tests/test_board_video_generate.py` | Os generics de vídeo chegam ao `TopSpec` sem alterar o topo |
 | `tests/test_external_top.py` | A instância e os pinos de cada kind externo, o open drain, o `'Z' e o que fica fora do topo |
+| `tests/test_eth_rgmii.py` | A instância do MAC RGMII, os dois relógios do PLL e o `.sdc` do Ethernet |
 
 ---
 

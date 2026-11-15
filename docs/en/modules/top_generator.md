@@ -50,6 +50,7 @@ The instance wires `i_clk` to the core clock and `i_rst` to the SoC reset, and t
 | `ps2_keyboard`, `ps2_mouse_top` | `clk` and `dat` straight to the `inout` ports |
 | `sd_spi` | MOSI on `cmd`, MISO on `dat(0)`, CS on `dat(3)`, and the other bits of `dat` at `'Z'` |
 | `sd_native` | `cmd` and each bit of `dat` go out through `'Z'` with the enable of the entity |
+| `eth_rgmii_mac` | `i_tx_clk` takes `clk_eth_tx` and `i_tx_clk_dly` takes `clk_eth_tx_dly` (or `clk_eth_tx` with `shifted_txc` false); `GTX_CLK`, `TXD` and `TX_CTL` leave directly, `RXC`, `RXD` and `RX_CTL` enter directly, and the MDIO leaves with enable |
 | `lcd`, `usb_bridge`, `eth` (MDIO), `hdmi_tx` (I2C), `adxl345` (`mosi`) | Output with enable, `'Z'` when disabled, and a signal back with the read of the pin |
 | `i2c_master` | Open drain, `'0'` when the entity asks for low and `'Z'` otherwise |
 | `audio` | The FPGA is the master of the codec clocks, and the inputs `i_bclk`, `i_adclrck` and `i_daclrck` stay at `'0'` |
@@ -66,6 +67,7 @@ The `video` and the `hdmi_tx` need a pixel clock from the clock plan, and withou
 | `tests/test_board_generate.py` | DE0-CV top content, latencies, pin ring, polarity and syntax accepted by GHDL |
 | `tests/test_board_video_generate.py` | The video generics reach the `TopSpec` without changing the top |
 | `tests/test_external_top.py` | The instance and the pins of each external kind, the open drain, the `'Z'` and what is left out of the top |
+| `tests/test_eth_rgmii.py` | The RGMII MAC instance, the two PLL clocks and the Ethernet `.sdc` |
 
 ---
 
