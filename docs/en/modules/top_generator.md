@@ -51,7 +51,7 @@ A backend without an entity (`flash-interna` and `serial`) generates no instance
 
 ### 3.1. Video
 
-When the platform asks for video, the `TopSpec` carries the `VideoPlan` and `video_generics` writes the generics of timing, channel width and framebuffer ([board_video](board_video.md)). The top wires only `channel_bits` to the `video` peripheral (section 3.2), and the generic map of the SoC does not receive the generics of the plan.
+When the platform asks for video, the `TopSpec` carries the `VideoPlan` and `video_generics` writes the generics of timing, channel width and framebuffer ([board_video](board_video.md)). The top wires the generics of the entity to the `video` peripheral (section 3.2): `fb_width`, `fb_height`, `channel_bits`, `pixel_format`, `scale` and the timing. The clock plan gains the `pixel` output of the PLL and the `clk_pixel` signal, and the generic map of the SoC does not receive the generics of the plan.
 
 ### 3.2. External peripherals
 
@@ -82,7 +82,7 @@ The instance wires `i_clk` to the core clock and `i_rst` to the SoC reset, and t
 | `usb_bridge` | `dreq` and `dack` are optional: without them `i_otg_dreq` stays at `'0'` and `o_otg_dack` open |
 | `adc128s022`, `ltc2308`, `ir_receiver`, `tv`, `spi` | Straight; the `cs_n` of the `spi` is sliced to the width of the board port |
 
-The `video` and the `hdmi_tx` receive `i_pixel_clk` from the `clk_pixel` signal, declared when the clock plan has the `pixel` output; without it (no source gives the frequency) the instance is left out with a warning. The `hdmi_tmds` kind (direct TMDS output, role `hdmi_tmds` with `tmds`, `clk`, `scl`, `sda` and optional `hpd`) is registered, but the `hdmi_tmds_tx` entity is not in `Peripherals`; the generation fails with an error that says so, and no port is invented. The dependency is the TMDS serializer of `Peripherals`, with the pixel clock and the serial clock of five times (`pixel_x5`) that the plan already makes. The `max10_adc_shell` wires `i_adc_clk_10` to the `clk10` pin (`ADC_CLK_10`), and the IP of the core enters the project through [board_generate](board_generate.md).
+The `video` and the `hdmi_tx` receive `i_pixel_clk` from the `clk_pixel` signal, declared when the clock plan has the `pixel` output; without it (no source gives the frequency) the instance is left out with a warning. The `hdmi_tmds` kind (direct TMDS output, role `hdmi_tmds` with `tmds`, `clk`, `scl`, `sda` and optional `hpd`) is registered, but the `hdmi_tmds_tx` entity is not in `Peripherals`; the generation fails with an error that says so, and no port is invented. The dependency is the TMDS serializer of `Peripherals`, with the pixel clock and the serial clock of five times (`pixel_x5`) that the plan already makes. The `max10_adc_shell` wires `i_adc_clk_10` to the `clk10` pin (`ADC_CLK_10`), and the IP of the core enters the project through [board_generate](board_generate.md). The timing generics of `ps2_keyboard` and `ps2_mouse_top` (`filter_cycles`, `inhibit_cycles`, `timeout_cycles` and, on the mouse, `init_timeout_cycles` and `packet_timeout_cycles`) count cycles and default to a 50 MHz clock, so the top rewrites them for the core clock, rounding up.
 
 ## 4. Tests
 

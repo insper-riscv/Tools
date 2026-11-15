@@ -158,7 +158,16 @@ def test_the_fields_of_the_entity_chosen_are_generics() -> None:
             "init_timeout_cycles": 1000,
         }
     )
-    check_equal(mouse, ["filter_cycles => 4", "init_timeout_cycles => 1000"])
+    check_equal(
+        mouse,
+        [
+            "filter_cycles => 4",
+            "init_timeout_cycles => 1000",
+            "inhibit_cycles => 6000",
+            "timeout_cycles => 1000000",
+            "packet_timeout_cycles => 5000000",
+        ],
+    )
     adc = _generics(
         {
             "kind": "adc",
