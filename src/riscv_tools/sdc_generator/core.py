@@ -272,27 +272,29 @@ def _slow_false_paths(ports: tuple[Port, ...]) -> list[str]:
     return lines
 
 
-def _nor_false_paths(nor: list[Port]) -> list[str]:
-    """Escreve os caminhos falsos dos pinos da FLASH NOR.
+def _async_chip_false_paths(chip: list[Port], name: str) -> list[str]:
+    """Escreve os caminhos falsos dos pinos de um chip assíncrono.
 
     Parameters
     ----------
-    nor : list of Port
-        As portas do papel nor.
+    chip : list of Port
+        As portas do papel do chip.
+    name : str
+        O chip, como o comentário o cita (`FLASH NOR`, `SRAM`).
 
     Returns
     -------
     list of str
         As linhas; vazia sem portas.
     """
-    if not nor:
+    if not chip:
         return []
     lines = [
         "",
-        "# A FLASH NOR é assíncrona: o controlador conta os ciclos dos",
+        f"# A {name} é assíncrona: o controlador conta os ciclos dos",
         "# tempos do chip, então os pinos dela não têm requisito.",
     ]
-    for p in nor:
+    for p in chip:
         names = _targets([p], (p.direction,))
         if p.direction in ("in", "inout"):
             lines.append(f"set_false_path -from [get_ports {{{names}}}]")
@@ -315,7 +317,12 @@ def _false_paths(ports: tuple[Port, ...]) -> list[str]:
         As linhas.
     """
     nor = [p for p in ports if p.role == "nor"]
-    return _slow_false_paths(ports) + _nor_false_paths(nor)
+    sram = [p for p in ports if p.role == "sram"]
+    return (
+        _slow_false_paths(ports)
+        + _async_chip_false_paths(nor, "FLASH NOR")
+        + _async_chip_false_paths(sram, "SRAM")
+    )
 
 
 def render_sdc(

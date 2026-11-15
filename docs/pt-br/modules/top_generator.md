@@ -20,10 +20,11 @@ O topo gerado não tem lógica além do reset. Ele liga, nesta ordem, as portas 
 | Backend `emulado` da RAM | `onchip_ram_port` sobre o bloco `ram`, com a latência pedida |
 | Backend `dispositivo/sdram` | Duas pontes (dados e instruções), `sdram_arbiter`, `sdram_dbg_master`, `sdram_jtag_shell`, `sdram_ctrl` e um `tristate_buffer_1bit` por bit do dado em um `generate`; a largura de 16 ou 32 bits e os bits de linha, coluna e banco vêm do chip e de `memories.sdram.chips` |
 | Backend `dispositivo/nor` | `nor_flash_ctrl` de 8 bits com leitura em página e os comandos da atualização de programa, e o anel de pinos da FLASH |
+| Backend `dispositivo/sram` | `sram_ctrl` na porta de dados do SoC, com os pinos `ADDR` (20 bits), `CE#`, `OE#`, `WE#`, `LB#` e `UB#` ligados direto, um `tristate_buffer_1bit` por bit do `DQ` de 16 bits, o tamanho do pacote do chip e os tempos do `chip_timing_pkg`; a porta de instruções da RAM fica sem resposta, como na RAM emulada |
 
 ## 3. O que o topo não liga
 
-Um backend sem entidade (`sram`, `flash-interna` e `serial`) não gera instância: o topo avisa e deixa a região parada. O SoC não exporta o papel de LEDs: os pinos de LED ficam no nível apagado, menos o primeiro, que acende com a bandeira de falha que o hospedeiro grava no display (nó Virtual JTAG de índice 2). O texto de cada backend fica em `templates/`, com os nomes e as portas reais das entidades do Memory.
+Um backend sem entidade (`flash-interna` e `serial`) não gera instância: o topo avisa e deixa a região parada. O SoC não exporta o papel de LEDs: os pinos de LED ficam no nível apagado, menos o primeiro, que acende com a bandeira de falha que o hospedeiro grava no display (nó Virtual JTAG de índice 2). O texto de cada backend fica em `templates/`, com os nomes e as portas reais das entidades do Memory.
 
 ### 3.1. Vídeo
 

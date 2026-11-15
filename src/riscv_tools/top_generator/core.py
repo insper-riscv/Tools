@@ -37,6 +37,7 @@ from riscv_tools.top_generator.spec import (
     flash_ctrl_index,
     role_ports,
 )
+from riscv_tools.top_generator.sram import sram_backend
 
 SOC_ENTITY = "soc"
 # Índice do nó Virtual JTAG da UART; o 0 é o carregador da FLASH e o 3
@@ -721,10 +722,13 @@ def _region_backend(
             latency=latency.get("first", 0)
         )
         return backends.template("ram_signals").rstrip().split("\n"), body
-    if region == "ram" and device == "sdram":
-        return _sdram_backend(spec, notes)
-    if region == "rom" and device == "nor":
-        return _nor_backend(spec, notes)
+    maker = {
+        ("ram", "sdram"): _sdram_backend,
+        ("ram", "sram"): sram_backend,
+        ("rom", "nor"): _nor_backend,
+    }.get((region, device))
+    if maker is not None:
+        return maker(spec, notes)
     notes.append(
         f"W region {region}: backend {backend} {device} has no entity yet "
         "(M.5); the region was left idle"

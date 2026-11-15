@@ -14,7 +14,7 @@ Escreve as restrições de tempo de uma plataforma numa placa, a partir do plano
 | 2 | Relógio gerado do pino da SDRAM e atrasos de E/S do chip |
 | 3 | Caminho de leitura da memória (ciclo múltiplo 2 e 1) |
 | 4 | Cruzamentos entre os domínios `mem`, `core` e `fetch`, e entre eles e o relógio da JTAG |
-| 5 | Caminhos falsos do reset, das chaves, dos botões, dos LEDs e dos displays |
+| 5 | Caminhos falsos do reset, das chaves, dos botões, dos LEDs, dos displays e dos pinos da FLASH NOR e da SRAM |
 
 ## 3. Limite dos cruzamentos
 
