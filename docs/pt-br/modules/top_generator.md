@@ -27,7 +27,7 @@ Um backend sem entidade (`sram`, `flash-interna` e `serial`) não gera instânci
 
 ### 3.1. Vídeo
 
-Quando a plataforma pede vídeo, o `TopSpec` carrega o `VideoPlan` e `video_generics` escreve os generics de temporização, de largura de canal e de framebuffer ([board_video](board_video.md)). O topo liga só `channel_bits` ao periférico `video` (seção 3.2), e o mapa de generics do SoC não recebe os generics do plano.
+Quando a plataforma pede vídeo, o `TopSpec` carrega o `VideoPlan` e `video_generics` escreve os generics de temporização, de largura de canal e de framebuffer ([board_video](board_video.md)). O topo liga ao periférico `video` (seção 3.2) os generics da entidade (`fb_width`, `fb_height`, `channel_bits`, `pixel_format`, `scale` e a temporização), o plano de relógios ganha a saída `pixel` do PLL e o sinal `clk_pixel`, e o mapa de generics do SoC não recebe os generics do plano.
 
 ### 3.2. Periféricos externos
 
@@ -56,7 +56,7 @@ A instância liga `i_clk` ao relógio do núcleo e `i_rst` ao reset do SoC, e os
 | `uart` | `rx` e `tx` direto; sem o pino `cts` a entrada fica em `'0'`, e sem `rts` a saída fica aberta |
 | `adc128s022`, `ltc2308`, `ir_receiver`, `tv`, `spi` | Direto; o `cs_n` do `spi` é fatiado na largura da porta da placa |
 
-O `video` e o `hdmi_tx` precisam de um relógio de pixel do plano de relógios, e sem ele a instância fica fora com um aviso. O `max10_adc` precisa do IP do fabricante e também fica fora com um aviso.
+O `video` e o `hdmi_tx` precisam de um relógio de pixel do plano de relógios, e sem ele a instância fica fora com um aviso. O `video` ganha o relógio com o modo resolvido de `io.video`; o `hdmi_tx` ainda não. O `max10_adc` precisa do IP do fabricante e também fica fora com um aviso.
 
 ## 4. Testes
 

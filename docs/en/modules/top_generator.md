@@ -27,7 +27,7 @@ A backend without an entity (`sram`, `flash-interna` and `serial`) generates no 
 
 ### 3.1. Video
 
-When the platform asks for video, the `TopSpec` carries the `VideoPlan` and `video_generics` writes the generics of timing, channel width and framebuffer ([board_video](board_video.md)). The top wires only `channel_bits` to the `video` peripheral (section 3.2), and the generic map of the SoC does not receive the generics of the plan.
+When the platform asks for video, the `TopSpec` carries the `VideoPlan` and `video_generics` writes the generics of timing, channel width and framebuffer ([board_video](board_video.md)). The top wires the generics of the entity to the `video` peripheral (section 3.2): `fb_width`, `fb_height`, `channel_bits`, `pixel_format`, `scale` and the timing. The clock plan gains the `pixel` output of the PLL and the `clk_pixel` signal, and the generic map of the SoC does not receive the generics of the plan.
 
 ### 3.2. External peripherals
 
@@ -56,7 +56,7 @@ The instance wires `i_clk` to the core clock and `i_rst` to the SoC reset, and t
 | `uart` | `rx` and `tx` direct; without the `cts` pin the input is tied to `'0'`, and without `rts` the output is left open |
 | `adc128s022`, `ltc2308`, `ir_receiver`, `tv`, `spi` | Straight; the `cs_n` of the `spi` is sliced to the width of the board port |
 
-The `video` and the `hdmi_tx` need a pixel clock from the clock plan, and without it the instance is left out with a warning. The `max10_adc` needs the vendor IP and is also left out with a warning.
+The `video` and the `hdmi_tx` need a pixel clock from the clock plan, and without it the instance is left out with a warning. The `video` gets the clock with the mode resolved from `io.video`; the `hdmi_tx` does not yet. The `max10_adc` needs the vendor IP and is also left out with a warning.
 
 ## 4. Tests
 

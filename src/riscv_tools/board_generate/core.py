@@ -7,13 +7,18 @@ arquivo. A pasta de saída é de construção e não é versionada.
 
 import re
 from dataclasses import dataclass, field
+from fractions import Fraction
 from pathlib import Path
 from typing import Any, cast
 
 from riscv_tools.board_clocks import clock_plan
 from riscv_tools.board_inputs import BoardInputs, InputError, load_inputs
 from riscv_tools.board_ports import PortPlan, build_ports
-from riscv_tools.board_schema import SchemaError, read_platform_video
+from riscv_tools.board_schema import (
+    PlatformVideo,
+    SchemaError,
+    read_platform_video,
+)
 from riscv_tools.board_video import VideoError, VideoPlan, plan_video
 from riscv_tools.chip_package import (
     IoDelays,
@@ -21,6 +26,7 @@ from riscv_tools.chip_package import (
     package_name,
     render_chip_package,
 )
+from riscv_tools.memory_map.external import external_list
 from riscv_tools.pin_assignments import render_pins
 from riscv_tools.pll_generator import RenderedPll, generate_pll
 from riscv_tools.quartus_project import ProjectSpec, render_qpf, render_qsf
@@ -228,6 +234,45 @@ def _qsf_and_qpf(
     }
 
 
+def _has_video_peripheral(platform: dict[str, Any]) -> bool:
+    """Diz se a plataforma lista um periférico de vídeo.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        A plataforma lida.
+
+    Returns
+    -------
+    bool
+        `True` quando há um periférico de `kind: video`.
+    """
+    return any(item.get("kind") == "video" for item in external_list(platform))
+
+
+def _pixel_mhz(
+    inputs: BoardInputs, video: VideoPlan | None
+) -> Fraction | None:
+    """Dá o relógio de pixel que o PLL precisa gerar.
+
+    Parameters
+    ----------
+    inputs : BoardInputs
+        Os dados da placa.
+    video : VideoPlan or None
+        O vídeo resolvido.
+
+    Returns
+    -------
+    Fraction or None
+        A frequência do modo, em MHz; `None` quando não há periférico de
+        vídeo para recebê-la.
+    """
+    if video is None or not _has_video_peripheral(inputs.platform):
+        return None
+    return Fraction(str(video.mode.pixel_clock_mhz))
+
+
 def _video_plan(inputs: BoardInputs) -> VideoPlan | None:
     """Resolve o vídeo que a plataforma pede.
 
@@ -250,6 +295,8 @@ def _video_plan(inputs: BoardInputs) -> VideoPlan | None:
         request = read_platform_video(inputs.platform)
     except SchemaError as bad:
         raise InputError(str(bad)) from bad
+    if request is None and _has_video_peripheral(inputs.platform):
+        request = PlatformVideo()
     if request is None:
         return None
     if inputs.video is None:
@@ -290,9 +337,9 @@ def generate(request: GenerateRequest) -> Generated:
     board_name = str(inputs.board["board"])
     platform_name = str(inputs.platform["platform"])
     stem = _slug(f"{platform_name}_{board_name}")
-    plan = clock_plan(inputs)
-    ports = build_ports(inputs)
     video = _video_plan(inputs)
+    plan = clock_plan(inputs, _pixel_mhz(inputs, video))
+    ports = build_ports(inputs)
     pll_info = cast(dict[str, Any], inputs.family.get("pll") or {})
     if not pll_info:
         raise InputError(f"family {inputs.board['family']!r}: no pll section")

@@ -229,7 +229,42 @@ def _domains(plan: ClockPlan, pattern: str | None, has_mem: bool) -> list[str]:
         "# A UART JTAG encontra o relógio da JTAG no domínio do núcleo.",
     ]
     lines += _crossing("$core_clocks", "$tck_clocks", bound)
-    return lines
+    return lines + _pixel_domain(plan, pattern)
+
+
+def _pixel_domain(plan: ClockPlan, pattern: str | None) -> list[str]:
+    """Escreve os cruzamentos do relógio de pixel com o do núcleo.
+
+    O vídeo leva a habilitação, o reset e o estado do quadro de um
+    domínio ao outro por sincronizadores de dois flip-flops, e o
+    framebuffer e a paleta ficam em memórias com um relógio em cada
+    porta, de modo que nenhum dado atravessa por caminho combinacional.
+    Os caminhos entre os dois domínios são, portanto, falsos.
+
+    Parameters
+    ----------
+    plan : ClockPlan
+        Os relógios.
+    pattern : str or None
+        O padrão de nó da família.
+
+    Returns
+    -------
+    list of str
+        As linhas; vazia sem relógio de pixel.
+    """
+    if plan.get("pixel") is None:
+        return []
+    return [
+        "",
+        "# O vídeo cruza do núcleo ao pixel só por sincronizadores de dois",
+        "# flip-flops e por memórias de duas portas com um relógio em cada",
+        "# uma, então os caminhos entre os dois domínios são falsos.",
+        f"set clk_pixel {{{_node(pattern, plan.index('pixel'))}}}",
+        "set pixel_clocks [get_clocks $clk_pixel]",
+        "set_false_path -from $core_clocks -to $pixel_clocks",
+        "set_false_path -from $pixel_clocks -to $core_clocks",
+    ]
 
 
 def _slow_false_paths(ports: tuple[Port, ...]) -> list[str]:

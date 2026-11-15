@@ -519,7 +519,7 @@ def _generics(
         text = str(value).lower() if field_spec.type == "bool" else str(value)
         out.append(f"{field_spec.generic} => {text}")
     if spec.video is not None and variant.entity == "video":
-        out += [f"channel_bits => {spec.video.channel_bits}"]
+        out += spec.video.entity_generics()
     return out
 
 

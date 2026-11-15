@@ -16,7 +16,7 @@ from riscv_tools.board_inputs import BoardInputs, InputError
 # não varia com ele.
 PLL_INSTANCE = "pll_inst"
 # Ordem das saídas do PLL.
-ROLE_ORDER = ("mem", "mem_pin", "fetch", "core")
+ROLE_ORDER = ("mem", "mem_pin", "fetch", "core", "pixel")
 
 
 @dataclass(frozen=True)
@@ -26,7 +26,7 @@ class ClockRole:
     Attributes
     ----------
     role : str
-        `mem`, `mem_pin`, `fetch` ou `core`.
+        `mem`, `mem_pin`, `fetch`, `core` ou `pixel`.
     mhz : Fraction
         Frequência em MHz.
     phase_ps : int
@@ -96,8 +96,12 @@ class ClockPlan:
 
     @property
     def min_period_ns(self) -> Fraction:
-        """Menor período entre os relógios do SoC."""
-        return min(c.period_ns for c in self.roles if c.role != "mem_pin")
+        """Menor período entre os relógios do SoC (sem o de pixel)."""
+        return min(
+            c.period_ns
+            for c in self.roles
+            if c.role not in ("mem_pin", "pixel")
+        )
 
 
 def _fraction(value: Any, what: str) -> Fraction:
@@ -218,13 +222,18 @@ def _mem_roles(
     return roles
 
 
-def clock_plan(inputs: BoardInputs) -> ClockPlan:
+def clock_plan(
+    inputs: BoardInputs, pixel_mhz: Fraction | None = None
+) -> ClockPlan:
     """Monta o plano de relógios.
 
     Parameters
     ----------
     inputs : BoardInputs
         Os dados da placa.
+    pixel_mhz : Fraction or None
+        O relógio de pixel do modo de vídeo; vira o papel `pixel`,
+        depois de `core`. `None` sem vídeo na plataforma.
 
     Returns
     -------
@@ -257,6 +266,8 @@ def clock_plan(inputs: BoardInputs) -> ClockPlan:
                     int(fields.get("phase_ps", 0)),
                 )
             )
+    if pixel_mhz is not None:
+        roles.append(ClockRole("pixel", pixel_mhz, 0))
     return ClockPlan(
         str(reference["signal"]),
         _fraction(reference["mhz"], "clocks.inputs"),

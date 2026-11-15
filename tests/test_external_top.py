@@ -93,13 +93,33 @@ def test_the_adc_picks_the_entity_by_chip(tmp_path: Path) -> None:
     check_in("ext_irq(ADC2_EXT_POS) <= '0';", text)
 
 
-def test_video_and_hdmi_wait_for_the_pixel_clock(tmp_path: Path) -> None:
+def test_hdmi_waits_for_the_pixel_clock(tmp_path: Path) -> None:
     """Without a pixel clock the instance is left out with a warning."""
-    for kind, name in (("video", "VIDEO"), ("hdmi", "HDMI")):
-        (tmp_path / kind).mkdir()
-        text, warnings = _top(tmp_path / kind, kind)
-        check(any(name in w and "pixel clock" in w for w in warnings))
-        check_in(f"ext_irq({name}_EXT_POS) <= '0';", text)
+    text, warnings = _top(tmp_path, "hdmi")
+    check(any("HDMI" in w and "pixel clock" in w for w in warnings))
+    check_in("ext_irq(HDMI_EXT_POS) <= '0';", text)
+
+
+def test_video_gets_the_pixel_clock_and_its_generics(tmp_path: Path) -> None:
+    """The video takes a PLL output and the plan as generics."""
+    result = generate(request(tmp_path, "video"))
+    text = " ".join(
+        next(
+            t for n, t in result.files.items() if n.endswith("_top.vhd")
+        ).split()
+    )
+    check_in("signal clk_pixel : std_logic;", text)
+    check_in("outclk_3 => clk_pixel", text)
+    check_in("u_video : entity work.video generic map (", text)
+    check_in('pixel_format => "indexed"', text)
+    check_in("fb_width => 320", text)
+    check_in("scale => 2", text)
+    check_in("h_visible => 640", text)
+    check_in("i_pixel_clk => clk_pixel", text)
+    check_equal([w for w in result.warnings if "pixel clock" in w], [])
+    sdc = next(t for n, t in result.files.items() if n.endswith(".sdc"))
+    check_in("set_false_path -from $core_clocks -to $pixel_clocks", sdc)
+    check_in("set_false_path -from $pixel_clocks -to $core_clocks", sdc)
 
 
 def test_a_platform_without_external_peripherals_has_no_bus(

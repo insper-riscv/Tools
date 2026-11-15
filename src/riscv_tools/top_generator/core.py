@@ -168,6 +168,11 @@ def _declarations(spec: TopSpec) -> list[str]:
         f"\t\t\toutclk_{i} : out std_logic;\n"
         for i in range(len(spec.plan.roles))
     )
+    pixel = (
+        ["\tsignal clk_pixel : std_logic;"]
+        if spec.plan.get("pixel") is not None
+        else []
+    )
     lines = [
         "\t-- O PLL é um módulo Verilog, instanciado por componente.",
         f"\tcomponent {spec.pll_module} is",
@@ -180,6 +185,7 @@ def _declarations(spec: TopSpec) -> list[str]:
         "",
         "\t-- Relógios por papel (K7) e travamento do PLL.",
         "\tsignal clk_core, clk_fetch, clk_mem, clk_mem_pin : std_logic;",
+        *pixel,
         "\tsignal pll_locked : std_logic;",
         "\t-- Reset do usuário ativo em '1' e reset do SoC.",
         "\tsignal reset_active, rst_async, soc_rst : std_logic;",

@@ -36,13 +36,24 @@ The pixel clock is one more output of the PLL that already makes the clocks of t
 
 ### 3.2. Framebuffer
 
-Each pixel stores the three channels, that is, $3 \cdot \text{channel\_bits}$ bits, and the framebuffer takes
+The pixel format is `pixel_format` of `io.video`, and the default is `indexed`. Each format stores the bits of the table below, and the peripheral writes the framebuffer in 32-bit words, with each line rounded up to whole words.
+
+| `pixel_format` | Bits per pixel | Palette |
+| :--- | ---: | :--- |
+| `indexed` | 8 | 256 entries of $3 \cdot \text{channel\_bits}$ bits |
+| `direct` | 16 if $3 \cdot \text{channel\_bits} \le 16$, else 32 | none |
+
+The framebuffer and the palette take
 
 $$
-\left\lceil \frac{\text{fb\_width} \cdot \text{fb\_height} \cdot 3 \cdot \text{channel\_bits}}{\text{bits\_per\_block}} \right\rceil
+\left\lceil \frac{\text{fb\_height} \cdot \left\lceil \text{fb\_width} \cdot \text{bits} / 32 \right\rceil \cdot 32 + 256 \cdot 3 \cdot \text{channel\_bits}}{\text{bits\_per\_block}} \right\rceil
 $$
 
-memory blocks. The free amount is the capacity of the board minus the blocks that the estimate of [fit_estimate](fit_estimate.md) gives for the profile. Without the calibration table of the family, the check compares with the total of the device. Without `fb_width` and `fb_height` the framebuffer has the visible area of the mode.
+memory blocks, without the palette term in the `direct` format. The free amount is the capacity of the board minus the blocks that the estimate of [fit_estimate](fit_estimate.md) gives for the profile. Without the calibration table of the family, the check compares with the total of the device. Without `fb_width` and `fb_height` the framebuffer has the visible area of the mode.
+
+The framebuffer takes the upper half of the window of the peripheral, $2^{15}$ words (128 KiB), and V22 also rejects a framebuffer that exceeds it (the 640x480 indexed one, of 300 KiB, does not fit, and the 320x200 one does).
+
+The `scale` of `io.video` is the enlargement of each framebuffer pixel. Without it, the largest whole enlargement that fits the image in the visible area is used, and a larger value is a V20 error.
 
 ## 4. Generics for the top
 
@@ -53,11 +64,16 @@ memory blocks. The free amount is the capacity of the board minus the blocks tha
 | `video_kind` | `"vga"` or `"hdmi"` |
 | `video_channel_bits` | 4 or 8 |
 | `video_fb_width`, `video_fb_height` | Framebuffer size |
+| `video_pixel_format`, `video_scale` | `"indexed"` or `"direct"`, and the pixel enlargement |
 | `video_h_visible`, `video_h_front_porch`, `video_h_sync`, `video_h_back_porch`, `video_h_total` | Horizontal timing, in pixels |
 | `video_v_visible`, `video_v_front_porch`, `video_v_sync`, `video_v_back_porch`, `video_v_total` | Vertical timing, in lines |
 | `video_h_sync_positive`, `video_v_sync_positive` | `true` when the synchronism pulse is high |
 
-The generated top does not instantiate the video peripheral yet, and the video pins do not become top ports yet. The generic map of the SoC does not receive the generics above.
+The `video` peripheral of the generated top receives the generics of the entity, with its names and without the `video_` prefix, written by `VideoPlan.entity_generics()`: `fb_width`, `fb_height`, `channel_bits`, `pixel_format`, `scale` and, for each direction, `h_` and `v_` followed by `visible`, `front_porch`, `sync`, `back_porch` and `sync_positive`. The generic map of the SoC does not receive the generics above.
+
+### 4.1. Pixel clock in the top
+
+When the platform lists a peripheral of `kind: video`, the clock plan gains the `pixel` role, with the frequency of the mode, as the last output of the PLL, and the top declares the `clk_pixel` signal. The `.sdc` declares the paths between the core domain and the pixel domain false, because the video carries the enable, the reset and the frame state through two-flip-flop synchronizers and keeps the framebuffer and the palette in memories with one clock on each port. The `pixel` role does not enter the smallest SoC period that bounds the crossings.
 
 ## 5. Tests
 
@@ -65,6 +81,7 @@ The generated top does not instantiate the video peripheral yet, and the video p
 | :--- | :--- |
 | `tests/test_board_video.py` | Reading of the `video` role and of the catalog of modes, the platform request (including `16:9` without quotes), the mode choice, the rules V20 to V22, the generics and the catalog check |
 | `tests/test_board_video_generate.py` | The plan reaches `Generated`, the generated top does not change, the generics come out of the `TopSpec` and the generator refuses an impossible request |
+| `tests/test_external_top.py` | The `video` peripheral gets the pixel clock, the generics of the entity and the false paths of the `.sdc` |
 
 ---
 
