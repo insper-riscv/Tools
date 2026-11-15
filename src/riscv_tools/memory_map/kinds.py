@@ -25,6 +25,17 @@ from riscv_tools.memory_map.kind_fields import (
 )
 
 KIND_TIMER = "timer"
+# Entidades com relógio de pixel (`i_pixel_clk`) e `i_byteena`.
+PIXEL_ENTITIES = frozenset({"video", "hdmi_tx", "hdmi_tmds_tx"})
+# Entidades que levam também o relógio serial de 5 vezes o do pixel.
+SERIAL_ENTITIES = frozenset({"hdmi_tmds_tx"})
+# Entidades que o `Peripherals` ainda não tem, com o motivo da recusa.
+MISSING_ENTITIES = {
+    "hdmi_tmds_tx": (
+        "the serializer TMDS entity hdmi_tmds_tx is not in the "
+        "Peripherals repository yet"
+    )
+}
 GROUP_KINDS = ("gpio", "seg_display")
 # A palavra de registrador, em bytes: a janela é 4 << bits do endereço.
 WORD_BYTES = 4
@@ -428,7 +439,7 @@ EXTERNAL: dict[str, ExternalKind] = {
                     _pins(">convst >sck >sdi <sdo"),
                     "clock_hz",
                 ),
-                "max10": Variant("max10_adc", 5, (), "clk_freq"),
+                "max10": Variant("max10_adc", 5, _pins("<clk?"), "clk_freq"),
             },
             "chip",
             fields=(
@@ -456,6 +467,12 @@ EXTERNAL: dict[str, ExternalKind] = {
                 ranged("word_width", 1, 32),
                 *ints("reset_sclk_hz rx_fifo_depth tx_fifo_depth", 1),
             ),
+        ),
+        ExternalKind(
+            "hdmi_tmds",
+            "hdmi_tmds",
+            False,
+            _one("hdmi_tmds_tx", 16, ">tmds >clk =scl =sda <hpd?"),
         ),
         ExternalKind(
             "adxl345",

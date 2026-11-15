@@ -16,7 +16,9 @@ from riscv_tools.board_inputs import BoardInputs, InputError
 # não varia com ele.
 PLL_INSTANCE = "pll_inst"
 # Ordem das saídas do PLL.
-ROLE_ORDER = ("mem", "mem_pin", "fetch", "core")
+ROLE_ORDER = ("mem", "mem_pin", "fetch", "core", "pixel", "pixel_x5")
+# Relógios de domínio próprio do vídeo, fora do limite de cruzamento.
+VIDEO_ROLES = ("pixel", "pixel_x5")
 
 
 @dataclass(frozen=True)
@@ -26,7 +28,7 @@ class ClockRole:
     Attributes
     ----------
     role : str
-        `mem`, `mem_pin`, `fetch` ou `core`.
+        `mem`, `mem_pin`, `fetch`, `core`, `pixel` ou `pixel_x5`.
     mhz : Fraction
         Frequência em MHz.
     phase_ps : int
@@ -57,12 +59,15 @@ class ClockPlan:
         Os relógios pedidos, na ordem das saídas do PLL.
     warnings : list of str
         Avisos (fase desconhecida).
+    inputs : tuple of (str, Fraction)
+        Todos os relógios que entram na placa, como sinal e frequência.
     """
 
     reference_signal: str
     reference_mhz: Fraction
     roles: tuple[ClockRole, ...]
     warnings: list[str] = field(default_factory=list[str])
+    inputs: tuple[tuple[str, Fraction], ...] = ()
 
     def get(self, role: str) -> ClockRole | None:
         """Busca um relógio pelo papel.
@@ -96,8 +101,17 @@ class ClockPlan:
 
     @property
     def min_period_ns(self) -> Fraction:
-        """Menor período entre os relógios do SoC."""
-        return min(c.period_ns for c in self.roles if c.role != "mem_pin")
+        """Menor período entre os relógios do SoC, sem os do vídeo."""
+        return min(
+            c.period_ns
+            for c in self.roles
+            if c.role != "mem_pin" and c.role not in VIDEO_ROLES
+        )
+
+    @property
+    def video_roles(self) -> tuple[ClockRole, ...]:
+        """Os relógios do vídeo, cada um num domínio próprio."""
+        return tuple(c for c in self.roles if c.role in VIDEO_ROLES)
 
 
 def _fraction(value: Any, what: str) -> Fraction:
@@ -218,13 +232,23 @@ def _mem_roles(
     return roles
 
 
-def clock_plan(inputs: BoardInputs) -> ClockPlan:
+def clock_plan(
+    inputs: BoardInputs,
+    pixel_mhz: Fraction | None = None,
+    serial: bool = False,
+) -> ClockPlan:
     """Monta o plano de relógios.
 
     Parameters
     ----------
     inputs : BoardInputs
         Os dados da placa.
+    pixel_mhz : Fraction or None
+        O relógio de pixel do vídeo; `None` quando nenhum periférico o
+        usa, e então o PLL não ganha a saída.
+    serial : bool
+        Se um periférico pede também o relógio serial, de cinco vezes o
+        de pixel (TMDS com duas amostras por bit).
 
     Returns
     -------
@@ -257,9 +281,17 @@ def clock_plan(inputs: BoardInputs) -> ClockPlan:
                     int(fields.get("phase_ps", 0)),
                 )
             )
+    if pixel_mhz is not None:
+        roles.append(ClockRole("pixel", pixel_mhz, 0))
+        if serial:
+            roles.append(ClockRole("pixel_x5", 5 * pixel_mhz, 0))
     return ClockPlan(
         str(reference["signal"]),
         _fraction(reference["mhz"], "clocks.inputs"),
         tuple(roles),
         warnings,
+        tuple(
+            (str(c["signal"]), _fraction(c["mhz"], "clocks.inputs"))
+            for c in cast(list[dict[str, Any]], board_clocks["inputs"])
+        ),
     )

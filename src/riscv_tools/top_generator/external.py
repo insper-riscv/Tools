@@ -20,16 +20,22 @@ entidade, e o open drain do I2C leva o `'0'` ou solta o pino.
 from dataclasses import dataclass, field
 from typing import Any
 
+from riscv_tools.board_inputs import InputError
 from riscv_tools.board_ports import Port
 from riscv_tools.memory_map.external import external_list
 from riscv_tools.memory_map.kind_fields import FieldSpec
-from riscv_tools.memory_map.kinds import EXTERNAL, Variant
+from riscv_tools.memory_map.kinds import (
+    EXTERNAL,
+    MISSING_ENTITIES,
+    PIXEL_ENTITIES,
+    Variant,
+)
 from riscv_tools.top_generator.spec import TopSpec
 
 # Entidades sem o sinal `i_read` e as que têm `i_byteena` e relógio de
 # pixel.
 NO_READ = frozenset({"video", "hdmi_tx", "adc128s022", "ltc2308", "adxl345"})
-WITH_PIXEL = frozenset({"video", "hdmi_tx"})
+WITH_PIXEL = PIXEL_ENTITIES
 # A entidade que só existe com o IP do fabricante, fora do topo.
 NEEDS_IP = frozenset({"max10_adc"})
 _WORD = 32
@@ -692,6 +698,11 @@ def _place(spec: TopSpec, item: dict[str, Any], result: ExternalTop) -> None:
     pins = {p.pin: p for p in spec.ports if p.owner == name}
     variant = EXTERNAL[str(item["kind"])].variant(item)
     wired = None
+    if variant is not None and variant.entity in MISSING_ENTITIES:
+        raise InputError(
+            f"E peripheral {name}: {item['kind']} cannot be generated, "
+            f"{MISSING_ENTITIES[variant.entity]}"
+        )
     if variant is not None and variant.entity in NEEDS_IP:
         result.notes.append(
             f"W peripheral {name}: {variant.entity} needs the vendor IP "

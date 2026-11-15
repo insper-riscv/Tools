@@ -10,11 +10,21 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
-from riscv_tools.board_clocks import clock_plan
+from riscv_tools.board_clocks import ClockPlan, clock_plan
 from riscv_tools.board_inputs import BoardInputs, InputError, load_inputs
 from riscv_tools.board_ports import PortPlan, build_ports
-from riscv_tools.board_schema import SchemaError, read_platform_video
-from riscv_tools.board_video import VideoError, VideoPlan, plan_video
+from riscv_tools.board_schema import (
+    PlatformVideo,
+    SchemaError,
+    read_platform_video,
+)
+from riscv_tools.board_video import (
+    VideoError,
+    VideoPlan,
+    pixel_request,
+    plan_video,
+    uses_pixel,
+)
 from riscv_tools.chip_package import (
     IoDelays,
     chip_io_delays,
@@ -22,7 +32,7 @@ from riscv_tools.chip_package import (
     render_chip_package,
 )
 from riscv_tools.pin_assignments import render_pins
-from riscv_tools.pll_generator import RenderedPll, generate_pll
+from riscv_tools.pll_generator import PllError, RenderedPll, generate_pll
 from riscv_tools.quartus_project import ProjectSpec, render_qpf, render_qsf
 from riscv_tools.sdc_generator import render_sdc
 from riscv_tools.top_generator import TopSpec, render_top, top_name
@@ -250,6 +260,9 @@ def _video_plan(inputs: BoardInputs) -> VideoPlan | None:
         request = read_platform_video(inputs.platform)
     except SchemaError as bad:
         raise InputError(str(bad)) from bad
+    if request is None and uses_pixel(inputs.platform) and inputs.video:
+        # Um periférico de vídeo sem `io.video` pede o modo padrão.
+        request = PlatformVideo()
     if request is None:
         return None
     if inputs.video is None:
@@ -261,6 +274,77 @@ def _video_plan(inputs: BoardInputs) -> VideoPlan | None:
         return plan_video(inputs.video, inputs.video_modes, request)
     except VideoError as bad:
         raise InputError(f"E {bad}") from bad
+
+
+def _clock_plan(inputs: BoardInputs, video: VideoPlan | None) -> ClockPlan:
+    """Monta os relógios, com o de pixel se um periférico o usa.
+
+    Parameters
+    ----------
+    inputs : BoardInputs
+        Os dados da placa.
+    video : VideoPlan or None
+        O vídeo resolvido.
+
+    Returns
+    -------
+    ClockPlan
+        Os relógios da plataforma e, com vídeo, o de pixel.
+
+    Raises
+    ------
+    InputError
+        Se o relógio de pixel escrito diverge do modo.
+    """
+    try:
+        pixel = pixel_request(inputs.platform, video)
+    except VideoError as bad:
+        raise InputError(f"E {bad}") from bad
+    if pixel is None:
+        return clock_plan(inputs)
+    return clock_plan(inputs, pixel.mhz, pixel.serial)
+
+
+def _render_pll(
+    inputs: BoardInputs, module: str, plan: ClockPlan
+) -> RenderedPll:
+    """Escreve o PLL da placa com os relógios do plano.
+
+    Parameters
+    ----------
+    inputs : BoardInputs
+        Os dados da placa.
+    module : str
+        Nome do módulo do PLL.
+    plan : ClockPlan
+        Os relógios pedidos.
+
+    Returns
+    -------
+    RenderedPll
+        O arquivo do PLL.
+
+    Raises
+    ------
+    InputError
+        Se a família não declara o PLL ou ele não faz os relógios.
+    """
+    pll_info = cast(dict[str, Any], inputs.family.get("pll") or {})
+    if not pll_info:
+        raise InputError(f"family {inputs.board['family']!r}: no pll section")
+    try:
+        rendered, _ = generate_pll(
+            module,
+            plan.reference_mhz,
+            plan.roles,
+            pll_info,
+            str(inputs.family["quartus_family"]),
+        )
+    except PllError as bad:
+        raise InputError(
+            str(bad) if str(bad).startswith("E ") else f"E {bad}"
+        ) from bad
+    return rendered
 
 
 def generate(request: GenerateRequest) -> Generated:
@@ -290,19 +374,10 @@ def generate(request: GenerateRequest) -> Generated:
     board_name = str(inputs.board["board"])
     platform_name = str(inputs.platform["platform"])
     stem = _slug(f"{platform_name}_{board_name}")
-    plan = clock_plan(inputs)
-    ports = build_ports(inputs)
     video = _video_plan(inputs)
-    pll_info = cast(dict[str, Any], inputs.family.get("pll") or {})
-    if not pll_info:
-        raise InputError(f"family {inputs.board['family']!r}: no pll section")
-    rendered, _ = generate_pll(
-        f"{stem}_pll",
-        plan.reference_mhz,
-        plan.roles,
-        pll_info,
-        str(inputs.family["quartus_family"]),
-    )
+    plan = _clock_plan(inputs, video)
+    ports = build_ports(inputs)
+    rendered = _render_pll(inputs, f"{stem}_pll", plan)
     chip_files, packages = _chip_files(inputs)
     top = top_name(platform_name, board_name)
     rendered_top = render_top(
@@ -322,7 +397,12 @@ def generate(request: GenerateRequest) -> Generated:
             plan,
             ports.ports,
             _sdram_delays(inputs, plan.get("mem_pin") is not None),
-            cast("str | None", pll_info.get("clock_node_pattern")),
+            cast(
+                "str | None",
+                cast(dict[str, Any], inputs.family["pll"]).get(
+                    "clock_node_pattern"
+                ),
+            ),
         ),
         f"{top}.vhd": rendered_top.text,
         **chip_files,

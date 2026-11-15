@@ -456,3 +456,11 @@ signals:
   - {name: "SER_TXD", pin: "FX133", io_standard: "3.3-V LVTTL", direction: "out", source: "fixture de teste", confirmed: "inferred"}
   - {name: "SER_CTS", pin: "FX134", io_standard: "3.3-V LVTTL", direction: "in", source: "fixture de teste", confirmed: "inferred"}
   - {name: "SER_RTS", pin: "FX135", io_standard: "3.3-V LVTTL", direction: "out", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "TMDS[0]", pin: "FX140", io_standard: "3.3-V LVTTL", direction: "out", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "TMDS[1]", pin: "FX141", io_standard: "3.3-V LVTTL", direction: "out", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "TMDS[2]", pin: "FX142", io_standard: "3.3-V LVTTL", direction: "out", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "TMDS_CLK", pin: "FX143", io_standard: "3.3-V LVTTL", direction: "out", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "TMDS_SCL", pin: "FX144", io_standard: "3.3-V LVTTL", direction: "inout", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "TMDS_SDA", pin: "FX145", io_standard: "3.3-V LVTTL", direction: "inout", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "TMDS_HPD", pin: "FX146", io_standard: "3.3-V LVTTL", direction: "in", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "ADC_CLK_10", pin: "FX147", io_standard: "3.3-V LVTTL", direction: "in", source: "fixture de teste", confirmed: "inferred"}

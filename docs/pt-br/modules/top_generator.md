@@ -57,7 +57,7 @@ A instância liga `i_clk` ao relógio do núcleo e `i_rst` ao reset do SoC, e os
 | `uart` | `rx` e `tx` direto; sem o pino `cts` a entrada fica em `'0'`, e sem `rts` a saída fica aberta |
 | `adc128s022`, `ltc2308`, `ir_receiver`, `tv`, `spi` | Direto; o `cs_n` do `spi` é fatiado na largura da porta da placa |
 
-O `video` e o `hdmi_tx` precisam de um relógio de pixel do plano de relógios, e sem ele a instância fica fora com um aviso. O `max10_adc` precisa do IP do fabricante e também fica fora com um aviso.
+O `video` e o `hdmi_tx` recebem o `i_pixel_clk` do sinal `clk_pixel`, declarado quando o plano de relógios tem a saída `pixel`; sem ela (nenhuma fonte dá a frequência) a instância fica fora com um aviso. O kind `hdmi_tmds` (saída TMDS direta, papel `hdmi_tmds` com `tmds`, `clk`, `scl`, `sda` e `hpd` opcional) está registrado, mas a entidade `hdmi_tmds_tx` não está no `Peripherals`; a geração falha com um erro que diz isso, e nenhuma porta é inventada. A dependência é o serializador TMDS do `Peripherals`, com o relógio de pixel e o relógio serial de cinco vezes (`pixel_x5`) que o plano já produz. O `max10_adc` precisa do IP do fabricante e também fica fora com um aviso.
 
 ## 4. Testes
 

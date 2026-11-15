@@ -639,6 +639,7 @@ peripherals:
 | `eth` | `eth` (MII) | `eth` | 256 bytes | sim | seção 9.7 |
 | `hdmi` | `hdmi_tx` | `hdmi` | 256 KiB | sim | seção 9.7 |
 | `hdmi_audio` | `hdmi_audio` | `hdmi_audio` | 64 bytes | sim | seção 9.7 |
+| `hdmi_tmds` | `hdmi_tmds_tx` (ainda fora do `Peripherals`) | `hdmi_tmds` | 256 KiB | não | nenhum |
 | `uart` | `uart` | `serial` | 16 bytes | sim | seção 9.7 |
 | `tv` | `tv` | `tv` | 64 bytes | sim | seção 9.7 |
 | `adc` | `adc128s022`, `ltc2308` ou `max10_adc` | `adc` | 64, 64 ou 128 bytes | sim | `chip` (obrigatório) e os da seção 9.7 |

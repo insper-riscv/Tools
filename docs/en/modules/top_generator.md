@@ -57,7 +57,7 @@ The instance wires `i_clk` to the core clock and `i_rst` to the SoC reset, and t
 | `uart` | `rx` and `tx` direct; without the `cts` pin the input is tied to `'0'`, and without `rts` the output is left open |
 | `adc128s022`, `ltc2308`, `ir_receiver`, `tv`, `spi` | Straight; the `cs_n` of the `spi` is sliced to the width of the board port |
 
-The `video` and the `hdmi_tx` need a pixel clock from the clock plan, and without it the instance is left out with a warning. The `max10_adc` needs the vendor IP and is also left out with a warning.
+The `video` and the `hdmi_tx` receive `i_pixel_clk` from the `clk_pixel` signal, declared when the clock plan has the `pixel` output; without it (no source gives the frequency) the instance is left out with a warning. The `hdmi_tmds` kind (direct TMDS output, role `hdmi_tmds` with `tmds`, `clk`, `scl`, `sda` and optional `hpd`) is registered, but the `hdmi_tmds_tx` entity is not in `Peripherals`; the generation fails with an error that says so, and no port is invented. The dependency is the TMDS serializer of `Peripherals`, with the pixel clock and the serial clock of five times (`pixel_x5`) that the plan already makes. The `max10_adc` needs the vendor IP and is also left out with a warning.
 
 ## 4. Tests
 

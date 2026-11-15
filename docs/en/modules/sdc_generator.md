@@ -24,14 +24,19 @@ $$ b = \min_{r} T_r $$
 
 which gives 10 ns for the DE0-CV at 50 MHz core and 100 MHz controller, and follows the core period when it changes.
 
-## 4. PLL clock nodes
+## 4. Pixel clock and ADC clock
+
+With the `pixel` output in the plan, the `.sdc` declares the pixel clock node and bounds the two crossings with the core domain by the smaller of the pixel period and the bound of section 3. `pixel_x5` is just one more node, in the domain related to the pixel. The `clk` pin of the `adc` role (the `ADC_CLK_10` of the MAX 10) becomes a `create_clock` with the period of the board input and a clock group asynchronous to the others.
+
+## 5. PLL clock nodes
 
 The node name comes from the family field `pll.clock_node_pattern`, with `<instance>` and `[N]`, replaced by the PLL instance name and the output index. A family without the pattern (`altpll` still unmeasured) fails with `SdcError`.
 
-## 5. Tests
+## 6. Tests
 
 | Test | What it checks |
 | :--- | :--- |
+| `tests/test_video_clocks.py` | The pixel clock domain, the crossings and the `create_clock` of `ADC_CLK_10` |
 | `tests/test_board_equivalence.py` | The generated DE0-CV `.sdc` has the constraints of the hand-written `de0-cv.sdc` |
 | `tests/test_board_generate.py` | `.sdc` of the boards with a test PLL |
 

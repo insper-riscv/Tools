@@ -3,7 +3,7 @@
 from pathlib import Path
 
 import pytest
-from peripherals_support import EXAMPLES, request
+from peripherals_support import GENERATED, request
 from support import check, check_equal, check_in, check_not_in
 
 from riscv_tools.board_generate import generate
@@ -16,7 +16,7 @@ def _top(tmp_path: Path, kind: str) -> tuple[str, list[str]]:
     return " ".join(text.split()), result.warnings
 
 
-@pytest.mark.parametrize("kind", EXAMPLES)
+@pytest.mark.parametrize("kind", GENERATED)
 def test_every_example_generates_its_instance(
     kind: str, tmp_path: Path
 ) -> None:
@@ -91,15 +91,6 @@ def test_the_adc_picks_the_entity_by_chip(tmp_path: Path) -> None:
     check_not_in("max10_adc", text)
     check(any("ADC2" in w and "vendor IP" in w for w in warnings))
     check_in("ext_irq(ADC2_EXT_POS) <= '0';", text)
-
-
-def test_video_and_hdmi_wait_for_the_pixel_clock(tmp_path: Path) -> None:
-    """Without a pixel clock the instance is left out with a warning."""
-    for kind, name in (("video", "VIDEO"), ("hdmi", "HDMI")):
-        (tmp_path / kind).mkdir()
-        text, warnings = _top(tmp_path / kind, kind)
-        check(any(name in w and "pixel clock" in w for w in warnings))
-        check_in(f"ext_irq({name}_EXT_POS) <= '0';", text)
 
 
 def test_a_platform_without_external_peripherals_has_no_bus(

@@ -181,6 +181,10 @@ def _declarations(spec: TopSpec) -> list[str]:
         "",
         "\t-- Relógios por papel (K7) e travamento do PLL.",
         "\tsignal clk_core, clk_fetch, clk_mem, clk_mem_pin : std_logic;",
+        *(
+            f"\tsignal clk_{c.role} : std_logic;"
+            for c in spec.plan.video_roles
+        ),
         "\tsignal pll_locked : std_logic;",
         "\t-- Reset do usuário ativo em '1' e reset do SoC.",
         "\tsignal reset_active, rst_async, soc_rst : std_logic;",

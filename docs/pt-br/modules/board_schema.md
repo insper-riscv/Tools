@@ -103,12 +103,13 @@ Um valor é um sinal (`SD_CLK`) ou um barramento (`SD_DAT[3:0]`) do `pins.yaml`.
 | `audio` | `xck`, `bclk`, `adclrck`, `daclrck` e `dacdat` (out), `adcdat` (in) |
 | `eth` (MII) | `rx_clk`, `rxd`, `rx_dv`, `rx_er`, `tx_clk` e `int_n?` (in), `txd`, `tx_en`, `tx_er`, `mdc` e `rst_n` (out), `mdio` (inout) |
 | `hdmi` | `d`, `clk`, `de`, `hs` e `vs` (out), `int` (in), `scl` e `sda` (inout) |
+| `hdmi_tmds` | `tmds` (vetor de três linhas), `clk` (out), `scl` e `sda` (inout), `hpd?` (in), a saída TMDS direta sem conversor, como a da Vidor |
 | `hdmi_audio` | `mclk`, `sclk`, `lrclk` e `i2s0` (out), as quatro linhas I2S do transmissor HDMI |
 | `serial` | `rx` e `cts?` (in), `tx` e `rts?` (out) |
 | `tv` | `data` e `clk27` (in), `reset_n` (out) |
 | `adc` com `chip: adc128s022` | `cs_n`, `sclk` e `saddr` (out), `sdat` (in) |
 | `adc` com `chip: ltc2308` | `convst`, `sck` e `sdi` (out), `sdo` (in) |
-| `adc` com `chip: max10` | nenhum pino, só a presença do ADC interno |
+| `adc` com `chip: max10` | `clk?` (in), o relógio de 10 MHz que a placa entrega ao ADC interno (`ADC_CLK_10`); sem ele só a presença do ADC |
 | `spi` | `sclk`, `mosi` e `cs_n` (out), `miso` (in) |
 | `adxl345` | `cs_n` e `sclk` (out), `mosi` (inout), `miso?` e `int1?` (in) |
 
