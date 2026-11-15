@@ -20,10 +20,11 @@ The generated top has no logic besides the reset. It wires, in this order, the b
 | `emulado` RAM backend | `onchip_ram_port` over the `ram` block, with the requested latency |
 | `dispositivo/sdram` backend | Two bridges (data and instruction), `sdram_arbiter`, `sdram_dbg_master`, `sdram_jtag_shell`, `sdram_ctrl` and one `tristate_buffer_1bit` per data bit in a `generate`; the 16 or 32-bit width and the row, column and bank bits come from the chip and from `memories.sdram.chips` |
 | `dispositivo/nor` backend | 8-bit `nor_flash_ctrl` with page read and the program update commands, and the FLASH pin ring |
+| `dispositivo/sram` backend | `sram_ctrl` on the data port of the SoC, with the `ADDR` (20 bits), `CE#`, `OE#`, `WE#`, `LB#` and `UB#` pins wired directly, one `tristate_buffer_1bit` for each bit of the 16-bit `DQ`, the size of the chip package and the timings of `chip_timing_pkg`; the instruction port of the RAM gets no answer, as in the emulated RAM |
 
 ## 3. What the top does not wire
 
-A backend without an entity (`sram`, `flash-interna` and `serial`) generates no instance: the top warns and leaves the region idle. The SoC does not export the LED role: the LED pins stay at the off level, except the first one, which lights with the failure flag the host writes to the display (Virtual JTAG node of index 2). The text of each backend lives in `templates/`, with the real names and ports of the Memory entities.
+A backend without an entity (`flash-interna` and `serial`) generates no instance: the top warns and leaves the region idle. The SoC does not export the LED role: the LED pins stay at the off level, except the first one, which lights with the failure flag the host writes to the display (Virtual JTAG node of index 2). The text of each backend lives in `templates/`, with the real names and ports of the Memory entities.
 
 ### 3.1. Video
 

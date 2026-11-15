@@ -4,9 +4,10 @@ Cada backend é uma composição de entidades que já existem no Memory,
 com os nomes e as portas reais delas (`flash_chip`, `flash`,
 `flash_loader`, `flash_jtag_shell`, `onchip_ram_port`, `ram`,
 `sdram_cpu_bridge`, `sdram_arbiter`, `sdram_dbg_master`,
-`sdram_jtag_shell`, `sdram_ctrl` e `nor_flash_ctrl`). O texto de cada
+`sdram_jtag_shell`, `sdram_ctrl`, `nor_flash_ctrl` e `sram_ctrl`). O
+texto de cada
 um fica em `templates/`, com `{campo}` onde o gerador preenche. Um
-backend sem entidade ainda (`sram`) não gera instância: o topo avisa e
+backend sem entidade ainda não gera instância: o topo avisa e
 deixa a região parada.
 """
 

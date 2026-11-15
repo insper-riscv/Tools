@@ -1,0 +1,27 @@
+	-- Backend de dispositivo da RAM: controlador da SRAM assíncrona de 16 bits no clock do núcleo.
+	sram_ctrl_inst : entity work.sram_ctrl
+		generic map (
+			clk_period_ns => {period_ns}, margin_ns => {margin_ns},
+			size_bytes => {size}, base_kib => RAM_BASE_KIB mod 65536
+		)
+		port map (
+			i_clk => clk_core, i_rst => soc_rst,
+			i_addr => rd_addr, i_wdata => rd_wdata, i_byteena => rd_be,
+			i_rden => rd_rden, i_wren => rd_wren, i_advance => rd_adv,
+			o_ready => rd_ready, o_rdata => rd_rdata,
+			i_line => rd_line, i_wdata_x => rd_wdx, o_rdata_x => rd_rdx,
+{pins},
+			o_sram_dq => sram_dq_out, o_sram_dq_oe => sram_dq_oe, i_sram_dq => sram_dq_in
+		);
+
+	-- Anel de pinos: um buffer de três estados por bit de {dq_name}.
+	gen_sram_dq : for i in 0 to 15 generate
+		sram_dq_tri : entity work.tristate_buffer_1bit
+			port map (i_d => sram_dq_out(i), i_enable => sram_dq_oe, o_d => {dq_name}(i));
+	end generate;
+	sram_dq_in <= {dq_name};
+
+	-- O controlador da SRAM atende só a porta de dados: a busca de instrução na RAM não tem backend, e a porta fica sem resposta.
+	ri_ready <= '0';
+	ri_rdata <= (others => '0');
+	ri_rdx <= (others => '0');

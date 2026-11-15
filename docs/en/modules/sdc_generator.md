@@ -14,7 +14,7 @@ Writes the timing constraints of a platform on a board from the clock plan, the 
 | 2 | Generated clock of the SDRAM pin and the chip I/O delays |
 | 3 | Memory read path (multicycle 2 and 1) |
 | 4 | Crossings between the `mem`, `core` and `fetch` domains, and between them and the JTAG clock |
-| 5 | False paths of the reset, switches, keys, LEDs and displays |
+| 5 | False paths of the reset, switches, keys, LEDs, displays and the pins of the NOR FLASH and the SRAM |
 
 ## 3. Crossing bound
 
