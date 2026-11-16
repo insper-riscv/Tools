@@ -787,6 +787,29 @@ def _lanes_generic(item: dict[str, Any], width: int) -> list[str]:
     return []
 
 
+def _missing_clock(spec: TopSpec, variant: Variant) -> str:
+    """Diz qual relógio de vídeo a entidade pede e o plano não tem.
+
+    Parameters
+    ----------
+    spec : TopSpec
+        O topo, com o plano de relógios.
+    variant : Variant
+        A entidade.
+
+    Returns
+    -------
+    str
+        `a pixel clock` ou `the serial clock (pixel_x5)`; vazio quando o
+        plano tem o que a entidade pede.
+    """
+    if variant.entity in WITH_PIXEL and spec.plan.get("pixel") is None:
+        return "a pixel clock"
+    if variant.entity in SERIAL_ENTITIES and spec.plan.get("pixel_x5") is None:
+        return "the serial clock (pixel_x5)"
+    return ""
+
+
 def _instance(
     spec: TopSpec,
     item: dict[str, Any],
@@ -817,17 +840,11 @@ def _instance(
     if variant is None:
         return None
     pixel = spec.plan.get("pixel")
-    serial = spec.plan.get("pixel_x5")
-    if variant.entity in WITH_PIXEL and pixel is None:
+    missing = _missing_clock(spec, variant)
+    if missing:
         notes.append(
-            f"W peripheral {name}: {kind.name} needs a pixel clock and the "
+            f"W peripheral {name}: {kind.name} needs {missing} and the "
             "clock plan has none; left out"
-        )
-        return None
-    if variant.entity in SERIAL_ENTITIES and serial is None:
-        notes.append(
-            f"W peripheral {name}: {kind.name} needs the serial clock "
-            "(pixel_x5) and the clock plan has none; left out"
         )
         return None
     wired = _wire(variant, item, pins)
