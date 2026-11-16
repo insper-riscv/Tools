@@ -440,7 +440,7 @@ def test_the_tmds_output_wires_pairs_clocks_and_hot_plug(
     ):
         check_in(found, text)
     check_not_in("i_read => ext_re(HDMI_EXT_POS)", text)
-    wrapper = text.split("u_hdmi_ddc")[0].split("u_hdmi :")[1]
+    wrapper = text.split("u_hdmi_ddc", maxsplit=1)[0].split("u_hdmi :")[1]
     check_not_in("clk_freq", wrapper)
     check_equal([w for w in warnings if "HDMI" in w], [])
 
@@ -451,7 +451,7 @@ def test_the_tmds_ddc_is_a_separate_i2c_master(tmp_path: Path) -> None:
     check_in("u_hdmi_ddc : entity work.i2c_master", text)
     check_in("TMDS_SCL <= '0' when hdmi_ddc_scl_low = '1'", text)
     check_in("TMDS_SDA <= '0' when hdmi_ddc_sda_low = '1'", text)
-    check_not_in("i_i2c_scl", text.split("u_hdmi_ddc")[0])
+    check_not_in("i_i2c_scl", text.split("u_hdmi_ddc", maxsplit=1)[0])
 
 
 def test_the_tmds_without_hpd_ties_it_to_zero(tmp_path: Path) -> None:
