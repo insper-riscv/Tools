@@ -29,13 +29,9 @@ KIND_TIMER = "timer"
 PIXEL_ENTITIES = frozenset({"video", "hdmi_tx", "hdmi_tmds_tx"})
 # Entidades que levam também o relógio serial de 5 vezes o do pixel.
 SERIAL_ENTITIES = frozenset({"hdmi_tmds_tx"})
-# Entidades que o `Peripherals` ainda não tem, com o motivo da recusa.
-MISSING_ENTITIES = {
-    "hdmi_tmds_tx": (
-        "the serializer TMDS entity hdmi_tmds_tx is not in the "
-        "Peripherals repository yet"
-    )
-}
+# Entidades que um kind registra e o `Peripherals` não tem, com o motivo
+# da recusa; o topo falha com ele em vez de inventar as portas.
+MISSING_ENTITIES: dict[str, str] = {}
 GROUP_KINDS = ("gpio", "seg_display")
 # A palavra de registrador, em bytes: a janela é 4 << bits do endereço.
 WORD_BYTES = 4
@@ -199,6 +195,22 @@ def _one(
     """
     return {"": Variant(entity, bits, _pins(pins), clock)}
 
+
+# Campos de modo e de framebuffer que o `hdmi_tx` e o `hdmi_tmds_tx`
+# compartilham.
+_VIDEO_FIELDS = (
+    *ints("fb_width fb_height scale", 1),
+    FieldSpec(
+        "pixel_format",
+        "choice",
+        "pixel_format",
+        choices=("indexed", "direct"),
+    ),
+    *ints("h_visible h_sync v_visible v_sync", 1),
+    *ints("h_front_porch h_back_porch v_front_porch v_back_porch"),
+    *bools("h_sync_positive v_sync_positive"),
+    *ints("mode_id pixel_clock_khz"),
+)
 
 EXTERNAL: dict[str, ExternalKind] = {
     kind.name: kind
@@ -387,17 +399,7 @@ EXTERNAL: dict[str, ExternalKind] = {
                 "clk_freq",
             ),
             fields=(
-                *ints("fb_width fb_height scale", 1),
-                FieldSpec(
-                    "pixel_format",
-                    "choice",
-                    "pixel_format",
-                    choices=("indexed", "direct"),
-                ),
-                *ints("h_visible h_sync v_visible v_sync", 1),
-                *ints("h_front_porch h_back_porch v_front_porch v_back_porch"),
-                *bools("h_sync_positive v_sync_positive"),
-                *ints("mode_id pixel_clock_khz"),
+                *_VIDEO_FIELDS,
                 *bools("init_enable init_auto_start"),
                 FieldSpec("init_table", "hex", "init_table"),
                 FieldSpec("audio_init_table", "hex", "audio_init_table"),
@@ -494,11 +496,15 @@ EXTERNAL: dict[str, ExternalKind] = {
                 *ints("reset_sclk_hz rx_fifo_depth tx_fifo_depth", 1),
             ),
         ),
+        # O invólucro não tem DDC: o I2C do conector é outro kind
+        # (`i2c`, numa cópia própria do papel `i2c`). Sem o pino `hpd`
+        # o topo amarra `i_hpd` a '0'.
         ExternalKind(
             "hdmi_tmds",
             "hdmi_tmds",
-            False,
-            _one("hdmi_tmds_tx", 16, ">tmds >clk =scl =sda <hpd?"),
+            True,
+            _one("hdmi_tmds_tx", 16, ">tmds >clk <hpd?"),
+            fields=_VIDEO_FIELDS,
         ),
         ExternalKind(
             "adxl345",

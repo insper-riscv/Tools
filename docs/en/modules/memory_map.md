@@ -681,7 +681,7 @@ peripherals:
 | `eth` | `eth` (MII) or `eth_rgmii_mac` (RGMII) | `eth` | 256 bytes | yes | `mode` (`mii` or `rgmii`, default `mii`) and those of section 9.7 |
 | `hdmi` | `hdmi_tx` | `hdmi` | 256 KiB | yes | section 9.7 |
 | `hdmi_audio` | `hdmi_audio` | `hdmi_audio` | 64 bytes | yes | section 9.7 |
-| `hdmi_tmds` | `hdmi_tmds_tx` (not yet in `Peripherals`) | `hdmi_tmds` | 256 KiB | no | none |
+| `hdmi_tmds` | `hdmi_tmds_tx` | `hdmi_tmds` | 256 KiB | yes | section 9.7 |
 | `uart` | `uart` | `serial` | 16 bytes | yes | section 9.7 |
 | `tv` | `tv` | `tv` | 64 bytes | yes | section 9.7 |
 | `adc` | `adc128s022`, `ltc2308` or `max10_adc_shell` | `adc` | 64, 64 or 128 bytes | yes | `chip` (required) and those of section 9.7 |
@@ -742,6 +742,7 @@ A field that exists in only one entity of a kind (`rx_fifo_depth` of the PS/2 ke
 | `audio` | `xck_freq`, `sample_rate`, `slot_bits`, `word_bits`, `tx_fifo_depth`, `rx_fifo_depth`, `tone_freq` and `tone_amp` | `has_tone` and `autostart` (`bool`) |
 | `eth` | `phy_addr`, `mdc_freq_hz`, `poll_cycles`, `tx_buffer_addr_bits`, `rx_buffer_addr_bits`, `rx_fifo_addr_bits`, `sync_stages` and `reset_cycles` | `shifted_txc` (`bool`, only `rgmii`) |
 | `hdmi` | `fb_width`, `fb_height`, `scale`, `h_visible`, `h_front_porch`, `h_sync`, `h_back_porch`, `v_visible`, `v_front_porch`, `v_sync`, `v_back_porch`, `mode_id`, `pixel_clock_khz` and `i2c_freq` | `pixel_format` (`choice`, `indexed` or `direct`); `h_sync_positive`, `v_sync_positive`, `init_enable`, `init_auto_start` and `int_active_low` (`bool`); `init_table` and `audio_init_table` (`hex`); `i2c_dev_addr` (`addr7`) |
+| `hdmi_tmds` | `fb_width`, `fb_height`, `scale`, `h_visible`, `h_front_porch`, `h_sync`, `h_back_porch`, `v_visible`, `v_front_porch`, `v_sync`, `v_back_porch`, `mode_id` and `pixel_clock_khz` | `pixel_format` (`choice`, `indexed` or `direct`); `h_sync_positive` and `v_sync_positive` (`bool`) |
 | `hdmi_audio` | `sample_rate`, `mclk_ratio`, `word_bits`, `tx_fifo_depth`, `tone_freq` and `tone_amp` | `has_tone` and `autostart` (`bool`) |
 | `uart` | `baud_freq`, `baud_limit`, `rx_fifo_depth` and `tx_fifo_depth` | `has_flow_control` (`bool`) |
 | `tv` | `fb_width`, `fb_height`, `src_width`, `src_height` and `present_cycles` | `check_protection` (`bool`) |
@@ -754,6 +755,8 @@ A field that exists in only one entity of a kind (`rx_fifo_depth` of the PS/2 ke
 The data width and word address width generics (`data_width`, `addr_width`) come from the registry and are not fields, and neither are the `master` of `audio` and the `gigabit` of `eth`, because the wiring of the top is that of the master `audio`, and the `gigabit` is the one that `eth_rgmii_mac` sets in its own MAC. The `video` has no fields, because its timing comes from the `io.video` block.
 
 The `lanes` of the `mipi` is the number of bits of the pin `d` of the `mipi` role; when omitted the top uses the width of the pin, and written with another value both the generation and rule V24 of `check-boards` refuse it. The camera has its own I2C, but the `mipi` entity has no I2C pins, so the camera bus is a separate `i2c` peripheral that takes the copy of the `i2c` role wired to the `SCL` and `SDA` of the camera (field `instance`).
+
+The `hdmi_tmds` has neither the sequencer fields of the ADV7513 (`init_*`, `i2c_*`, `int_active_low`) nor the core clock as a generic. The DDC channel of the connector (`SCL` and `SDA`) is also outside the entity, so the EDID is read through a separate `i2c` peripheral that takes the copy of the `i2c` role wired to those two pins (field `instance`).
 
 ## 10. The `config_pkg`
 

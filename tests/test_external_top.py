@@ -420,3 +420,60 @@ def test_the_camera_clock_is_constrained_and_async_to_the_soc(
     check_in("create_clock -name MIPI_CLK -period 5.000", sdc)
     check_in("set_clock_groups -asynchronous", sdc)
     check_in("-group [get_clocks {MIPI_CLK}]", sdc)
+
+
+def test_the_tmds_output_wires_pairs_clocks_and_hot_plug(
+    tmp_path: Path,
+) -> None:
+    """The pairs, the three clocks and `hpd` reach the wrapper."""
+    text, warnings = _top(tmp_path, "hdmi_tmds")
+    for found in (
+        "u_hdmi : entity work.hdmi_tmds_tx generic map (fb_width => 320",
+        "o_tmds_d => TMDS",
+        "o_tmds_clk => TMDS_CLK",
+        "i_hpd => TMDS_HPD",
+        "i_pixel_clk => clk_pixel",
+        "i_serial_clk => clk_pixel_x5",
+        "i_byteena => ext_byteena",
+        "i_address => ext_addr(15 downto 0)",
+        "o_irq => ext_irq(HDMI_EXT_POS)",
+    ):
+        check_in(found, text)
+    check_not_in("i_read => ext_re(HDMI_EXT_POS)", text)
+    wrapper = text.split("u_hdmi_ddc")[0].split("u_hdmi :")[1]
+    check_not_in("clk_freq", wrapper)
+    check_equal([w for w in warnings if "HDMI" in w], [])
+
+
+def test_the_tmds_ddc_is_a_separate_i2c_master(tmp_path: Path) -> None:
+    """The wrapper has no DDC, so `scl` and `sda` go to an `i2c`."""
+    text, _ = _top(tmp_path, "hdmi_tmds")
+    check_in("u_hdmi_ddc : entity work.i2c_master", text)
+    check_in("TMDS_SCL <= '0' when hdmi_ddc_scl_low = '1'", text)
+    check_in("TMDS_SDA <= '0' when hdmi_ddc_sda_low = '1'", text)
+    check_not_in("i_i2c_scl", text.split("u_hdmi_ddc")[0])
+
+
+def test_the_tmds_without_hpd_ties_it_to_zero(tmp_path: Path) -> None:
+    """A board role without `hpd` leaves the monitor as absent."""
+    req = request(tmp_path, "hdmi_tmds")
+    board = req.boards_dir / "example" / "board.yaml"
+    board.write_text(
+        board.read_text(encoding="utf-8").replace(", hpd: TMDS_HPD", ""),
+        encoding="utf-8",
+    )
+    top = " ".join(
+        next(
+            t for n, t in generate(req).files.items() if n.endswith("_top.vhd")
+        ).split()
+    )
+    check_in("i_hpd => '0'", top)
+    check_not_in("i_hpd => TMDS_HPD", top)
+
+
+def test_the_tmds_pins_have_no_timing_requirement(tmp_path: Path) -> None:
+    """The pairs and `hpd` are cut from the core clock."""
+    sdc = _sdc(tmp_path, "hdmi_tmds")
+    check_in("set_false_path -to   [get_ports {TMDS[*]}]", sdc)
+    check_in("set_false_path -to   [get_ports {TMDS_CLK}]", sdc)
+    check_in("set_false_path -from [get_ports {TMDS_HPD}]", sdc)

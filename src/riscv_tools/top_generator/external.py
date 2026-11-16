@@ -28,13 +28,16 @@ from riscv_tools.memory_map.kinds import (
     EXTERNAL,
     MISSING_ENTITIES,
     PIXEL_ENTITIES,
+    SERIAL_ENTITIES,
     Variant,
 )
 from riscv_tools.top_generator.spec import TopSpec
 
 # Entidades sem o sinal `i_read` e as que têm `i_byteena` e relógio de
 # pixel.
-NO_READ = frozenset({"video", "hdmi_tx", "adc128s022", "ltc2308", "adxl345"})
+NO_READ = frozenset(
+    {"video", "hdmi_tx", "hdmi_tmds_tx", "adc128s022", "ltc2308", "adxl345"}
+)
 WITH_PIXEL = PIXEL_ENTITIES
 _WORD = 32
 _HZ = 1_000_000_000
@@ -405,6 +408,22 @@ def _hdmi(inst: str, p: dict[str, Port]) -> Wiring:
     return _merge(parts)
 
 
+def _hdmi_tmds(_inst: str, p: dict[str, Port]) -> Wiring:
+    """Liga a saída TMDS direta; o DDC fica com um `i2c_master` à parte.
+
+    Os três pares de dados saem em `tmds` e o par de relógio em `clk`
+    (o lado positivo; o negativo vem da atribuição de pino diferencial).
+    Sem o pino `hpd` a entrada `i_hpd` fica em `'0'`, monitor ausente.
+    """
+    return _merge(
+        [
+            _direct("o_tmds_d", p["tmds"]),
+            _direct("o_tmds_clk", p["clk"]),
+            _direct("i_hpd", p.get("hpd"), "'0'"),
+        ]
+    )
+
+
 def _hdmi_audio(_inst: str, p: dict[str, Port]) -> Wiring:
     """Liga o áudio I2S do transmissor HDMI: só saídas, modo mestre."""
     return _merge(
@@ -603,6 +622,7 @@ WIRING = {
     "audio": _audio,
     "eth": _eth,
     "hdmi_tx": _hdmi,
+    "hdmi_tmds_tx": _hdmi_tmds,
     "hdmi_audio": _hdmi_audio,
     "uart": _uart,
     "tv": _tv,
@@ -797,10 +817,17 @@ def _instance(
     if variant is None:
         return None
     pixel = spec.plan.get("pixel")
+    serial = spec.plan.get("pixel_x5")
     if variant.entity in WITH_PIXEL and pixel is None:
         notes.append(
             f"W peripheral {name}: {kind.name} needs a pixel clock and the "
             "clock plan has none; left out"
+        )
+        return None
+    if variant.entity in SERIAL_ENTITIES and serial is None:
+        notes.append(
+            f"W peripheral {name}: {kind.name} needs the serial clock "
+            "(pixel_x5) and the clock plan has none; left out"
         )
         return None
     wired = _wire(variant, item, pins)
@@ -812,6 +839,8 @@ def _instance(
         maps.append(f"o_irq => ext_irq({name.upper()}_EXT_POS)")
     if pixel is not None and variant.entity in WITH_PIXEL:
         maps.append("i_pixel_clk => clk_pixel")
+    if variant.entity in SERIAL_ENTITIES:
+        maps.append("i_serial_clk => clk_pixel_x5")
     text = [
         f"\tu_{name.lower()} : entity work.{variant.entity}",
     ]

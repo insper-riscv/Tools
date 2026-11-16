@@ -680,7 +680,7 @@ peripherals:
 | `eth` | `eth` (MII) ou `eth_rgmii_mac` (RGMII) | `eth` | 256 bytes | sim | `mode` (`mii` ou `rgmii`, padrão `mii`) e os da seção 9.7 |
 | `hdmi` | `hdmi_tx` | `hdmi` | 256 KiB | sim | seção 9.7 |
 | `hdmi_audio` | `hdmi_audio` | `hdmi_audio` | 64 bytes | sim | seção 9.7 |
-| `hdmi_tmds` | `hdmi_tmds_tx` (ainda fora do `Peripherals`) | `hdmi_tmds` | 256 KiB | não | nenhum |
+| `hdmi_tmds` | `hdmi_tmds_tx` | `hdmi_tmds` | 256 KiB | sim | seção 9.7 |
 | `uart` | `uart` | `serial` | 16 bytes | sim | seção 9.7 |
 | `tv` | `tv` | `tv` | 64 bytes | sim | seção 9.7 |
 | `adc` | `adc128s022`, `ltc2308` ou `max10_adc_shell` | `adc` | 64, 64 ou 128 bytes | sim | `chip` (obrigatório) e os da seção 9.7 |
@@ -741,6 +741,7 @@ Um campo que só existe numa das entidades de um kind (`rx_fifo_depth` do teclad
 | `audio` | `xck_freq`, `sample_rate`, `slot_bits`, `word_bits`, `tx_fifo_depth`, `rx_fifo_depth`, `tone_freq` e `tone_amp` | `has_tone` e `autostart` (`bool`) |
 | `eth` | `phy_addr`, `mdc_freq_hz`, `poll_cycles`, `tx_buffer_addr_bits`, `rx_buffer_addr_bits`, `rx_fifo_addr_bits`, `sync_stages` e `reset_cycles` | `shifted_txc` (`bool`, só `rgmii`) |
 | `hdmi` | `fb_width`, `fb_height`, `scale`, `h_visible`, `h_front_porch`, `h_sync`, `h_back_porch`, `v_visible`, `v_front_porch`, `v_sync`, `v_back_porch`, `mode_id`, `pixel_clock_khz` e `i2c_freq` | `pixel_format` (`choice`, `indexed` ou `direct`); `h_sync_positive`, `v_sync_positive`, `init_enable`, `init_auto_start` e `int_active_low` (`bool`); `init_table` e `audio_init_table` (`hex`); `i2c_dev_addr` (`addr7`) |
+| `hdmi_tmds` | `fb_width`, `fb_height`, `scale`, `h_visible`, `h_front_porch`, `h_sync`, `h_back_porch`, `v_visible`, `v_front_porch`, `v_sync`, `v_back_porch`, `mode_id` e `pixel_clock_khz` | `pixel_format` (`choice`, `indexed` ou `direct`); `h_sync_positive` e `v_sync_positive` (`bool`) |
 | `hdmi_audio` | `sample_rate`, `mclk_ratio`, `word_bits`, `tx_fifo_depth`, `tone_freq` e `tone_amp` | `has_tone` e `autostart` (`bool`) |
 | `uart` | `baud_freq`, `baud_limit`, `rx_fifo_depth` e `tx_fifo_depth` | `has_flow_control` (`bool`) |
 | `tv` | `fb_width`, `fb_height`, `src_width`, `src_height` e `present_cycles` | `check_protection` (`bool`) |
@@ -753,6 +754,8 @@ Um campo que só existe numa das entidades de um kind (`rx_fifo_depth` do teclad
 Os generics de largura de dado e de endereço de palavra (`data_width`, `addr_width`) saem do registro e não são campos, e o `master` do `audio` e o `gigabit` do `eth` também não são, porque a ligação do topo é a do `audio` mestre e o `gigabit` é o do MAC do `eth_rgmii_mac`, que o liga sozinho. O `video` não tem campos, porque a temporização dele vem do bloco `io.video`.
 
 O `lanes` da `mipi` é o número de bits do pino `d` do papel `mipi`; omitido, o topo usa a largura do pino, e escrito com outro valor a geração e a regra V24 do `check-boards` o recusam. A câmera tem I2C próprio, mas a entidade `mipi` não tem pinos de I2C, então o barramento da câmera é um periférico `i2c` à parte, que toma a cópia do papel `i2c` ligada a `SCL` e `SDA` da câmera (campo `instance`).
+
+O `hdmi_tmds` não tem os campos do sequenciador do ADV7513 (`init_*`, `i2c_*`, `int_active_low`) nem relógio do núcleo como generic. O canal DDC do conector (`SCL` e `SDA`) também fica fora da entidade, então a leitura da EDID usa um periférico `i2c` à parte, que toma a cópia do papel `i2c` ligada a esses dois pinos (campo `instance`).
 
 ## 10. O `config_pkg`
 

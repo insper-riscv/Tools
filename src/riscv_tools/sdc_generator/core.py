@@ -13,6 +13,7 @@ from riscv_tools.chip_package import IoDelays
 from riscv_tools.sdc_generator.adc import adc_section
 from riscv_tools.sdc_generator.eth import eth_section
 from riscv_tools.sdc_generator.mipi import mipi_section
+from riscv_tools.sdc_generator.tmds import tmds_section
 from riscv_tools.sdc_generator.wifi import wifi_section
 
 # Frequência do relógio da JTAG só entra como domínio; o nome é o do
@@ -269,7 +270,8 @@ def _video_domains(plan: ClockPlan, pattern: str | None) -> list[str]:
     for clock in plan.video_roles:
         node = _node(pattern, plan.index(clock.role))
         lines.append(f"set clk_{clock.role} {{{node}}}")
-    lines.append("set video_clocks [get_clocks $clk_pixel]")
+    names = " ".join(f"$clk_{c.role}" for c in plan.video_roles)
+    lines.append(f"set video_clocks [get_clocks [list {names}]]")
     lines += _crossing("$video_clocks", "$core_clocks", bound)
     return lines
 
@@ -384,7 +386,8 @@ def _vendor_sections(
     Returns
     -------
     list of str
-        As linhas; vazias sem MAC RGMII, ADC interno, câmera e Wi-Fi.
+        As linhas; vazias sem MAC RGMII, ADC interno, câmera, Wi-Fi e
+        saída TMDS.
     """
     soc = [
         _node(pattern, plan.index(role))
@@ -395,6 +398,7 @@ def _vendor_sections(
         adc_section(ports, soc)
         + mipi_section(ports, soc)
         + wifi_section(ports)
+        + tmds_section(ports)
     )
     if plan.get(ETH_TX) is None:
         return others

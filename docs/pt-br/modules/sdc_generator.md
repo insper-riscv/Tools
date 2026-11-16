@@ -18,7 +18,8 @@ Escreve as restrições de tempo de uma plataforma numa placa, a partir do plano
 | 6 | Relógio `ADC_CLK_10` de 10 MHz do ADC do MAX 10, com o grupo assíncrono ao SoC |
 | 7 | Relógio `CLK` da câmera MIPI como relógio de entrada de 200 MHz (teto de 400 Mbit/s por lane), com o grupo assíncrono ao SoC |
 | 8 | Caminhos falsos dos pinos do módulo Wi-Fi, que são lentos e assíncronos ao núcleo |
-| 9 | Caminhos falsos do reset, das chaves, dos botões, dos LEDs, dos displays e dos pinos da FLASH NOR e da SRAM |
+| 9 | Caminhos falsos dos pares e do `hpd` da saída HDMI com TMDS direto, que saem do registrador DDR do relógio serial e não têm requisito de tempo |
+| 10 | Caminhos falsos do reset, das chaves, dos botões, dos LEDs, dos displays e dos pinos da FLASH NOR e da SRAM |
 
 ## 3. Limite dos cruzamentos
 
@@ -30,7 +31,7 @@ o que dá 10 ns para a DE0-CV a 50 MHz de núcleo e 100 MHz de controlador, e ac
 
 ## 4. Relógio de pixel
 
-Com a saída `pixel` no plano, o `.sdc` declara o nó do relógio de pixel e limita os dois cruzamentos com o domínio do núcleo pelo menor entre o período do pixel e o limite da seção 3. O `pixel_x5` é só um nó a mais, no mesmo domínio relacionado ao pixel.
+Com a saída `pixel` no plano, o `.sdc` declara o nó do relógio de pixel e limita os dois cruzamentos com o domínio do núcleo pelo menor entre o período do pixel e o limite da seção 3. O `pixel_x5` é um nó a mais, do mesmo PLL, e entra no mesmo conjunto `video_clocks` do pixel, de modo que os dois cruzamentos com o núcleo valem para os dois relógios.
 
 ## 5. Nó dos relógios do PLL
 
@@ -44,7 +45,7 @@ O nome do nó vem do campo `pll.clock_node_pattern` da família, com `<instance>
 | `tests/test_board_equivalence.py` | O `.sdc` gerado da DE0-CV tem as restrições do `de0-cv.sdc` escrito à mão |
 | `tests/test_board_generate.py` | `.sdc` das placas com PLL de teste |
 | `tests/test_eth_rgmii.py` | O bloco do Ethernet RGMII e o limite dos cruzamentos sem os relógios dele |
-| `tests/test_external_top.py` | O relógio da câmera MIPI e o grupo assíncrono, e os caminhos falsos do módulo Wi-Fi |
+| `tests/test_external_top.py` | O relógio da câmera MIPI e o grupo assíncrono, e os caminhos falsos do módulo Wi-Fi e da saída TMDS |
 | `tests/test_vendor_ip.py` | O relógio do ADC, o IP e o script no projeto, o `dreq` e o `dack` do USB e a regra V25 |
 
 ---

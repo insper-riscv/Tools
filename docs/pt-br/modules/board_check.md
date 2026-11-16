@@ -40,7 +40,7 @@ A chave `needs` mora ao lado de `sources` e `requires` no `paths.yaml` do reposi
 | V21 | E | Relógio de pixel do modo que o PLL da placa não gera junto com os relógios da plataforma |
 | V22 | E | Framebuffer que não cabe nos blocos de memória livres |
 | V23 | E ou W | Periférico externo que a placa não atende (papel, cópia ou chip ausente em `buses`); erro se `need` é `required`, aviso e periférico omitido se é `optional` |
-| V24 | E | Pino que a entidade pede e o papel da placa não liga (`gtx_clk` do RGMII, `miso` do `adxl345` com `three_wire` falso, ou `lanes` da `mipi` diferente da largura do pino `d`) |
+| V24 | E | Pino que a entidade pede e o papel da placa não liga (`gtx_clk` do RGMII, `miso` do `adxl345` com `three_wire` falso, `lanes` da `mipi` diferente da largura do pino `d`, ou pino `tmds` do `hdmi_tmds` com largura diferente de três) |
 | V25 | E | Sinal da placa que dois periféricos ligam (o par `I2C_SCLK` e `I2C_SDAT` da DE0-Nano na EEPROM e no ADXL345); a plataforma fica com um só |
 
 As regras V11 a V13 rodam o estimador de [fit_estimate](fit_estimate.md) sobre o perfil, as caches, os periféricos e as memórias da plataforma, com a tabela de calibração da família da placa. A região emulada conta uma potência de dois de bytes, porque a largura do endereço decide os blocos. Sem o campo `profile` na plataforma, ou sem a tabela, nada é estimado. A V14 (pinos e PLLs) fica com o relatório do Quartus. As regras V20 a V22, do vídeo, estão em [board_video](board_video.md).

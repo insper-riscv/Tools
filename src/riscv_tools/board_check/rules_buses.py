@@ -6,6 +6,9 @@ from riscv_tools.board_inputs import board_view
 from riscv_tools.board_ports import Placement, placements
 from riscv_tools.board_schema import expand_group
 
+# Os pares de dados do TMDS: azul, verde e vermelho.
+TMDS_DATA_PAIRS = 3
+
 
 def placed(ctx: Context) -> list[Placement]:
     """Put the external peripherals of the platform on the board.
@@ -108,7 +111,24 @@ def _pin_findings(place: Placement) -> list[Finding]:
             )
         )
     found += _lane_findings(place, wired)
+    found += _tmds_findings(place, wired)
     return found
+
+
+def _tmds_findings(place: Placement, wired: dict[str, str]) -> list[Finding]:
+    """Check that the pin `tmds` has the three data pairs (V24)."""
+    if place.kind.name != "hdmi_tmds" or "tmds" not in wired:
+        return []
+    width = len(expand_group(wired["tmds"]))
+    if width == TMDS_DATA_PAIRS:
+        return []
+    return [
+        error(
+            "V24",
+            f"peripheral {place.name}: the board pin tmds has {width} "
+            f"pairs, and hdmi_tmds_tx has {TMDS_DATA_PAIRS} data pairs",
+        )
+    ]
 
 
 def _lane_findings(place: Placement, wired: dict[str, str]) -> list[Finding]:

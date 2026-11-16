@@ -247,3 +247,34 @@ def test_a_wifi_or_mipi_field_out_of_range_is_refused(
     """The limits of the generics are checked on reading."""
     with pytest.raises(ValueError, match=re.escape(message)):
         entry("X", {"base": 0, **item})
+
+
+def test_tmds_fields_become_generics_with_no_clock_or_ddc() -> None:
+    """The mode fields are generics of `hdmi_tmds_tx`, with no clock."""
+    found = _generics(
+        {
+            "kind": "hdmi_tmds",
+            "base": 0,
+            "fb_width": 160,
+            "pixel_format": "direct",
+            "h_sync_positive": False,
+            "pixel_clock_khz": 27000,
+        }
+    )
+    check_equal(
+        found,
+        [
+            "fb_width => 160",
+            'pixel_format => "direct"',
+            "h_sync_positive => false",
+            "pixel_clock_khz => 27000",
+        ],
+    )
+    names = {f.name for f in kinds.EXTERNAL["hdmi_tmds"].fields}
+    check(names.isdisjoint({"clk_freq", "init_enable", "i2c_freq"}))
+
+
+def test_a_tmds_field_of_the_adv7513_is_refused() -> None:
+    """The sequencer fields of `hdmi` do not exist in `hdmi_tmds`."""
+    with pytest.raises(ValueError, match="init_enable"):
+        entry("X", {"kind": "hdmi_tmds", "base": 0, "init_enable": True})

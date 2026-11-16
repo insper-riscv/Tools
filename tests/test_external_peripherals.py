@@ -408,3 +408,20 @@ def test_the_wifi_needs_reset_gpio0_and_ack(tmp_path: Path) -> None:
     )
     with pytest.raises(Exception, match="ack"):
         Catalog.for_root(tmp_path).load_board("example")
+
+
+def test_a_tmds_role_with_the_wrong_pair_count_is_error_v24(
+    tmp_path: Path,
+) -> None:
+    """`check-boards` wants three data pairs in the pin `tmds`."""
+    req = request(tmp_path, "hdmi_tmds")
+    board = req.boards_dir / "example" / "board.yaml"
+    board.write_text(
+        board.read_text(encoding="utf-8").replace("TMDS[2:0]", "TMDS[1:0]"),
+        encoding="utf-8",
+    )
+    platform = yaml.safe_load(req.platform_file.read_text(encoding="utf-8"))
+    normalize(platform, req.platform_file)
+    found = check_platform(platform, tmp_path, accept_inferred_pins=True)
+    texts = [f"{f.rule} {f.level} {f.text}" for f in found if f.rule == "V24"]
+    check(any("E" in t and "tmds has 2 pairs" in t for t in texts))
