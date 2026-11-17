@@ -1,0 +1,47 @@
+# Plataforma de exemplo do kind `wifi` na placa de exemplo (ver boards/example).
+platform: example-wifi
+board: example
+boards: [example]
+core:
+  type: 32
+  base: I
+  extensions:
+    - M
+    - Zicntr
+    - Zifencei
+memory:
+  boot:
+    base: 0x00000000
+    size: 4K
+  instructions:
+    - type: flash
+      base: 0x00001000
+      size: 1024K
+      on_bus: true
+      cache:
+        size_bits: 32768
+  data:
+    - type: sdram
+      base: 0x40000000
+      size: 128M
+      on_bus: true
+      cache:
+        size_bits: 32768
+clocks:
+  core: {mhz: 50, phase_ps: 8250}
+  mem:  {mhz: 100}
+console: jtag
+io:
+  leds:
+    count: 18
+    need: required
+interrupts:
+  clock_hz: 50000000
+  mtime_hz: 1000000
+  plic: {priority_bits: 3}
+peripherals:
+  CLINT: {base: 0xE0000000, size: 64K}
+  PLIC: {base: 0xF0000000, size: 4M}
+  WIFI: {kind: wifi, base: 0x80230000, has_flow_control: true, run_at_reset: false, reset_pulse_ms: 20, spi_reset_sclk_hz: 2000000, spi_rx_fifo_depth: 32, spi_tx_fifo_depth: 8, uart_baud_freq: 576, uart_baud_limit: 15049, uart_rx_fifo_depth: 32, uart_tx_fifo_depth: 8}
+generate:
+  vhdl: {path: example_wifi_map_pkg.vhd, package: example_wifi_map_pkg, rom: FLASH, ram: RAM}

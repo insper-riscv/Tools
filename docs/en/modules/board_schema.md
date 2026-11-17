@@ -104,7 +104,7 @@ A value is a signal (`SD_CLK`) or a bus (`SD_DAT[3:0]`) of `pins.yaml`. The orde
 | `eth` with `mode: mii` | `rx_clk`, `rxd`, `rx_dv`, `rx_er`, `tx_clk` and `int_n?` (in), `txd`, `tx_en`, `tx_er`, `mdc` and `rst_n` (out), `mdio` (inout) |
 | `eth` with `mode: rgmii` | `rx_clk`, `rxd` (4 bits), `rx_dv` (RX_CTL) and `int_n?` (in), `gtx_clk`, `txd` (4 bits), `tx_en` (TX_CTL), `mdc` and `rst_n` (out), `mdio` (inout) |
 | `hdmi` | `d`, `clk`, `de`, `hs` and `vs` (out), `int` (in), `scl` and `sda` (inout) |
-| `hdmi_tmds` | `tmds` (three-line vector), `clk` (out), `scl` and `sda` (inout), `hpd?` (in), the direct TMDS output with no converter, as on the Vidor |
+| `hdmi_tmds` | `tmds` (three-line vector) and `clk` (out), `hpd?` (in), the direct TMDS output with no converter, as on the Vidor; the `scl` and `sda` of the connector are a copy of the `i2c` role |
 | `hdmi_audio` | `mclk`, `sclk`, `lrclk` and `i2s0` (out), the four I2S lines of the HDMI transmitter |
 | `serial` | `rx` and `cts?` (in), `tx` and `rts?` (out) |
 | `tv` | `data` and `clk27` (in), `reset_n` (out) |
@@ -113,6 +113,8 @@ A value is a signal (`SD_CLK`) or a bus (`SD_DAT[3:0]`) of `pins.yaml`. The orde
 | `adc` with `chip: max10` | `clk10` (in), the `ADC_CLK_10` pin of the converter PLL |
 | `spi` | `sclk`, `mosi` and `cs_n` (out), `miso` (in) |
 | `adxl345` | `cs_n` and `sclk` (out), `mosi` (inout), `miso?` and `int1?` (in) |
+| `wifi` | `reset_n` (out), `gpio0` (inout), `ack` (in); the SPI with `sck?`, `copi?` and `cs_n?` (out) and `cipo?` (in); the UART with `rx?` and `cts?` (out) and `tx?` and `rts?` (in), the lines of the NINA-W102 module |
+| `mipi` | `clk` (in) and `d` (in, one bit per lane), the LVDS pairs of the MIPI CSI-2 camera |
 
 An unknown role, a pin the role does not have, a missing required pin and a `chip` that is missing or outside the registry are problems of the file, and `check-boards` refuses every cited signal that `pins.yaml` lacks.
 

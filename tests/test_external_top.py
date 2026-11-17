@@ -7,6 +7,7 @@ from peripherals_support import GENERATED, request
 from support import check, check_equal, check_in, check_not_in
 
 from riscv_tools.board_generate import generate
+from riscv_tools.board_inputs import InputError
 
 
 def _top(tmp_path: Path, kind: str) -> tuple[str, list[str]]:
@@ -267,3 +268,212 @@ def test_the_eth_mac_and_mdio_fields_are_generics(tmp_path: Path) -> None:
         "reset_cycles => 32",
     ):
         check_in(generic, text)
+
+
+def _sdc(tmp_path: Path, kind: str) -> str:
+    """Generate an example and give its constraints."""
+    result = generate(request(tmp_path, kind))
+    return next(t for n, t in result.files.items() if n.endswith(".sdc"))
+
+
+def test_the_wifi_wires_control_spi_and_uart(tmp_path: Path) -> None:
+    """GPIO0 is tri-stated by the enable, the rest goes to the pins."""
+    text, warnings = _top(tmp_path, "wifi")
+    check_in("u_wifi : entity work.wifi", text)
+    for generic in (
+        "clock_hz => 50000000",
+        "reset_pulse_ms => 20",
+        "spi_reset_sclk_hz => 2000000",
+        "uart_baud_limit => 15049",
+        "run_at_reset => false",
+        "has_flow_control => true",
+    ):
+        check_in(generic, text)
+    for formal, pin in (
+        ("o_wm_reset_n", "WM_RESET_N"),
+        ("i_wm_ack", "WM_ACK"),
+        ("o_wm_sck", "WM_SCK"),
+        ("o_wm_copi", "WM_COPI"),
+        ("i_wm_cipo", "WM_CIPO"),
+        ("o_wm_cs_n", "WM_CS_N"),
+        ("i_wm_tx", "WM_TX"),
+        ("o_wm_rx", "WM_RX"),
+        ("i_wm_rts", "WM_RTS"),
+        ("o_wm_cts", "WM_CTS"),
+    ):
+        check_in(f"{formal} => {pin}", text)
+    check_in("WM_GPIO0 <= wifi_wm_gpio0 when wifi_wm_gpio0_oe = '1'", text)
+    check_in("i_address => ext_addr(4 downto 0)", text)
+    check_in("o_irq => ext_irq(WIFI_EXT_POS)", text)
+    check_equal([w for w in warnings if "WIFI" in w], [])
+
+
+def test_the_wifi_without_spi_and_uart_pins_parks_the_lines(
+    tmp_path: Path,
+) -> None:
+    """Outputs stay open and inputs rest at their idle level."""
+    req = request(tmp_path, "wifi")
+    board = req.boards_dir / "example" / "board.yaml"
+    board.write_text(
+        board.read_text(encoding="utf-8").replace(
+            ", sck: WM_SCK, copi: WM_COPI, cipo: WM_CIPO, cs_n: WM_CS_N"
+            ", tx: WM_TX, rx: WM_RX, rts: WM_RTS, cts: WM_CTS",
+            "",
+        ),
+        encoding="utf-8",
+    )
+    top = " ".join(
+        next(
+            t for n, t in generate(req).files.items() if n.endswith("_top.vhd")
+        ).split()
+    )
+    for tie in (
+        "o_wm_sck => open",
+        "o_wm_copi => open",
+        "i_wm_cipo => '0'",
+        "o_wm_cs_n => open",
+        "i_wm_tx => '1'",
+        "o_wm_rx => open",
+        "i_wm_rts => '0'",
+        "o_wm_cts => open",
+    ):
+        check_in(tie, top)
+
+
+def test_the_wifi_pins_have_no_timing_requirement(tmp_path: Path) -> None:
+    """Every pin of the module is cut from the core clock."""
+    sdc = _sdc(tmp_path, "wifi")
+    check_in("set_false_path -from [get_ports {WM_ACK}]", sdc)
+    check_in("set_false_path -to   [get_ports {WM_SCK}]", sdc)
+    check_in("set_false_path -to   [get_ports {WM_GPIO0}]", sdc)
+
+
+def test_the_camera_samples_the_lanes_in_a_ddr_register(
+    tmp_path: Path,
+) -> None:
+    """The entity gets the camera clock and two bits of each lane."""
+    text, warnings = _top(tmp_path, "mipi")
+    for found in (
+        "u_camera : entity work.mipi generic map (lanes => 2",
+        "fb_line_bytes => 512",
+        "default_dt => 42",
+        "i_mipi_clk => MIPI_CLK",
+        "i_mipi_early => camera_early",
+        "i_mipi_late => camera_late",
+        "u_camera_ddr : entity work.mipi_ddr_in generic map (width => 2) "
+        "port map (i_clk => MIPI_CLK, i_d => MIPI_D, "
+        "o_q_early => camera_early, o_q_late => camera_late);",
+        "i_address => ext_addr(3 downto 0)",
+        "o_irq => ext_irq(CAMERA_EXT_POS)",
+    ):
+        check_in(found, text)
+    check_equal([w for w in warnings if "CAMERA" in w], [])
+
+
+def test_the_camera_i2c_is_the_third_copy_of_the_i2c_role(
+    tmp_path: Path,
+) -> None:
+    """The entity has no I2C, so the bus is an `i2c` peripheral."""
+    text, _ = _top(tmp_path, "mipi")
+    check_in("u_camera_i2c : entity work.i2c_master", text)
+    check_in("MIPI_SCL <= '0' when camera_i2c_scl_low = '1'", text)
+    check_in("MIPI_SDA <= '0' when camera_i2c_sda_low = '1'", text)
+
+
+def test_the_lanes_follow_the_width_of_the_pin(tmp_path: Path) -> None:
+    """Without `lanes` the generic is the number of bits of `d`."""
+    req = request(tmp_path, "mipi")
+    req.platform_file.write_text(
+        req.platform_file.read_text(encoding="utf-8").replace(
+            "lanes: 2, ", ""
+        ),
+        encoding="utf-8",
+    )
+    top = " ".join(
+        next(
+            t for n, t in generate(req).files.items() if n.endswith("_top.vhd")
+        ).split()
+    )
+    check_in("lanes => 2", top)
+
+
+def test_lanes_that_differ_from_the_pin_width_are_refused(
+    tmp_path: Path,
+) -> None:
+    """The generator stops, and `check-boards` reports it as V24."""
+    req = request(tmp_path, "mipi")
+    req.platform_file.write_text(
+        req.platform_file.read_text(encoding="utf-8").replace(
+            "lanes: 2", "lanes: 1"
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(InputError, match="lanes 1 differs from the 2 lanes"):
+        generate(req)
+
+
+def test_the_camera_clock_is_constrained_and_async_to_the_soc(
+    tmp_path: Path,
+) -> None:
+    """The LVDS clock gets a clock of its own, apart from the SoC."""
+    sdc = _sdc(tmp_path, "mipi")
+    check_in("create_clock -name MIPI_CLK -period 5.000", sdc)
+    check_in("set_clock_groups -asynchronous", sdc)
+    check_in("-group [get_clocks {MIPI_CLK}]", sdc)
+
+
+def test_the_tmds_output_wires_pairs_clocks_and_hot_plug(
+    tmp_path: Path,
+) -> None:
+    """The pairs, the three clocks and `hpd` reach the wrapper."""
+    text, warnings = _top(tmp_path, "hdmi_tmds")
+    for found in (
+        "u_hdmi : entity work.hdmi_tmds_tx generic map (fb_width => 320",
+        "o_tmds_d => TMDS",
+        "o_tmds_clk => TMDS_CLK",
+        "i_hpd => TMDS_HPD",
+        "i_pixel_clk => clk_pixel",
+        "i_serial_clk => clk_pixel_x5",
+        "i_byteena => ext_byteena",
+        "i_address => ext_addr(15 downto 0)",
+        "o_irq => ext_irq(HDMI_EXT_POS)",
+    ):
+        check_in(found, text)
+    check_not_in("i_read => ext_re(HDMI_EXT_POS)", text)
+    wrapper = text.split("u_hdmi_ddc", maxsplit=1)[0].split("u_hdmi :")[1]
+    check_not_in("clk_freq", wrapper)
+    check_equal([w for w in warnings if "HDMI" in w], [])
+
+
+def test_the_tmds_ddc_is_a_separate_i2c_master(tmp_path: Path) -> None:
+    """The wrapper has no DDC, so `scl` and `sda` go to an `i2c`."""
+    text, _ = _top(tmp_path, "hdmi_tmds")
+    check_in("u_hdmi_ddc : entity work.i2c_master", text)
+    check_in("TMDS_SCL <= '0' when hdmi_ddc_scl_low = '1'", text)
+    check_in("TMDS_SDA <= '0' when hdmi_ddc_sda_low = '1'", text)
+    check_not_in("i_i2c_scl", text.split("u_hdmi_ddc", maxsplit=1)[0])
+
+
+def test_the_tmds_without_hpd_ties_it_to_zero(tmp_path: Path) -> None:
+    """A board role without `hpd` leaves the monitor as absent."""
+    req = request(tmp_path, "hdmi_tmds")
+    board = req.boards_dir / "example" / "board.yaml"
+    board.write_text(
+        board.read_text(encoding="utf-8").replace(", hpd: TMDS_HPD", ""),
+        encoding="utf-8",
+    )
+    top = " ".join(
+        next(
+            t for n, t in generate(req).files.items() if n.endswith("_top.vhd")
+        ).split()
+    )
+    check_in("i_hpd => '0'", top)
+    check_not_in("i_hpd => TMDS_HPD", top)
+
+
+def test_the_tmds_pins_have_no_timing_requirement(tmp_path: Path) -> None:
+    """The pairs and `hpd` are cut from the core clock."""
+    sdc = _sdc(tmp_path, "hdmi_tmds")
+    check_in("set_false_path -to   [get_ports {TMDS[*]}]", sdc)
+    check_in("set_false_path -to   [get_ports {TMDS_CLK}]", sdc)
+    check_in("set_false_path -from [get_ports {TMDS_HPD}]", sdc)

@@ -110,11 +110,17 @@ def test_a_pixel_clock_the_pll_cannot_make_stops_the_generation(
         generate(req)
 
 
-def test_the_tmds_kind_is_registered_but_has_no_entity(
+def test_the_tmds_kind_asks_the_pll_for_the_serial_clock(
     tmp_path: Path,
 ) -> None:
-    """The top refuses with the missing entity, inventing no ports."""
-    with pytest.raises(InputError) as bad:
-        generate(request(tmp_path, "hdmi_tmds"))
-    check_in("hdmi_tmds_tx is not in the Peripherals", str(bad.value))
-    check_in("HDMI", str(bad.value))
+    """The PLL makes `pixel` and `pixel_x5`, the `.sdc` pairs them."""
+    result = generate(request(tmp_path, "hdmi_tmds"))
+    top = " ".join(_file(result, "_top.vhd").split())
+    check_in("signal clk_pixel, clk_pixel_x5 : std_logic;", top)
+    check_in("i_serial_clk => clk_pixel_x5", top)
+    sdc = _file(result, ".sdc")
+    check_in("set clk_pixel_x5 {", sdc)
+    check_in(
+        "set video_clocks [get_clocks [list $clk_pixel $clk_pixel_x5]]", sdc
+    )
+    check_in("set_max_delay -from $video_clocks -to $core_clocks", sdc)

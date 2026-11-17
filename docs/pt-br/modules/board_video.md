@@ -90,7 +90,7 @@ A tabela lista as saídas de vídeo das placas Terasic e os modos que cada uma o
 | :--- | :--- |
 | `tests/test_board_video.py` | Leitura do papel `video` e do catálogo de modos, o pedido da plataforma (inclusive `16:9` sem aspas), a escolha do modo, as regras V20 a V22, os generics e a conferência do catálogo |
 | `tests/test_board_video_generate.py` | O plano chega ao `Generated`, o topo gerado não muda, os generics saem do `TopSpec` e o gerador recusa um pedido impossível |
-| `tests/test_video_clocks.py` | A saída `pixel` do PLL, o sinal e a ligação no topo, o domínio no `.sdc`, a fonte da frequência e a recusa do `hdmi_tmds` |
+| `tests/test_video_clocks.py` | A saída `pixel` do PLL, o sinal e a ligação no topo, o domínio no `.sdc`, a fonte da frequência e o relógio serial do `hdmi_tmds` |
 | `tests/test_external_top.py` | O periférico `video` recebe os generics da entidade, com o plano de vídeo e o formato de pixel |
 
 ---

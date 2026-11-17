@@ -104,7 +104,7 @@ Um valor é um sinal (`SD_CLK`) ou um barramento (`SD_DAT[3:0]`) do `pins.yaml`.
 | `eth` com `mode: mii` | `rx_clk`, `rxd`, `rx_dv`, `rx_er`, `tx_clk` e `int_n?` (in), `txd`, `tx_en`, `tx_er`, `mdc` e `rst_n` (out), `mdio` (inout) |
 | `eth` com `mode: rgmii` | `rx_clk`, `rxd` (4 bits), `rx_dv` (RX_CTL) e `int_n?` (in), `gtx_clk`, `txd` (4 bits), `tx_en` (TX_CTL), `mdc` e `rst_n` (out), `mdio` (inout) |
 | `hdmi` | `d`, `clk`, `de`, `hs` e `vs` (out), `int` (in), `scl` e `sda` (inout) |
-| `hdmi_tmds` | `tmds` (vetor de três linhas), `clk` (out), `scl` e `sda` (inout), `hpd?` (in), a saída TMDS direta sem conversor, como a da Vidor |
+| `hdmi_tmds` | `tmds` (vetor de três linhas) e `clk` (out), `hpd?` (in), a saída TMDS direta sem conversor, como a da Vidor; o `scl` e o `sda` do conector são uma cópia do papel `i2c` |
 | `hdmi_audio` | `mclk`, `sclk`, `lrclk` e `i2s0` (out), as quatro linhas I2S do transmissor HDMI |
 | `serial` | `rx` e `cts?` (in), `tx` e `rts?` (out) |
 | `tv` | `data` e `clk27` (in), `reset_n` (out) |
@@ -113,6 +113,8 @@ Um valor é um sinal (`SD_CLK`) ou um barramento (`SD_DAT[3:0]`) do `pins.yaml`.
 | `adc` com `chip: max10` | `clk10` (in), o pino `ADC_CLK_10` do PLL do conversor |
 | `spi` | `sclk`, `mosi` e `cs_n` (out), `miso` (in) |
 | `adxl345` | `cs_n` e `sclk` (out), `mosi` (inout), `miso?` e `int1?` (in) |
+| `wifi` | `reset_n` (out), `gpio0` (inout), `ack` (in); o SPI com `sck?`, `copi?` e `cs_n?` (out) e `cipo?` (in); a UART com `rx?` e `cts?` (out) e `tx?` e `rts?` (in), as linhas do módulo NINA-W102 |
+| `mipi` | `clk` (in) e `d` (in, um bit por lane), pares LVDS da câmera MIPI CSI-2 |
 
 Um papel desconhecido, um pino que o papel não tem, um pino obrigatório ausente e um `chip` ausente ou fora do registro são problemas do arquivo, e o `check-boards` recusa todo sinal citado que o `pins.yaml` não tem.
 

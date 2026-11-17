@@ -482,3 +482,19 @@ signals:
   - {name: "TMDS_SCL", pin: "FX144", io_standard: "3.3-V LVTTL", direction: "inout", source: "fixture de teste", confirmed: "inferred"}
   - {name: "TMDS_SDA", pin: "FX145", io_standard: "3.3-V LVTTL", direction: "inout", source: "fixture de teste", confirmed: "inferred"}
   - {name: "TMDS_HPD", pin: "FX146", io_standard: "3.3-V LVTTL", direction: "in", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "WM_RESET_N", pin: "FX150", io_standard: "3.3-V LVTTL", direction: "out", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "WM_GPIO0", pin: "FX151", io_standard: "3.3-V LVTTL", direction: "inout", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "WM_ACK", pin: "FX152", io_standard: "3.3-V LVTTL", direction: "in", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "WM_SCK", pin: "FX153", io_standard: "3.3-V LVTTL", direction: "out", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "WM_COPI", pin: "FX154", io_standard: "3.3-V LVTTL", direction: "out", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "WM_CIPO", pin: "FX155", io_standard: "3.3-V LVTTL", direction: "in", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "WM_CS_N", pin: "FX156", io_standard: "3.3-V LVTTL", direction: "out", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "WM_TX", pin: "FX157", io_standard: "3.3-V LVTTL", direction: "in", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "WM_RX", pin: "FX158", io_standard: "3.3-V LVTTL", direction: "out", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "WM_RTS", pin: "FX159", io_standard: "3.3-V LVTTL", direction: "in", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "WM_CTS", pin: "FX160", io_standard: "3.3-V LVTTL", direction: "out", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "MIPI_D[0]", pin: "FX161", io_standard: "LVDS", direction: "in", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "MIPI_D[1]", pin: "FX162", io_standard: "LVDS", direction: "in", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "MIPI_CLK", pin: "FX163", io_standard: "LVDS", direction: "in", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "MIPI_SCL", pin: "FX164", io_standard: "2.5 V", direction: "inout", source: "fixture de teste", confirmed: "inferred"}
+  - {name: "MIPI_SDA", pin: "FX165", io_standard: "2.5 V", direction: "inout", source: "fixture de teste", confirmed: "inferred"}

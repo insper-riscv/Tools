@@ -42,6 +42,7 @@ interrupts:
 peripherals:
   CLINT: {base: 0xE0000000, size: 64K}
   PLIC: {base: 0xF0000000, size: 4M}
-  HDMI: {kind: hdmi_tmds, base: 0x80200000}
+  HDMI: {kind: hdmi_tmds, base: 0x80200000, fb_width: 320, fb_height: 180, scale: 4}
+  HDMI_DDC: {kind: i2c, base: 0x80240000, instance: 3}
 generate:
   vhdl: {path: example_hdmi_tmds_map_pkg.vhd, package: example_hdmi_tmds_map_pkg, rom: FLASH, ram: RAM}

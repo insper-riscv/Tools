@@ -198,3 +198,83 @@ def test_every_field_names_a_known_type_and_a_valid_entity() -> None:
             check(spec.type in ("int", "bool", "choice", "hex", "addr7"))
             check(set(spec.only) <= set(kind.variants), spec.name)
             check(spec.generic != "", spec.name)
+
+
+def test_wifi_and_mipi_fields_become_generics() -> None:
+    """Each field is the generic of the entity of the same name."""
+    wifi = _generics(
+        {
+            "kind": "wifi",
+            "base": 0,
+            "reset_pulse_ms": 20,
+            "spi_rx_fifo_depth": 8,
+            "uart_baud_freq": 576,
+            "run_at_reset": True,
+            "has_flow_control": False,
+        }
+    )
+    check_equal(
+        wifi,
+        [
+            "clock_hz => 50000000",
+            "reset_pulse_ms => 20",
+            "spi_rx_fifo_depth => 8",
+            "uart_baud_freq => 576",
+            "run_at_reset => true",
+            "has_flow_control => false",
+        ],
+    )
+    mipi = _generics(
+        {"kind": "mipi", "base": 0, "lanes": 1, "fb_line_bytes": 64}
+    )
+    check_equal(mipi, ["lanes => 1", "fb_line_bytes => 64"])
+
+
+@pytest.mark.parametrize(
+    ("item", "message"),
+    [
+        ({"kind": "mipi", "lanes": 5}, "must be at most 4"),
+        ({"kind": "mipi", "lanes": 0}, "must be at least 1"),
+        ({"kind": "mipi", "default_dt": 64}, "must be at most 63"),
+        ({"kind": "mipi", "fb_line_bytes": 2}, "must be at least 4"),
+        ({"kind": "wifi", "reset_pulse_ms": 0}, "must be at least 1"),
+        ({"kind": "wifi", "run_at_reset": 1}, "must be of type bool"),
+    ],
+)
+def test_a_wifi_or_mipi_field_out_of_range_is_refused(
+    item: dict[str, Any], message: str
+) -> None:
+    """The limits of the generics are checked on reading."""
+    with pytest.raises(ValueError, match=re.escape(message)):
+        entry("X", {"base": 0, **item})
+
+
+def test_tmds_fields_become_generics_with_no_clock_or_ddc() -> None:
+    """The mode fields are generics of `hdmi_tmds_tx`, with no clock."""
+    found = _generics(
+        {
+            "kind": "hdmi_tmds",
+            "base": 0,
+            "fb_width": 160,
+            "pixel_format": "direct",
+            "h_sync_positive": False,
+            "pixel_clock_khz": 27000,
+        }
+    )
+    check_equal(
+        found,
+        [
+            "fb_width => 160",
+            'pixel_format => "direct"',
+            "h_sync_positive => false",
+            "pixel_clock_khz => 27000",
+        ],
+    )
+    names = {f.name for f in kinds.EXTERNAL["hdmi_tmds"].fields}
+    check(names.isdisjoint({"clk_freq", "init_enable", "i2c_freq"}))
+
+
+def test_a_tmds_field_of_the_adv7513_is_refused() -> None:
+    """The sequencer fields of `hdmi` do not exist in `hdmi_tmds`."""
+    with pytest.raises(ValueError, match="init_enable"):
+        entry("X", {"kind": "hdmi_tmds", "base": 0, "init_enable": True})

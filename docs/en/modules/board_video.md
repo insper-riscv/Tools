@@ -81,7 +81,7 @@ When an external peripheral with the pixel clock port (`video`, `hdmi` or `hdmi_
 | :--- | :--- |
 | `tests/test_board_video.py` | Reading of the `video` role and of the catalog of modes, the platform request (including `16:9` without quotes), the mode choice, the rules V20 to V22, the generics and the catalog check |
 | `tests/test_board_video_generate.py` | The plan reaches `Generated`, the generated top does not change, the generics come out of the `TopSpec` and the generator refuses an impossible request |
-| `tests/test_video_clocks.py` | The `pixel` PLL output, the signal and wiring in the top, the `.sdc` domain, the source of the frequency and the refusal of `hdmi_tmds` |
+| `tests/test_video_clocks.py` | The `pixel` PLL output, the signal and wiring in the top, the `.sdc` domain, the source of the frequency and the serial clock of `hdmi_tmds` |
 | `tests/test_external_top.py` | The `video` peripheral gets the generics of the entity, with the video plan and the pixel format |
 
 ---

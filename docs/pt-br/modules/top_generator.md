@@ -81,8 +81,11 @@ A instância liga `i_clk` ao relógio do núcleo e `i_rst` ao reset do SoC, e os
 | `uart` | `rx` e `tx` direto; sem o pino `cts` a entrada fica em `'0'`, e sem `rts` a saída fica aberta |
 | `usb_bridge` | `dreq` e `dack` opcionais: sem eles `i_otg_dreq` fica em `'0'` e `o_otg_dack` aberto |
 | `adc128s022`, `ltc2308`, `ir_receiver`, `tv`, `spi` | Direto; o `cs_n` do `spi` é fatiado na largura da porta da placa |
+| `wifi` | O `gpio0` sai por `'Z'` com a habilitação da entidade, sem leitura de volta. Os pinos do SPI e da UART são opcionais: sem pino, uma saída fica aberta e uma entrada fica no nível de repouso (`cipo` e `rts` em `'0'`, `tx` em `'1'`) |
+| `hdmi_tmds_tx` | `tmds` vai ao `o_tmds_d` (três pares, lado positivo) e `clk` ao `o_tmds_clk`; o lado negativo vem da atribuição de pino diferencial. Sem o pino `hpd` a entrada `i_hpd` fica em `'0'`, monitor ausente. A entidade não tem DDC, e o `scl` e o `sda` do conector são ligados por um periférico `i2c` à parte, na cópia do papel `i2c` que o campo `instance` aponta |
+| `mipi` | O topo instancia o registrador DDR de entrada entre os pinos LVDS e a entidade: `clk` vai ao `i_mipi_clk` e ao relógio do registrador, e `d` ao dado dele, que entrega a cada lane o bit mais antigo (`i_mipi_early`) e o mais novo (`i_mipi_late`) do par. O generic `lanes` é a largura do pino `d` |
 
-O `video` e o `hdmi_tx` recebem o `i_pixel_clk` do sinal `clk_pixel`, declarado quando o plano de relógios tem a saída `pixel`; sem ela (nenhuma fonte dá a frequência) a instância fica fora com um aviso. O kind `hdmi_tmds` (saída TMDS direta, papel `hdmi_tmds` com `tmds`, `clk`, `scl`, `sda` e `hpd` opcional) está registrado, mas a entidade `hdmi_tmds_tx` não está no `Peripherals`; a geração falha com um erro que diz isso, e nenhuma porta é inventada. A dependência é o serializador TMDS do `Peripherals`, com o relógio de pixel e o relógio serial de cinco vezes (`pixel_x5`) que o plano já produz. O `max10_adc_shell` liga `i_adc_clk_10` ao pino `clk10` (`ADC_CLK_10`), e o IP do núcleo entra no projeto pelo [board_generate](board_generate.md). Os generics de tempo do `ps2_keyboard` e do `ps2_mouse_top` (`filter_cycles`, `inhibit_cycles`, `timeout_cycles` e, no mouse, `init_timeout_cycles` e `packet_timeout_cycles`) contam ciclos e têm o padrão de um relógio de 50 MHz, então o topo os reescreve para o relógio do núcleo, arredondando para cima.
+O `video` e o `hdmi_tx` recebem o `i_pixel_clk` do sinal `clk_pixel`, declarado quando o plano de relógios tem a saída `pixel`; sem ela (nenhuma fonte dá a frequência) a instância fica fora com um aviso. O `hdmi_tmds_tx` recebe também o `i_serial_clk` do sinal `clk_pixel_x5`, o relógio de cinco vezes o de pixel que o plano produz quando um periférico o pede; sem o `pixel_x5` a instância fica fora com um aviso. O `max10_adc_shell` liga `i_adc_clk_10` ao pino `clk10` (`ADC_CLK_10`), e o IP do núcleo entra no projeto pelo [board_generate](board_generate.md). Os generics de tempo do `ps2_keyboard` e do `ps2_mouse_top` (`filter_cycles`, `inhibit_cycles`, `timeout_cycles` e, no mouse, `init_timeout_cycles` e `packet_timeout_cycles`) contam ciclos e têm o padrão de um relógio de 50 MHz, então o topo os reescreve para o relógio do núcleo, arredondando para cima.
 
 ## 4. Testes
 
@@ -91,7 +94,7 @@ O `video` e o `hdmi_tx` recebem o `i_pixel_clk` do sinal `clk_pixel`, declarado 
 | `tests/test_board_generate.py` | Conteúdo do topo da DE0-CV, latências, anel de pinos, polaridade e sintaxe aceita pelo GHDL |
 | `tests/test_sdram_split_top.py` | Um controlador para a FLASH e a RAM nas divisões de 32 e 32, 48 e 16, 16 e 48 MiB, o `hold`, o reset, o `fetch` e as opções a, b, c e d da memória de instruções |
 | `tests/test_board_video_generate.py` | Os generics de vídeo chegam ao `TopSpec` sem alterar o topo |
-| `tests/test_external_top.py` | A instância e os pinos de cada kind externo, o open drain, o `'Z' e o que fica fora do topo |
+| `tests/test_external_top.py` | A instância e os pinos de cada kind externo, o open drain, o `'Z'` e o que fica fora do topo, os pinos de repouso do `wifi`, o registrador DDR e o `lanes` da `mipi`, a saída `hdmi_tmds` com o `hpd`, o relógio serial e o DDC à parte, e as restrições do `.sdc` dos três |
 | `tests/test_eth_rgmii.py` | A instância do MAC RGMII, os dois relógios do PLL e o `.sdc` do Ethernet |
 
 ---

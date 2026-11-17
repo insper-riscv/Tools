@@ -377,3 +377,51 @@ def test_an_entity_without_measure_is_a_warning_not_an_error(
     v18 = [f for f in found if f.rule == "V18" and "I2C_MASTER" in f.text]
     check_equal([f.level for f in v18], ["W"])
     check_equal([f for f in found if f.level == "E"], [])
+
+
+def test_lanes_that_differ_from_the_pin_width_are_error_v24(
+    tmp_path: Path,
+) -> None:
+    """`check-boards` compares `lanes` with the bits of the pin `d`."""
+    req = request(tmp_path, "mipi")
+    text = req.platform_file.read_text(encoding="utf-8").replace(
+        "lanes: 2", "lanes: 4"
+    )
+    platform = yaml.safe_load(text)
+    normalize(platform, req.platform_file)
+    found = check_platform(platform, tmp_path, accept_inferred_pins=True)
+    texts = [f"{f.rule} {f.level} {f.text}" for f in found if f.rule == "V24"]
+    check(
+        any(
+            "E" in t and "lanes 4 differs from the 2 lanes" in t for t in texts
+        )
+    )
+
+
+def test_the_wifi_needs_reset_gpio0_and_ack(tmp_path: Path) -> None:
+    """A board role without `ack` is refused."""
+    req = request(tmp_path, "wifi")
+    board = req.boards_dir / "example" / "board.yaml"
+    board.write_text(
+        board.read_text(encoding="utf-8").replace(", ack: WM_ACK", ""),
+        encoding="utf-8",
+    )
+    with pytest.raises(Exception, match="ack"):
+        Catalog.for_root(tmp_path).load_board("example")
+
+
+def test_a_tmds_role_with_the_wrong_pair_count_is_error_v24(
+    tmp_path: Path,
+) -> None:
+    """`check-boards` wants three data pairs in the pin `tmds`."""
+    req = request(tmp_path, "hdmi_tmds")
+    board = req.boards_dir / "example" / "board.yaml"
+    board.write_text(
+        board.read_text(encoding="utf-8").replace("TMDS[2:0]", "TMDS[1:0]"),
+        encoding="utf-8",
+    )
+    platform = yaml.safe_load(req.platform_file.read_text(encoding="utf-8"))
+    normalize(platform, req.platform_file)
+    found = check_platform(platform, tmp_path, accept_inferred_pins=True)
+    texts = [f"{f.rule} {f.level} {f.text}" for f in found if f.rule == "V24"]
+    check(any("E" in t and "tmds has 2 pairs" in t for t in texts))

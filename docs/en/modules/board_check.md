@@ -40,7 +40,7 @@ The `needs` key sits beside `sources` and `requires` in the `paths.yaml` of the 
 | V21 | E | Pixel clock of the mode that the PLL of the board cannot make together with the clocks of the platform |
 | V22 | E | Framebuffer that does not fit the free memory blocks |
 | V23 | E or W | An external peripheral the board does not serve (role, copy or chip missing in `buses`); an error when `need` is `required`, a warning and an omitted peripheral when it is `optional` |
-| V24 | E | A pin the entity needs and the board role does not wire (`gtx_clk` of the RGMII, or `miso` of the `adxl345` with `three_wire` false) |
+| V24 | E | A pin the entity needs and the board role does not wire (`gtx_clk` of the RGMII, `miso` of the `adxl345` with `three_wire` false, `lanes` of the `mipi` different from the width of the pin `d`, or the pin `tmds` of the `hdmi_tmds` with a width other than three) |
 | V25 | E | A signal of the board that two peripherals wire (the `I2C_SCLK` and `I2C_SDAT` pair of the DE0-Nano on the EEPROM and the ADXL345); the platform keeps only one |
 
 Rules V11 to V13 run the estimator of [fit_estimate](fit_estimate.md) on the profile, the caches, the peripherals and the memories of the platform, with the calibration table of the family of the board. An emulated region counts a power of two of bytes, because the address width decides the blocks. Without the `profile` field in the platform, or without the table, nothing is estimated. V14 (pins and PLLs) stays with the report of the Quartus. Rules V20 to V22, for the video, are described in [board_video](board_video.md).

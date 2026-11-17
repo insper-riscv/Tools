@@ -28,13 +28,16 @@ from riscv_tools.memory_map.kinds import (
     EXTERNAL,
     MISSING_ENTITIES,
     PIXEL_ENTITIES,
+    SERIAL_ENTITIES,
     Variant,
 )
 from riscv_tools.top_generator.spec import TopSpec
 
 # Entidades sem o sinal `i_read` e as que têm `i_byteena` e relógio de
 # pixel.
-NO_READ = frozenset({"video", "hdmi_tx", "adc128s022", "ltc2308", "adxl345"})
+NO_READ = frozenset(
+    {"video", "hdmi_tx", "hdmi_tmds_tx", "adc128s022", "ltc2308", "adxl345"}
+)
 WITH_PIXEL = PIXEL_ENTITIES
 _WORD = 32
 _HZ = 1_000_000_000
@@ -405,6 +408,22 @@ def _hdmi(inst: str, p: dict[str, Port]) -> Wiring:
     return _merge(parts)
 
 
+def _hdmi_tmds(_inst: str, p: dict[str, Port]) -> Wiring:
+    """Liga a saída TMDS direta; o DDC fica com um `i2c_master` à parte.
+
+    Os três pares de dados saem em `tmds` e o par de relógio em `clk`
+    (o lado positivo; o negativo vem da atribuição de pino diferencial).
+    Sem o pino `hpd` a entrada `i_hpd` fica em `'0'`, monitor ausente.
+    """
+    return _merge(
+        [
+            _direct("o_tmds_d", p["tmds"]),
+            _direct("o_tmds_clk", p["clk"]),
+            _direct("i_hpd", p.get("hpd"), "'0'"),
+        ]
+    )
+
+
 def _hdmi_audio(_inst: str, p: dict[str, Port]) -> Wiring:
     """Liga o áudio I2S do transmissor HDMI: só saídas, modo mestre."""
     return _merge(
@@ -523,7 +542,75 @@ def _video(_inst: str, p: dict[str, Port]) -> Wiring:
     )
 
 
+def _wifi(inst: str, p: dict[str, Port]) -> Wiring:
+    """Liga o módulo Wi-Fi; o SPI e a UART são opcionais.
+
+    O `gpio0` sai com a habilitação da entidade e não é lido de volta.
+    Sem pino, uma saída fica aberta e uma entrada fica parada no nível
+    de repouso: `cipo` e `rts` em `'0'`, `tx` em `'1'` (linha serial
+    ociosa).
+    """
+    port = p["gpio0"]
+    stem = f"{inst}_wm_gpio0"
+    gpio0 = Wiring(
+        [f"o_wm_gpio0 => {stem}", f"o_wm_gpio0_oe => {stem}_oe"],
+        [f"signal {stem}, {stem}_oe : std_logic;"],
+        [f"{port.name} <= {stem} when {stem}_oe = '1' else 'Z';"],
+    )
+    return _merge(
+        [
+            _direct("o_wm_reset_n", p["reset_n"]),
+            gpio0,
+            _direct("i_wm_ack", p["ack"]),
+            _direct("o_wm_sck", p.get("sck")),
+            _direct("o_wm_copi", p.get("copi")),
+            _direct("i_wm_cipo", p.get("cipo"), "'0'"),
+            _direct("o_wm_cs_n", p.get("cs_n")),
+            _direct("i_wm_tx", p.get("tx"), "'1'"),
+            _direct("o_wm_rx", p.get("rx")),
+            _direct("i_wm_rts", p.get("rts"), "'0'"),
+            _direct("o_wm_cts", p.get("cts")),
+        ]
+    )
+
+
+def _mipi(inst: str, p: dict[str, Port]) -> Wiring:
+    """Liga a câmera MIPI: o relógio e o registrador DDR das lanes.
+
+    A entidade recebe cada lane já amostrada nas duas bordas do relógio
+    da câmera, então o topo instancia o registrador DDR de entrada
+    entre os pinos e a entidade.
+    """
+    clk, data = p["clk"], p["d"]
+    early, late = f"{inst}_early", f"{inst}_late"
+    lanes = f"std_logic_vector({data.width - 1} downto 0)"
+    sigs = [f"signal {early}, {late} : {lanes};"]
+    body: list[str] = []
+    source = data.name
+    if not data.vector:
+        source = f"{inst}_d"
+        sigs.append(f"signal {source} : {lanes};")
+        body.append(f"{source}(0) <= {data.name};")
+    body += [
+        f"u_{inst}_ddr : entity work.mipi_ddr_in",
+        f"\tgeneric map (width => {data.width})",
+        f"\tport map (i_clk => {clk.name}, i_d => {source}, "
+        f"o_q_early => {early}, o_q_late => {late});",
+    ]
+    return Wiring(
+        [
+            f"i_mipi_clk => {clk.name}",
+            f"i_mipi_early => {early}",
+            f"i_mipi_late => {late}",
+        ],
+        sigs,
+        body,
+    )
+
+
 WIRING = {
+    "wifi": _wifi,
+    "mipi": _mipi,
     "ps2_keyboard": _ps2,
     "ps2_mouse_top": _ps2,
     "sd_spi": _sd_spi,
@@ -535,6 +622,7 @@ WIRING = {
     "audio": _audio,
     "eth": _eth,
     "hdmi_tx": _hdmi,
+    "hdmi_tmds_tx": _hdmi_tmds,
     "hdmi_audio": _hdmi_audio,
     "uart": _uart,
     "tv": _tv,
@@ -667,6 +755,61 @@ def _wire(
     return WIRING[variant.entity](inst, pins)
 
 
+def _lanes_generic(item: dict[str, Any], width: int) -> list[str]:
+    """Dá o generic `lanes` da câmera, que segue a largura do pino `d`.
+
+    Parameters
+    ----------
+    item : dict of {str: Any}
+        A entrada de `peripherals`.
+    width : int
+        Os bits do pino `d` da placa, um por lane.
+
+    Returns
+    -------
+    list of str
+        A associação, vazia quando a entrada já a escreveu (o gerador
+        de generics a emitiu).
+
+    Raises
+    ------
+    InputError
+        Se `lanes` da entrada difere da largura do pino.
+    """
+    written = item.get("lanes")
+    if written is None:
+        return [f"lanes => {width}"]
+    if int(written) != width:
+        raise InputError(
+            f"E peripheral {item['name']}: lanes {written} differs from "
+            f"the {width} lanes of the board pin d"
+        )
+    return []
+
+
+def _missing_clock(spec: TopSpec, variant: Variant) -> str:
+    """Diz qual relógio de vídeo a entidade pede e o plano não tem.
+
+    Parameters
+    ----------
+    spec : TopSpec
+        O topo, com o plano de relógios.
+    variant : Variant
+        A entidade.
+
+    Returns
+    -------
+    str
+        `a pixel clock` ou `the serial clock (pixel_x5)`; vazio quando o
+        plano tem o que a entidade pede.
+    """
+    if variant.entity in WITH_PIXEL and spec.plan.get("pixel") is None:
+        return "a pixel clock"
+    if variant.entity in SERIAL_ENTITIES and spec.plan.get("pixel_x5") is None:
+        return "the serial clock (pixel_x5)"
+    return ""
+
+
 def _instance(
     spec: TopSpec,
     item: dict[str, Any],
@@ -697,19 +840,24 @@ def _instance(
     if variant is None:
         return None
     pixel = spec.plan.get("pixel")
-    if variant.entity in WITH_PIXEL and pixel is None:
+    missing = _missing_clock(spec, variant)
+    if missing:
         notes.append(
-            f"W peripheral {name}: {kind.name} needs a pixel clock and the "
+            f"W peripheral {name}: {kind.name} needs {missing} and the "
             "clock plan has none; left out"
         )
         return None
     wired = _wire(variant, item, pins)
     generics = instance_generics(spec, item, variant, kind)
+    if variant.entity == "mipi":
+        generics += _lanes_generic(item, pins["d"].width)
     maps = _bus_maps(variant, name, variant.addr_bits) + wired.maps
     if kind.irq:
         maps.append(f"o_irq => ext_irq({name.upper()}_EXT_POS)")
     if pixel is not None and variant.entity in WITH_PIXEL:
         maps.append("i_pixel_clk => clk_pixel")
+    if variant.entity in SERIAL_ENTITIES:
+        maps.append("i_serial_clk => clk_pixel_x5")
     text = [
         f"\tu_{name.lower()} : entity work.{variant.entity}",
     ]
