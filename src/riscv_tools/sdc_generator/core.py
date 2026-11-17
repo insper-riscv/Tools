@@ -126,8 +126,8 @@ def _memory_section(
         raise SdcError("sdram without a clock pin (name ending in CLK)")
     pin_clock = f"{pin.name}_pin"
     group = [p for p in ports if p.role == "sdram" and p is not pin]
-    mem = _node(pattern, plan.index("mem"))
-    src = _node(pattern, plan.index("mem_pin"))
+    mem = _node(pattern, plan.node_index("mem"))
+    src = _node(pattern, plan.node_index("mem_pin"))
     return [
         "# O relógio que sai pelo pino confere o setup e o hold da memória;",
         "# os atrasos são os do chip do catálogo.",
@@ -182,6 +182,43 @@ def _crossing(first: str, second: str, bound: str) -> list[str]:
     ]
 
 
+def _mem_core_crossing(
+    plan: ClockPlan, names: list[str], nodes: dict[str, str], bound: str
+) -> list[str]:
+    """Escreve o cruzamento entre o controlador e o núcleo.
+
+    Um domínio que o Quartus funde com o do controlador é o mesmo
+    relógio, então não é cruzamento e fica fora do outro conjunto.
+
+    Parameters
+    ----------
+    plan : ClockPlan
+        Os relógios.
+    names : list of str
+        Os papéis do lado do núcleo (`fetch` e `core`).
+    nodes : dict of {str: str}
+        O nome da variável do `.sdc` de cada papel.
+    bound : str
+        Limite em nanossegundos.
+
+    Returns
+    -------
+    list of str
+        As linhas; vazias quando todos os domínios são o do controlador.
+    """
+    mem = plan.node_index("mem")
+    apart = [r for r in names if plan.node_index(r) != mem]
+    if not apart:
+        return []
+    if apart == names:
+        return _crossing("$mem_clocks", "$core_clocks", bound)
+    listed = " ".join(f"${nodes[r]}" for r in apart)
+    return [
+        f"set mem_core_clocks [get_clocks [list {listed}]]",
+        *_crossing("$mem_clocks", "$mem_core_clocks", bound),
+    ]
+
+
 def _domains(plan: ClockPlan, pattern: str | None, has_mem: bool) -> list[str]:
     """Escreve os conjuntos de relógios e os cruzamentos entre eles.
 
@@ -210,17 +247,17 @@ def _domains(plan: ClockPlan, pattern: str | None, has_mem: bool) -> list[str]:
     ]
     nodes = {r: f"clk_{r}" for r in names}
     lines.extend(
-        f"set {nodes[role]} {{{_node(pattern, plan.index(role))}}}"
+        f"set {nodes[role]} {{{_node(pattern, plan.node_index(role))}}}"
         for role in names
     )
     listed = " ".join(f"${nodes[r]}" for r in names)
     lines.append(f"set core_clocks [get_clocks [list {listed}]]")
     if has_mem:
         if plan.get("mem_pin") is None:
-            mem = _node(pattern, plan.index("mem"))
+            mem = _node(pattern, plan.node_index("mem"))
             lines.append(f"set clk_mem {{{mem}}}")
         lines.append("set mem_clocks  [get_clocks $clk_mem]")
-        lines += _crossing("$mem_clocks", "$core_clocks", bound)
+        lines += _mem_core_crossing(plan, names, nodes, bound)
         lines += [
             "",
             "# O relógio da JTAG encontra o do controlador no mestre de",
@@ -268,7 +305,7 @@ def _video_domains(plan: ClockPlan, pattern: str | None) -> list[str]:
         "# só se cruza com o do núcleo nas pontes do framebuffer.",
     ]
     for clock in plan.video_roles:
-        node = _node(pattern, plan.index(clock.role))
+        node = _node(pattern, plan.node_index(clock.role))
         lines.append(f"set clk_{clock.role} {{{node}}}")
     names = " ".join(f"$clk_{c.role}" for c in plan.video_roles)
     lines.append(f"set video_clocks [get_clocks [list {names}]]")
@@ -389,11 +426,13 @@ def _vendor_sections(
         As linhas; vazias sem MAC RGMII, ADC interno, câmera, Wi-Fi e
         saída TMDS.
     """
-    soc = [
-        _node(pattern, plan.index(role))
-        for role in ("core", "fetch", "mem")
-        if plan.get(role) is not None
-    ]
+    soc = list(
+        dict.fromkeys(
+            _node(pattern, plan.node_index(role))
+            for role in ("core", "fetch", "mem")
+            if plan.get(role) is not None
+        )
+    )
     others = (
         adc_section(ports, soc)
         + mipi_section(ports, soc)
@@ -405,8 +444,8 @@ def _vendor_sections(
     delayed = plan.get(ETH_TX_DLY) is not None
     eth = eth_section(
         ports,
-        _node(pattern, plan.index(ETH_TX)),
-        _node(pattern, plan.index(ETH_TX_DLY)) if delayed else None,
+        _node(pattern, plan.node_index(ETH_TX)),
+        _node(pattern, plan.node_index(ETH_TX_DLY)) if delayed else None,
         soc,
     )
     return eth + others
