@@ -107,7 +107,9 @@ def test_the_launcher_mounts_the_quartus_and_shares_the_network(
     check_in("--network host", text)
     check_in('-v "$QUARTUS_ROOT":"$QUARTUS_ROOT":ro', text)
     check_in("/opt/altera_lite", text)
-    check_in("25.1std/quartus/bin", text)
+    check_in("QUARTUS_VERSION:-25.1std", text)
+    check_in("-e QUARTUS_ROOT -e QUARTUS_VERSION", text)
+    check_in("$QUARTUS_VERSION/quartus/bin", text)
     done = subprocess.run(["sh", "-n", str(path)], check=False)
     check_equal(done.returncode, 0)
 
@@ -294,7 +296,10 @@ def test_the_launcher_takes_the_same_lock_as_the_host(tmp_path: Path) -> None:
     """The lock dir and the host name reach the container, exported."""
     text = write_launcher(tmp_path).read_text()
     check_in("-v /tmp:/tmp", text)
-    check_in("export QUARTUS_ROOT RISCV_TOOLS_HOST", text)
+    check_in(
+        "export QUARTUS_ROOT QUARTUS_VERSION QUARTUS_BIN RISCV_TOOLS_HOST",
+        text,
+    )
     check_in("hostname -s", text)
 
 

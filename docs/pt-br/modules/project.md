@@ -8,7 +8,8 @@ O `new-project` escreve o `rt` na pasta do projeto. Ele monta a pasta do projeto
 
 | Variável | Efeito |
 | :--- | :--- |
-| `QUARTUS_ROOT` | Pasta onde o Quartus está instalado (padrão `/opt/altera_lite`) |
+| `QUARTUS_ROOT` | Pasta que guarda as versões do Quartus (padrão `/opt/altera_lite`) |
+| `QUARTUS_VERSION` | Versão dentro dessa pasta (padrão `25.1std`) |
 | `RISCV_TOOLS_HOST` | Nome do computador na trava da placa (padrão `hostname -s`) |
 | `RISCV_TOOLS_IMAGE` | Imagem a usar (padrão `ghcr.io/insper-riscv/dev_tools:latest`) |
 

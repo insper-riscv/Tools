@@ -109,7 +109,8 @@ def check_quartus(which: Which | None = None) -> list[Check]:
             find(tool) is not None,
             find(tool)
             or "not on the PATH; start through ./rt with the Quartus "
-            "mounted, or install it (see QUARTUS_ROOT)",
+            "mounted, install it in /opt/altera_lite, or point "
+            "QUARTUS_ROOT and QUARTUS_VERSION at it",
         )
         for tool in TOOLS
     ]

@@ -8,7 +8,8 @@ Short commands to work on a project made by `new-project`, without typing the op
 
 | Variable | Effect |
 | :--- | :--- |
-| `QUARTUS_ROOT` | Folder where Quartus is installed (default `/opt/altera_lite`) |
+| `QUARTUS_ROOT` | Folder that holds the Quartus versions (default `/opt/altera_lite`) |
+| `QUARTUS_VERSION` | Version inside that folder (default `25.1std`) |
 | `RISCV_TOOLS_HOST` | Name of the computer in the lock of the board (default `hostname -s`) |
 | `RISCV_TOOLS_IMAGE` | Image to use (default `ghcr.io/insper-riscv/dev_tools:latest`) |
 
