@@ -198,12 +198,12 @@ O bloco `core` também diz como um programa é compilado para o núcleo. O módu
 
 | Base | Sem multiplicação | `Zmmul` | `M` |
 | :--- | :--- | :--- | :--- |
-| I | `rv32i/ilp32` | `rv32i_zmmul/ilp32` | `rv32im_zmmul/ilp32` |
+| I | `.` | `rv32i_zmmul/ilp32` | `rv32im_zmmul/ilp32` |
 | E | `rv32e/ilp32e` | `rv32e_zmmul/ilp32e` | `rv32em_zmmul/ilp32e` |
 | I, 64 bits | `rv64i/lp64` | `rv64i_zmmul/lp64` | `rv64im_zmmul/lp64` |
 | E, 64 bits | `rv64e/lp64e` | `rv64e_zmmul/lp64e` | `rv64em_zmmul/lp64e` |
 
-No GCC da imagem o padrão é `rv32i`, a variante `rv32i/ilp32` é a raiz de `lib/` e o `-print-multi-directory` a escreve como `.`. Com `march: true` na seção `specs` (seção 2), o arquivo de specs ganha a regra abaixo, para o programa compilado sem `-march` pegar o par do núcleo.
+No GCC da imagem o padrão é `rv32i`, a variante `rv32i/ilp32` é a raiz de `lib/` e o `-print-multi-directory` a escreve como `.`; a multiplicação `M` usa a variante `rv32im_zmmul`. Com `march: true` na seção `specs` (seção 2), o arquivo de specs ganha a regra abaixo, para o programa compilado sem `-march` pegar o par do núcleo.
 
 ```text
 *self_spec:

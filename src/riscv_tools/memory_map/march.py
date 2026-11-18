@@ -131,14 +131,18 @@ def multilib_of(core: dict[str, Any]) -> str:
     -------
     str
         The directory as `-print-multi-directory` writes it, such as
-        `rv32i_zmmul/ilp32` or `rv64im_zmmul/lp64`; the variant of the
-        default `-march` (`rv32i`) is the root `.` in the image.
+        `rv32i_zmmul/ilp32` or `rv64im_zmmul/lp64`. The variant of the
+        default `-march` of the image, `rv32i`, is the root `.`, and `M`
+        takes the `_zmmul` variant, as the compiler picks it.
     """
     kind, base = _width(core)
     names = extension_names(core)
     letter = "m" if "m" in names else ""
+    # A multiplicação M usa a biblioteca `_zmmul`, a mesma do Zmmul.
     zmmul = "zmmul" in names or bool(letter)
     variant = f"rv{kind}{base}{letter}" + ("_zmmul" if zmmul else "")
+    if variant == "rv32i":
+        return "."
     return f"{variant}/{abi_of(core)}"
 
 

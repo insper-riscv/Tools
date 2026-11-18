@@ -198,12 +198,12 @@ The `core` block also says how a program is compiled for the core. The module `r
 
 | Base | No multiplication | `Zmmul` | `M` |
 | :--- | :--- | :--- | :--- |
-| I | `rv32i/ilp32` | `rv32i_zmmul/ilp32` | `rv32im_zmmul/ilp32` |
+| I | `.` | `rv32i_zmmul/ilp32` | `rv32im_zmmul/ilp32` |
 | E | `rv32e/ilp32e` | `rv32e_zmmul/ilp32e` | `rv32em_zmmul/ilp32e` |
 | I, 64 bits | `rv64i/lp64` | `rv64i_zmmul/lp64` | `rv64im_zmmul/lp64` |
 | E, 64 bits | `rv64e/lp64e` | `rv64e_zmmul/lp64e` | `rv64em_zmmul/lp64e` |
 
-In the GCC of the image the default is `rv32i`, the variant `rv32i/ilp32` is the root of `lib/` and `-print-multi-directory` writes it as `.`. With `march: true` in the `specs` section (section 2), the specs file gets the rule below, so a program compiled without `-march` takes the pair of the core.
+In the GCC of the image the default is `rv32i`, the variant `rv32i/ilp32` is the root of `lib/` and `-print-multi-directory` writes it as `.`; the `M` multiplication uses the `rv32im_zmmul` variant. With `march: true` in the `specs` section (section 2), the specs file gets the rule below, so a program compiled without `-march` takes the pair of the core.
 
 ```text
 *self_spec:

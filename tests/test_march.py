@@ -26,7 +26,7 @@ PROFILES = profiles.expand(profiles.load_spec(MATRIX))
 # O mapa medido na imagem ci-elf (GCC 16.1.0): base, multiplicação e a
 # biblioteca do picolibc que o par `-march` e `-mabi` escolhe.
 ORACLE = {
-    ("i", "none"): "rv32i/ilp32",
+    ("i", "none"): ".",
     ("i", "zmmul"): "rv32i_zmmul/ilp32",
     ("i", "m"): "rv32im_zmmul/ilp32",
     ("e", "none"): "rv32e/ilp32e",
@@ -117,7 +117,7 @@ def test_the_march_follows_the_order_of_the_matrix() -> None:
 @pytest.mark.parametrize(
     ("profile", "extras", "march", "abi", "multilib"),
     [
-        ("rv32i", [], "rv32i", "ilp32", "rv32i/ilp32"),
+        ("rv32i", [], "rv32i", "ilp32", "."),
         ("rv32e", [], "rv32e", "ilp32e", "rv32e/ilp32e"),
         ("rv32im", [], "rv32im", "ilp32", "rv32im_zmmul/ilp32"),
         ("rv64i", [], "rv64i", "lp64", "rv64i/lp64"),
@@ -130,7 +130,7 @@ def test_the_march_follows_the_order_of_the_matrix() -> None:
             ["Interrupts"],
             "rv32i_zicsr_zicntr",
             "ilp32",
-            "rv32i/ilp32",
+            ".",
         ),
         (
             "rv32i_zmmul_zihpm",
@@ -201,8 +201,7 @@ def _probe(case: tuple[str, dict[str, Any], str]) -> list[str]:
     try:
         _gcc([*flags, "-S", "-x", "c", "/dev/null", "-o", "/dev/null"])
         directory = _gcc([*flags, "-print-multi-directory"])
-        # A raiz `.` é a `rv32i/ilp32`, o padrão da imagem.
-        if directory not in (want, "." if want == "rv32i/ilp32" else want):
+        if directory != want:
             bad.append(f"{name}: multilib {directory!r}, expected {want!r}")
         for lib in ("libc.a", "crt0-hosted.o"):
             path = _gcc([*flags, f"-print-file-name={lib}"])

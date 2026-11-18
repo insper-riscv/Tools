@@ -25,7 +25,7 @@ _LIBC_FLAGS = {
     # -mabi=ilp32).
     "none": ["-nostdlib"],
     # picolibc, for a toolchain configured with it (insper-riscv/Infra's
-    # GCC_SETUP.md builds one for rv32im/ilp32). picolibc.specs turns on
+    # GCC_SETUP.md builds one for rv32i/ilp32). picolibc.specs turns on
     # --gc-sections, which drops every section a link script doesn't
     # KEEP or reach from its entry, so it is switched off again.
     "picolibc": ["--specs=picolibc.specs", "-Wl,--no-gc-sections"],
