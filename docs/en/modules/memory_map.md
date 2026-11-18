@@ -474,6 +474,8 @@ These constants only enter the `config_pkg` when the platform declares `offset`.
 
 A project `config.yaml` declares `memory_map: <path of the platform.yaml>`, and the configuration loader replaces the keys the map fixes with the map's own: `isa.base`, `memory.boot_memory_base`, `boot_memory_words`, `rom_base`, `rom_words`, `ram_base`, `ram_words`, `tohost_addr`, `fromhost_addr` `sim.env.TOHOST_ADDR`, `sim.env.STDOUT_ADDR` (the testbench reads the address from the environment) and, for the memories the `config.addr_widths` section of the map lists, `sim.parameters.<memory>_addr_width`. What the map fixes wins over what the file or its `extends` say, so no address or size is written twice.
 
+The same `memory_map` gives, as defaults, `toolchain.specs` and `paths.boot_memory_linker_script`, read from the `generate` of the map: `generate.specs.path` or, when the config has `flash_image.bank` (in the file itself or in a base of its `extends`), the `bank_specs` entry whose `rom` is `BANK_<bank>_PAYLOAD`, and `generate.boot_ld.path`. These two apply only when the config does not write them, so a path written by hand still wins.
+
 ```yaml
 config:
   rom: FLASH
