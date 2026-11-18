@@ -18,6 +18,53 @@ from riscv_tools.compiler.build import (
 )
 
 
+def boot_gcc_args(
+    march: str,
+    abi: str,
+    linker: Path,
+    source: Path,
+    elf: Path,
+    *extra: str,
+) -> list[str]:
+    """List the gcc arguments that build the boot memory.
+
+    Parameters
+    ----------
+    march : str
+        The `-march`, such as `rv32i` or `rv32e`.
+    abi : str
+        The `-mabi`, such as `ilp32` or `ilp32e`.
+    linker : Path
+        The linker script of the boot memory.
+    source : Path
+        The `boot_memory.S`.
+    elf : Path
+        The ELF to write.
+    *extra : str
+        More options, placed before the linker script.
+
+    Returns
+    -------
+    list of str
+        The arguments after the gcc binary.
+    """
+    return [
+        f"-march={march}",
+        f"-mabi={abi}",
+        "-O0",
+        *C_STANDARD_FLAGS,
+        "-ffreestanding",
+        "-nostdlib",
+        "-nostartfiles",
+        *extra,
+        "-T",
+        str(linker),
+        str(source),
+        "-o",
+        str(elf),
+    ]
+
+
 @dataclass(frozen=True)
 class BootMemoryOptions:
     """What varies between boot memory builds.
@@ -80,20 +127,13 @@ def build_boot_memory(
 
     run_gcc(
         toolchain_cfg,
-        [
-            f"-march=rv32{base}",
-            f"-mabi={'ilp32e' if base == 'e' else 'ilp32'}",
-            "-O0",
-            *C_STANDARD_FLAGS,
-            "-ffreestanding",
-            "-nostdlib",
-            "-nostartfiles",
-            "-T",
-            str(linker),
-            str(boot_memory_src),
-            "-o",
-            str(elf),
-        ],
+        boot_gcc_args(
+            f"rv32{base}",
+            "ilp32e" if base == "e" else "ilp32",
+            linker,
+            boot_memory_src,
+            elf,
+        ),
     )
     elf_to_bin(toolchain_cfg, elf, bin_)
     if options.hex_format == "verilog":

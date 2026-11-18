@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from riscv_tools.cli.boot_size_cmd import cmd_check_boot_size
 from riscv_tools.cli.config_pkg_cmd import cmd_generate_config_pkg
 from riscv_tools.cli.flash_image_cmd import cmd_flash_image
 from riscv_tools.cli.parser_util import add_command
@@ -25,6 +26,44 @@ from riscv_tools.cli.vhdl_style_cmd import (
 from riscv_tools.tree_check import KINDS
 
 _DEFAULT_NPATHS = 30
+
+
+def _add_check_boot_size(sub: Any) -> None:
+    """Register `check-boot-size`.
+
+    Parameters
+    ----------
+    sub : Any
+        The subparsers of the main parser.
+    """
+    p = add_command(
+        sub,
+        cmd_check_boot_size,
+        "check-boot-size",
+        description=(
+            "Assemble the boot memory of a platform with the toolchain and "
+            "fail when it does not fit the BOOT_MEMORY"
+        ),
+    )
+    p.add_argument(
+        "--platform",
+        required=True,
+        help="Platform YAML (relative to --root) with generate.boot_ld",
+    )
+    p.add_argument(
+        "--gcc",
+        default="riscv32-unknown-elf-gcc",
+        help="Compiler of the toolchain",
+    )
+    p.add_argument(
+        "--objdump",
+        default="riscv32-unknown-elf-objdump",
+        help="objdump of the toolchain",
+    )
+    p.add_argument(
+        "--build-dir",
+        help="Where to write the measure build (default: a temporary folder)",
+    )
 
 
 def add_tool_commands(sub: Any) -> None:
@@ -83,6 +122,8 @@ def add_tool_commands(sub: Any) -> None:
         action="store_true",
         help="Allow a board pin that is only inferred (rule V16)",
     )
+
+    _add_check_boot_size(sub)
 
     p = add_command(
         sub,

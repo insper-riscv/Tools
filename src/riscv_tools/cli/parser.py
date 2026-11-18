@@ -23,6 +23,7 @@ _COMMANDS_WITHOUT_CONFIG = frozenset(
         "vhdl-sort",
         "check-boards",
         "check-memory-map",
+        "check-boot-size",
         "calibrate",
         "check-fit",
         "check-paths",
@@ -48,10 +49,11 @@ Usage: ``riscv-tools --config <config.yaml> <subcommand> ...``.
 
 Every subcommand takes --config, pointing at the CONSUMING project's
 own config.yaml (memory map, Quartus project paths, toolchain, etc.),
-except `vhdl-sort`, `check-memory-map`, `generate-memory-map`,
-`generate-config-pkg`, `check-paths`, `check-boards`, `check-tree`,
-`sources`, `platform` and `flash-image` (except `send`), which read
-only files and need no project config at all.
+except `vhdl-sort`, `check-memory-map`, `check-boot-size`,
+`generate-memory-map`, `generate-config-pkg`, `check-paths`,
+`check-boards`, `check-tree`, `sources`, `platform` and `flash-image`
+(except `send`), which read only files and need no project config at
+all.
 """
 
 

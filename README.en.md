@@ -18,6 +18,7 @@ It is designed to run on a workstation with all the tools installed, or inside t
 | `bin_to_image`       | .bin -> .mif/.hex (memory-image formats, no compiler involved)    | [docs/modules/bin_to_image.md](docs/en/modules/bin_to_image.md) |
 | `c_to_asm`           | .c -> human-readable RISC-V assembly (`gcc -S`), for inspecting codegen | [docs/modules/c_to_asm.md](docs/en/modules/c_to_asm.md) |
 | `boot_memory`           | Builds the fixed, shared bootloader, once, reused across every test | [docs/modules/boot_memory.md](docs/en/modules/boot_memory.md) |
+| `boot_size`             | Assembles the BOOT of a platform and measures its size against the BOOT_MEMORY, before the hardware | [docs/modules/boot_size.md](docs/en/modules/boot_size.md) |
 | `jtag`               | Live JTAG cable detection, generic `.tcl` runner            | [docs/modules/jtag.md](docs/en/modules/jtag.md) |
 | `board`              | Board identification, selection and lock through JTAG       | [docs/modules/board.md](docs/en/modules/board.md) |
 | `mem_edit`           | Generic In-System Memory Content Editor primitives (read/write word, write-full, dump) | [docs/modules/mem_edit.md](docs/en/modules/mem_edit.md) |
@@ -104,7 +105,7 @@ uv run riscv-tools --config /path/to/project/config.yaml sim
 uv run riscv-tools --config /path/to/project/config.yaml sim --only test-a,test-b
 ```
 
-See `riscv-tools --help` for the full subcommand list (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `load-ram`, `load-flash`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `generate-config-pkg`, `check-paths`, `check-boards`, `check-tree`, `sources`, `ipxact`, `check-vhdl-style`, `vsg-config`, `vsg-rules`, `vhdl-files`, `platform`, `flash-image`, `timing-paths`, and `board generate`).
+See `riscv-tools --help` for the full subcommand list (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `load-ram`, `load-flash`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `check-boot-size`, `generate-memory-map`, `generate-config-pkg`, `check-paths`, `check-boards`, `check-tree`, `sources`, `ipxact`, `check-vhdl-style`, `vsg-config`, `vsg-rules`, `vhdl-files`, `platform`, `flash-image`, `timing-paths`, and `board generate`).
 
 ```bash
 # vhdl-sort needs no --config; pure file-content analysis, e.g. wired

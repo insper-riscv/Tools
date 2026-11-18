@@ -13,7 +13,7 @@ from riscv_tools import (
     vhdl_sort,
 )
 from riscv_tools import timing_paths as timing_paths_mod
-from riscv_tools.cli.common import project_root
+from riscv_tools.cli.common import platform_file, project_root
 from riscv_tools.settings import load_config
 
 
@@ -178,9 +178,7 @@ def cmd_check_memory_map(args: argparse.Namespace) -> None:
         disagreement.
     """
     root = project_root(args)
-    platform = Path(args.platform)
-    if not platform.is_absolute():
-        platform = root / platform
+    platform = platform_file(args, root)
     count, problems = memory_map.check_memory_map(platform, root)
     findings = board_check.check_platform_file(
         platform, root, accept_inferred_pins=args.accept_inferred_pins
