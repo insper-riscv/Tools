@@ -37,6 +37,8 @@ With the `pixel` output in the plan, the `.sdc` declares the pixel clock node an
 
 The node name comes from the family field `pll.clock_node_pattern`, with `<instance>` and `[N]`, replaced by the PLL instance name and the output index. A family without the pattern (`altpll` still unmeasured) fails with `SdcError`.
 
+Two PLL outputs with the same frequency and phase are the same clock, and Quartus merges them into the one with the lowest index; the `.sdc` names the node of that output for every role involved, and the crossing between the controller and the core leaves out the domain that coincides with the controller one.
+
 ## 6. Tests
 
 | Test | What it checks |
@@ -44,6 +46,7 @@ The node name comes from the family field `pll.clock_node_pattern`, with `<insta
 | `tests/test_video_clocks.py` | The pixel clock domain, the crossings |
 | `tests/test_board_equivalence.py` | The generated DE0-CV `.sdc` has the constraints of the hand-written `de0-cv.sdc` |
 | `tests/test_board_generate.py` | `.sdc` of the boards with a test PLL |
+| `tests/test_top_generics_and_clocks.py` | The cast of the window tables, the floor of 6 PLIC sources, switches and keys only with a window and the node of the merged PLL clock |
 | `tests/test_eth_rgmii.py` | The RGMII Ethernet block and the crossing bound without its clocks |
 | `tests/test_external_top.py` | The MIPI camera clock and its asynchronous group, and the false paths of the Wi-Fi module and the TMDS output |
 | `tests/test_vendor_ip.py` | The ADC clock, the IP and the script in the project, the USB `dreq` and `dack`, and rule V25 |

@@ -2,6 +2,7 @@
 
 from typing import Any, cast
 
+from riscv_tools.board_ports import Port
 from riscv_tools.memory_map.timers import has_timer
 from riscv_tools.top_generator.spec import (
     TopSpec,
@@ -18,9 +19,13 @@ _NO_INTERRUPTS = {
     "plic_priority_bits": "3",
     "plic_addr_width": "20",
 }
+# O SoC exige `plic_n_sources` de 6 a 1023, e o pacote do mapa traz o
+# maior identificador de fonte, que numa plataforma com poucas linhas é
+# menor que 6; o `max_of` do pacote do interconector aplica o piso (o
+# Quartus Lite não tem a função `maximum`).
 _PLIC_FROM_PACKAGE = {
     "clint_tick_cycles": "CLINT_TICK_CYCLES",
-    "plic_n_sources": "PLIC_N_SOURCES",
+    "plic_n_sources": "work.interconnect_pkg.max_of(6, (0 => PLIC_N_SOURCES))",
     "plic_priority_bits": "PLIC_PRIORITY_BITS",
     "plic_addr_width": "PLIC_ADDR_WIDTH",
 }
@@ -151,12 +156,15 @@ def _table_generics() -> list[str]:
     -------
     list of str
         A quantidade de periféricos e as tabelas de bases e de máscaras,
-        que o interconector usa para decodificar cada periférico.
+        que o interconector usa para decodificar cada periférico; as
+        tabelas passam por conversão porque o pacote do mapa declara o
+        próprio tipo de vetor de endereços, e o SoC espera outro.
     """
+    cast_to = "work.interconnect_pkg.addr_array_t"
     return [
         "periph_count => PERIPH_COUNT",
-        "periph_bases => PERIPH_BASES",
-        "periph_masks => PERIPH_MASKS",
+        f"periph_bases => {cast_to}(PERIPH_BASES)",
+        f"periph_masks => {cast_to}(PERIPH_MASKS)",
     ]
 
 
@@ -185,6 +193,27 @@ def _index_generics(
     ]
 
 
+def _mapped_ports(spec: TopSpec, role: str) -> list[Port]:
+    """Filtra as portas de um papel que a plataforma mapeia.
+
+    Parameters
+    ----------
+    spec : TopSpec
+        O topo.
+    role : str
+        O papel, que é também o nome do periférico em minúsculas.
+
+    Returns
+    -------
+    list of Port
+        As portas do papel; vazia quando o `platform.yaml` não lista o
+        periférico, pois sem janela o SoC rejeita o índice.
+    """
+    if peripheral_index(spec.platform, role.upper()) is None:
+        return []
+    return role_ports(spec, role)
+
+
 def _role_generics(spec: TopSpec) -> list[str]:
     """Monta os generics dos papéis de E/S e do console.
 
@@ -196,11 +225,13 @@ def _role_generics(spec: TopSpec) -> list[str]:
     Returns
     -------
     list of str
-        As associações de generic, com largura e polaridade por papel.
+        As associações de generic, com largura e polaridade por papel;
+        chaves e botões só são ligados quando o `platform.yaml` os
+        mapeia como periférico, pois sem janela o SoC rejeita o índice.
     """
     out: list[str] = []
     for role in ("switches", "keys"):
-        ports = role_ports(spec, role)
+        ports = _mapped_ports(spec, role)
         out.append(f"has_{role} => {str(bool(ports)).lower()}")
         if ports:
             out += [
