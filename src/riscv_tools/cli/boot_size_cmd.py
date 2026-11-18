@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 
 from riscv_tools import boot_size
-from riscv_tools.cli.common import project_root
+from riscv_tools.cli.common import platform_file, project_root
 
 
 def cmd_check_boot_size(args: argparse.Namespace) -> None:
@@ -31,9 +31,7 @@ def cmd_check_boot_size(args: argparse.Namespace) -> None:
         to measure or the toolchain fails.
     """
     root = project_root(args)
-    platform = Path(args.platform)
-    if not platform.is_absolute():
-        platform = root / platform
+    platform = platform_file(args, root)
     with tempfile.TemporaryDirectory() as scratch:
         build_dir = Path(args.build_dir or scratch)
         try:
