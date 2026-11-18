@@ -20,10 +20,10 @@ out. The `-mabi` is `ilp32` for the base I and `ilp32e` for the base E
 (`lp64` and `lp64e` for 64 bits).
 
 Only the base and the multiplication choose the multilib, so six
-libraries cover every profile: `rv32i`, `rv32i_zmmul` and `rv32im` for
-the base I, `rv32e`, `rv32e_zmmul` and `rv32em_zmmul` for the base E.
-The image has no RV64 multilib, so the multilib of a 64-bit core is an
-error, and so is the whole platform (see `core_checks`).
+libraries cover every profile of a width: `rv32i`, `rv32i_zmmul` and
+`rv32im_zmmul` for the base I, `rv32e`, `rv32e_zmmul` and `rv32em_zmmul`
+for the base E, and the same six with `rv64` in the name and the `lp64`
+and `lp64e` ABIs for 64 bits. The image has both sets (384 variants).
 """
 
 from typing import Any, cast
@@ -38,14 +38,8 @@ from riscv_tools.memory_map.profile import profile_name
 # Extensões que o GCC aceita e que não mudam a biblioteca.
 MARCH_EXTRAS = ("Zihintntl", "Zihintpause")
 RV32 = 32
-RV64 = 64
-NO_RV64_MULTILIB = (
-    "core.type 64 has no multilib in the toolchain image (the compiler "
-    "accepts rv64 and links with the 32-bit libraries without a "
-    "warning); use core.type 32"
-)
 # -march que o GCC da imagem assume quando o programa não dá nenhum.
-DEFAULT_MARCH = "rv32im_zmmul"
+DEFAULT_MARCH = "rv32i"
 
 
 def extension_names(core: dict[str, Any]) -> set[str]:
@@ -137,20 +131,13 @@ def multilib_of(core: dict[str, Any]) -> str:
     -------
     str
         The directory as `-print-multi-directory` writes it, such as
-        `rv32i_zmmul/ilp32`; the `rv32im` variant is the root `.` in
-        the image whose default `-march` is `rv32im`.
-
-    Raises
-    ------
-    ValueError
-        If the block is 64 bits wide, which has no multilib.
+        `rv32i_zmmul/ilp32` or `rv64im_zmmul/lp64`; the variant of the
+        default `-march` (`rv32i`) is the root `.` in the image.
     """
     kind, base = _width(core)
-    if kind == RV64:
-        raise ValueError(NO_RV64_MULTILIB)
     names = extension_names(core)
     letter = "m" if "m" in names else ""
-    zmmul = "zmmul" in names or (base == "e" and bool(letter))
+    zmmul = "zmmul" in names or bool(letter)
     variant = f"rv{kind}{base}{letter}" + ("_zmmul" if zmmul else "")
     return f"{variant}/{abi_of(core)}"
 

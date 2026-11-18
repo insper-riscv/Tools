@@ -242,7 +242,7 @@ def test_specs_with_march_carry_the_march_and_the_abi(tmp_path: Path) -> None:
     text = _render(tmp_path, _with_march())[SPECS]
     tail = (
         "*startfile:\ncrt0-hosted%O%s\n\n*self_spec:\n"
-        "%{march=rv32im_zmmul:%<march=* %<mabi=*"
+        "%{march=rv32i:%<march=* %<mabi=*"
         " -march=rv32im_zicsr_zicntr -mabi=ilp32}\n"
     )
     check(text.endswith(tail), text)
@@ -252,11 +252,11 @@ def test_specs_march_follows_the_profile_and_the_default(
     tmp_path: Path,
 ) -> None:
     """A base E core gets `ilp32e`, and the default can be changed."""
-    platform = _with_march(default_march="rv32i")
+    platform = _with_march(default_march="rv32im")
     platform |= {"profile": "rv32em_zicsr", "extras": ["Zihintpause"]}
     text = _render(tmp_path, platform)[SPECS]
     check_in(
-        "%{march=rv32i:%<march=* %<mabi=*"
+        "%{march=rv32im:%<march=* %<mabi=*"
         " -march=rv32em_zicsr_zihintpause -mabi=ilp32e}",
         text,
     )
@@ -285,10 +285,10 @@ def test_the_core_of_the_platform_gives_the_march(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("profile", "extras", "multilib"),
     [
-        ("rv32i_zicsr", [], "rv32i/ilp32"),
+        ("rv32i_zicsr", [], "."),
         ("rv32e_zmmul", ["Zihintpause"], "rv32e_zmmul/ilp32e"),
         ("rv32em", [], "rv32em_zmmul/ilp32e"),
-        ("rv32im_zicntr", ["Interrupts"], "."),
+        ("rv32im_zicntr", ["Interrupts"], "rv32im_zmmul/ilp32"),
     ],
 )
 def test_gcc_uses_the_core_when_the_program_has_no_march(
@@ -334,18 +334,85 @@ def _run(command: list[str], stream: str = "stdout") -> str:
     return (done.stderr if stream == "stderr" else done.stdout).strip()
 
 
-def test_a_64_bit_core_is_refused(tmp_path: Path) -> None:
-    """V-I1: the image has no RV64 multilib."""
+def test_a_64_bit_core_is_not_refused_for_the_toolchain(
+    tmp_path: Path,
+) -> None:
+    """The image has RV64 multilibs; only the address rule is left."""
     reason = _problem(tmp_path, _platform(profile="rv64i", extras=[]))
-    check_in("V-I1", reason)
-    check_in("use core.type 32", reason)
+    check_not_in("V-I1", reason)
+    check_in("V-A5", reason)
 
 
-def test_a_64_bit_core_is_refused_by_the_check(tmp_path: Path) -> None:
-    """`check-memory-map` reports the same problem as the generation."""
-    platform = _write(tmp_path, _platform(profile="rv64im", extras=[]))
-    with pytest.raises(ValueError, match="V-I1"):
-        check_all(platform, tmp_path)
+def test_a_64_bit_core_passes_the_check(tmp_path: Path) -> None:
+    """`check-memory-map` has no V-I1 for a 64-bit core."""
+    path = _write(tmp_path, _platform(profile="rv64im", extras=[]))
+    _, problems = check_memory_map(path, tmp_path)
+    check(not any("V-I1" in str(p) for p in problems), str(problems))
+
+
+def _with_memory(memory: dict[str, Any], profile: str) -> dict[str, Any]:
+    """Copy the platform with a memory choice and a profile."""
+    return _platform(memory=deepcopy(memory), profile=profile, extras=[])
+
+
+def _no_cache(**changes: Any) -> dict[str, Any]:
+    """Copy the memory choice without an instruction cache."""
+    return deepcopy(MEMORY) | {"icache": {"enabled": False}} | changes
+
+
+def test_an_instruction_cache_needs_zifencei(tmp_path: Path) -> None:
+    """V-I2: the cache keeps a copy that only `fence.i` drops."""
+    reason = _problem(tmp_path, _with_memory(MEMORY, "rv32im_zicntr"))
+    check_in("V-I2 the platform has an instruction cache", reason)
+    check_in("add Zifencei to core.extensions", reason)
+    ok = _with_memory(MEMORY, "rv32im_zicntr_zifencei")
+    check_in(SPECS, _render(tmp_path, ok))
+
+
+def test_the_instruction_memory_on_the_bus_needs_zifencei(
+    tmp_path: Path,
+) -> None:
+    """V-I2: an external instruction window needs it without a cache."""
+    reason = _problem(tmp_path, _with_memory(_no_cache(), "rv32i"))
+    check_in("the instruction memory on the bus", reason)
+    check_not_in("instruction cache", reason)
+
+
+def test_the_ram_that_the_fetch_reaches_needs_zifencei(
+    tmp_path: Path,
+) -> None:
+    """V-I2: `fetch` on the RAM makes the code readable from the bus."""
+    memory = _no_cache(
+        rom={"external": False},
+        ram={"external": True, "fetch": True},
+    )
+    reason = _problem(tmp_path, _with_memory(memory, "rv32i"))
+    check_in("a RAM that the instruction fetch reaches", reason)
+
+
+def test_a_data_cache_alone_does_not_need_zifencei(tmp_path: Path) -> None:
+    """The data cache never holds code the fetch reads."""
+    memory = _no_cache(
+        rom={"external": False},
+        dcache={"enabled": True, "size_bits": 4096},
+    )
+    check_in(SPECS, _render(tmp_path, _with_memory(memory, "rv32i")))
+
+
+def test_no_cache_and_no_window_does_not_need_zifencei(
+    tmp_path: Path,
+) -> None:
+    """Without either, `fence.i` has no effect and is not required."""
+    memory = _no_cache(rom={"external": False}, ram={"external": False})
+    check_in(SPECS, _render(tmp_path, _with_memory(memory, "rv32i")))
+    check_in(SPECS, _render(tmp_path, _platform()))
+
+
+def test_check_memory_map_reports_v_i2(tmp_path: Path) -> None:
+    """`check-memory-map` returns V-I2 like the generation."""
+    path = _write(tmp_path, _with_memory(MEMORY, "rv32i"))
+    _, problems = check_memory_map(path, tmp_path)
+    check(any("V-I2" in str(p) for p in problems), str(problems))
 
 
 def test_the_extension_q_is_refused(tmp_path: Path) -> None:
@@ -389,10 +456,6 @@ def test_the_wait_loop_needs_room_in_the_boot_memory(tmp_path: Path) -> None:
 
 def test_check_memory_map_reports_the_refusals(tmp_path: Path) -> None:
     """`check-memory-map` returns the problems of the generation."""
-    path = _write(tmp_path, _platform(profile="rv64im", extras=[]))
-    _, problems = check_memory_map(path, tmp_path)
-    check(any("V-I1" in str(p) for p in problems), str(problems))
-
     path = _write(tmp_path, _with_boot("1536"))
     _, problems = check_memory_map(path, tmp_path)
     check(any("V-B1" in str(p) for p in problems), str(problems))
@@ -410,7 +473,7 @@ def test_march_and_cxx_share_one_self_spec(tmp_path: Path) -> None:
     check_in("%rename self_spec rv32imfpga_self_spec", text)
     check_in(
         "*self_spec:\n%(rv32imfpga_self_spec) %{!T:-T picolibcpp.ld} "
-        "%{march=rv32im_zmmul:%<march=* %<mabi=*"
+        "%{march=rv32i:%<march=* %<mabi=*"
         " -march=rv32im_zicsr_zicntr -mabi=ilp32}\n",
         text,
     )
