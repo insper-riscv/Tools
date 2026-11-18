@@ -11,7 +11,10 @@ from typing import Any, cast
 
 import yaml
 
-from riscv_tools.memory_map.config_view import config_from_platform
+from riscv_tools.memory_map.config_view import (
+    config_from_platform,
+    paths_from_platform,
+)
 
 
 def deep_merge(
@@ -161,16 +164,20 @@ def read_project_config(
     data: dict[str, Any] = yaml.safe_load(path.read_text()) or {}
     base_ref = data.pop("extends", None)
     map_ref = data.pop("memory_map", None)
+    base: dict[str, Any] = {}
+    if base_ref is not None:
+        base = read_project_config(
+            base_of(path, str(base_ref)), (*chain, resolved), base_of
+        )
     if map_ref is not None:
+        platform_file = path.parent / str(map_ref)
+        # O banco da imagem pode vir da base. Os caminhos do `generate`
+        # do mapa valem como padrão, e o que o arquivo diz vence.
+        own = cast("dict[str, Any]", data.get("flash_image") or {})
+        inherited = cast("dict[str, Any]", base.get("flash_image") or {})
+        bank = {**inherited, **own}.get("bank")
+        data = deep_merge(paths_from_platform(platform_file, bank), data)
         # the platform map is the single source of the addresses and
         # sizes, so it wins over what this file or its bases say
-        data = deep_merge(
-            data, config_from_platform(path.parent / str(map_ref))
-        )
-    if base_ref is None:
-        return data
-
-    base = read_project_config(
-        base_of(path, str(base_ref)), (*chain, resolved), base_of
-    )
+        data = deep_merge(data, config_from_platform(platform_file))
     return deep_merge(base, data)
