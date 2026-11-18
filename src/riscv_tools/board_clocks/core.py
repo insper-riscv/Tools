@@ -110,6 +110,31 @@ class ClockPlan:
         """
         return [c.role for c in self.roles].index(role)
 
+    def node_index(self, role: str) -> int:
+        """Dá a saída do PLL cujo nó de relógio o Quartus mantém.
+
+        Duas saídas com a mesma frequência e a mesma fase são o mesmo
+        relógio, e o Quartus as funde numa só saída, a de menor índice.
+        O nó das demais deixa de existir, e uma restrição que o cita não
+        casa com nada.
+
+        Parameters
+        ----------
+        role : str
+            O papel, que deve existir.
+
+        Returns
+        -------
+        int
+            A posição da primeira saída de mesma frequência e fase.
+        """
+        own = self.roles[self.index(role)]
+        return next(
+            i
+            for i, c in enumerate(self.roles)
+            if (c.mhz, c.phase_ps) == (own.mhz, own.phase_ps)
+        )
+
     @property
     def min_period_ns(self) -> Fraction:
         """Menor período entre os relógios do SoC, sem os do vídeo."""

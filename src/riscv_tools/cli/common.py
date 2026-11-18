@@ -189,3 +189,22 @@ def project_root(args: argparse.Namespace) -> Path:
         current working directory.
     """
     return Path(args.root).resolve() if args.root else Path.cwd()
+
+
+def platform_file(args: argparse.Namespace, root: Path) -> Path:
+    """Resolve the `--platform` of a subcommand against the root.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed CLI arguments: uses args.platform.
+    root : Path
+        The project root.
+
+    Returns
+    -------
+    Path
+        The platform file, absolute.
+    """
+    platform = Path(args.platform)
+    return platform if platform.is_absolute() else root / platform

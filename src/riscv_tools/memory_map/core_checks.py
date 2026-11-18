@@ -6,24 +6,28 @@ generated and by `check-memory-map`, with what to do in the message.
 1. `V-B1`: the BOOT_MEMORY size is not a power of two.
 2. `V-B2`: `boot.wait_restart` leaves no room in the BOOT_MEMORY for
    the wait loop.
-3. `V-I1`: `core.type` is 64. The compiler accepts `rv64` and links
-   with the 32-bit libraries without a warning, because the toolchain
-   image has no RV64 multilib.
+3. `V-I2`: the platform has an instruction cache or an instruction
+   memory on the bus, and `core.extensions` has no `Zifencei`. Without
+   `fence.i` the fetch keeps a stale copy of what the boot wrote.
 
-The extension `Q` is refused when the `core` block is read (see
-`core_profile`), because no compiler of the image can generate it.
+A platform without either of them does not need `Zifencei`: `fence.i`
+has no effect there, so the extension is not required. A data cache
+alone does not count, because it never holds code the fetch reads (the
+instructions come from a memory the data side does not reach), and
+`fence.i` then only flushes data.
+
+The image has the RV64 multilibs (`rv64i/lp64` and the others), so a
+64-bit core is not refused. The extension `Q` is refused when the `core`
+block is read (see `core_profile`), because no compiler of the image can
+generate it.
 """
 
-from contextlib import suppress
-from typing import Any
+from typing import Any, cast
 
+from riscv_tools.memory_map import memory as memory_choice
 from riscv_tools.memory_map.core import Mismatch, platform_dict, platform_list
 from riscv_tools.memory_map.expressions import evaluate
-from riscv_tools.memory_map.march import (
-    NO_RV64_MULTILIB,
-    RV64,
-)
-from riscv_tools.memory_map.profile import xlen_of
+from riscv_tools.memory_map.march import extension_names, platform_core
 
 # Bytes que o laço de espera ocupa a partir de `wait_restart`: carregar
 # o fim da RAM (lui e addi), ler o `fromhost`, desviar e saltar.
@@ -90,10 +94,38 @@ def boot_size_problems(platform: dict[str, Any]) -> list[Mismatch]:
     return found
 
 
-def core_problems(
-    platform: dict[str, Any],
-) -> list[Mismatch]:
-    """Check the core against what the toolchain serves.
+def fetch_sources(platform: dict[str, Any]) -> list[str]:
+    """Name what keeps the instruction fetch away from the memory.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+
+    Returns
+    -------
+    list of str
+        The instruction cache, the instruction memory on the bus and
+        the RAM that the fetch reaches, for the ones the platform has;
+        empty without a `memory` choice or with an invalid one.
+    """
+    memory, invalid = memory_choice.read(platform)
+    if memory is None or invalid:
+        return []
+    found: list[str] = []
+    if memory.has_icache:
+        found.append("an instruction cache")
+    if memory.rom_external:
+        found.append("the instruction memory on the bus")
+    section = cast(dict[str, Any], platform.get("memory") or {})
+    ram = section.get("ram")
+    if isinstance(ram, dict) and cast(dict[str, Any], ram).get("fetch"):
+        found.append("a RAM that the instruction fetch reaches")
+    return found
+
+
+def zifencei_problems(platform: dict[str, Any]) -> list[Mismatch]:
+    """Check that the platform has the `Zifencei` it needs (V-I2).
 
     Parameters
     ----------
@@ -103,14 +135,49 @@ def core_problems(
     Returns
     -------
     list of Mismatch
-        V-I1 for a 64-bit core.
+        V-I2 when the instruction fetch can see a copy of the code
+        (see `fetch_sources`) and the core has no `Zifencei`; empty
+        when the platform has neither, because `fence.i` then has no
+        effect and the extension is not required.
     """
-    found: list[Mismatch] = []
+    sources = fetch_sources(platform)
+    if not sources:
+        return []
     # Um nome de perfil inválido é problema de quem lê o perfil.
-    with suppress(ValueError):
-        if xlen_of(platform) == RV64:
-            found.append(_problem(f"V-I1 {NO_RV64_MULTILIB}"))
-    return found
+    try:
+        has_zifencei = "zifencei" in extension_names(platform_core(platform))
+    except ValueError:
+        return []
+    if has_zifencei:
+        return []
+    return [
+        _problem(
+            f"V-I2 the platform has {' and '.join(sources)}, so the "
+            "instruction fetch can keep a copy of the code older than "
+            "what the boot wrote, and only fence.i (the extension "
+            "Zifencei) makes the fetch see it; add Zifencei to "
+            "core.extensions, or remove the cache and the instruction "
+            "memory on the bus"
+        )
+    ]
+
+
+def core_problems(
+    platform: dict[str, Any],
+) -> list[Mismatch]:
+    """Check the core against what the toolchain and the memories need.
+
+    Parameters
+    ----------
+    platform : dict of {str: Any}
+        The loaded platform.
+
+    Returns
+    -------
+    list of Mismatch
+        V-I2 when the platform needs `Zifencei` and the core lacks it.
+    """
+    return zifencei_problems(platform)
 
 
 def problems(
@@ -126,7 +193,7 @@ def problems(
     xlen : int, optional
         Given for a variant of the `config_pkg` (see `config_pkg`),
         which a formal proof may make 64 bits wide or without
-        `Zifencei` on purpose; the rule of the core (V-I1) is
+        `Zifencei` on purpose; the rule of the core (V-I2) is
         then skipped, because no program is built for a variant.
 
     Returns

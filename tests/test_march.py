@@ -26,9 +26,9 @@ PROFILES = profiles.expand(profiles.load_spec(MATRIX))
 # O mapa medido na imagem ci-elf (GCC 16.1.0): base, multiplicação e a
 # biblioteca do picolibc que o par `-march` e `-mabi` escolhe.
 ORACLE = {
-    ("i", "none"): "rv32i/ilp32",
+    ("i", "none"): ".",
     ("i", "zmmul"): "rv32i_zmmul/ilp32",
-    ("i", "m"): "rv32im/ilp32",
+    ("i", "m"): "rv32im_zmmul/ilp32",
     ("e", "none"): "rv32e/ilp32e",
     ("e", "zmmul"): "rv32e_zmmul/ilp32e",
     ("e", "m"): "rv32em_zmmul/ilp32e",
@@ -111,15 +111,18 @@ def test_the_march_follows_the_order_of_the_matrix() -> None:
         "_zihintntl_zihintpause",
     )
     check_equal(abi_of(core), "ilp32")
-    check_equal(multilib_of(core), "rv32im/ilp32")
+    check_equal(multilib_of(core), "rv32im_zmmul/ilp32")
 
 
 @pytest.mark.parametrize(
     ("profile", "extras", "march", "abi", "multilib"),
     [
-        ("rv32i", [], "rv32i", "ilp32", "rv32i/ilp32"),
+        ("rv32i", [], "rv32i", "ilp32", "."),
         ("rv32e", [], "rv32e", "ilp32e", "rv32e/ilp32e"),
-        ("rv32im", [], "rv32im", "ilp32", "rv32im/ilp32"),
+        ("rv32im", [], "rv32im", "ilp32", "rv32im_zmmul/ilp32"),
+        ("rv64i", [], "rv64i", "lp64", "rv64i/lp64"),
+        ("rv64im", [], "rv64im", "lp64", "rv64im_zmmul/lp64"),
+        ("rv64e", [], "rv64e", "lp64e", "rv64e/lp64e"),
         ("rv32e_zmmul", [], "rv32e_zmmul", "ilp32e", "rv32e_zmmul/ilp32e"),
         ("rv32em", [], "rv32em", "ilp32e", "rv32em_zmmul/ilp32e"),
         (
@@ -127,7 +130,7 @@ def test_the_march_follows_the_order_of_the_matrix() -> None:
             ["Interrupts"],
             "rv32i_zicsr_zicntr",
             "ilp32",
-            "rv32i/ilp32",
+            ".",
         ),
         (
             "rv32i_zmmul_zihpm",
@@ -154,14 +157,14 @@ def test_case_and_order_of_the_block_do_not_matter() -> None:
     check_equal(march_of(mixed), "rv32im_zicclsm_zicsr_zicntr")
 
 
-def test_a_64_bit_core_has_an_abi_but_no_multilib() -> None:
-    """The image has no RV64 multilib, so the lookup is an error."""
+def test_a_64_bit_core_has_an_abi_and_a_multilib() -> None:
+    """The image has the RV64 multilibs, named like the RV32 ones."""
     core = {"type": 64, "base": "I", "extensions": ["M"]}
     check_equal(march_of(core), "rv64im")
     check_equal(abi_of(core), "lp64")
     check_equal(abi_of({**core, "base": "E"}), "lp64e")
-    with pytest.raises(ValueError, match="no multilib"):
-        multilib_of(core)
+    check_equal(multilib_of(core), "rv64im_zmmul/lp64")
+    check_equal(multilib_of({**core, "base": "E"}), "rv64em_zmmul/lp64e")
 
 
 def _gcc(args: list[str]) -> str:
@@ -198,8 +201,7 @@ def _probe(case: tuple[str, dict[str, Any], str]) -> list[str]:
     try:
         _gcc([*flags, "-S", "-x", "c", "/dev/null", "-o", "/dev/null"])
         directory = _gcc([*flags, "-print-multi-directory"])
-        # A variante `rv32im/ilp32` é a raiz da imagem cujo padrão é M.
-        if directory not in (want, "." if want == "rv32im/ilp32" else want):
+        if directory != want:
             bad.append(f"{name}: multilib {directory!r}, expected {want!r}")
         for lib in ("libc.a", "crt0-hosted.o"):
             path = _gcc([*flags, f"-print-file-name={lib}"])
@@ -218,3 +220,23 @@ def test_the_compiler_has_a_multilib_for_each_of_the_960_cases() -> None:
     with ThreadPoolExecutor(max_workers=4) as pool:
         wrong = [bad for found in pool.map(_probe, CASES) for bad in found]
     check_equal(wrong, [], "\n".join(wrong[:10]))
+
+
+RV64_CASES = [
+    (name, legacy_to_core(name, extras), want)
+    for name, extras, want in (
+        ("rv64i", NO_EXTRAS, "rv64i/lp64"),
+        ("rv64i_zmmul_zicsr", HINTS, "rv64i_zmmul/lp64"),
+        ("rv64im_zicntr_zifencei_zicond", NO_EXTRAS, "rv64im_zmmul/lp64"),
+        ("rv64e", NO_EXTRAS, "rv64e/lp64e"),
+        ("rv64e_zmmul", HINTS, "rv64e_zmmul/lp64e"),
+        ("rv64em_zicsr", NO_EXTRAS, "rv64em_zmmul/lp64e"),
+    )
+]
+
+
+@pytest.mark.skipif(shutil.which(GCC) is None, reason=f"needs {GCC} on PATH")
+def test_the_compiler_has_a_multilib_for_each_rv64_core() -> None:
+    """The six RV64 libraries exist and the pair picks the right one."""
+    wrong = [bad for case in RV64_CASES for bad in _probe(case)]
+    check_equal(wrong, [], "\n".join(wrong))

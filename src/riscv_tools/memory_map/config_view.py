@@ -26,7 +26,7 @@ then lists the boot memory and each internal memory.
 """
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from riscv_tools.memory_map import memory as memory_choice
 from riscv_tools.memory_map.banks import bank_list
@@ -210,3 +210,65 @@ def config_from_platform(platform_file: Path) -> dict[str, Any]:
             ]
         }
     return config
+
+
+def _bank_specs(generate: dict[str, Any], bank: str) -> str | None:
+    """Find the specs file of one FLASH bank in `generate.bank_specs`.
+
+    Parameters
+    ----------
+    generate : dict of {str: Any}
+        The `generate` section of the platform.
+    bank : str
+        The bank the test programs are linked for (`A` or `B`).
+
+    Returns
+    -------
+    str or None
+        The path of the entry whose `rom` is `BANK_<bank>_PAYLOAD`, or
+        None when the platform has no such entry.
+    """
+    wanted = f"BANK_{bank.upper()}_PAYLOAD"
+    entries = cast("list[dict[str, Any]]", generate.get("bank_specs") or [])
+    for entry in entries:
+        if str(entry.get("rom", "")) == wanted:
+            return str(entry["path"])
+    return None
+
+
+def paths_from_platform(
+    platform_file: Path, bank: str | None
+) -> dict[str, Any]:
+    """Give the config paths that the platform already names.
+
+    The `generate` section writes the specs file of the linker and the
+    linker script of the boot memory, so the config does not need to
+    repeat their paths. What the config writes itself still wins, since
+    these keys are only defaults.
+
+    Parameters
+    ----------
+    platform_file : Path
+        The platform YAML.
+    bank : str or None
+        The bank of `flash_image.bank` when the programs are packed as
+        a FLASH image; their specs file is the one of that bank.
+
+    Returns
+    -------
+    dict of {str: Any}
+        A partial config with `toolchain.specs` and
+        `paths.boot_memory_linker_script`, leaving out what the
+        platform does not generate.
+    """
+    generate = platform_dict(load_platform(platform_file), "generate")
+    plain = cast("dict[str, Any]", generate.get("specs") or {})
+    boot_ld = cast("dict[str, Any]", generate.get("boot_ld") or {})
+    specs = _bank_specs(generate, bank) if bank else plain.get("path")
+    linker = boot_ld.get("path")
+    found: dict[str, Any] = {}
+    if specs:
+        found["toolchain"] = {"specs": str(specs)}
+    if linker:
+        found["paths"] = {"boot_memory_linker_script": str(linker)}
+    return found

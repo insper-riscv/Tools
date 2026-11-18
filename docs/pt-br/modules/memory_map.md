@@ -82,7 +82,7 @@ A seção `specs` e cada entrada de `bank_specs` aceitam duas chaves opcionais.
 | Chave | Efeito |
 | :--- | :--- |
 | `march` | Verdadeira, acrescenta ao arquivo o `-march` e o `-mabi` do núcleo (seção 4.1). Ausente, o arquivo é o mesmo de sempre |
-| `default_march` | O `-march` que o GCC da imagem assume sem a opção, `rv32im_zmmul` quando omitida |
+| `default_march` | O `-march` que o GCC da imagem assume sem a opção, `rv32i` quando omitida |
 
 Sem `boot.wait_restart` a memória de boot é a de uma aplicação (seção 4.2). O arquivo de specs deixa de levar o `--defsym=rv32_wait_restart`, e o linker script da memória de boot não fixa nenhum símbolo, com `.text.reset` primeiro e o resto logo depois.
 
@@ -190,25 +190,27 @@ uv run riscv-tools --root <projeto> --profile rv32em_zicsr generate-memory-map -
 
 O bloco `core` também diz como um programa é compilado para o núcleo. O módulo `riscv_tools.memory_map.march` escreve o `-march` nesta ordem.
 
-1. `rv32i` ou `rv32e`, com um `m` quando o núcleo tem `M`.
+1. `rv32i` ou `rv32e` (`rv64i` ou `rv64e` com `type: 64`), com um `m` quando o núcleo tem `M`.
 2. As extensões da matriz, cada uma como `_<nome>`, na ordem da matriz do Core (`Zicclsm`, `Zicsr`, `Zicntr`, `Zihpm`, `Zifencei`, `Zimop`, `Zicond`, `Zmmul`). `Zicntr` e `Zihpm` escrevem também `_zicsr`, que o GCC pede explícito.
 3. `Zihintntl` e `Zihintpause`, que o GCC aceita no `-march`.
 
-`Interrupts`, `Sscofpmf` e `AccessFaults` não são ISA e ficam fora do `-march`. O `-mabi` é `ilp32` na base I e `ilp32e` na base E. Só a base e a multiplicação escolhem a biblioteca do picolibc, então seis multilibs cobrem os 480 perfis da matriz do Core, 80 perfis para cada um.
+`Interrupts`, `Sscofpmf` e `AccessFaults` não são ISA e ficam fora do `-march`. O `-mabi` é `ilp32` na base I e `ilp32e` na base E (`lp64` e `lp64e` com `type: 64`). Só a base e a multiplicação escolhem a biblioteca do picolibc, então seis multilibs cobrem os 480 perfis da matriz do Core, 80 perfis para cada um, e seis outras cobrem os mesmos perfis com `type: 64`.
 
 | Base | Sem multiplicação | `Zmmul` | `M` |
 | :--- | :--- | :--- | :--- |
-| I | `rv32i/ilp32` | `rv32i_zmmul/ilp32` | `rv32im/ilp32` |
+| I | `.` | `rv32i_zmmul/ilp32` | `rv32im_zmmul/ilp32` |
 | E | `rv32e/ilp32e` | `rv32e_zmmul/ilp32e` | `rv32em_zmmul/ilp32e` |
+| I, 64 bits | `rv64i/lp64` | `rv64i_zmmul/lp64` | `rv64im_zmmul/lp64` |
+| E, 64 bits | `rv64e/lp64e` | `rv64e_zmmul/lp64e` | `rv64em_zmmul/lp64e` |
 
-No GCC da imagem o padrão é `rv32im_zmmul`, a variante `rv32im/ilp32` é a raiz de `lib/` e o `-print-multi-directory` a escreve como `.`. Com `march: true` na seção `specs` (seção 2), o arquivo de specs ganha a regra abaixo, para o programa compilado sem `-march` pegar o par do núcleo.
+No GCC da imagem o padrão é `rv32i`, a variante `rv32i/ilp32` é a raiz de `lib/` e o `-print-multi-directory` a escreve como `.`; a multiplicação `M` usa a variante `rv32im_zmmul`. Com `march: true` na seção `specs` (seção 2), o arquivo de specs ganha a regra abaixo, para o programa compilado sem `-march` pegar o par do núcleo.
 
 ```text
 *self_spec:
-%{march=rv32im_zmmul:%<march=* %<mabi=* -march=rv32im_zicsr_zicntr -mabi=ilp32}
+%{march=rv32i:%<march=* %<mabi=* -march=rv32im_zicsr_zicntr -mabi=ilp32}
 ```
 
-O GCC põe o `-march` padrão na linha de comando antes de ler qualquer spec, e por isso um spec não distingue a opção ausente do padrão. A regra troca o par somente quando o `-march` é o `default_march`, e mantém qualquer outro. Um `-march=rv32im` dado à mão também vira `rv32im_zmmul` no GCC, então recebe o par do núcleo.
+O GCC põe o `-march` padrão na linha de comando antes de ler qualquer spec, e por isso um spec não distingue a opção ausente do padrão. A regra troca o par somente quando o `-march` é o `default_march`, e mantém qualquer outro. Um `-march=rv32i` dado à mão também é o padrão, então recebe o par do núcleo.
 
 ### 4.2. O `boot_config.h`
 
@@ -240,9 +242,23 @@ Cada regra é um problema da plataforma, achado antes de gerar qualquer arquivo 
 | :--- | :--- |
 | V-B1 | O tamanho da BOOT_MEMORY (`memory.boot.size`) não é potência de dois |
 | V-B2 | `boot.wait_restart` fica a menos de 20 bytes do fim da BOOT_MEMORY, o que o laço de espera ocupa |
-| V-I1 | `core.type` é 64, porque a imagem do toolchain não tem multilib RV64 e o compilador aceita `rv64` e liga em silêncio com as bibliotecas de 32 bits |
+| V-I2 | A plataforma tem cache de instruções, memória de instruções no barramento ou uma RAM que a busca alcança (`fetch`), e `core.extensions` não tem `Zifencei` |
 
-A extensão `Q` é recusada já na leitura do bloco `core`, porque o GCC 16.1.0 não a suporta. A V-I1 vale para a plataforma e não para as variantes do `config_pkg` (seção 10.4), que uma prova formal pode deixar com 64 bits. Nenhuma extensão é exigida: o Tools lê o que a plataforma declara e se adapta (o `fence.i` só existe com `Zifencei`). O tamanho da BOOT montada contra o da BOOT_MEMORY é conferido pelo linker script gerado, cujo `ASSERT(. <= ORIGIN + LENGTH)` reprova uma BOOT que estoura.
+A extensão `Q` é recusada já na leitura do bloco `core`, porque o GCC 16.1.0 não a suporta. A imagem tem os multilibs de 32 e de 64 bits, então nenhuma largura é recusada pelo toolchain.
+
+A V-I2 existe porque o `fence.i` é a instrução que faz a busca enxergar o que a BOOT gravou, e ele só tem efeito quando a busca pode guardar uma cópia do código ou ler uma memória que a escrita não alcança de imediato.
+
+| A plataforma tem | `Zifencei` |
+| :--- | :--- |
+| Cache de instruções (`memory.instructions[].cache`) | Exigida |
+| Memória de instruções no barramento (`memory.instructions[].on_bus: true`) | Exigida |
+| RAM com `fetch: true` | Exigida |
+| Só cache de dados | Não exigida, porque a cache de dados nunca guarda código que a busca lê e o `fence.i` só descarregaria dados |
+| Nenhuma das anteriores | Não exigida, porque o `fence.i` não tem efeito |
+
+Uma plataforma que lista `Zifencei` sem precisar dela continua válida. A V-I2 vale para a plataforma e não para as variantes do `config_pkg` (seção 10.4), que uma prova formal pode deixar sem `Zifencei`.
+
+O tamanho da BOOT montada contra o da BOOT_MEMORY é conferido antes do hardware pelo `check-boot-size` (seção 12), e o linker script gerado repete a conferência com o `ASSERT(. <= ORIGIN + LENGTH)` quando alguém liga a BOOT.
 
 ## 5. As interrupções da plataforma
 
@@ -472,6 +488,8 @@ Estas constantes só entram no `config_pkg` quando a plataforma declara `offset`
 ## 8. Ler a configuração do mapa
 
 Um `config.yaml` do projeto declara `memory_map: <caminho do platform.yaml>`, e o carregador de configuração troca as chaves que o mapa fixa pelas dele: `isa.base`, `memory.boot_memory_base`, `boot_memory_words`, `rom_base`, `rom_words`, `ram_base`, `ram_words`, `tohost_addr`, `fromhost_addr` `sim.env.TOHOST_ADDR`, `sim.env.STDOUT_ADDR` (o testbench lê o endereço do ambiente) e, para as memórias que a seção `config.addr_widths` do mapa lista, `sim.parameters.<memória>_addr_width`. O que o mapa fixa vale mais que o que o arquivo ou os seus `extends` dizem, então nenhum endereço nem tamanho é escrito duas vezes.
+
+O mesmo `memory_map` dá, como padrão, `toolchain.specs` e `paths.boot_memory_linker_script`, lidos do `generate` do mapa: o arquivo `generate.specs.path` ou, quando o config tem `flash_image.bank` (no próprio arquivo ou numa base do `extends`), o `bank_specs` cujo `rom` é `BANK_<banco>_PAYLOAD`, e o `generate.boot_ld.path`. Esses dois valem só quando o config não os escreve, então um caminho escrito à mão continua vencendo.
 
 ```yaml
 config:
@@ -857,7 +875,7 @@ Algumas plataformas precisam de uma declaração a mais para que o `config_pkg` 
 | `tests/test_chip_split.py` | O `offset` das divisões de 32 e 32, 48 e 16, 16 e 48 MiB, a sobreposição e a falta de `offset` no mesmo chip, `FLASH_CTRL` sobre a FLASH da SDRAM, `data` sem `flash` e com os outros tipos, `instructions` com os cinco, o `on_bus` de cada tipo, o `fetch`, as constantes do cabeçalho e a tabela de janelas do hospedeiro |
 | `tests/test_core_profile.py` | O bloco `core` e o perfil inferido (ordem da matriz, `Zicsr` junto de `Zicntr`, extras), `--profile` que mantém os extras, cada erro (extensão desconhecida ou repetida, combinação recusada, `type: 64` sem base `rv64`, `isa` no lugar de `base`), a recusa de `profile:` e `extras:` com a migração e o nome sem matriz. |
 | `tests/test_march.py` | O `-march`, o `-mabi` e o multilib dos 480 perfis da matriz do Core, com e sem `Zihintntl` e `Zihintpause` (960 casos), contra a tabela medida das seis variantes, e, quando o `riscv32-unknown-elf-gcc` está no `PATH`, o compilador aceitando cada par e escolhendo a biblioteca da tabela, com `libc.a` e `crt0-hosted.o`. |
-| `tests/test_boot_config.py` | O `boot_config.h` (uma macro por extensão, `RV32_IS_E`, `RV32_TEST_WAIT`, a leitura por um `.S`), o `march` do arquivo de specs com o GCC da imagem e o specs sem `march` que não muda, a plataforma sem `boot.wait_restart`, a recusa da extensão `Q`, a V-B1, a V-B2, a V-I1 e a V-I2 na geração e no `check-memory-map`. |
+| `tests/test_boot_config.py` | O `boot_config.h` (uma macro por extensão, `RV32_IS_E`, `RV32_TEST_WAIT`, a leitura por um `.S`), o `march` do arquivo de specs com o GCC da imagem e o specs sem `march` que não muda, a plataforma sem `boot.wait_restart`, a recusa da extensão `Q`, a V-B1, a V-B2 e a V-I2 na geração e no `check-memory-map`, e o `rv64` aceito. |
 | `tests/test_peripheral_offsets.py` | A janela derivada do `size`, os símbolos `base`, `size`, `window` e `index`, uma rejeição para cada V-P1 a V-P5, a recusa de `id`, `offset` e `padding` com a mensagem de migração, as tabelas `PERIPH_BASES` e `PERIPH_MASKS`, a V-S1 e a `STRICT_PERIPH` no pacote do mapa. |
 | `tests/test_address_bits.py` | O campo `address_bits`, uma rejeição para cada V-A1 a V-A6, a recusa de `periph_window` (V-P6), `resolve` com os perfis `rv64`, o `--profile` e as chaves novas do `config.yaml`. |
 | `tests/test_config_pkg.py` | O `config_pkg` para 32, 24 e 40 bits, a base E, as variantes e o que elas recusam, as `HAS_` dos periféricos do núcleo, `FLASH_ON_BUS` e `RAM_ON_BUS`, a regra de cache (V-C1 e V-C2), a ordem do mapa do núcleo (V-M), a escrita com o mapa e o `--check`, a coerência entre os dois pacotes, o comando e a prova de que o pacote do mapa e o `config_pkg` do DE0-CV não mudam. |
@@ -875,6 +893,12 @@ uv run riscv-tools --root <projeto> check-memory-map --platform platforms/intern
 ```
 
 Não precisa de `--config`. Status 1 e uma linha `MISMATCH` por divergência quando uma cópia diverge; feito para o CI.
+
+A BOOT montada é medida à parte, com a toolchain (veja [boot_size.md](boot_size.md)).
+
+```bash
+uv run riscv-tools --root <projeto> check-boot-size --platform platforms/internal-mem.yaml
+```
 
 ---
 

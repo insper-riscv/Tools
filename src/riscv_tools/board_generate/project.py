@@ -25,6 +25,10 @@ from riscv_tools.board_schema import Catalog
 from riscv_tools.board_schema.platform_fields import read_platform_file
 from riscv_tools.sources import ordered_sources
 
+# Os nomes que as IPs de memória leem na pasta do projeto: a FLASH e a
+# BOOT_MEMORY.
+MEMORY_IMAGES = ("init.mif", "boot_memory_init.mif")
+
 
 @dataclass(frozen=True)
 class ProjectRequest:
@@ -245,6 +249,37 @@ def _with_capacity(
     )
 
 
+def _with_images(result: Generated, platform: Path) -> Generated:
+    """Junta ao projeto as imagens de memória da plataforma.
+
+    As IPs de FLASH e de BOOT_MEMORY leem `./init.mif` e
+    `./boot_memory_init.mif` da pasta do projeto. Sem as cópias, o
+    Quartus avisa (127003) e a memória sai zerada no bitstream.
+
+    Parameters
+    ----------
+    result : Generated
+        O projeto gerado.
+    platform : Path
+        O `platform.yaml`; as imagens ficam na pasta dele.
+
+    Returns
+    -------
+    Generated
+        O projeto com uma cópia de cada imagem que existe ao lado do
+        `platform.yaml`, ou ele mesmo quando a plataforma não tem
+        nenhuma.
+    """
+    images = {
+        name: (platform.parent / name).read_text(encoding="utf-8")
+        for name in MEMORY_IMAGES
+        if (platform.parent / name).is_file()
+    }
+    if not images:
+        return result
+    return replace(result, files={**result.files, **images})
+
+
 def build(request: ProjectRequest) -> ProjectResult:
     """Gera o projeto e o mapa de memória de uma plataforma.
 
@@ -277,20 +312,23 @@ def build(request: ProjectRequest) -> ProjectResult:
     project = out / probe.folder
     targets = targets_of(platform, request.targets)
     repository = repository_root(platform, root)
-    result = _with_capacity(
-        generate(
-            GenerateRequest(
-                platform,
-                request.board,
-                base.boards_dir,
-                base.chips_dir,
-                sources_of(repository, targets, project),
-                request.accept_inferred,
-                request.seed,
-            )
+    result = _with_images(
+        _with_capacity(
+            generate(
+                GenerateRequest(
+                    platform,
+                    request.board,
+                    base.boards_dir,
+                    base.chips_dir,
+                    sources_of(repository, targets, project),
+                    request.accept_inferred,
+                    request.seed,
+                )
+            ),
+            platform,
+            request,
         ),
         platform,
-        request,
     )
     if request.check:
         problems = check_project(out, result)

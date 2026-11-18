@@ -18,6 +18,7 @@ Ele foi projetado para rodar em uma workstation com todas as ferramentas instala
 | `bin_to_image`       | .bin -> .mif/.hex (formatos de imagem de memória, sem compilador) | [docs/modules/bin_to_image.md](docs/pt-br/modules/bin_to_image.md) |
 | `c_to_asm`           | .c -> assembly RISC-V legível (`gcc -S`), para inspecionar a geração de código | [docs/modules/c_to_asm.md](docs/pt-br/modules/c_to_asm.md) |
 | `boot_memory`           | Compila o bootloader fixo e compartilhado, uma vez, reutilizado em todos os testes | [docs/modules/boot_memory.md](docs/pt-br/modules/boot_memory.md) |
+| `boot_size`             | Monta a BOOT de uma plataforma e mede o seu tamanho contra o da BOOT_MEMORY, antes do hardware | [docs/modules/boot_size.md](docs/pt-br/modules/boot_size.md) |
 | `jtag`               | Detecção do cabo JTAG em tempo real, executor genérico de `.tcl` | [docs/modules/jtag.md](docs/pt-br/modules/jtag.md) |
 | `board`              | Identificação, seleção e trava da placa pelo JTAG | [docs/modules/board.md](docs/pt-br/modules/board.md) |
 | `mem_edit`           | Primitivas genéricas do In-System Memory Content Editor (ler/escrever palavra, escrita completa, dump) | [docs/modules/mem_edit.md](docs/pt-br/modules/mem_edit.md) |
@@ -68,6 +69,7 @@ Ele foi projetado para rodar em uma workstation com todas as ferramentas instala
 | `pin_assignments` | Escreve as atribuições de pino e de padrão de E/S do `.qsf`, derivando as demais do papel | [docs/modules/pin_assignments.md](docs/pt-br/modules/pin_assignments.md) |
 | `pll_generator` | Calcula os contadores do PLL e escreve a primitiva da família (`altera_pll` na Cyclone V e `altpll` nas demais famílias) | [docs/modules/pll_generator.md](docs/pt-br/modules/pll_generator.md) |
 | `sdc_generator` | Gera o `.sdc` com relógios, atrasos de E/S do chip, caminhos de leitura e cruzamentos de domínio | [docs/modules/sdc_generator.md](docs/pt-br/modules/sdc_generator.md) |
+| `quartus_root` | Localiza o Quartus instalado (`QUARTUS_ROOT` e `QUARTUS_VERSION`, padrão `/opt/altera_lite/25.1std`) e põe as ferramentas dele no `PATH` | [docs/modules/quartus_root.md](docs/pt-br/modules/quartus_root.md) |
 | `quartus_project` | Gera o `.qpf` e o `.qsf` (sem os pinos) com família, dispositivo e a lista de fontes | [docs/modules/quartus_project.md](docs/pt-br/modules/quartus_project.md) |
 | `top_generator` | Gera o topo fino da placa, que só liga o PLL, o SoC, um backend por região e o anel de pinos | [docs/modules/top_generator.md](docs/pt-br/modules/top_generator.md) |
 | `board_generate` | Compõe os geradores no projeto Quartus de uma plataforma numa placa (`riscv-tools board generate`) | [docs/modules/board_generate.md](docs/pt-br/modules/board_generate.md) |
@@ -104,7 +106,7 @@ uv run riscv-tools --config /path/to/project/config.yaml sim
 uv run riscv-tools --config /path/to/project/config.yaml sim --only test-a,test-b
 ```
 
-Veja `riscv-tools --help` para a lista completa de subcomandos (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `load-ram`, `load-flash`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `generate-memory-map`, `generate-config-pkg`, `check-paths`, `check-boards`, `check-tree`, `sources`, `ipxact`, `check-vhdl-style`, `vsg-config`, `vsg-rules`, `vhdl-files`, `platform`, `flash-image`, `timing-paths`, `board generate`, `calibrate` e `check-fit`).
+Veja `riscv-tools --help` para a lista completa de subcomandos (`compile`, `generate-header`, `generate-golden`, `write-rom`, `zero-ram`, `dump-ram`, `load-ram`, `load-flash`, `console`, `display`, `program`, `htif read|restart`, `run`, `spike-run`, `sim`, `certify`, `certify-board`, `profiles`, `vhdl-sort`, `check-memory-map`, `check-boot-size`, `generate-memory-map`, `generate-config-pkg`, `check-paths`, `check-boards`, `check-tree`, `sources`, `ipxact`, `check-vhdl-style`, `vsg-config`, `vsg-rules`, `vhdl-files`, `platform`, `flash-image`, `timing-paths`, `board generate`, `calibrate` e `check-fit`).
 
 ```bash
 # vhdl-sort não precisa de --config; é só análise do conteúdo dos arquivos,

@@ -16,6 +16,7 @@ from riscv_tools.cli.parser_run import add_run_commands
 from riscv_tools.cli.parser_tools import add_tool_commands
 from riscv_tools.memory_map.memory import set_override as set_memory_override
 from riscv_tools.memory_map.profile import set_override as set_profile_override
+from riscv_tools.quartus_root import prepend_to_path
 
 _COMMANDS_WITHOUT_CONFIG = frozenset(
     {
@@ -23,6 +24,7 @@ _COMMANDS_WITHOUT_CONFIG = frozenset(
         "vhdl-sort",
         "check-boards",
         "check-memory-map",
+        "check-boot-size",
         "calibrate",
         "check-fit",
         "check-paths",
@@ -48,10 +50,11 @@ Usage: ``riscv-tools --config <config.yaml> <subcommand> ...``.
 
 Every subcommand takes --config, pointing at the CONSUMING project's
 own config.yaml (memory map, Quartus project paths, toolchain, etc.),
-except `vhdl-sort`, `check-memory-map`, `generate-memory-map`,
-`generate-config-pkg`, `check-paths`, `check-boards`, `check-tree`,
-`sources`, `platform` and `flash-image` (except `send`), which read
-only files and need no project config at all.
+except `vhdl-sort`, `check-memory-map`, `check-boot-size`,
+`generate-memory-map`, `generate-config-pkg`, `check-paths`,
+`check-boards`, `check-tree`, `sources`, `platform` and `flash-image`
+(except `send`), which read only files and need no project config at
+all.
 """
 
 
@@ -69,6 +72,9 @@ def main() -> None:
         or whatever the dispatched cmd_* function causes (see each
         cmd_*'s own Returns/Raises).
     """
+    # Quartus de QUARTUS_ROOT e QUARTUS_VERSION (ou de /opt/altera_lite)
+    # alcançável pelos subprocessos sem exigir o PATH do usuário.
+    prepend_to_path()
     parser = argparse.ArgumentParser(
         prog="riscv-tools",
         description=_DESCRIPTION,

@@ -37,6 +37,8 @@ Com a saída `pixel` no plano, o `.sdc` declara o nó do relógio de pixel e lim
 
 O nome do nó vem do campo `pll.clock_node_pattern` da família, com `<instance>` e `[N]`, trocados pelo nome da instância do PLL e pelo índice da saída. Uma família sem o padrão (`altpll` ainda sem medição) falha com `SdcError`.
 
+Duas saídas do PLL com a mesma frequência e a mesma fase são o mesmo relógio, e o Quartus as funde na de menor índice; o `.sdc` cita o nó dessa saída para todos os papéis envolvidos, e o cruzamento entre o controlador e o núcleo deixa de fora o domínio que coincide com o do controlador.
+
 ## 6. Testes
 
 | Teste | O que verifica |
@@ -44,6 +46,7 @@ O nome do nó vem do campo `pll.clock_node_pattern` da família, com `<instance>
 | `tests/test_video_clocks.py` | O domínio do relógio de pixel, os cruzamentos |
 | `tests/test_board_equivalence.py` | O `.sdc` gerado da DE0-CV tem as restrições do `de0-cv.sdc` escrito à mão |
 | `tests/test_board_generate.py` | `.sdc` das placas com PLL de teste |
+| `tests/test_top_generics_and_clocks.py` | A conversão das tabelas de janelas, o piso de 6 fontes do PLIC, chaves e botões só com janela e o nó do relógio fundido do PLL |
 | `tests/test_eth_rgmii.py` | O bloco do Ethernet RGMII e o limite dos cruzamentos sem os relógios dele |
 | `tests/test_external_top.py` | O relógio da câmera MIPI e o grupo assíncrono, e os caminhos falsos do módulo Wi-Fi e da saída TMDS |
 | `tests/test_vendor_ip.py` | O relógio do ADC, o IP e o script no projeto, o `dreq` e o `dack` do USB e a regra V25 |
