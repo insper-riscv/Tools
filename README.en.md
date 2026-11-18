@@ -69,6 +69,7 @@ It is designed to run on a workstation with all the tools installed, or inside t
 | `pin_assignments` | Writes the pin and I/O standard assignments of the `.qsf`, deriving the others from the role | [docs/modules/pin_assignments.md](docs/en/modules/pin_assignments.md) |
 | `pll_generator` | Computes the PLL counters and writes the family primitive (`altera_pll` on Cyclone V and `altpll` on the other families) | [docs/modules/pll_generator.md](docs/en/modules/pll_generator.md) |
 | `sdc_generator` | Generates the `.sdc` with clocks, chip I/O delays, read paths and domain crossings | [docs/modules/sdc_generator.md](docs/en/modules/sdc_generator.md) |
+| `quartus_root` | Finds the installed Quartus (`QUARTUS_ROOT` and `QUARTUS_VERSION`, default `/opt/altera_lite/25.1std`) and puts its tools on the `PATH` | [docs/modules/quartus_root.md](docs/en/modules/quartus_root.md) |
 | `quartus_project` | Generates the `.qpf` and the `.qsf` (without pins) with family, device and the source list | [docs/modules/quartus_project.md](docs/en/modules/quartus_project.md) |
 | `top_generator` | Generates the thin board top, which only wires the PLL, the SoC, one backend per region and the pin ring | [docs/modules/top_generator.md](docs/en/modules/top_generator.md) |
 | `board_generate` | Composes the generators into the Quartus project of a platform on a board (`riscv-tools board generate`) | [docs/modules/board_generate.md](docs/en/modules/board_generate.md) |

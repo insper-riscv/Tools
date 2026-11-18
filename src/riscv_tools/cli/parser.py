@@ -16,6 +16,7 @@ from riscv_tools.cli.parser_run import add_run_commands
 from riscv_tools.cli.parser_tools import add_tool_commands
 from riscv_tools.memory_map.memory import set_override as set_memory_override
 from riscv_tools.memory_map.profile import set_override as set_profile_override
+from riscv_tools.quartus_root import prepend_to_path
 
 _COMMANDS_WITHOUT_CONFIG = frozenset(
     {
@@ -71,6 +72,9 @@ def main() -> None:
         or whatever the dispatched cmd_* function causes (see each
         cmd_*'s own Returns/Raises).
     """
+    # Quartus de QUARTUS_ROOT e QUARTUS_VERSION (ou de /opt/altera_lite)
+    # alcançável pelos subprocessos sem exigir o PATH do usuário.
+    prepend_to_path()
     parser = argparse.ArgumentParser(
         prog="riscv-tools",
         description=_DESCRIPTION,
