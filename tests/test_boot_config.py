@@ -242,7 +242,7 @@ def test_specs_with_march_carry_the_march_and_the_abi(tmp_path: Path) -> None:
     text = _render(tmp_path, _with_march())[SPECS]
     tail = (
         "*startfile:\ncrt0-hosted%O%s\n\n*self_spec:\n"
-        "%{march=rv32im_zmmul:%<march=* %<mabi=*"
+        "%{march=rv32i:%<march=* %<mabi=*"
         " -march=rv32im_zicsr_zicntr -mabi=ilp32}\n"
     )
     check(text.endswith(tail), text)
@@ -285,10 +285,10 @@ def test_the_core_of_the_platform_gives_the_march(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("profile", "extras", "multilib"),
     [
-        ("rv32i_zicsr", [], "rv32i/ilp32"),
+        ("rv32i_zicsr", [], "."),
         ("rv32e_zmmul", ["Zihintpause"], "rv32e_zmmul/ilp32e"),
         ("rv32em", [], "rv32em_zmmul/ilp32e"),
-        ("rv32im_zicntr", ["Interrupts"], "."),
+        ("rv32im_zicntr", ["Interrupts"], "rv32im_zmmul/ilp32"),
     ],
 )
 def test_gcc_uses_the_core_when_the_program_has_no_march(
@@ -410,7 +410,7 @@ def test_march_and_cxx_share_one_self_spec(tmp_path: Path) -> None:
     check_in("%rename self_spec rv32imfpga_self_spec", text)
     check_in(
         "*self_spec:\n%(rv32imfpga_self_spec) %{!T:-T picolibcpp.ld} "
-        "%{march=rv32im_zmmul:%<march=* %<mabi=*"
+        "%{march=rv32i:%<march=* %<mabi=*"
         " -march=rv32im_zicsr_zicntr -mabi=ilp32}\n",
         text,
     )

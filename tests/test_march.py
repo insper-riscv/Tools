@@ -26,9 +26,9 @@ PROFILES = profiles.expand(profiles.load_spec(MATRIX))
 # O mapa medido na imagem ci-elf (GCC 16.1.0): base, multiplicação e a
 # biblioteca do picolibc que o par `-march` e `-mabi` escolhe.
 ORACLE = {
-    ("i", "none"): "rv32i/ilp32",
+    ("i", "none"): ".",
     ("i", "zmmul"): "rv32i_zmmul/ilp32",
-    ("i", "m"): "rv32im/ilp32",
+    ("i", "m"): "rv32im_zmmul/ilp32",
     ("e", "none"): "rv32e/ilp32e",
     ("e", "zmmul"): "rv32e_zmmul/ilp32e",
     ("e", "m"): "rv32em_zmmul/ilp32e",
@@ -111,15 +111,15 @@ def test_the_march_follows_the_order_of_the_matrix() -> None:
         "_zihintntl_zihintpause",
     )
     check_equal(abi_of(core), "ilp32")
-    check_equal(multilib_of(core), "rv32im/ilp32")
+    check_equal(multilib_of(core), "rv32im_zmmul/ilp32")
 
 
 @pytest.mark.parametrize(
     ("profile", "extras", "march", "abi", "multilib"),
     [
-        ("rv32i", [], "rv32i", "ilp32", "rv32i/ilp32"),
+        ("rv32i", [], "rv32i", "ilp32", "."),
         ("rv32e", [], "rv32e", "ilp32e", "rv32e/ilp32e"),
-        ("rv32im", [], "rv32im", "ilp32", "rv32im/ilp32"),
+        ("rv32im", [], "rv32im", "ilp32", "rv32im_zmmul/ilp32"),
         ("rv32e_zmmul", [], "rv32e_zmmul", "ilp32e", "rv32e_zmmul/ilp32e"),
         ("rv32em", [], "rv32em", "ilp32e", "rv32em_zmmul/ilp32e"),
         (
@@ -127,7 +127,7 @@ def test_the_march_follows_the_order_of_the_matrix() -> None:
             ["Interrupts"],
             "rv32i_zicsr_zicntr",
             "ilp32",
-            "rv32i/ilp32",
+            ".",
         ),
         (
             "rv32i_zmmul_zihpm",
@@ -198,8 +198,7 @@ def _probe(case: tuple[str, dict[str, Any], str]) -> list[str]:
     try:
         _gcc([*flags, "-S", "-x", "c", "/dev/null", "-o", "/dev/null"])
         directory = _gcc([*flags, "-print-multi-directory"])
-        # A variante `rv32im/ilp32` é a raiz da imagem cujo padrão é M.
-        if directory not in (want, "." if want == "rv32im/ilp32" else want):
+        if directory != want:
             bad.append(f"{name}: multilib {directory!r}, expected {want!r}")
         for lib in ("libc.a", "crt0-hosted.o"):
             path = _gcc([*flags, f"-print-file-name={lib}"])

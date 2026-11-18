@@ -392,7 +392,7 @@ def render_specs(
         and `march`, true to also write the `-march` and `-mabi` of
         the core (see `riscv_tools.memory_map.march`), with
         `default_march` the `-march` the toolchain assumes
-        (`rv32im_zmmul` when left out).
+        (`rv32i` when left out).
     table : dict of {str: int}
         The symbols of the map.
     source : str

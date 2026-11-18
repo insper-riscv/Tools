@@ -82,7 +82,7 @@ A seção `specs` e cada entrada de `bank_specs` aceitam duas chaves opcionais.
 | Chave | Efeito |
 | :--- | :--- |
 | `march` | Verdadeira, acrescenta ao arquivo o `-march` e o `-mabi` do núcleo (seção 4.1). Ausente, o arquivo é o mesmo de sempre |
-| `default_march` | O `-march` que o GCC da imagem assume sem a opção, `rv32im_zmmul` quando omitida |
+| `default_march` | O `-march` que o GCC da imagem assume sem a opção, `rv32i` quando omitida |
 
 Sem `boot.wait_restart` a memória de boot é a de uma aplicação (seção 4.2). O arquivo de specs deixa de levar o `--defsym=rv32_wait_restart`, e o linker script da memória de boot não fixa nenhum símbolo, com `.text.reset` primeiro e o resto logo depois.
 
@@ -198,14 +198,14 @@ O bloco `core` também diz como um programa é compilado para o núcleo. O módu
 
 | Base | Sem multiplicação | `Zmmul` | `M` |
 | :--- | :--- | :--- | :--- |
-| I | `rv32i/ilp32` | `rv32i_zmmul/ilp32` | `rv32im/ilp32` |
+| I | `.` | `rv32i_zmmul/ilp32` | `rv32im_zmmul/ilp32` |
 | E | `rv32e/ilp32e` | `rv32e_zmmul/ilp32e` | `rv32em_zmmul/ilp32e` |
 
-No GCC da imagem o padrão é `rv32im_zmmul`, a variante `rv32im/ilp32` é a raiz de `lib/` e o `-print-multi-directory` a escreve como `.`. Com `march: true` na seção `specs` (seção 2), o arquivo de specs ganha a regra abaixo, para o programa compilado sem `-march` pegar o par do núcleo.
+No GCC da imagem o padrão é `rv32i`, a variante `rv32i/ilp32` é a raiz de `lib/` e o `-print-multi-directory` a escreve como `.`; a multiplicação `M` usa a variante `rv32im_zmmul`. Com `march: true` na seção `specs` (seção 2), o arquivo de specs ganha a regra abaixo, para o programa compilado sem `-march` pegar o par do núcleo.
 
 ```text
 *self_spec:
-%{march=rv32im_zmmul:%<march=* %<mabi=* -march=rv32im_zicsr_zicntr -mabi=ilp32}
+%{march=rv32i:%<march=* %<mabi=* -march=rv32im_zicsr_zicntr -mabi=ilp32}
 ```
 
 O GCC põe o `-march` padrão na linha de comando antes de ler qualquer spec, e por isso um spec não distingue a opção ausente do padrão. A regra troca o par somente quando o `-march` é o `default_march`, e mantém qualquer outro. Um `-march=rv32im` dado à mão também vira `rv32im_zmmul` no GCC, então recebe o par do núcleo.

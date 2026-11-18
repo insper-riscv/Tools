@@ -45,7 +45,7 @@ NO_RV64_MULTILIB = (
     "warning); use core.type 32"
 )
 # -march que o GCC da imagem assume quando o programa não dá nenhum.
-DEFAULT_MARCH = "rv32im_zmmul"
+DEFAULT_MARCH = "rv32i"
 
 
 def extension_names(core: dict[str, Any]) -> set[str]:
@@ -137,8 +137,9 @@ def multilib_of(core: dict[str, Any]) -> str:
     -------
     str
         The directory as `-print-multi-directory` writes it, such as
-        `rv32i_zmmul/ilp32`; the `rv32im` variant is the root `.` in
-        the image whose default `-march` is `rv32im`.
+        `rv32i_zmmul/ilp32`. The variant of the default `-march` of the
+        image, `rv32i`, is the root `.`, and `M` takes the `_zmmul`
+        variant, as the compiler picks it.
 
     Raises
     ------
@@ -150,8 +151,11 @@ def multilib_of(core: dict[str, Any]) -> str:
         raise ValueError(NO_RV64_MULTILIB)
     names = extension_names(core)
     letter = "m" if "m" in names else ""
-    zmmul = "zmmul" in names or (base == "e" and bool(letter))
+    # A multiplicação M usa a biblioteca `_zmmul`, a mesma do Zmmul.
+    zmmul = "zmmul" in names or bool(letter)
     variant = f"rv{kind}{base}{letter}" + ("_zmmul" if zmmul else "")
+    if variant == f"rv{kind}i":
+        return "."
     return f"{variant}/{abi_of(core)}"
 
 

@@ -309,7 +309,7 @@ wheels = [
 
 [[package]]
 name = "riscv-tools"
-version = "1.39.0"
+version = "1.42.0"
 source = { editable = "." }
 dependencies = [
     { name = "cocotb" },

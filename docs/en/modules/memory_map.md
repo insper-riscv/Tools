@@ -82,7 +82,7 @@ The `specs` section and each entry of `bank_specs` accept two optional keys.
 | Key | Effect |
 | :--- | :--- |
 | `march` | When true, adds the `-march` and the `-mabi` of the core to the file (section 4.1). When absent, the file is the same as ever |
-| `default_march` | The `-march` the GCC of the image assumes without the option, `rv32im_zmmul` when left out |
+| `default_march` | The `-march` the GCC of the image assumes without the option, `rv32i` when left out |
 
 Without `boot.wait_restart` the boot memory is the one of an application (section 4.2). The specs file no longer carries `--defsym=rv32_wait_restart`, and the linker script of the boot memory pins no symbol, with `.text.reset` first and the rest right after it.
 
@@ -198,14 +198,14 @@ The `core` block also says how a program is compiled for the core. The module `r
 
 | Base | No multiplication | `Zmmul` | `M` |
 | :--- | :--- | :--- | :--- |
-| I | `rv32i/ilp32` | `rv32i_zmmul/ilp32` | `rv32im/ilp32` |
+| I | `.` | `rv32i_zmmul/ilp32` | `rv32im_zmmul/ilp32` |
 | E | `rv32e/ilp32e` | `rv32e_zmmul/ilp32e` | `rv32em_zmmul/ilp32e` |
 
-In the GCC of the image the default is `rv32im_zmmul`, the variant `rv32im/ilp32` is the root of `lib/` and `-print-multi-directory` writes it as `.`. With `march: true` in the `specs` section (section 2), the specs file gets the rule below, so a program compiled without `-march` takes the pair of the core.
+In the GCC of the image the default is `rv32i`, the variant `rv32i/ilp32` is the root of `lib/` and `-print-multi-directory` writes it as `.`; the `M` multiplication uses the `rv32im_zmmul` variant. With `march: true` in the `specs` section (section 2), the specs file gets the rule below, so a program compiled without `-march` takes the pair of the core.
 
 ```text
 *self_spec:
-%{march=rv32im_zmmul:%<march=* %<mabi=* -march=rv32im_zicsr_zicntr -mabi=ilp32}
+%{march=rv32i:%<march=* %<mabi=* -march=rv32im_zicsr_zicntr -mabi=ilp32}
 ```
 
 The GCC puts its default `-march` on the command line before it reads any spec, so a spec cannot tell a missing option from the default. The rule swaps the pair only when the `-march` is the `default_march`, and keeps any other. A `-march=rv32im` given by hand also becomes `rv32im_zmmul` in the GCC, so it receives the pair of the core.
