@@ -16,6 +16,7 @@ Calls each generator and joins the text, writing no content of its own. The outp
 | `<platform>_<board>.qpf` and `.qsf` | `quartus_project`, with the pins of `pin_assignments` |
 | `chip_<chip>_pkg.vhd` | `chip_package`, one per board chip |
 | `generate_ip.sh` | `vendor_ip`, only with the MAX 10 ADC; the `.qsf` gains the `QIP_FILE` line of the core it generates |
+| `init.mif` and `boot_memory_init.mif` | Copy of the file of the same name next to the `platform.yaml`, when it exists; the FLASH and BOOT_MEMORY IPs read them from the project folder, and without the copy Quartus warns (127003) and the memory goes into the bitstream zeroed |
 
 The `generate_ip.sh` calls the `ip/generate.sh` of `Peripherals` (Platform Designer of Quartus Prime Lite) and writes `max10_adc_core/synthesis/max10_adc_core.qip` in the project folder; it runs before compilation. The file exists only when the platform has an `adc` with `chip: max10` and the sources include `max10_adc_ip.vhd`.
 
