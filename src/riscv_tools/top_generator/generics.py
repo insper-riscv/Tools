@@ -18,6 +18,8 @@ _NO_INTERRUPTS = {
     "plic_priority_bits": "3",
     "plic_addr_width": "20",
 }
+# A conversão das tabelas do pacote do mapa para o tipo do SoC.
+_TO_ADDR_ARRAY = "work.interconnect_pkg.addr_array_t"
 _PLIC_FROM_PACKAGE = {
     "clint_tick_cycles": "CLINT_TICK_CYCLES",
     "plic_n_sources": "PLIC_N_SOURCES",
@@ -151,12 +153,15 @@ def _table_generics() -> list[str]:
     -------
     list of str
         A quantidade de periféricos e as tabelas de bases e de máscaras,
-        que o interconector usa para decodificar cada periférico.
+        que o interconector usa para decodificar cada periférico. As
+        tabelas do pacote do mapa são do tipo `periph_addr_array_t`, e o
+        generic do SoC é do `addr_array_t` do interconector, então cada
+        uma passa pela conversão entre os dois tipos.
     """
     return [
         "periph_count => PERIPH_COUNT",
-        "periph_bases => PERIPH_BASES",
-        "periph_masks => PERIPH_MASKS",
+        f"periph_bases => {_TO_ADDR_ARRAY}(PERIPH_BASES)",
+        f"periph_masks => {_TO_ADDR_ARRAY}(PERIPH_MASKS)",
     ]
 
 

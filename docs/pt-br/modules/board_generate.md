@@ -16,6 +16,7 @@ Chama cada gerador e junta o texto, sem escrever conteúdo próprio. A pasta de 
 | `<plataforma>_<placa>.qpf` e `.qsf` | `quartus_project`, com os pinos de `pin_assignments` |
 | `chip_<chip>_pkg.vhd` | `chip_package`, um por chip da placa |
 | `generate_ip.sh` | `vendor_ip`, só com o ADC do MAX 10; o `.qsf` ganha a linha `QIP_FILE` do núcleo que ele gera |
+| `init.mif` e `boot_memory_init.mif` | Cópia do arquivo de mesmo nome ao lado do `platform.yaml`, quando existe; as IPs da FLASH e da BOOT_MEMORY os leem da pasta do projeto, e sem a cópia o Quartus avisa (127003) e a memória entra zerada no bitstream |
 
 O mapa de memória (pacote VHDL, linker, `.specs` e cabeçalhos) não é gerado aqui: o comando chama o mesmo código do `generate-memory-map` para a plataforma e escreve os arquivos nos caminhos de `generate`. O projeto fica em `<saída>/<plataforma>-<placa>/`. O comando de compilação é o `program` (ver [quartus_program](quartus_program.md)).
 

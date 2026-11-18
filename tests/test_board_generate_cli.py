@@ -72,6 +72,45 @@ def test_the_command_writes_the_project_under_the_build_folder(
     check_in("project written to", capsys.readouterr().out)
 
 
+def test_the_memory_images_of_the_platform_enter_the_project(
+    tmp_path: Path,
+) -> None:
+    """The `.mif` next to the platform file goes into the project."""
+    root = _root(tmp_path)
+    for name in ("init.mif", "boot_memory_init.mif"):
+        (root / "platforms" / name).write_text(f"-- {name}\n")
+    cmd_board_generate(_args(root))
+    folder = root / "build" / "de0-cv-de0-cv"
+    for name in ("init.mif", "boot_memory_init.mif"):
+        check_equal((folder / name).read_text(), f"-- {name}\n")
+
+
+def test_a_platform_without_images_gets_no_mif_in_the_project(
+    tmp_path: Path,
+) -> None:
+    """Nothing is written for an image the platform does not have."""
+    root = _root(tmp_path)
+    cmd_board_generate(_args(root))
+    folder = root / "build" / "de0-cv-de0-cv"
+    check(not (folder / "init.mif").exists())
+    check(not (folder / "boot_memory_init.mif").exists())
+
+
+def test_the_check_flags_a_missing_or_stale_memory_image(
+    tmp_path: Path,
+) -> None:
+    """`--check` flags a project whose image differs from the file."""
+    root = _root(tmp_path)
+    (root / "platforms" / "boot_memory_init.mif").write_text("new\n")
+    cmd_board_generate(_args(root))
+    folder = root / "build" / "de0-cv-de0-cv"
+    (folder / "boot_memory_init.mif").write_text("old\n")
+    with pytest.raises(SystemExit):
+        cmd_board_generate(_args(root, check=True))
+    (folder / "boot_memory_init.mif").write_text("new\n")
+    cmd_board_generate(_args(root, check=True))
+
+
 def test_the_report_flags_exit_zero_when_nothing_is_lost(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
