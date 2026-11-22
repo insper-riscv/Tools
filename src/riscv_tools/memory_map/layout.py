@@ -583,7 +583,16 @@ def _segment_of(
         k: entry[k] for k in ("latency", "sector_bytes", "fetch") if k in entry
     }
     if cache and cache.get("enabled"):
-        seg["cache"] = {"size_bits": cache["size_bits"]}
+        seg["cache"] = {
+            k: cache[k]
+            for k in (
+                "size_bits",
+                "write_buffer",
+                "scratch_kib",
+                "scratch_base",
+            )
+            if k in cache
+        }
     return seg
 
 
