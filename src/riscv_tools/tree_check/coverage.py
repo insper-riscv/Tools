@@ -36,6 +36,7 @@ _ENTITY = re.compile(
     r"^\s*entity\s+(\w+)\s+is\b", re.IGNORECASE | re.MULTILINE
 )
 _MODEL_FOLDERS = frozenset({"sim", "tests"})
+RTL_ROOTS = ("src", "base/src")
 _TESTS = Path("tests/python/tests.json")
 
 
@@ -56,7 +57,7 @@ def _strip(text: str) -> str:
 
 
 def rtl_entities(root: Path) -> dict[str, str]:
-    """Find the entities of the RTL under `src/`.
+    """Find the entities of the RTL under `src/` and `base/src/`.
 
     Simulation models and wrappers (folders `sim` and `tests`), third
     party code and Quartus IPs are not RTL and are left out.
@@ -73,7 +74,8 @@ def rtl_entities(root: Path) -> dict[str, str]:
         entity name in lowercase.
     """
     found: dict[str, str] = {}
-    for path in list_files(root, ".vhd", "src"):
+    paths = [p for base in RTL_ROOTS for p in list_files(root, ".vhd", base)]
+    for path in paths:
         relative = path.relative_to(root).as_posix()
         text = path.read_text(encoding="utf-8", errors="replace")
         if _MODEL_FOLDERS & set(relative.split("/")[:-1]):

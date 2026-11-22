@@ -10,8 +10,8 @@ problems. A rule applies to some kinds of repository.
 | `language-pairs`    | `README`, `CONTRIBUTING` and `AUTHORS`  |
 |                     | in both languages, and every            |
 |                     | `docs/pt-br` file mirrored in `docs/en` |
-| `vhdl-location`     | No `.vhd` outside `src/` and            |
-|                     | `tests/vhdl/`                           |
+| `vhdl-location`     | No `.vhd` outside `src/`, `base/src/`   |
+|                     | and `tests/vhdl/`                       |
 | `common-submodule`  | Common-Components mounted at            |
 |                     | `src/common`                            |
 | `folder-names`      | Lowercase folder names without spaces   |
@@ -104,7 +104,7 @@ _PT = "pt-br"
 _EN = "en"
 _COMMON_PATH = "src/common"
 _COMMON_REPOSITORY = "Common-Components"
-_VHDL_ROOTS = ("src", "tests/vhdl")
+_VHDL_ROOTS = ("src", "base/src", "tests/vhdl")
 _FOLDER_NAME = re.compile(r"[a-z0-9][a-z0-9_.-]*")
 
 Rule = Callable[[Path, str, dict[str, Any]], list[str]]
@@ -216,13 +216,16 @@ def _rule_vhdl_location(
     Returns
     -------
     list of str
-        One problem for each `.vhd` outside `src/` and `tests/vhdl/`.
+        One problem for each `.vhd` outside `src/`, `base/src/` and
+        `tests/vhdl/`.
     """
     problems: list[str] = []
     for path in list_files(root, ".vhd"):
         relative = path.relative_to(root).as_posix()
         if not any(relative.startswith(f"{base}/") for base in _VHDL_ROOTS):
-            problems.append(f"{relative} is outside src/ and tests/vhdl/")
+            problems.append(
+                f"{relative} is outside src/, base/src/ and tests/vhdl/"
+            )
     return problems
 
 
