@@ -77,6 +77,8 @@ _SEGMENT_KEYS = (
 )
 _SIDES = (("instructions", "rom", "icache"), ("data", "ram", "dcache"))
 _OLD_MEMORY = ("rom", "ram", "icache", "dcache")
+# The fields of a data cache that the layout carries to the segment.
+_CACHE_KEYS = ("size_bits", "write_buffer", "scratch_kib", "scratch_base")
 _MAX_SEGMENTS = 1
 
 
@@ -583,16 +585,7 @@ def _segment_of(
         k: entry[k] for k in ("latency", "sector_bytes", "fetch") if k in entry
     }
     if cache and cache.get("enabled"):
-        seg["cache"] = {
-            k: cache[k]
-            for k in (
-                "size_bits",
-                "write_buffer",
-                "scratch_kib",
-                "scratch_base",
-            )
-            if k in cache
-        }
+        seg["cache"] = {k: cache[k] for k in _CACHE_KEYS if k in cache}
     return seg
 
 
