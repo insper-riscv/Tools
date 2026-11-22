@@ -550,6 +550,11 @@ def _region(seg: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def _carried(source: dict[str, Any], keys: tuple[str, ...]) -> dict[str, Any]:
+    """Copy the listed keys that the source has."""
+    return {k: source[k] for k in keys if k in source}
+
+
 def _segment_of(
     region: dict[str, Any], entry: dict[str, Any] | None, cache: Any
 ) -> dict[str, Any]:
@@ -581,11 +586,9 @@ def _segment_of(
     elif device in _OF_DEVICE:
         seg["type"] = _OF_DEVICE[device]
     seg["on_bus"] = entry["external"]
-    seg |= {
-        k: entry[k] for k in ("latency", "sector_bytes", "fetch") if k in entry
-    }
+    seg |= _carried(entry, ("latency", "sector_bytes", "fetch"))
     if cache and cache.get("enabled"):
-        seg["cache"] = {k: cache[k] for k in _CACHE_KEYS if k in cache}
+        seg["cache"] = _carried(cache, _CACHE_KEYS)
     return seg
 
 
