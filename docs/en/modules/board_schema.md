@@ -131,7 +131,7 @@ An unknown role, a pin the role does not have, a missing required pin and a `chi
 | `clocks.core`, `clocks.fetch`, `clocks.mem` | `{mhz, phase_ps}`; `core` is required and `mem` is required with a `dispositivo` backend |
 | `console` | `jtag` (default) or `pinos` |
 | `io.<role>` | `{count, need}` with `need` equal to `required` or `optional` |
-| `io.video` | Every field is optional. `width` and `height` (together), `aspect` (`4:3` or `16:9`, quoted or not), `refresh_hz`, `channel_bits` (`4` or `8`), `fb_width` and `fb_height` (together), `pixel_format` (`indexed`, the default, or `direct`), `scale` and `outside_manual`. Writing an empty `io.video`, or listing the `VIDEO` peripheral, asks for the default mode of the board |
+| `io.video` | Every field is optional. `width` and `height` (together), `aspect` (`4:3` or `16:9`, quoted or not), `refresh_hz`, `channel_bits` (`4` or `8`), `fb_width` and `fb_height` (together), `pixel_format` (`indexed`, the default, or `direct`), `scale`, `scale_y` (a vertical ratio `NUM/DEN` in lowest terms, such as `12/5`, with `NUM` up to 15 and `DEN` up to 7) and `outside_manual`. Writing an empty `io.video`, or listing the `VIDEO` peripheral, asks for the default mode of the board |
 | `top` | Component, or list of components, whose `requires` closure gathers the `needs` for the validator |
 
 The fields of the map (regions, peripherals, profile) are still read and checked by the `memory_map` module.

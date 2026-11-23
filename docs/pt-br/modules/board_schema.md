@@ -131,7 +131,7 @@ Um papel desconhecido, um pino que o papel não tem, um pino obrigatório ausent
 | `clocks.core`, `clocks.fetch`, `clocks.mem` | `{mhz, phase_ps}`; o `core` é obrigatório e o `mem` é obrigatório com um backend `dispositivo` |
 | `console` | `jtag` (padrão) ou `pinos` |
 | `io.<papel>` | `{count, need}` com `need` igual a `required` ou `optional` |
-| `io.video` | Todos os campos são opcionais. `width` e `height` (juntos), `aspect` (`4:3` ou `16:9`, entre aspas ou não), `refresh_hz`, `channel_bits` (`4` ou `8`), `fb_width` e `fb_height` (juntos), `pixel_format` (`indexed`, o padrão, ou `direct`), `scale` e `outside_manual`. Escrever `io.video` vazio, ou listar o periférico `VIDEO`, pede o modo padrão da placa |
+| `io.video` | Todos os campos são opcionais. `width` e `height` (juntos), `aspect` (`4:3` ou `16:9`, entre aspas ou não), `refresh_hz`, `channel_bits` (`4` ou `8`), `fb_width` e `fb_height` (juntos), `pixel_format` (`indexed`, o padrão, ou `direct`), `scale`, `scale_y` (razão vertical `NUM/DEN` irredutível, como `12/5`, com `NUM` até 15 e `DEN` até 7) e `outside_manual`. Escrever `io.video` vazio, ou listar o periférico `VIDEO`, pede o modo padrão da placa |
 | `top` | Componente, ou lista de componentes, cujo fecho de `requires` reúne os `needs` do validador |
 
 Os campos do mapa (regiões, periféricos, perfil) continuam sendo lidos e conferidos pelo módulo `memory_map`.

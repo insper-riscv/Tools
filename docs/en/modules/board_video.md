@@ -65,6 +65,7 @@ The `scale` of `io.video` is the enlargement of each framebuffer pixel. Without 
 | `video_channel_bits` | 4 or 8 |
 | `video_fb_width`, `video_fb_height` | Framebuffer size |
 | `video_pixel_format`, `video_scale` | `"indexed"` or `"direct"`, and the pixel enlargement |
+| `video_v_scale_num`, `video_v_scale_den` | Rational vertical enlargement, only with `scale_y` |
 | `video_h_visible`, `video_h_front_porch`, `video_h_sync`, `video_h_back_porch`, `video_h_total` | Horizontal timing, in pixels |
 | `video_v_visible`, `video_v_front_porch`, `video_v_sync`, `video_v_back_porch`, `video_v_total` | Vertical timing, in lines |
 | `video_h_sync_positive`, `video_v_sync_positive` | `true` when the synchronism pulse is high |
