@@ -13,6 +13,7 @@ from riscv_tools import (
     vhdl_sort,
 )
 from riscv_tools import timing_paths as timing_paths_mod
+from riscv_tools.board_schema import SchemaError, read_platform_video
 from riscv_tools.cli.common import platform_file, project_root
 from riscv_tools.settings import load_config
 
@@ -220,9 +221,12 @@ def cmd_generate_memory_map(args: argparse.Namespace) -> None:
     if not platform.is_absolute():
         platform = root / platform
     try:
-        for note in memory_map.memory_notes(
-            memory_map.load_platform(platform)
-        ):
+        loaded = memory_map.load_platform(platform)
+        try:
+            read_platform_video(loaded)
+        except SchemaError as bad:
+            raise ValueError(str(bad)) from bad
+        for note in memory_map.memory_notes(loaded):
             print(f"NOTE {note}", file=sys.stderr)
         if args.check:
             count, problems = memory_map.check_all(platform, root)

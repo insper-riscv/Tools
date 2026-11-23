@@ -2,6 +2,7 @@
 
 from typing import Any, cast
 
+from riscv_tools.board_clocks import ClockPlan
 from riscv_tools.board_ports import Port
 from riscv_tools.memory_map.timers import has_timer
 from riscv_tools.top_generator.spec import (
@@ -87,14 +88,14 @@ def soc_generics(spec: TopSpec) -> list[str]:
         *_index_generics(spec, (("clint", "CLINT"), ("plic", "PLIC"))),
         *timer_generics(spec),
     ]
-    generics += _dcache_generics(spec)
+    generics += dcache_generics(spec)
     if "zihpm" in str(spec.platform.get("profile", "")).lower():
         generics += ["hpm_counters => HPM_COUNTERS", "hpm_width => HPM_WIDTH"]
     return generics + _timing_generics(spec) + _role_generics(spec)
 
 
-def _dcache_generics(spec: TopSpec) -> list[str]:
-    """Monta os generics da fila e da memória interna da dcache.
+def dcache_generics(spec: TopSpec) -> list[str]:
+    """Monta os generics da fila, da memória interna e da leitura cedo.
 
     Parameters
     ----------
@@ -104,7 +105,8 @@ def _dcache_generics(spec: TopSpec) -> list[str]:
     Returns
     -------
     list of str
-        As associações de generic; vazia sem fila nem memória interna.
+        As associações de generic; vazia sem fila, memória interna ou
+        leitura adiantada.
     """
     memory = cast(dict[str, Any], spec.platform.get("memory") or {})
     entry = memory.get("dcache")
@@ -120,6 +122,10 @@ def _dcache_generics(spec: TopSpec) -> list[str]:
             f"dcache_scratch_kib => {kib}",
             f"dcache_scratch_base_kib => {base}",
         ]
+    if dcache.get("early_lookup") is True:
+        generics.append("dcache_early_lookup => true")
+    if dcache.get("valid_in_ram") is True:
+        generics.append("dcache_valid_in_ram => true")
     return generics
 
 
@@ -146,6 +152,32 @@ def timer_generics(spec: TopSpec) -> list[str]:
     ]
 
 
+def fetch_aligned(plan: ClockPlan) -> bool:
+    """Diz se o relógio de busca é o do núcleo (mesma freq. e fase).
+
+    Parameters
+    ----------
+    plan : ClockPlan
+        Os relógios da geração.
+
+    Returns
+    -------
+    bool
+        Verdadeiro quando existe `fetch` com a frequência e a fase de
+        `core`: as memórias de instrução leem, na borda do núcleo, o
+        endereço do PC do ciclo seguinte (`early_fetch_addr`), e o laço
+        do PC até a cache de instruções não depende de fase.
+    """
+    fetch = plan.get("fetch")
+    core = plan.get("core")
+    return (
+        fetch is not None
+        and core is not None
+        and fetch.mhz == core.mhz
+        and fetch.phase_ps == core.phase_ps
+    )
+
+
 def _timing_generics(spec: TopSpec) -> list[str]:
     """Monta os generics do SoC que cortam caminho crítico da placa.
 
@@ -158,17 +190,22 @@ def _timing_generics(spec: TopSpec) -> list[str]:
     -------
     list of str
         As linhas: interrupções registradas, seleção rápida da cache de
-        instruções (com o relógio de busca defasado do núcleo), página
+        instruções (com o relógio de busca defasado do núcleo, ou com o
+        endereço do PC do ciclo seguinte quando o de busca tem a fase do
+        núcleo), página
         da RAM fora da cache de dados, falhas de acesso com as janelas
         válidas do mapa e controlador de FLASH.
     """
     staggered = spec.plan.get("fetch") is not None
+    aligned = fetch_aligned(spec.plan)
     out = [
         "registered_irqs => true",
         "strict_periph => STRICT_PERIPH",
     ]
     if staggered:
         out.append("fast_icache_select => true")
+    if aligned:
+        out.append("early_fetch_addr => true")
     if "ram" in external(spec):
         out += ["has_dcache_bypass => true", "bypass_page => RAM_LAST_PAGE"]
     ctrl = flash_ctrl_index(spec)

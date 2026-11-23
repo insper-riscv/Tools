@@ -65,6 +65,7 @@ O `VideoPlan.generics()` escreve as associações abaixo, e `top_generator.video
 | `video_channel_bits` | 4 ou 8 |
 | `video_fb_width`, `video_fb_height` | Tamanho do framebuffer |
 | `video_pixel_format`, `video_scale` | `"indexed"` ou `"direct"`, e a ampliação do pixel |
+| `video_v_scale_num`, `video_v_scale_den` | Ampliação vertical racional, só com `scale_y` |
 | `video_h_visible`, `video_h_front_porch`, `video_h_sync`, `video_h_back_porch`, `video_h_total` | Temporização horizontal, em pixels |
 | `video_v_visible`, `video_v_front_porch`, `video_v_sync`, `video_v_back_porch`, `video_v_total` | Temporização vertical, em linhas |
 | `video_h_sync_positive`, `video_v_sync_positive` | `true` quando o pulso de sincronismo é alto |

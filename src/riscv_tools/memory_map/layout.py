@@ -78,7 +78,14 @@ _SEGMENT_KEYS = (
 _SIDES = (("instructions", "rom", "icache"), ("data", "ram", "dcache"))
 _OLD_MEMORY = ("rom", "ram", "icache", "dcache")
 # The fields of a data cache that the layout carries to the segment.
-_CACHE_KEYS = ("size_bits", "write_buffer", "scratch_kib", "scratch_base")
+_CACHE_KEYS = (
+    "size_bits",
+    "write_buffer",
+    "scratch_kib",
+    "scratch_base",
+    "early_lookup",
+    "valid_in_ram",
+)
 _MAX_SEGMENTS = 1
 
 

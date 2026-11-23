@@ -66,6 +66,8 @@ _FIELDS = {
         "write_buffer",
         "scratch_kib",
         "scratch_base",
+        "early_lookup",
+        "valid_in_ram",
     ),
 }
 _LOCATIONS = {
