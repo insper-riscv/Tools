@@ -121,6 +121,8 @@ With `flash_image` the image starts at the base of the bank: the 256-byte header
 | `env` | `{}` | `sim_runner`: extra environment variables for your cocotb test module, as `{name: template}`, with the same templates as `parameters` |
 | `python_path` | `[]` | `sim_runner`: directories (relative to your project root) put on the module search path of the simulation, so `test_module` can live outside your project, for example in the platform repository a config `extends:` |
 
+A parameter set to `false` that the `toplevel` does not declare is not passed to GHDL, so a platform can switch off a generic that its top lacks (for example `ROM_FILE: false` when the FLASH sits in the SDRAM chip). A `false` for a generic that the top declares, and any enabled parameter, are always passed.
+
 The templates of `parameters`, `run_files` and `env` are `{hex_path}` and `{mif_path}` (the test's image, for whichever `image` selects; the other is empty), and `{boot_memory_hex_path}` and `{boot_memory_mif_path}` (the boot memory's, the same for every test).
 
 ### `act:` (only needed for `riscv-tools certify` and `certify-board`)
