@@ -9,6 +9,10 @@ from typing import Any, TypedDict, Unpack
 
 from riscv_tools.sim_runner.config_pkg import with_profile_config_pkg
 from riscv_tools.sim_runner.core import run_test
+from riscv_tools.sim_runner.generics import (
+    declared_generics,
+    without_undeclared_off,
+)
 from riscv_tools.sim_runner.libraries import (
     build_libraries,
     expand_env,
@@ -105,7 +109,10 @@ class _Suite:
             hex_path=image_path,
             test_name=name,
             build_dir=self.profile_build_dir / name,
-            parameters={k: fill(v) for k, v in templates.items()},
+            parameters=without_undeclared_off(
+                {k: fill(v) for k, v in templates.items()},
+                declared_generics(self.vhdl_sources, str(sim_cfg["toplevel"])),
+            ),
             ram_base=self.cfg["memory"]["ram_base"],
             golden_path=golden_path,
             ghdl_flags=list(sim_cfg["ghdl_flags"]),
