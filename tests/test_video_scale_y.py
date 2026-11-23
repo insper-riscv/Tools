@@ -8,6 +8,7 @@ import yaml
 from catalog_support import fresh_platform
 from support import check, check_equal, check_in
 from video_support import (
+    ROLE,
     video_modes,
     video_platform,
     write_video_catalog,
@@ -17,19 +18,10 @@ from riscv_tools.board_check import check_platform
 from riscv_tools.board_schema import (
     PlatformVideo,
     SchemaError,
-    VideoRole,
     parse_video_modes,
     read_platform_video,
 )
 from riscv_tools.board_video import VideoError, VideoPlan, plan_video
-
-ROLE = VideoRole(
-    "vga",
-    8,
-    "VGA",
-    "640x480@60",
-    ("640x480@60", "800x600@60", "1280x720@60"),
-)
 
 
 def _check(root: Path, platform: dict[str, Any]) -> list[str]:

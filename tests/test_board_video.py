@@ -8,6 +8,7 @@ import yaml
 from catalog_support import fresh_board, fresh_platform, write
 from support import check, check_equal, check_in
 from video_support import (
+    ROLE,
     video_board,
     video_modes,
     video_platform,
@@ -31,14 +32,6 @@ from riscv_tools.board_video import (
     aspect_of,
     plan_video,
     resolve_mode,
-)
-
-ROLE = VideoRole(
-    "vga",
-    8,
-    "VGA",
-    "640x480@60",
-    ("640x480@60", "800x600@60", "1280x720@60"),
 )
 
 

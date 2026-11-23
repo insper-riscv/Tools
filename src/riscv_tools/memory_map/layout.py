@@ -78,7 +78,7 @@ _SEGMENT_KEYS = (
 _SIDES = (("instructions", "rom", "icache"), ("data", "ram", "dcache"))
 _OLD_MEMORY = ("rom", "ram", "icache", "dcache")
 # The fields of a data cache that the layout carries to the segment.
-_CACHE_KEYS = (
+CACHE_KEYS = (
     "size_bits",
     "write_buffer",
     "scratch_kib",
@@ -595,7 +595,7 @@ def _segment_of(
     seg["on_bus"] = entry["external"]
     seg |= _carried(entry, ("latency", "sector_bytes", "fetch"))
     if cache and cache.get("enabled"):
-        seg["cache"] = _carried(cache, _CACHE_KEYS)
+        seg["cache"] = _carried(cache, CACHE_KEYS)
     return seg
 
 

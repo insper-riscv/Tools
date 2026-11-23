@@ -4,6 +4,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 from riscv_tools import (
     board_check,
@@ -221,11 +222,7 @@ def cmd_generate_memory_map(args: argparse.Namespace) -> None:
     if not platform.is_absolute():
         platform = root / platform
     try:
-        loaded = memory_map.load_platform(platform)
-        try:
-            read_platform_video(loaded)
-        except SchemaError as bad:
-            raise ValueError(str(bad)) from bad
+        loaded = _load_checked(platform)
         for note in memory_map.memory_notes(loaded):
             print(f"NOTE {note}", file=sys.stderr)
         if args.check:
@@ -242,6 +239,32 @@ def cmd_generate_memory_map(args: argparse.Namespace) -> None:
         sys.exit(1)
     for path in written:
         print(f"generated: {path.relative_to(root)}")
+
+
+def _load_checked(platform: Path) -> dict[str, Any]:
+    """Load a `platform.yaml` and check its `io.video` request.
+
+    Parameters
+    ----------
+    platform : Path
+        The `platform.yaml`.
+
+    Returns
+    -------
+    dict of {str: Any}
+        The platform.
+
+    Raises
+    ------
+    ValueError
+        If the file is not valid or the video request is wrong.
+    """
+    loaded = memory_map.load_platform(platform)
+    try:
+        read_platform_video(loaded)
+    except SchemaError as bad:
+        raise ValueError(str(bad)) from bad
+    return loaded
 
 
 def cmd_timing_paths(args: argparse.Namespace) -> None:
