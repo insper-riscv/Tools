@@ -88,14 +88,14 @@ def soc_generics(spec: TopSpec) -> list[str]:
         *_index_generics(spec, (("clint", "CLINT"), ("plic", "PLIC"))),
         *timer_generics(spec),
     ]
-    generics += dcache_generics(spec)
+    generics += _dcache_generics(spec)
     if "zihpm" in str(spec.platform.get("profile", "")).lower():
         generics += ["hpm_counters => HPM_COUNTERS", "hpm_width => HPM_WIDTH"]
     return generics + _timing_generics(spec) + _role_generics(spec)
 
 
-def dcache_generics(spec: TopSpec) -> list[str]:
-    """Monta os generics da fila, da memória interna e da leitura cedo.
+def _dcache_generics(spec: TopSpec) -> list[str]:
+    """Monta os generics da fila e da memória interna da dcache.
 
     Parameters
     ----------
@@ -105,8 +105,7 @@ def dcache_generics(spec: TopSpec) -> list[str]:
     Returns
     -------
     list of str
-        As associações de generic; vazia sem fila, memória interna ou
-        leitura adiantada.
+        As associações de generic; vazia sem fila nem memória interna.
     """
     memory = cast(dict[str, Any], spec.platform.get("memory") or {})
     entry = memory.get("dcache")
@@ -122,10 +121,6 @@ def dcache_generics(spec: TopSpec) -> list[str]:
             f"dcache_scratch_kib => {kib}",
             f"dcache_scratch_base_kib => {base}",
         ]
-    if dcache.get("early_lookup") is True:
-        generics.append("dcache_early_lookup => true")
-    if dcache.get("valid_in_ram") is True:
-        generics.append("dcache_valid_in_ram => true")
     return generics
 
 

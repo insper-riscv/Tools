@@ -44,7 +44,7 @@ from riscv_tools.memory_map.core import (
     platform_list,
 )
 from riscv_tools.memory_map.expressions import evaluate
-from riscv_tools.memory_map.layout import CACHE_KEYS, FLASH, RAM
+from riscv_tools.memory_map.layout import FLASH, RAM
 
 MIN_CACHE_BITS = 256
 DEFAULT_CACHE_BITS = 4096
@@ -60,7 +60,13 @@ _FIELDS = {
     "rom": ("external", "backend", "device", "latency", "sector_bytes"),
     "ram": ("external", "backend", "device", "latency", "fetch"),
     "icache": ("enabled", "size_bits"),
-    "dcache": ("enabled", *CACHE_KEYS),
+    "dcache": (
+        "enabled",
+        "size_bits",
+        "write_buffer",
+        "scratch_kib",
+        "scratch_base",
+    ),
 }
 _LOCATIONS = {
     "int": False,

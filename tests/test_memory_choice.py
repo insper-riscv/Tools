@@ -532,12 +532,7 @@ def test_the_write_buffer_and_scratch_are_fields_of_dcache() -> None:
     """The write buffer and the internal memory pass the field check."""
     memory = deepcopy(MEMORY)
     memory["dcache"].update(
-        {
-            "write_buffer": 4,
-            "scratch_kib": 32,
-            "scratch_base": 0x43FE8000,
-            "early_lookup": True,
-        }
+        {"write_buffer": 4, "scratch_kib": 32, "scratch_base": 0x43FE8000}
     )
     problems = [str(p) for p in validate_platform(_platform(memory=memory))]
     check_equal([p for p in problems if "not a field" in p], [])
