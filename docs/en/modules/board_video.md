@@ -18,6 +18,8 @@ The table lists the requests in order of precedence.
 | `width`, `height` and `aspect` | As `width` and `height`, and the proportion of the mode must be the requested one |
 | `refresh_hz` with a size or a proportion | Narrows the candidates to the requested rate |
 
+The porches of the resolved mode can be replaced with `h_front_porch`, `h_back_porch`, `v_front_porch` and `v_back_porch`: the visible area, the porches and the synchronism must keep the total of the mode, so a porch written alone makes the other take the rest, and a sum that differs is a `VideoError`. The values reach the `h_front_porch`, `h_back_porch`, `v_front_porch` and `v_back_porch` generics of the entity.
+
 A platform that lists the `VIDEO` peripheral in `peripherals` and does not write `io.video` asks for the default mode. The proportion of a mode is the ratio of width to height in lowest terms, so `1280x1024` is `5:4` and neither accepted proportion covers it.
 
 ## 3. Checks
