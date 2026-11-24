@@ -18,6 +18,8 @@ A tabela lista os pedidos em ordem de precedência.
 | `width`, `height` e `aspect` | Como `width` e `height`, e a proporção do modo tem de ser a pedida |
 | `refresh_hz` com tamanho ou proporção | Restringe os candidatos à taxa pedida |
 
+Os porches do modo resolvido podem ser trocados por `h_front_porch`, `h_back_porch`, `v_front_porch` e `v_back_porch`: a área visível, os porches e a sincronia têm de manter o total do modo, então um porch escrito sozinho faz o outro receber o resto, e uma soma diferente é um `VideoError`. Os valores chegam aos generics `h_front_porch`, `h_back_porch`, `v_front_porch` e `v_back_porch` da entidade.
+
 Uma plataforma que lista o periférico `VIDEO` em `peripherals` e não escreve `io.video` pede o modo padrão. A proporção de um modo é a razão entre largura e altura em termos mínimos, de modo que `1280x1024` é `5:4` e nenhuma das duas proporções aceitas o cobre.
 
 ## 3. Validações

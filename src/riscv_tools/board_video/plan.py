@@ -1,9 +1,14 @@
 """The resolved video of a platform on a board, ready for the top."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import cast
 
-from riscv_tools.board_schema import PlatformVideo, VideoMode, VideoRole
+from riscv_tools.board_schema import (
+    PlatformVideo,
+    VideoAxis,
+    VideoMode,
+    VideoRole,
+)
 from riscv_tools.board_video.resolve import VideoError, resolve_mode
 
 # Uma cor tem três canais.
@@ -179,6 +184,76 @@ class VideoPlan:
         return out
 
 
+def _porches(
+    axis: VideoAxis, front: int | None, back: int | None, label: str
+) -> VideoAxis:
+    """Apply the porches written by the platform to one axis.
+
+    Parameters
+    ----------
+    axis : VideoAxis
+        The axis of the resolved mode.
+    front : int or None
+        The front porch asked for, None to keep the mode's.
+    back : int or None
+        The back porch asked for, None to keep the mode's.
+    label : str
+        The axis prefix (`h` or `v`), for the message.
+
+    Returns
+    -------
+    VideoAxis
+        The axis with the porches; the one not written takes what keeps
+        the total of the mode.
+
+    Raises
+    ------
+    VideoError
+        If the visible area, the porches and the synchronism do not add
+        up to the total of the mode.
+    """
+    if front is None and back is None:
+        return axis
+    blank = axis.total - axis.visible - axis.sync
+    if front is None:
+        front = blank - cast(int, back)
+    elif back is None:
+        back = blank - front
+    if front + cast(int, back) != blank or front < 0 or cast(int, back) < 0:
+        raise VideoError(
+            f"io.video {label}_front_porch {front} and {label}_back_porch "
+            f"{back} must add up to {blank} (total {axis.total} minus "
+            f"visible {axis.visible} and sync {axis.sync})"
+        )
+    return replace(axis, front_porch=front, back_porch=cast(int, back))
+
+
+def _with_porches(mode: VideoMode, request: PlatformVideo) -> VideoMode:
+    """Apply the porches of the request to the resolved mode.
+
+    Parameters
+    ----------
+    mode : VideoMode
+        The resolved mode.
+    request : PlatformVideo
+        The request.
+
+    Returns
+    -------
+    VideoMode
+        The mode with the requested porches, the same when none.
+    """
+    return replace(
+        mode,
+        horizontal=_porches(
+            mode.horizontal, request.h_front_porch, request.h_back_porch, "h"
+        ),
+        vertical=_porches(
+            mode.vertical, request.v_front_porch, request.v_back_porch, "v"
+        ),
+    )
+
+
 def _size(plan_mode: VideoMode, request: PlatformVideo) -> tuple[int, int]:
     """Choose the size of the framebuffer.
 
@@ -257,6 +332,7 @@ def plan_video(
             f"io.video channel_bits {bits} exceeds the "
             f"{role.channel_bits} bits per channel of the board"
         )
+    mode = _with_porches(mode, request)
     width, height = _size(mode, request)
     scale = _scale(mode, request, width, height)
     return VideoPlan(

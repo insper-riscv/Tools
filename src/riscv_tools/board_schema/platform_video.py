@@ -55,6 +55,15 @@ class PlatformVideo:
         The rational vertical enlargement `NUM/DEN` (as written in
         `scale_y: 12/5`), with `scale` as the horizontal one; None keeps
         the integer enlargement `scale` in y.
+    h_front_porch : int or None
+        The front porch in pixels; None keeps that of the mode. Written
+        alone, the back porch takes what keeps the total.
+    h_back_porch : int or None
+        The back porch in pixels, with the same rule.
+    v_front_porch : int or None
+        The front porch in lines, with the same rule.
+    v_back_porch : int or None
+        The back porch in lines, with the same rule.
     """
 
     width: int | None = None
@@ -68,6 +77,10 @@ class PlatformVideo:
     pixel_format: str | None = None
     scale: int | None = None
     scale_y: tuple[int, int] | None = None
+    h_front_porch: int | None = None
+    h_back_porch: int | None = None
+    v_front_porch: int | None = None
+    v_back_porch: int | None = None
 
 
 def _ratio(entry: Section) -> tuple[int, int] | None:
@@ -153,6 +166,11 @@ def _read(entry: Section) -> PlatformVideo:
     )
     scale = entry.integer("scale", required=False, minimum=1)
     scale_y = _ratio(entry)
+    porches = [
+        entry.integer(f"{axis}_{kind}_porch", required=False, minimum=0)
+        for axis in ("h", "v")
+        for kind in ("front", "back")
+    ]
     entry.done()
     if bits is not None and bits not in CHANNEL_BITS:
         entry.fail("channel_bits", "must be 4 or 8")
@@ -173,6 +191,7 @@ def _read(entry: Section) -> PlatformVideo:
         pixel_format,
         scale,
         scale_y,
+        *porches,
     )
 
 
