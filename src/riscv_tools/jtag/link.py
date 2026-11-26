@@ -34,10 +34,12 @@ class JtagLink:
         four bits per digit.
     """
 
+    # The explicit legacy protocol verifies hold and CRC on hardware.
     hardware_name: str
     device_name: str
     sdram_instance: int = 0
     display_digits: int = 6
+    sdram_protocol: str = "capabilities"
 
 
 def run(cmd: list[str], **kw: Any) -> subprocess.CompletedProcess[Any]:

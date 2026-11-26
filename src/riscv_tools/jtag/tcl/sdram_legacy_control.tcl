@@ -1,0 +1,168 @@
+# Reads and writes words of the SDRAM through its debug port (a Virtual JTAG instance with a
+# 64-bit DEBUG register, see Memory's docs/SDRAM_DEBUG.md).
+#
+# Usage: quartus_stp -t sdram_dbg.tcl <hardware> <device> read  <word_address> <word_count>
+#        quartus_stp -t sdram_dbg.tcl <hardware> <device> write <word_address> <value> [<byte_enable>]
+#        quartus_stp -t sdram_dbg.tcl <hardware> <device> fill  <word_address> <word_count> <value>
+#        quartus_stp -t sdram_dbg.tcl <hardware> <device> load  <word_address> <file>
+#
+# A word address counts 32-bit words from the base of the SDRAM. read prints WORDS=<values,
+# in decimal, separated by spaces>; write and fill print OK. load writes the words of a text file (one
+# hexadecimal word per line) from the word address, in one session, and prints OK <count>.
+package require ::quartus::jtag
+
+if {[llength $argv] < 3} {
+    puts stderr "Usage: quartus_stp -t sdram_dbg.tcl <hardware> <device> read|write|fill <args>"
+    exit 1
+}
+lassign $argv HW DEV CMD
+set ARGS [lrange $argv 3 end]
+
+# the Virtual JTAG instance of the debug port: the platform's sld_instance_index, passed by riscv-tools in
+# RV32_SDRAM_DEBUG_INSTANCE (0 when the variable is not set)
+set INSTANCE 0
+if {[info exists ::env(RV32_SDRAM_DEBUG_INSTANCE)]} {
+    set INSTANCE $::env(RV32_SDRAM_DEBUG_INSTANCE)
+}
+
+# commands of the DEBUG register (op field)
+set OP_STATUS 0
+set OP_READ 1
+set OP_WRITE 2
+set OP_FILL 3
+set OP_COUNT 4
+set OP_READ_NEXT 5
+
+set BUSY 1
+set ERROR 2
+set INITIALIZED 4
+# how long a command may take before it is declared lost: a read or a write is quick; a fill of the whole
+# SDRAM runs for about two seconds on the board
+set DEADLINE_MS 3000
+set FILL_DEADLINE_MS 60000
+
+proc fail {code message} {
+    puts stderr $message
+    catch { device_unlock }
+    catch { close_device }
+    exit $code
+}
+
+# one shift of the DEBUG register: returns {status word data} of the previous command
+proc shift {op word data be} {
+    global INSTANCE
+    # bit 24 of the word address travels in bit 3 of the op (the controller of the 128 MB SDRAM of the DE2-115 uses it;
+    # the 64 MB one ignores it)
+    set op [expr {$op | ((($word >> 24) & 1) << 3)}]
+    set v [expr {($op << 60) | ($be << 56) | (($word & 0xFFFFFF) << 32) | ($data & 0xFFFFFFFF)}]
+    set r [device_virtual_dr_shift -instance_index $INSTANCE -length 64 \
+               -dr_value [format %016llx $v] -value_in_hex]
+    scan $r %llx x
+    return [list [expr {($x >> 56) & 0xFF}] [expr {($x >> 32) & 0xFFFFFF}] [expr {$x & 0xFFFFFFFF}]]
+}
+
+# shifts until the previous command has finished (or deadline_ms passes): returns its {status word data}
+proc settle {{deadline_ms 3000}} {
+    global OP_STATUS BUSY ERROR
+    set end [expr {[clock milliseconds] + $deadline_ms}]
+    while {[clock milliseconds] < $end} {
+        lassign [shift $OP_STATUS 0 0 0xF] status word data
+        if {!($status & $BUSY)} {
+            if {$status & $ERROR} { fail 4 "the SDRAM controller did not answer" }
+            return [list $status $word $data]
+        }
+    }
+    fail 5 "the debug command never finished"
+}
+
+if {[catch {
+    set hw_name $HW
+    open_device -hardware_name $HW -device_name $DEV
+    device_lock -timeout 10000
+    device_virtual_ir_shift -instance_index $INSTANCE -ir_value 1 -no_captured_ir_value
+} err]} {
+    fail 2 "cannot open the debug port: $err"
+}
+
+lassign [settle $DEADLINE_MS] status word data
+if {!($status & $INITIALIZED)} { fail 6 "the SDRAM is not initialized" }
+
+switch $CMD {
+    info {
+        # This protocol predates INFO. Positively probe hold and CRC without writes.
+        set prior [expr {($status >> 5) & 1}]
+        shift 7 0 1 0
+        lassign [settle] status word data
+        if {!($status & 32)} { fail 7 "the debug port did not confirm CPU hold" }
+        shift $OP_READ 0 0 15
+        lassign [settle] status word value
+        set bytes [binary format cccc [expr {$value & 255}] [expr {($value >> 8) & 255}] [expr {($value >> 16) & 255}] [expr {($value >> 24) & 255}]]
+        set expected [expr {[zlib crc32 $bytes] & 0xFFFFFFFF}]
+        shift 7 0 1 1
+        lassign [settle 30000] status word crc
+        shift 7 0 $prior 0
+        lassign [settle] status word data
+        if {(($status >> 5) & 1) != $prior} { fail 7 "the debug port did not restore CPU hold" }
+        if {$crc != $expected} { fail 7 "the debug port failed its CRC probe" }
+        puts "INFO=00030000"
+    }
+    hold {
+        lassign $ARGS value
+        if {$value ne "0" && $value ne "1"} { fail 1 "hold expects 0 or 1" }
+        shift 7 0 $value 0
+        lassign [settle] status word data
+        if {(($status >> 5) & 1) != $value} { fail 7 "the debug port did not confirm CPU hold" }
+        puts "OK"
+    }
+    crc {
+        lassign $ARGS first count
+        shift 7 $first $count 1
+        lassign [settle 30000] status word data
+        puts [format "CRC=%08x" $data]
+    }
+    read {
+        lassign $ARGS first count
+        set words {}
+        for {set i 0} {$i < $count} {incr i} {
+            if {$i == 0} { shift $OP_READ $first 0 0xF } else { shift $OP_READ_NEXT 0 0 0xF }
+            lassign [settle] status word data
+            lappend words $data
+        }
+        puts "WORDS=$words"
+    }
+    write {
+        lassign $ARGS first value be
+        if {$be eq ""} { set be 0xF }
+        shift $OP_WRITE $first $value $be
+        settle
+        puts "OK"
+    }
+    fill {
+        lassign $ARGS first count value
+        shift $OP_COUNT 0 $count 0xF
+        settle
+        shift $OP_FILL $first $value 0xF
+        settle $FILL_DEADLINE_MS
+        puts "OK"
+    }
+    load {
+        lassign $ARGS first path
+        if {[catch {open $path r} fh]} { fail 1 "cannot open $path: $fh" }
+        set count 0
+        while {[gets $fh line] >= 0} {
+            set line [string trim $line]
+            if {$line eq ""} { continue }
+            if {[scan $line %x value] != 1} { fail 1 "not a hexadecimal word: $line" }
+            shift $OP_WRITE [expr {$first + $count}] $value 0xF
+            settle
+            incr count
+        }
+        close $fh
+        puts "OK $count"
+    }
+    default { fail 1 "unknown command $CMD" }
+}
+
+device_unlock
+close_device
+exit 0

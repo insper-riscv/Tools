@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from riscv_tools import (
+    flash_image,
     flash_load,
     flash_loader,
     mem_edit,
@@ -253,7 +254,13 @@ def write_sdram_flash(
     words = mif_words(mif_path)
     data = b"".join(w.to_bytes(4, "little") for w in words)
     start = window.base
+    payload = data[start:]
+    header_size = 0
+    if cfg.get("flash_image"):
+        header = flash_image.verify(payload)
+        header_size = flash_image.HEADER_SIZE
+        payload = payload[: header_size + header.size]
     flash_load.load_flash(
-        link, window, flash_load.FlashImage(start, data[start:])
+        link, window, flash_load.FlashImage(start, payload, header_size)
     )
     return True
