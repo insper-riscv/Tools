@@ -32,7 +32,7 @@ from riscv_tools.memory_map.kinds import (
     SERIAL_ENTITIES,
     Variant,
 )
-from riscv_tools.top_generator.board_gpio import gpio_groups, gpio_lines
+from riscv_tools.top_generator.board_gpio import gpio_address_bits, gpio_lines
 from riscv_tools.top_generator.spec import TopSpec
 
 # Entidades sem o sinal `i_read` e as que têm `i_byteena` e relógio de
@@ -901,18 +901,7 @@ def external_top(spec: TopSpec) -> ExternalTop:
         ),
         default=1,
     )
-    bits = max(
-        [bits]
-        + [4 + (len(gpio_groups(spec, i)) - 1).bit_length() for i in gpios]
-    )
-    claimed: set[int] = set()
-    for gpio in gpios:
-        pins = {pin for group in gpio_groups(spec, gpio) for pin in group}
-        if claimed & pins:
-            raise InputError(
-                "Expansion GPIO blocks claim the same physical pin"
-            )
-        claimed |= pins
+    bits = max(bits, gpio_address_bits(spec, gpios))
     count = len(items)
     result.generics = [
         "ext_indices => EXT_INDICES",

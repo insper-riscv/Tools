@@ -29,6 +29,22 @@ def gpio_groups(spec: TopSpec, item: dict[str, Any]) -> list[list[int]]:
     return groups
 
 
+def gpio_address_bits(spec: TopSpec, items: list[dict[str, Any]]) -> int:
+    """Validate disjoint banks and return their address width."""
+    claimed: set[int] = set()
+    bits = 1
+    for item in items:
+        groups = gpio_groups(spec, item)
+        pins = {pin for group in groups for pin in group}
+        if claimed & pins:
+            raise InputError(
+                "Expansion GPIO blocks claim the same physical pin"
+            )
+        claimed |= pins
+        bits = max(bits, _GROUP_WORD_BITS + (len(groups) - 1).bit_length())
+    return bits
+
+
 def gpio_lines(spec: TopSpec, item: dict[str, Any]) -> list[str]:
     """Instantiate the register bank and connect physical ports."""
     ports = role_ports(spec, "gpio")
