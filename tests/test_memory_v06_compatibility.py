@@ -34,16 +34,18 @@ class SdramCompatibilityTest(unittest.TestCase):
 
     def test_default_protocol_is_unchanged(self):
         """Preserve the current protocol for other platforms."""
-        self.assertEqual(
-            stream._control_script(JtagLink("c", "d")), "sdram_stream.tcl"
-        )
+        with patch.object(
+            stream,
+            "run_tcl",
+            return_value=SimpleNamespace(stdout="INFO=00000000\n"),
+        ) as run:
+            stream.capabilities(JtagLink("c", "d"))
+        self.assertEqual(run.call_args.args[1:], ("sdram_stream.tcl", "info"))
 
     def test_unknown_protocol_is_rejected(self):
         """Refuse an unknown protocol before starting a JTAG session."""
         with self.assertRaises(stream.StreamError):
-            stream._control_script(
-                JtagLink("c", "d", sdram_protocol="unknown")
-            )
+            stream.capabilities(JtagLink("c", "d", sdram_protocol="unknown"))
 
     def test_legacy_writes_use_bounded_sessions(self):
         """Transfer every word exactly once in bounded sessions."""
@@ -61,7 +63,7 @@ class SdramCompatibilityTest(unittest.TestCase):
             [x for c in load.call_args_list for x in c.args[2]], words
         )
 
-    def check_bank(self, corrupt):
+    def check_bank(self, corrupt: bool) -> None:
         """Check bounds and corruption with a padded MIF."""
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
