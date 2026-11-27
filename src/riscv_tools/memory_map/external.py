@@ -33,6 +33,7 @@ timer does (see `riscv_tools.memory_map.timers`).
 from typing import Any
 
 from riscv_tools.memory_map import kinds
+from riscv_tools.memory_map.board_gpio import board_gpio_list
 from riscv_tools.memory_map.core import (
     Mismatch,
     peripheral_list,
@@ -250,7 +251,7 @@ def vhdl_lines(platform: dict[str, Any]) -> str:
         They read `<NAME>_INDEX` and `IRQ_<NAME>`, so they come after
         the interrupt constants.
     """
-    items = external_list(platform)
+    items = external_list(platform) + board_gpio_list(platform)
     if not items:
         return ""
     section = platform_dict(platform, "interrupts")

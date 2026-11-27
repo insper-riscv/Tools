@@ -13,6 +13,7 @@ from typing import Any, cast
 from riscv_tools.board_inputs import BoardInputs, InputError, PinSignal
 from riscv_tools.board_ports.placement import Placement, placements
 from riscv_tools.board_schema.board import IO_ROLES
+from riscv_tools.memory_map.board_gpio import board_gpio_list
 
 _SEGMENTS = 7
 # Papéis de E/S, na ordem em que viram portas.
@@ -739,6 +740,15 @@ def build_ports(inputs: BoardInputs) -> PortPlan:
     )
     reset = cast(dict[str, Any], clocks["reset"])
     io = _io_ports(inputs)
+    if board_gpio_list(inputs.platform) and not any(
+        p.role == "gpio" for p in io.ports
+    ):
+        expansion, count = _offered_ports(inputs, "gpio")
+        if not count:
+            raise InputError(
+                "Expansion GPIO requested but board has no gpio role"
+            )
+        io = PortPlan(io.ports + tuple(expansion), io.warnings)
     head = [
         Port(
             str(reference["signal"]),
