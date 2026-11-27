@@ -54,12 +54,19 @@ ROUTER_WINDOW_KIB = 1024
 # The ROM devices the router does not hold to its window.
 WINDOWLESS_ROM_DEVICES = ("sdram", "sram")
 PAGE = 4096
+MAX_WRITE_BUFFER = 16
 
 _FIELDS = {
     "rom": ("external", "backend", "device", "latency", "sector_bytes"),
     "ram": ("external", "backend", "device", "latency", "fetch"),
     "icache": ("enabled", "size_bits"),
-    "dcache": ("enabled", "size_bits"),
+    "dcache": (
+        "enabled",
+        "size_bits",
+        "write_buffer",
+        "scratch_kib",
+        "scratch_base",
+    ),
 }
 _LOCATIONS = {
     "int": False,
@@ -90,6 +97,8 @@ class Memory:
         The size of the instruction cache in bits (256 without one).
     dcache_size_bits : int
         The size of the data cache in bits (256 without one).
+    dcache_write_buffer : int
+        The words of the write buffer of the data cache (0 for none).
     """
 
     rom_external: bool
@@ -98,6 +107,7 @@ class Memory:
     has_dcache: bool
     icache_size_bits: int
     dcache_size_bits: int
+    dcache_write_buffer: int = 0
 
 
 def _entry(key: str, value: str) -> dict[str, Any]:
@@ -318,6 +328,39 @@ def _bits(
     return value if enabled else MIN_CACHE_BITS
 
 
+def _buffer(raw: dict[str, Any], problems: list[Mismatch]) -> int:
+    """Read the write buffer of the data cache.
+
+    Parameters
+    ----------
+    raw : dict of {str: Any}
+        The merged section.
+    problems : list of Mismatch
+        Where an invalid depth is reported.
+
+    Returns
+    -------
+    int
+        `write_buffer` of the data cache, 0 when it is left out.
+    """
+    entry = raw.get("dcache")
+    fields = cast(dict[str, Any], entry) if isinstance(entry, dict) else {}
+    value = fields.get("write_buffer", 0)
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, int)
+        or not 0 <= value <= MAX_WRITE_BUFFER
+    ):
+        problems.append(
+            _problem(
+                f"memory.dcache.write_buffer ({value!r}) must be an integer "
+                f"from 0 to {MAX_WRITE_BUFFER}"
+            )
+        )
+        return 0
+    return value
+
+
 def _unknown(raw: dict[str, Any]) -> list[Mismatch]:
     """Find keys of the section that no combination uses.
 
@@ -377,6 +420,7 @@ def read(platform: dict[str, Any]) -> tuple[Memory | None, list[Mismatch]]:
         has_dcache=has_d,
         icache_size_bits=_bits(section, "icache", has_i, problems),
         dcache_size_bits=_bits(section, "dcache", has_d, problems),
+        dcache_write_buffer=_buffer(section, problems),
     )
     return memory, problems
 

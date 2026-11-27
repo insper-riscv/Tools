@@ -18,6 +18,8 @@ The table lists the requests in order of precedence.
 | `width`, `height` and `aspect` | As `width` and `height`, and the proportion of the mode must be the requested one |
 | `refresh_hz` with a size or a proportion | Narrows the candidates to the requested rate |
 
+The porches of the resolved mode can be replaced with `h_front_porch`, `h_back_porch`, `v_front_porch` and `v_back_porch`: the visible area, the porches and the synchronism must keep the total of the mode, so a porch written alone makes the other take the rest, and a sum that differs is a `VideoError`. The values reach the `h_front_porch`, `h_back_porch`, `v_front_porch` and `v_back_porch` generics of the entity.
+
 A platform that lists the `VIDEO` peripheral in `peripherals` and does not write `io.video` asks for the default mode. The proportion of a mode is the ratio of width to height in lowest terms, so `1280x1024` is `5:4` and neither accepted proportion covers it.
 
 ## 3. Checks
@@ -65,6 +67,7 @@ The `scale` of `io.video` is the enlargement of each framebuffer pixel. Without 
 | `video_channel_bits` | 4 or 8 |
 | `video_fb_width`, `video_fb_height` | Framebuffer size |
 | `video_pixel_format`, `video_scale` | `"indexed"` or `"direct"`, and the pixel enlargement |
+| `video_v_scale_num`, `video_v_scale_den` | Rational vertical enlargement, only with `scale_y` |
 | `video_h_visible`, `video_h_front_porch`, `video_h_sync`, `video_h_back_porch`, `video_h_total` | Horizontal timing, in pixels |
 | `video_v_visible`, `video_v_front_porch`, `video_v_sync`, `video_v_back_porch`, `video_v_total` | Vertical timing, in lines |
 | `video_h_sync_positive`, `video_v_sync_positive` | `true` when the synchronism pulse is high |

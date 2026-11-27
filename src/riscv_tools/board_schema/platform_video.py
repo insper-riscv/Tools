@@ -1,6 +1,8 @@
 """Read the `io.video` request of a `platform.yaml`."""
 
+import re
 from dataclasses import dataclass
+from math import gcd
 from typing import Any, cast
 
 from riscv_tools.board_schema.fields import Section, raise_if
@@ -10,6 +12,11 @@ from riscv_tools.board_schema.video import CHANNEL_BITS, read_aspect
 VIDEO_PERIPHERAL = "VIDEO"
 # Formatos de pixel do periférico `video`: o indexado é o padrão.
 PIXEL_FORMATS = ("indexed", "direct")
+# Ampliação vertical racional `NUM/DEN`: o registrador de formato do
+# periférico guarda o numerador em 4 bits e o denominador em 3.
+RATIO = re.compile(r"(\d+)/(\d+)")
+MAX_RATIO_NUM = 15
+MAX_RATIO_DEN = 7
 
 
 @dataclass(frozen=True)
@@ -44,6 +51,19 @@ class PlatformVideo:
     scale : int or None
         The enlargement of each framebuffer pixel in x and in y; the
         largest that fits the visible area when None.
+    scale_y : tuple of (int, int) or None
+        The rational vertical enlargement `NUM/DEN` (as written in
+        `scale_y: 12/5`), with `scale` as the horizontal one; None keeps
+        the integer enlargement `scale` in y.
+    h_front_porch : int or None
+        The front porch in pixels; None keeps that of the mode. Written
+        alone, the back porch takes what keeps the total.
+    h_back_porch : int or None
+        The back porch in pixels, with the same rule.
+    v_front_porch : int or None
+        The front porch in lines, with the same rule.
+    v_back_porch : int or None
+        The back porch in lines, with the same rule.
     """
 
     width: int | None = None
@@ -56,6 +76,45 @@ class PlatformVideo:
     outside_manual: bool = False
     pixel_format: str | None = None
     scale: int | None = None
+    scale_y: tuple[int, int] | None = None
+    h_front_porch: int | None = None
+    h_back_porch: int | None = None
+    v_front_porch: int | None = None
+    v_back_porch: int | None = None
+
+
+def _ratio(entry: Section) -> tuple[int, int] | None:
+    """Read the `scale_y` field, a reduced ratio `NUM/DEN`.
+
+    Parameters
+    ----------
+    entry : Section
+        The section.
+
+    Returns
+    -------
+    tuple of (int, int) or None
+        The numerator and denominator; None when absent or invalid.
+    """
+    text = entry.text("scale_y", required=False)
+    if text is None:
+        return None
+    found = RATIO.fullmatch(text.strip())
+    if found is None:
+        entry.fail("scale_y", "must be written NUM/DEN, for example 12/5")
+        return None
+    num, den = int(found.group(1)), int(found.group(2))
+    if not 1 <= den <= num <= MAX_RATIO_NUM or den > MAX_RATIO_DEN:
+        entry.fail(
+            "scale_y",
+            f"must have 1 <= DEN <= NUM, NUM <= {MAX_RATIO_NUM} and "
+            f"DEN <= {MAX_RATIO_DEN}",
+        )
+        return None
+    if gcd(num, den) != 1:
+        entry.fail("scale_y", "must be in lowest terms (12/5, not 24/10)")
+        return None
+    return num, den
 
 
 def _requested(platform: dict[str, Any]) -> bool:
@@ -106,6 +165,12 @@ def _read(entry: Section) -> PlatformVideo:
         "pixel_format", required=False, choices=PIXEL_FORMATS
     )
     scale = entry.integer("scale", required=False, minimum=1)
+    scale_y = _ratio(entry)
+    porches = [
+        entry.integer(f"{axis}_{kind}_porch", required=False, minimum=0)
+        for axis in ("h", "v")
+        for kind in ("front", "back")
+    ]
     entry.done()
     if bits is not None and bits not in CHANNEL_BITS:
         entry.fail("channel_bits", "must be 4 or 8")
@@ -125,6 +190,8 @@ def _read(entry: Section) -> PlatformVideo:
         outside,
         pixel_format,
         scale,
+        scale_y,
+        *porches,
     )
 
 

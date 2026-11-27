@@ -1,8 +1,14 @@
 """The resolved video of a platform on a board, ready for the top."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from typing import cast
 
-from riscv_tools.board_schema import PlatformVideo, VideoMode, VideoRole
+from riscv_tools.board_schema import (
+    PlatformVideo,
+    VideoAxis,
+    VideoMode,
+    VideoRole,
+)
 from riscv_tools.board_video.resolve import VideoError, resolve_mode
 
 # Uma cor tem três canais.
@@ -39,7 +45,11 @@ class VideoPlan:
         `indexed` (a byte that indexes the palette) or `direct` (the
         color in the pixel).
     scale : int
-        The enlargement of each framebuffer pixel in x and in y.
+        The enlargement of each framebuffer pixel in x (and in y when
+        `scale_y` is None).
+    scale_y : tuple of (int, int) or None
+        The rational vertical enlargement `NUM/DEN` (12/5 takes 200
+        lines to 480); None when y uses the integer `scale`.
     """
 
     kind: str
@@ -50,6 +60,7 @@ class VideoPlan:
     warnings: tuple[str, ...] = ()
     pixel_format: str = INDEXED
     scale: int = 1
+    scale_y: tuple[int, int] | None = None
 
     @property
     def indexed(self) -> bool:
@@ -115,6 +126,11 @@ class VideoPlan:
             f'pixel_format => "{self.pixel_format}"',
             f"scale => {self.scale}",
         ]
+        if self.scale_y is not None:
+            out += [
+                f"v_scale_num => {self.scale_y[0]}",
+                f"v_scale_den => {self.scale_y[1]}",
+            ]
         for prefix, axis in (
             ("h", self.mode.horizontal),
             ("v", self.mode.vertical),
@@ -147,6 +163,11 @@ class VideoPlan:
             f'video_pixel_format => "{self.pixel_format}"',
             f"video_scale => {self.scale}",
         ]
+        if self.scale_y is not None:
+            out += [
+                f"video_v_scale_num => {self.scale_y[0]}",
+                f"video_v_scale_den => {self.scale_y[1]}",
+            ]
         for prefix, axis in (
             ("h", self.mode.horizontal),
             ("v", self.mode.vertical),
@@ -161,6 +182,76 @@ class VideoPlan:
                 f"{str(axis.positive).lower()}",
             ]
         return out
+
+
+def _porches(
+    axis: VideoAxis, front: int | None, back: int | None, label: str
+) -> VideoAxis:
+    """Apply the porches written by the platform to one axis.
+
+    Parameters
+    ----------
+    axis : VideoAxis
+        The axis of the resolved mode.
+    front : int or None
+        The front porch asked for, None to keep the mode's.
+    back : int or None
+        The back porch asked for, None to keep the mode's.
+    label : str
+        The axis prefix (`h` or `v`), for the message.
+
+    Returns
+    -------
+    VideoAxis
+        The axis with the porches; the one not written takes what keeps
+        the total of the mode.
+
+    Raises
+    ------
+    VideoError
+        If the visible area, the porches and the synchronism do not add
+        up to the total of the mode.
+    """
+    if front is None and back is None:
+        return axis
+    blank = axis.total - axis.visible - axis.sync
+    if front is None:
+        front = blank - cast(int, back)
+    elif back is None:
+        back = blank - front
+    if front + cast(int, back) != blank or front < 0 or cast(int, back) < 0:
+        raise VideoError(
+            f"io.video {label}_front_porch {front} and {label}_back_porch "
+            f"{back} must add up to {blank} (total {axis.total} minus "
+            f"visible {axis.visible} and sync {axis.sync})"
+        )
+    return replace(axis, front_porch=front, back_porch=cast(int, back))
+
+
+def _with_porches(mode: VideoMode, request: PlatformVideo) -> VideoMode:
+    """Apply the porches of the request to the resolved mode.
+
+    Parameters
+    ----------
+    mode : VideoMode
+        The resolved mode.
+    request : PlatformVideo
+        The request.
+
+    Returns
+    -------
+    VideoMode
+        The mode with the requested porches, the same when none.
+    """
+    return replace(
+        mode,
+        horizontal=_porches(
+            mode.horizontal, request.h_front_porch, request.h_back_porch, "h"
+        ),
+        vertical=_porches(
+            mode.vertical, request.v_front_porch, request.v_back_porch, "v"
+        ),
+    )
 
 
 def _size(plan_mode: VideoMode, request: PlatformVideo) -> tuple[int, int]:
@@ -241,6 +332,7 @@ def plan_video(
             f"io.video channel_bits {bits} exceeds the "
             f"{role.channel_bits} bits per channel of the board"
         )
+    mode = _with_porches(mode, request)
     width, height = _size(mode, request)
     scale = _scale(mode, request, width, height)
     return VideoPlan(
@@ -252,6 +344,7 @@ def plan_video(
         tuple(warnings),
         request.pixel_format or INDEXED,
         scale,
+        request.scale_y,
     )
 
 
@@ -281,6 +374,8 @@ def _scale(
     VideoError
         If the enlarged image is larger than the visible area.
     """
+    if request.scale_y is not None:
+        return _scale_x(mode, request, width, height)
     fit = min(mode.width // width, mode.height // height)
     if request.scale is None:
         return max(fit, 1)
@@ -291,3 +386,43 @@ def _scale(
             f"{mode.height} of mode {mode.name}"
         )
     return request.scale
+
+
+def _scale_x(
+    mode: VideoMode, request: PlatformVideo, width: int, height: int
+) -> int:
+    """Choose the horizontal enlargement for a rational vertical one.
+
+    Parameters
+    ----------
+    mode : VideoMode
+        The resolved mode.
+    request : PlatformVideo
+        The request, with `scale_y` set.
+    width : int
+        The columns of the framebuffer.
+    height : int
+        The lines of the framebuffer.
+
+    Returns
+    -------
+    int
+        The requested scale, or the largest that fits the columns.
+
+    Raises
+    ------
+    VideoError
+        If the enlarged image is larger than the visible area.
+    """
+    num, den = cast("tuple[int, int]", request.scale_y)
+    lines = -(-height * num // den)
+    fit = mode.width // width
+    scale = fit if request.scale is None else request.scale
+    if scale > fit or lines > mode.height:
+        raise VideoError(
+            f"io.video scale {scale} and scale_y {num}/{den} make the "
+            f"{width}x{height} framebuffer {width * scale}x{lines}, larger "
+            f"than the visible area {mode.width}x{mode.height} of mode "
+            f"{mode.name}"
+        )
+    return max(scale, 1)

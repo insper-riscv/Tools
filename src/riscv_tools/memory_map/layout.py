@@ -77,6 +77,8 @@ _SEGMENT_KEYS = (
 )
 _SIDES = (("instructions", "rom", "icache"), ("data", "ram", "dcache"))
 _OLD_MEMORY = ("rom", "ram", "icache", "dcache")
+# The fields of a data cache that the layout carries to the segment.
+_CACHE_KEYS = ("size_bits", "write_buffer", "scratch_kib", "scratch_base")
 _MAX_SEGMENTS = 1
 
 
@@ -548,6 +550,11 @@ def _region(seg: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def _carried(source: dict[str, Any], keys: tuple[str, ...]) -> dict[str, Any]:
+    """Copy the listed keys that the source has."""
+    return {k: source[k] for k in keys if k in source}
+
+
 def _segment_of(
     region: dict[str, Any], entry: dict[str, Any] | None, cache: Any
 ) -> dict[str, Any]:
@@ -579,11 +586,9 @@ def _segment_of(
     elif device in _OF_DEVICE:
         seg["type"] = _OF_DEVICE[device]
     seg["on_bus"] = entry["external"]
-    seg |= {
-        k: entry[k] for k in ("latency", "sector_bytes", "fetch") if k in entry
-    }
+    seg |= _carried(entry, ("latency", "sector_bytes", "fetch"))
     if cache and cache.get("enabled"):
-        seg["cache"] = {"size_bits": cache["size_bits"]}
+        seg["cache"] = _carried(cache, _CACHE_KEYS)
     return seg
 
 

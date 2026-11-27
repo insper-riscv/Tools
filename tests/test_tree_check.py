@@ -126,10 +126,20 @@ def test_vhdl_location_reports_a_file_outside_src(tmp_path: Path) -> None:
     check_equal(
         problems,
         [
-            "vhdl-location top.vhd is outside src/ and tests/vhdl/",
-            "vhdl-location common/adder.vhd is outside src/ and tests/vhdl/",
+            "vhdl-location top.vhd is outside src/, base/src/ and tests/vhdl/",
+            "vhdl-location common/adder.vhd is outside src/, base/src/"
+            " and tests/vhdl/",
         ],
     )
+
+
+def test_vhdl_location_accepts_the_shared_base_folder(
+    tmp_path: Path,
+) -> None:
+    """A `.vhd` under `base/src/` is in a folder meant for it."""
+    _conforming(tmp_path)
+    _write(tmp_path / "base" / "src" / "soc" / "soc.vhd")
+    check_equal(check_tree(tmp_path, "core", ["vhdl-location"]), [])
 
 
 def test_vhdl_location_leaves_out_build_output_and_submodules(

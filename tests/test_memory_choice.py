@@ -526,3 +526,26 @@ def test_the_board_fields_of_a_memory_are_known_fields() -> None:
         [p for p in validate_platform(platform) if "not a field" in str(p)],
         [],
     )
+
+
+def test_the_write_buffer_and_scratch_are_fields_of_dcache() -> None:
+    """The write buffer and the internal memory pass the field check."""
+    memory = deepcopy(MEMORY)
+    memory["dcache"].update(
+        {"write_buffer": 4, "scratch_kib": 32, "scratch_base": 0x43FE8000}
+    )
+    problems = [str(p) for p in validate_platform(_platform(memory=memory))]
+    check_equal([p for p in problems if "not a field" in p], [])
+
+
+@pytest.mark.parametrize("depth", [-1, 17, True, "4"])
+def test_a_write_buffer_outside_zero_to_sixteen_is_rejected(
+    depth: Any,
+) -> None:
+    """A depth that is not an integer from 0 to 16 names the field."""
+    memory = deepcopy(MEMORY)
+    memory["dcache"]["write_buffer"] = depth
+    problems = [str(p) for p in validate_platform(_platform(memory=memory))]
+    check(
+        any("memory.dcache.write_buffer" in p for p in problems), str(problems)
+    )
