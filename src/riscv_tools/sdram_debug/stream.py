@@ -78,6 +78,16 @@ def decode_capabilities(word: int) -> Capabilities:
     )
 
 
+def _control_script(link: JtagLink) -> str:
+    if link.sdram_protocol == "memory-v0.6":
+        return "sdram_legacy_control.tcl"
+    if link.sdram_protocol != "capabilities":
+        raise StreamError(
+            f"Unknown SDRAM debug protocol: {link.sdram_protocol}"
+        )
+    return _STREAM_TCL
+
+
 def _reply(link: JtagLink, prefix: str, *args: object) -> str:
     """Roda um comando do script e devolve o valor da linha de resposta.
 
@@ -100,7 +110,7 @@ def _reply(link: JtagLink, prefix: str, *args: object) -> str:
     StreamError
         O script não imprimiu a linha.
     """
-    result = run_tcl(link, _STREAM_TCL, *args)
+    result = run_tcl(link, _control_script(link), *args)
     for line in result.stdout.splitlines():
         if line.startswith(prefix):
             return line[len(prefix) :].strip()
@@ -133,7 +143,7 @@ def set_hold(link: JtagLink, hold: bool) -> None:
     hold : bool
         True prende o núcleo; False o solta.
     """
-    run_tcl(link, _STREAM_TCL, "hold", int(hold))
+    run_tcl(link, _control_script(link), "hold", int(hold))
 
 
 def crc32(link: JtagLink, word_address: int, word_count: int) -> int:
@@ -180,6 +190,13 @@ def stream_write(
         Palavras por deslocamento (`Capabilities.stream_words`); 0 faz
         tudo palavra a palavra.
     """
+    if link.sdram_protocol == "memory-v0.6":
+        # Limit session size; burst framing differs here.
+        for offset in range(0, len(words), 1024):
+            load_words(
+                link, word_address + offset, words[offset : offset + 1024]
+            )
+        return
     bulk = (len(words) // burst) * burst if burst else 0
     if bulk:
         with tempfile.TemporaryDirectory() as tmp:

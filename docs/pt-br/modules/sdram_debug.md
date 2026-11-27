@@ -85,3 +85,23 @@ O botão de reset da placa reinicia apenas o núcleo. O `HOLD` e o acumulador do
 ---
 
 Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../../../LICENSE).
+
+## Compatibilidade explícita com Memory v0.6
+
+`JtagLink(..., sdram_protocol="memory-v0.6")` seleciona os comandos implementados
+pelo mestre SDRAM dessa versão: controle 0 para hold, 1 para CRC e 2 para seek.
+O protocolo padrão continua sendo `capabilities`; não há fallback automático.
+
+Como essa interface não possui INFO, o adaptador verifica hold pelo bit de
+status e confere o CRC de uma palavra contra um cálculo independente no host,
+sem escrever na SDRAM. O estado anterior de hold é restaurado após a sondagem.
+Cada transição posterior de hold também é confirmada antes da transferência.
+A sondagem pausa a CPU e pode reiniciar o programa quando libera o reset; ela
+é usada como preparação do carregamento, não como consulta inofensiva durante
+a execução de uma aplicação.
+
+A moldura de rajada é diferente nessa versão, portanto o adaptador usa sessões
+de até 1024 palavras com os comandos de palavra existentes. A imagem de banco
+é validada antes da escrita, tem tamanho limitado pelo cabeçalho e recebe o
+cabeçalho por último. O CRC da imagem completa é conferido na placa. Hardware
+que não confirma hold ou CRC é recusado.

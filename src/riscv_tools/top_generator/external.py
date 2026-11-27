@@ -22,6 +22,7 @@ from typing import Any
 
 from riscv_tools.board_inputs import InputError
 from riscv_tools.board_ports import Port
+from riscv_tools.memory_map.board_gpio import board_gpio_list
 from riscv_tools.memory_map.external import external_list
 from riscv_tools.memory_map.kind_fields import FieldSpec
 from riscv_tools.memory_map.kinds import (
@@ -31,6 +32,7 @@ from riscv_tools.memory_map.kinds import (
     SERIAL_ENTITIES,
     Variant,
 )
+from riscv_tools.top_generator.board_gpio import gpio_address_bits, gpio_lines
 from riscv_tools.top_generator.spec import TopSpec
 
 # Entidades sem o sinal `i_read` e as que têm `i_byteena` e relógio de
@@ -885,7 +887,8 @@ def external_top(spec: TopSpec) -> ExternalTop:
     ExternalTop
         Vazio sem periférico externo na plataforma.
     """
-    items = external_list(spec.platform)
+    gpios = board_gpio_list(spec.platform)
+    items = external_list(spec.platform) + gpios
     result = ExternalTop()
     if not items:
         return result
@@ -893,10 +896,12 @@ def external_top(spec: TopSpec) -> ExternalTop:
         (
             v.addr_bits
             for i in items
-            if (v := EXTERNAL[str(i["kind"])].variant(i))
+            if i.get("kind") != "gpio"
+            and (v := EXTERNAL[str(i["kind"])].variant(i))
         ),
         default=1,
     )
+    bits = max(bits, gpio_address_bits(spec, gpios))
     count = len(items)
     result.generics = [
         "ext_indices => EXT_INDICES",
@@ -932,6 +937,9 @@ def external_top(spec: TopSpec) -> ExternalTop:
 def _place(spec: TopSpec, item: dict[str, Any], result: ExternalTop) -> None:
     """Instancia um periférico ou zera o que ele deixa no barramento."""
     name = str(item["name"])
+    if item.get("kind") == "gpio":
+        result.body += gpio_lines(spec, item)
+        return
     pins = {p.pin: p for p in spec.ports if p.owner == name}
     variant = EXTERNAL[str(item["kind"])].variant(item)
     wired = None
